@@ -1,4 +1,4 @@
-import { App, Button, Layout, Popover, Tag, Typography } from 'antd';
+import { App, Button, Layout, Popover, Tag, Tooltip, Typography } from 'antd';
 import mapboxgl from 'mapbox-gl';
 import { Database, Layers, LogOut, Settings, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -53,6 +53,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
 
   const layerGroups = useLayerGroups();
   const { startRasterRender, setMapInstance } = useRasterRender(layerGroups.updateRasterLayer);
+  const permissionDeniedMessage = `当前用户组“${user.roles.length > 0 ? user.roles.join('、') : '未分组'}”无权限`;
 
   const mapLayers = useMemo(
     () =>
@@ -72,7 +73,11 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
     [layerGroups.groups],
   );
 
-  useEffect(() => { loadResources({}); }, []);
+  useEffect(() => {
+    if (user.permissions.canBrowseData) {
+      loadResources({});
+    }
+  }, [user.permissions.canBrowseData]);
 
   async function loadResources(filters: ResourceFilters) {
     try {
@@ -104,6 +109,10 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
   }, []);
 
   async function handleQuery(attributeFilters: AttributeFilter[]) {
+    if (!user.permissions.canQueryData || !user.permissions.canLoadVectorLayer) {
+      message.warning(permissionDeniedMessage);
+      return;
+    }
     if (!selectedResource) { message.warning('请先选择数据资源'); return; }
     setQuerying(true);
     try {
@@ -122,6 +131,10 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
   }
 
   function handleLoadResult() {
+    if (!user.permissions.canLoadVectorLayer) {
+      message.warning(permissionDeniedMessage);
+      return;
+    }
     if (!selectedResource || !resourceProfile || !queryResult) return;
     const group = createVectorLayerGroup(selectedResource, resourceProfile, queryResult);
     layerGroups.addGroup(group);
@@ -130,6 +143,10 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
   }
 
   function handleLoadRaster() {
+    if (!user.permissions.canLoadRasterLayer) {
+      message.warning(permissionDeniedMessage);
+      return;
+    }
     if (!selectedResource || !resourceProfile?.raster) {
       message.warning('请先选择已完成预处理的栅格数据');
       return;
@@ -139,7 +156,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
     layerGroups.addGroup(group);
     setDataPanelOpen(false);
     const child = group.children[0] as LoadedRasterLayer;
-    void startRasterRender(group.id, child.id, child.symbolization, child);
+    void startRasterRender(group.id, child.id, child.symbolization, child, 'default');
   }
 
   const handleMapReady = useCallback((map: mapboxgl.Map) => {
@@ -208,11 +225,36 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
     removeGroup: layerGroups.removeGroup,
     removeLayer: layerGroups.removeLayer,
     reorderGroups: layerGroups.reorderGroups,
-    startRasterRender: (groupId, layerId, symbolization, layer) => void startRasterRender(groupId, layerId, symbolization, layer),
+    startRasterRender: (groupId, layerId, symbolization, layer, rulesMode) =>
+      void startRasterRender(groupId, layerId, symbolization, layer, rulesMode),
     locateLayer,
     locateGroup,
     mapRef: mapInstanceRef,
+    canUseCustomSymbolization: user.permissions.canUseCustomSymbolization,
+    permissionDeniedMessage,
   };
+
+  const dataPanel = (
+    <DataPanel
+      resources={resources}
+      profile={resourceProfile}
+      selectedResourceId={selectedResource?.id ?? null}
+      spatialFilter={spatialFilter}
+      drawMode={drawMode}
+      queryResult={queryResult}
+      loadingProfile={loadingProfile}
+      querying={querying}
+      permissions={user.permissions}
+      permissionDeniedMessage={permissionDeniedMessage}
+      onFilterResources={loadResources}
+      onSelectResource={handleSelectResource}
+      onDrawModeChange={setDrawMode}
+      onClearSpatialFilter={() => setSpatialFilter(null)}
+      onQuery={handleQuery}
+      onLoadResult={handleLoadResult}
+      onLoadRaster={handleLoadRaster}
+    />
+  );
 
   return (
     <Layout className="workspace">      <Layout.Header className="workspace-header">
@@ -222,37 +264,33 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
             <div><Typography.Title level={4}>{bootstrap.systemName}</Typography.Title></div>
           </div>
           <div className="header-primary-actions">
-            <Popover
-              trigger="click"
-              placement="bottomLeft"
-              open={dataPanelOpen}
-              onOpenChange={setDataPanelOpen}
-              overlayClassName="data-popover"
-              content={
-                <DataPanel
-                  resources={resources}
-                  profile={resourceProfile}
-                  selectedResourceId={selectedResource?.id ?? null}
-                  spatialFilter={spatialFilter}
-                  drawMode={drawMode}
-                  queryResult={queryResult}
-                  loadingProfile={loadingProfile}
-                  querying={querying}
-                  onFilterResources={loadResources}
-                  onSelectResource={handleSelectResource}
-                  onDrawModeChange={setDrawMode}
-                  onClearSpatialFilter={() => setSpatialFilter(null)}
-                  onQuery={handleQuery}
-                  onLoadResult={handleLoadResult}
-                  onLoadRaster={handleLoadRaster}
-                />
-              }
-            >
-              <Button icon={<Layers size={16} />}>数据管理</Button>
-            </Popover>
-            {user.permissions.canAccessAdmin && (
-              <Button icon={<Settings size={16} />} onClick={() => window.location.assign('/admin/')}>后台管理</Button>
+            {user.permissions.canBrowseData ? (
+              <Popover
+                trigger="click"
+                placement="bottomLeft"
+                open={dataPanelOpen}
+                onOpenChange={setDataPanelOpen}
+                overlayClassName="data-popover"
+                content={dataPanel}
+              >
+                <Button icon={<Layers size={16} />}>数据管理</Button>
+              </Popover>
+            ) : (
+              <Tooltip title={permissionDeniedMessage}>
+                <span><Button icon={<Layers size={16} />} disabled>数据管理</Button></span>
+              </Tooltip>
             )}
+            <Tooltip title={user.permissions.canAccessAdmin ? undefined : permissionDeniedMessage}>
+              <span>
+                <Button
+                  icon={<Settings size={16} />}
+                  disabled={!user.permissions.canAccessAdmin}
+                  onClick={() => window.location.assign('/admin/')}
+                >
+                  后台管理
+                </Button>
+              </span>
+            </Tooltip>
           </div>
         </div>
         <div className="header-account-actions">

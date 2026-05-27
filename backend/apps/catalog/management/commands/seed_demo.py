@@ -22,15 +22,53 @@ class Command(BaseCommand):
         data_admin = Group.objects.get_or_create(name="数据管理员")[0]
         system_admin = Group.objects.get_or_create(name="系统管理员")[0]
 
-        for codename in ("export_dataresource", "maintain_dataresource", "load_maplayer"):
-            permission = Permission.objects.filter(codename=codename).first()
-            if permission:
-                researcher.permissions.add(permission)
-                data_admin.permissions.add(permission)
-        raster_permission = Permission.objects.filter(codename="manage_raster_cache").first()
-        if raster_permission:
-            data_admin.permissions.add(raster_permission)
-            system_admin.permissions.add(raster_permission)
+        def permission(app_label: str, codename: str):
+            return Permission.objects.filter(content_type__app_label=app_label, codename=codename).first()
+
+        permission_sets = {
+            normal: [
+                ("core", "browse_data"),
+                ("core", "query_data"),
+                ("core", "load_vector_layer"),
+                ("core", "load_raster_layer"),
+            ],
+            researcher: [
+                ("core", "browse_data"),
+                ("core", "query_data"),
+                ("core", "load_vector_layer"),
+                ("core", "load_raster_layer"),
+                ("core", "custom_symbolization"),
+                ("catalog", "export_dataresource"),
+            ],
+            data_admin: [
+                ("core", "browse_data"),
+                ("core", "query_data"),
+                ("core", "load_vector_layer"),
+                ("core", "load_raster_layer"),
+                ("core", "custom_symbolization"),
+                ("catalog", "maintain_dataresource"),
+                ("raster", "manage_raster_dataset"),
+                ("raster", "manage_raster_cache"),
+            ],
+            system_admin: [
+                ("core", "access_admin"),
+                ("core", "manage_feature_permissions"),
+                ("core", "browse_data"),
+                ("core", "query_data"),
+                ("core", "load_vector_layer"),
+                ("core", "load_raster_layer"),
+                ("core", "custom_symbolization"),
+                ("catalog", "export_dataresource"),
+                ("catalog", "maintain_dataresource"),
+                ("raster", "manage_raster_dataset"),
+                ("raster", "manage_raster_cache"),
+            ],
+        }
+        for group, specs in permission_sets.items():
+            for app_label, codename in specs:
+                perm = permission(app_label, codename)
+                if perm:
+                    group.permissions.add(perm)
 
         User = get_user_model()
         admin_user, created = User.objects.get_or_create(

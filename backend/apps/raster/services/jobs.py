@@ -166,8 +166,9 @@ def start_render_job(
                 dataset = dataset_for_layer(layer)
             if dataset is None:
                 raise RasterRenderError("未找到可渲染的栅格数据集")
+            render_rules = rules or (layer.raster_rules if layer and layer.raster_rules else dataset.default_rules)
             if delivery == "xyz":
-                result = register_tile_style(dataset, rules or dataset.default_rules)
+                result = register_tile_style(dataset, render_rules)
                 _finish_job(job.id, result, "ready")
                 return
             record_result = render_dataset_png(
@@ -175,7 +176,7 @@ def start_render_job(
                 layer=layer or dataset.map_layer,
                 width=width,
                 height=height,
-                rules=rules or dataset.default_rules,
+                rules=render_rules,
                 progress=lambda text: _append_job(job.id, text),
             )
             _finish_job(job.id, record_result, "ready")

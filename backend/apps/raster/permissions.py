@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from django.contrib.auth.models import AbstractBaseUser
 
+from apps.core.permissions import has_feature_perm
+
 
 def can_manage_raster_data(user: AbstractBaseUser) -> bool:
     return (
-        user.has_perm("raster.manage_raster_dataset")
-        or user.has_perm("catalog.maintain_dataresource")
-        or user.is_superuser
+        has_feature_perm(user, "raster.manage_raster_dataset")
+        or has_feature_perm(user, "catalog.maintain_dataresource")
     )
 
 
 def can_manage_raster_cache(user: AbstractBaseUser) -> bool:
-    return user.has_perm("raster.manage_raster_cache") or user.is_superuser
+    return has_feature_perm(user, "raster.manage_raster_cache")

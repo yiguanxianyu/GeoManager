@@ -2,8 +2,11 @@ import tempfile
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group, Permission
 from django.test import SimpleTestCase, TestCase
 
+from apps.core.admin import FeatureGroupForm
 from apps.core.config import load_project_config
 from apps.core.storage import (
     StoragePathError,
@@ -25,6 +28,45 @@ class BootstrapApiTests(TestCase):
         self.assertIn("systemName", payload)
         self.assertIn("map", payload)
         self.assertEqual(payload["map"]["mapboxAccessToken"], settings.PROJECT_CONFIG.map.mapbox_access_token)
+
+
+class FeaturePermissionTests(TestCase):
+    def test_admin_requires_access_admin_permission_not_staff_flag(self):
+        user = get_user_model().objects.create_user(username="staff-no-access", password="pass12345", is_staff=True)
+        group = Group.objects.create(name="普通用户")
+        user.groups.add(group)
+        self.client.force_login(user)
+
+        response = self.client.get("/admin/")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("当前用户组“普通用户”无权限", response.content.decode("utf-8"))
+
+    def test_access_admin_permission_allows_non_staff_admin_entry(self):
+        user = get_user_model().objects.create_user(username="admin-access", password="pass12345", is_staff=False)
+        grant(user, ("core", "access_admin"))
+        self.client.force_login(user)
+
+        response = self.client.get("/admin/")
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_feature_group_form_preserves_non_feature_permissions(self):
+        group = Group.objects.create(name="科研用户")
+        add_user = Permission.objects.get(content_type__app_label="auth", codename="add_user")
+        browse_data = Permission.objects.get(content_type__app_label="core", codename="browse_data")
+        group.permissions.add(add_user)
+        form = FeatureGroupForm(
+            data={"name": group.name, "feature_permissions": [browse_data.id]},
+            instance=group,
+        )
+
+        self.assertTrue(form.is_valid(), form.errors)
+        form.save()
+
+        group.refresh_from_db()
+        self.assertTrue(group.permissions.filter(id=add_user.id).exists())
+        self.assertTrue(group.permissions.filter(id=browse_data.id).exists())
 
 
 class StoragePathTests(SimpleTestCase):
@@ -88,3 +130,9 @@ default_symbolizer_script = "scripts/raster_symbolizers/basic_gradient.py"
             self.assertTrue(config.geographic_path("raster", "metadata", "source").is_dir())
             self.assertTrue(config.geographic_path("raster", "metadata", "preprocessed").is_dir())
             self.assertTrue(config.geographic_path("raster", "png", "cache").is_dir())
+
+
+def grant(user, *specs):
+    for app_label, codename in specs:
+        permission = Permission.objects.get(content_type__app_label=app_label, codename=codename)
+        user.user_permissions.add(permission)

@@ -19,6 +19,7 @@ export function useRasterRender(updateLayer: (groupId: string, layerId: string, 
     layerId: string,
     symbolization: RasterSymbolization,
     layer: LoadedRasterLayer,
+    rulesMode: 'default' | 'custom' = 'custom',
   ) => {
     const canvas = mapInstanceRef.current?.getCanvas();
     const width = Math.min(2400, Math.max(512, Math.round((canvas?.clientWidth ?? 1400) * window.devicePixelRatio)));
@@ -40,7 +41,8 @@ export function useRasterRender(updateLayer: (groupId: string, layerId: string, 
         layerId: layer.rasterLayerId,
         width,
         height,
-        rules: symbolization as unknown as Record<string, unknown>,
+        rules: rulesMode === 'custom' ? symbolization as unknown as Record<string, unknown> : undefined,
+        rulesMode,
         delivery: symbolization.loadMode,
       });
       updateLayer(groupId, layerId, (current) => ({

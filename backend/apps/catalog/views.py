@@ -15,12 +15,15 @@ from apps.catalog.serializers import (
     serialize_layer,
     serialize_resource,
 )
+from apps.core.permissions import feature_denied_response, has_feature_perm
 from apps.core.storage import StoragePathError, validate_vector_layer_name, vector_geopackage_path
 
 
 @require_GET
 @login_required
 def directories(request):
+    if not has_feature_perm(request.user, "core.browse_data"):
+        return feature_denied_response(request.user)
     queryset = DataCatalog.objects.filter(is_active=True).prefetch_related("resources", "resources__category")
     catalogs = filter_accessible(queryset, request.user)
     return JsonResponse({"items": [serialize_catalog(item) for item in catalogs]})
@@ -29,6 +32,8 @@ def directories(request):
 @require_GET
 @login_required
 def resources(request):
+    if not has_feature_perm(request.user, "core.browse_data"):
+        return feature_denied_response(request.user)
     queryset = DataResource.objects.filter(status=DataResource.Status.ACTIVE).select_related("category")
     query = request.GET.get("q", "").strip()
     if query:
@@ -58,6 +63,8 @@ def resources(request):
 @require_GET
 @login_required
 def resource_profile(request, pk: int):
+    if not has_feature_perm(request.user, "core.browse_data"):
+        return feature_denied_response(request.user)
     resource = get_object_or_404(DataResource.objects.select_related("category"), pk=pk, status=DataResource.Status.ACTIVE)
     if not user_can_access(resource, request.user):
         return JsonResponse({"detail": "无权访问该数据资源"}, status=403)
@@ -80,6 +87,10 @@ def resource_profile(request, pk: int):
 @require_POST
 @login_required
 def resource_query(request, pk: int):
+    if not has_feature_perm(request.user, "core.query_data") or not has_feature_perm(
+        request.user, "core.load_vector_layer"
+    ):
+        return feature_denied_response(request.user)
     resource = get_object_or_404(DataResource.objects.select_related("category"), pk=pk, status=DataResource.Status.ACTIVE)
     if not user_can_access(resource, request.user):
         return JsonResponse({"detail": "无权访问该数据资源"}, status=403)
@@ -97,6 +108,8 @@ def resource_query(request, pk: int):
 @require_GET
 @login_required
 def layers(request):
+    if not has_feature_perm(request.user, "core.browse_data"):
+        return feature_denied_response(request.user)
     queryset = MapLayer.objects.filter(is_active=True).select_related("category", "data_resource")
     layers_qs = filter_accessible(queryset, request.user)
     return JsonResponse({"items": [serialize_layer(item) for item in layers_qs]})
@@ -105,6 +118,8 @@ def layers(request):
 @require_GET
 @login_required
 def layer_features(request, pk: int):
+    if not has_feature_perm(request.user, "core.load_vector_layer"):
+        return feature_denied_response(request.user)
     layer = get_object_or_404(MapLayer, pk=pk, is_active=True)
     if not user_can_access(layer, request.user):
         return JsonResponse({"detail": "无权访问该图层"}, status=403)
@@ -148,6 +163,8 @@ def layer_features(request, pk: int):
 @require_GET
 @login_required
 def achievements(request):
+    if not has_feature_perm(request.user, "core.browse_data"):
+        return feature_denied_response(request.user)
     queryset = Achievement.objects.filter(status=Achievement.Status.PUBLISHED).select_related("category", "related_layer")
     achievements_qs = filter_accessible(queryset, request.user)
     return JsonResponse({"items": [serialize_achievement(item) for item in achievements_qs]})
@@ -156,6 +173,8 @@ def achievements(request):
 @require_GET
 @login_required
 def search(request):
+    if not has_feature_perm(request.user, "core.browse_data"):
+        return feature_denied_response(request.user)
     query = request.GET.get("q", "").strip()
     if not query:
         return JsonResponse({"resources": [], "achievements": []})

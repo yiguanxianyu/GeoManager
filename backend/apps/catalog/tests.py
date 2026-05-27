@@ -1,5 +1,5 @@
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 from shapely.geometry import Point
 
@@ -10,6 +10,7 @@ from apps.core.storage import vector_geopackage_path
 class LayerApiTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="tester", password="pass12345")
+        grant(self.user, ("core", "browse_data"))
         self.client.force_login(self.user)
 
     def test_layers_endpoint_returns_public_layers(self):
@@ -44,6 +45,7 @@ class LayerApiTests(TestCase):
 class ResourceQueryApiTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="resource-tester", password="pass12345")
+        grant(self.user, ("core", "browse_data"), ("core", "query_data"), ("core", "load_vector_layer"))
         self.client.force_login(self.user)
         self.layer_name = "test_query_points"
         self.path = vector_geopackage_path()
@@ -90,3 +92,9 @@ class ResourceQueryApiTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["totalCount"], 1)
         self.assertEqual(payload["geojson"]["features"][0]["properties"]["name"], "样点二")
+
+
+def grant(user, *specs):
+    for app_label, codename in specs:
+        permission = Permission.objects.get(content_type__app_label=app_label, codename=codename)
+        user.user_permissions.add(permission)

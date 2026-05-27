@@ -91,12 +91,18 @@ export const api = {
   layers: () => request<ListResponse<MapLayer>>('/api/layers/'),
   achievements: () => request<ListResponse<Achievement>>('/api/achievements/'),
   search: (query: string) => request<SearchResult>(`/api/search/?q=${encodeURIComponent(query)}`),
-  renderRaster: (layerId: number, width: number, height: number, rules: Record<string, unknown>) =>
+  renderRaster: (
+    layerId: number,
+    width: number,
+    height: number,
+    rulesMode: 'default' | 'custom' = 'default',
+    rules?: Record<string, unknown>,
+  ) =>
     request<RasterRenderResult>(
       '/api/raster/render/',
       {
         method: 'POST',
-        body: JSON.stringify({ layerId, width, height, rules }),
+        body: JSON.stringify({ layerId, width, height, rulesMode, rules }),
       },
     ),
   renderRasterAsync: (payload: {
@@ -104,7 +110,8 @@ export const api = {
     datasetId?: number | null;
     width: number;
     height: number;
-    rules: Record<string, unknown>;
+    rules?: Record<string, unknown>;
+    rulesMode?: 'default' | 'custom';
     delivery: 'image' | 'xyz';
   }) =>
     request<RasterJob>('/api/raster/render/async/', {

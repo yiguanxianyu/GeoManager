@@ -8,6 +8,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from apps.catalog.models import MapLayer
 from apps.catalog.permissions import user_can_access
+from apps.core.permissions import feature_denied_response, has_feature_perm
 from apps.core.storage import raster_cache_path
 from apps.raster.models import RasterCacheRecord, RasterDataset
 from apps.raster.permissions import can_manage_raster_cache, can_manage_raster_data
@@ -32,11 +33,17 @@ from apps.raster.services import (
 @require_POST
 @login_required
 def render(request):
+    if not has_feature_perm(request.user, "core.load_raster_layer"):
+        return feature_denied_response(request.user)
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except json.JSONDecodeError:
         return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
 
+    rules_mode = str(payload.get("rulesMode") or "default")
+    if rules_mode == "custom" and not has_feature_perm(request.user, "core.custom_symbolization"):
+        return feature_denied_response(request.user)
+    rules = payload.get("rules") if rules_mode == "custom" else None
     layer = get_object_or_404(MapLayer, pk=payload.get("layerId"), is_active=True)
     if not user_can_access(layer, request.user):
         return JsonResponse({"detail": "无权访问该图层"}, status=403)
@@ -47,12 +54,12 @@ def render(request):
             dataset = RasterDataset.objects.filter(map_layer=layer, status=RasterDataset.Status.READY).first()
             if not dataset:
                 return JsonResponse({"detail": "该图层没有已预处理的栅格数据集"}, status=400)
-            return JsonResponse(register_tile_style(dataset, payload.get("rules") or layer.raster_rules))
+            return JsonResponse(register_tile_style(dataset, rules or layer.raster_rules))
         record = render_layer_png(
             layer=layer,
             width=int(payload.get("width", 1024)),
             height=int(payload.get("height", 768)),
-            rules=payload.get("rules") or layer.raster_rules,
+            rules=rules or layer.raster_rules,
         )
     except (ValueError, RasterRenderError) as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
@@ -72,11 +79,17 @@ def render(request):
 @require_POST
 @login_required
 def render_async(request):
+    if not has_feature_perm(request.user, "core.load_raster_layer"):
+        return feature_denied_response(request.user)
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except json.JSONDecodeError:
         return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
 
+    rules_mode = str(payload.get("rulesMode") or "default")
+    if rules_mode == "custom" and not has_feature_perm(request.user, "core.custom_symbolization"):
+        return feature_denied_response(request.user)
+    rules = payload.get("rules") if rules_mode == "custom" else None
     layer_id = payload.get("layerId")
     dataset_id = payload.get("datasetId")
     layer = MapLayer.objects.filter(pk=layer_id, is_active=True).first() if layer_id else None
@@ -94,7 +107,7 @@ def render_async(request):
             dataset_id=dataset.id if dataset else None,
             width=int(payload.get("width", 1400)),
             height=int(payload.get("height", 900)),
-            rules=payload.get("rules") or None,
+            rules=rules,
             delivery=str(payload.get("delivery") or "image"),
         )
     except (ValueError, RasterRenderError) as exc:
@@ -106,7 +119,7 @@ def render_async(request):
 @login_required
 def import_raster(request):
     if not can_manage_raster_data(request.user):
-        return JsonResponse({"detail": "无权导入栅格数据"}, status=403)
+        return feature_denied_response(request.user)
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except json.JSONDecodeError:
@@ -127,13 +140,15 @@ def import_raster(request):
 @login_required
 def scan_sources(request):
     if not can_manage_raster_data(request.user):
-        return JsonResponse({"detail": "无权扫描栅格数据"}, status=403)
+        return feature_denied_response(request.user)
     return JsonResponse(start_scan_job().as_dict(), status=202)
 
 
 @require_GET
 @login_required
 def datasets(request):
+    if not has_feature_perm(request.user, "core.browse_data"):
+        return feature_denied_response(request.user)
     queryset = RasterDataset.objects.select_related("data_resource", "map_layer").all()
     items = []
     for dataset in queryset:
@@ -155,6 +170,8 @@ def job_status(request, job_id: str):
 @require_GET
 @login_required
 def png(request, cache_key: str):
+    if not has_feature_perm(request.user, "core.load_raster_layer"):
+        return feature_denied_response(request.user)
     cache_key = cache_key.removesuffix(".png")
     record = get_object_or_404(RasterCacheRecord, cache_key=cache_key, status=RasterCacheRecord.Status.READY)
     if record.layer and not user_can_access(record.layer, request.user):
@@ -168,6 +185,8 @@ def png(request, cache_key: str):
 @require_GET
 @login_required
 def tile(request, dataset_id: int, style_hash: str, z: int, x: int, y: int):
+    if not has_feature_perm(request.user, "core.load_raster_layer"):
+        return feature_denied_response(request.user)
     dataset = get_object_or_404(RasterDataset.objects.select_related("data_resource"), pk=dataset_id)
     if dataset.data_resource and not user_can_access(dataset.data_resource, request.user):
         return JsonResponse({"detail": "无权访问该数据资源"}, status=403)
@@ -182,7 +201,7 @@ def tile(request, dataset_id: int, style_hash: str, z: int, x: int, y: int):
 @login_required
 def cache_status(request):
     if not can_manage_raster_cache(request.user):
-        return JsonResponse({"detail": "无权查看缓存状态"}, status=403)
+        return feature_denied_response(request.user)
     records = RasterCacheRecord.objects.all()
     return JsonResponse(
         {
@@ -198,6 +217,6 @@ def cache_status(request):
 @login_required
 def clear_cache(request):
     if not can_manage_raster_cache(request.user):
-        return JsonResponse({"detail": "无权清理缓存"}, status=403)
+        return feature_denied_response(request.user)
     cleanup_png_cache()
     return JsonResponse({"detail": "缓存清理检查已完成"})

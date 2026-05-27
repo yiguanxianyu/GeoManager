@@ -10,6 +10,7 @@ import {
   Segmented,
   Space,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import { Crosshair, Database, Filter, ListFilter, MapPinned, Plus, Search, X } from 'lucide-react';
@@ -21,6 +22,7 @@ import type {
   ResourceFilters,
   ResourceQueryResult,
   SpatialFilter,
+  User,
 } from '../types';
 
 type DrawMode = SpatialFilter['mode'] | null;
@@ -34,6 +36,8 @@ interface Props {
   queryResult: ResourceQueryResult | null;
   loadingProfile: boolean;
   querying: boolean;
+  permissions: User['permissions'];
+  permissionDeniedMessage: string;
   onFilterResources: (filters: ResourceFilters) => void;
   onSelectResource: (resource: DataResource) => void;
   onDrawModeChange: (mode: DrawMode) => void;
@@ -63,6 +67,8 @@ export default function DataPanel({
   queryResult,
   loadingProfile,
   querying,
+  permissions,
+  permissionDeniedMessage,
   onFilterResources,
   onSelectResource,
   onDrawModeChange,
@@ -93,6 +99,7 @@ export default function DataPanel({
     label: `${item.name} (${item.type})`,
   }));
   const selectedIsRaster = profile?.resource.dataType === 'raster';
+  const canQueryAndLoadVector = permissions.canQueryData && permissions.canLoadVectorLayer;
 
   function updateResourceFilter(key: keyof ResourceFilters, nextValue?: string) {
     setResourceFilters((current) => ({ ...current, [key]: nextValue }));
@@ -311,17 +318,41 @@ export default function DataPanel({
 
       <div className="query-footer">
         {selectedIsRaster ? (
-          <Button type="primary" disabled={!profile?.raster} onClick={onLoadRaster}>
-            加载栅格
-          </Button>
+          <Tooltip title={permissions.canLoadRasterLayer ? undefined : permissionDeniedMessage}>
+            <span>
+              <Button
+                type="primary"
+                disabled={!profile?.raster || !permissions.canLoadRasterLayer}
+                onClick={onLoadRaster}
+              >
+                加载栅格
+              </Button>
+            </span>
+          </Tooltip>
         ) : (
           <>
-            <Button type="primary" loading={querying} disabled={!profile} onClick={() => onQuery(attributeFilters)}>
-              查询数据
-            </Button>
-            <Button disabled={!queryResult || queryResult.returnedCount === 0} onClick={onLoadResult}>
-              加载到图层
-            </Button>
+            <Tooltip title={canQueryAndLoadVector ? undefined : permissionDeniedMessage}>
+              <span>
+                <Button
+                  type="primary"
+                  loading={querying}
+                  disabled={!profile || !canQueryAndLoadVector}
+                  onClick={() => onQuery(attributeFilters)}
+                >
+                  查询数据
+                </Button>
+              </span>
+            </Tooltip>
+            <Tooltip title={permissions.canLoadVectorLayer ? undefined : permissionDeniedMessage}>
+              <span>
+                <Button
+                  disabled={!queryResult || queryResult.returnedCount === 0 || !permissions.canLoadVectorLayer}
+                  onClick={onLoadResult}
+                >
+                  加载到图层
+                </Button>
+              </span>
+            </Tooltip>
           </>
         )}
       </div>

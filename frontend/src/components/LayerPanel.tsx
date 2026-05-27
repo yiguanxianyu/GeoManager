@@ -94,10 +94,13 @@ export default function LayerPanel() {
   }
 
   function handleLayerSymbolizationChange(groupId: string, layerId: string, symbolization: VectorSymbolization | RasterSymbolization) {
+    if (!ctx.canUseCustomSymbolization) {
+      return;
+    }
     const targetLayer = ctx.groups.find((g) => g.id === groupId)?.children.find((l) => l.id === layerId);
     ctx.setLayerSymbolization(groupId, layerId, symbolization);
     if ('mode' in symbolization && 'bands' in symbolization && targetLayer?.layerType === 'raster') {
-      ctx.startRasterRender(groupId, layerId, symbolization, { ...targetLayer, symbolization });
+      ctx.startRasterRender(groupId, layerId, symbolization, { ...targetLayer, symbolization }, 'custom');
     }
   }
 
@@ -198,6 +201,7 @@ function LayerGroupNode({
   onLocate,
   onRemove,
 }: GroupNodeProps) {
+  const ctx = useLayerContext();
   return (
     <div className="layer-tree-node layer-tree-node-group">
       <div className="layer-row-main">
@@ -243,6 +247,8 @@ function LayerGroupNode({
             onSymbolizationChange={(next) => onSymbolizationChange(group.id, next as GroupSymbolization)}
             onLocate={() => onLocate(group.id)}
             onRemove={() => onRemove(group.id)}
+            canUseCustomSymbolization={ctx.canUseCustomSymbolization}
+            permissionDeniedMessage={ctx.permissionDeniedMessage}
           />
           <Tooltip title="拖动排序">
             <Button
@@ -282,6 +288,7 @@ function LayerItemNode({
   onLocate,
   onRemove,
 }: LayerNodeProps) {
+  const ctx = useLayerContext();
   return (
     <div className="layer-tree-node">
       <div className="layer-row-main">
@@ -322,6 +329,8 @@ function LayerItemNode({
           onSymbolizationChange={(next) => onSymbolizationChange(groupId, layer.id, next as VectorSymbolization | RasterSymbolization)}
           onLocate={() => onLocate(groupId, layer.id)}
           onRemove={() => onRemove(groupId, layer.id)}
+          canUseCustomSymbolization={ctx.canUseCustomSymbolization}
+          permissionDeniedMessage={ctx.permissionDeniedMessage}
         />
       </div>
     </div>
@@ -337,6 +346,8 @@ interface NodeActionProps {
   onSymbolizationChange: (value: GroupSymbolization | VectorSymbolization | RasterSymbolization) => void;
   onLocate: () => void;
   onRemove: () => void;
+  canUseCustomSymbolization: boolean;
+  permissionDeniedMessage: string;
 }
 
 function NodeActions({
@@ -348,6 +359,8 @@ function NodeActions({
   onSymbolizationChange,
   onLocate,
   onRemove,
+  canUseCustomSymbolization,
+  permissionDeniedMessage,
 }: NodeActionProps) {
   const [symbolizationOpen, setSymbolizationOpen] = useState(false);
   const [draftSymbolization, setDraftSymbolization] = useState(symbolization);
@@ -360,6 +373,9 @@ function NodeActions({
   }, [symbolization, symbolizationOpen]);
 
   function handleSymbolizationOpenChange(open: boolean) {
+    if (open && !canUseCustomSymbolization) {
+      return;
+    }
     setSymbolizationOpen(open);
     if (open) {
       setDraftSymbolization(symbolization);
@@ -367,6 +383,9 @@ function NodeActions({
   }
 
   function applyDraftSymbolization() {
+    if (!canUseCustomSymbolization) {
+      return;
+    }
     onSymbolizationChange(draftSymbolization);
     setSymbolizationOpen(false);
   }
@@ -411,8 +430,16 @@ function NodeActions({
           )
         }
       >
-        <Tooltip title="符号化">
-          <Button size="small" type="text" aria-label={`${subjectName}符号化`} icon={<Palette size={15} />} />
+        <Tooltip title={canUseCustomSymbolization ? '符号化' : permissionDeniedMessage}>
+          <span>
+            <Button
+              size="small"
+              type="text"
+              aria-label={`${subjectName}符号化`}
+              icon={<Palette size={15} />}
+              disabled={!canUseCustomSymbolization}
+            />
+          </span>
         </Tooltip>
       </Popover>
       <Tooltip title="移除">

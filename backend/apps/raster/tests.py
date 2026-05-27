@@ -2,10 +2,59 @@ import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.test import TestCase, override_settings
 
 from apps.core.config import load_project_config
 from apps.raster.services import scan_unprocessed_source_files
+
+
+class RasterPermissionApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="raster-user", password="pass12345")
+        self.client.force_login(self.user)
+
+    def test_render_async_requires_raster_load_permission(self):
+        response = self.client.post(
+            "/api/raster/render/async/",
+            data={"datasetId": 1, "rulesMode": "default", "delivery": "image", "width": 512, "height": 512},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("当前用户组“未分组”无权限", response.json()["detail"])
+
+    def test_default_render_does_not_require_custom_symbolization_permission(self):
+        grant(self.user, ("core", "load_raster_layer"))
+
+        response = self.client.post(
+            "/api/raster/render/async/",
+            data={"datasetId": 1, "rulesMode": "default", "delivery": "image", "width": 512, "height": 512},
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "缺少 layerId 或 datasetId")
+
+    def test_custom_render_requires_custom_symbolization_permission(self):
+        grant(self.user, ("core", "load_raster_layer"))
+
+        response = self.client.post(
+            "/api/raster/render/async/",
+            data={
+                "datasetId": 1,
+                "rulesMode": "custom",
+                "rules": {"mode": "gray"},
+                "delivery": "image",
+                "width": 512,
+                "height": 512,
+            },
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertIn("当前用户组“未分组”无权限", response.json()["detail"])
 
 
 class RasterScanPathTests(TestCase):
@@ -64,3 +113,9 @@ default_symbolizer_script = "scripts/raster_symbolizers/basic_gradient.py"
             encoding="utf-8",
         )
         return load_project_config(config_path, program_root=Path("/opt/data-sharing-platform"))
+
+
+def grant(user, *specs):
+    for app_label, codename in specs:
+        permission = Permission.objects.get(content_type__app_label=app_label, codename=codename)
+        user.user_permissions.add(permission)

@@ -25,6 +25,12 @@ export interface User {
   roles: string[];
   permissions: {
     canAccessAdmin: boolean;
+    canManageFeaturePermissions: boolean;
+    canBrowseData: boolean;
+    canQueryData: boolean;
+    canLoadVectorLayer: boolean;
+    canLoadRasterLayer: boolean;
+    canUseCustomSymbolization: boolean;
     canExportData: boolean;
     canMaintainData: boolean;
     canManageRasterCache: boolean;

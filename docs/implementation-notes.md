@@ -59,13 +59,24 @@ backend/apps/
 
 ## 首批后端边界
 
-- 使用 Django 内置 auth、admin、session、permission；平台后台是登录后的功能入口，通过 `is_staff` 和权限决定是否显示。
+- 使用 Django 内置 auth、admin、session、permission；平台后台是登录后的功能入口，通过平台功能权限决定是否显示和访问。
 - SQLite 数据库放在业务数据根目录的 `database/` 下。
 - 所有矢量数据统一从地理数据根目录下的 `vector/vector.gpkg` 读取；业务库中的矢量 `storage_path` 和图层 `source_path` 字段填写该 GeoPackage 内的图层名，后端读取并输出 GeoJSON。
 - 栅格数据统一放在地理数据根目录的 `raster/` 总目录下：源文件放在 `raster/original/`，导入后预处理 COG 放在 `raster/preprocessed/`，两份 `gdalinfo -json` 元数据放在 `raster/metadata/source/` 和 `raster/metadata/preprocessed/`。
 - 栅格导入预处理固定使用 `gdalwarp -t_srs EPSG:3857 -r nearest -co COMPRESS=DEFLATE -of COG "$in" "$out"`，导入记录保存源文件、预处理文件、两份 GDAL 元数据、导入时间、处理日志、错误信息、默认符号化规则、范围和关联数据资源/地图图层。
 - 后端启动 `runserver` 或 WSGI/ASGI 进程时会异步扫描 `raster/original/` 下未完成预处理的栅格源文件；迁移、测试等管理命令不触发扫描。可用 `HUYANG_DISABLE_RASTER_STARTUP_SCAN=1` 显式关闭。
 - PNG 缓存放在 `raster/png/cache/` 下，缓存 key 基于预处理 COG 文件、mtime、符号化规则和输出尺寸。
+
+## 统一功能权限
+
+- 平台功能权限统一基于 Django `Permission + Group`，不引入独立角色表。用户通过所属用户组获得功能权限。
+- `apps.core.permissions.FEATURE_PERMISSIONS` 是统一注册表；后台用户组配置页只同步注册表内权限，保留用户组已有其他模型权限。
+- 数据资源和图层的 `access_groups` 继续控制“能看见哪些对象”；功能权限控制“能对可见对象做什么”。
+- 首批平台功能权限包括：后台入口、功能权限配置、数据浏览、数据查询、矢量加载、栅格加载、自定义符号化。
+- 现有导出、数据维护、栅格数据集管理、栅格缓存管理权限也纳入同一用户组配置入口。
+- 前后端无权限提示统一为 `当前用户组“xxxx”无权限`；无用户组时显示 `未分组`。
+- `core.load_raster_layer` 控制按默认规则加载栅格和访问 PNG/XYZ；`core.custom_symbolization` 只控制用户打开符号化编辑器并提交自定义规则。
+- 栅格渲染 API 使用 `rulesMode` 区分默认/自定义：默认加载不传 `rules` 或传 `rulesMode: "default"`；自定义符号化传 `rulesMode: "custom"` 和 `rules`。
 
 ## 前端模块结构
 
@@ -114,7 +125,7 @@ frontend/src/
 
 - 统一登录页不展示独立后台入口。
 - 登录后进入地图工作台，包含顶部栏、地图、数据管理面板和已加载图层面板。
-- 后台入口只在用户具备后台权限时显示，入口指向 Django admin。
+- 后台入口始终作为工作台功能呈现；无权限时禁用并显示用户组无权限提示，入口指向 Django admin。
 - 前端仅做矢量样式表达和 PNG 叠加，不实现栅格符号化。
 - Mapbox 公共 token 从 TOML 的 `map.mapbox_access_token` 读取，经后端 bootstrap 下发；前端不硬编码默认 token。
 - Mapbox 底图标注语言使用 `zh-Hans`，并在样式加载后优先读取中文名称字段。

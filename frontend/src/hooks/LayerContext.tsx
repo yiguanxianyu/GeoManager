@@ -19,10 +19,18 @@ export interface LayerContextValue {
   removeGroup: (groupId: string) => void;
   removeLayer: (groupId: string, layerId: string) => void;
   reorderGroups: (sourceGroupId: string, targetGroupId: string, placement: DropPlacement) => void;
-  startRasterRender: (groupId: string, layerId: string, symbolization: RasterSymbolization, layer: LoadedRasterLayer) => void;
+  startRasterRender: (
+    groupId: string,
+    layerId: string,
+    symbolization: RasterSymbolization,
+    layer: LoadedRasterLayer,
+    rulesMode: 'default' | 'custom',
+  ) => void;
   locateLayer: (groupId: string, layerId: string) => void;
   locateGroup: (groupId: string) => void;
   mapRef: RefObject<mapboxgl.Map | null>;
+  canUseCustomSymbolization: boolean;
+  permissionDeniedMessage: string;
 }
 
 export const LayerContext = createContext<LayerContextValue | null>(null);
