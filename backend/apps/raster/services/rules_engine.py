@@ -18,24 +18,17 @@ def default_raster_rules(metadata: dict[str, Any], fallback_metadata: dict[str, 
     else:
         mode = "rgb"
         selected_bands = [1, 2, 3]
+    per_band: dict[str, dict[str, float]] = {}
+    for index in range(1, max(band_count, 1) + 1):
+        minimum, maximum = band_min_max(metadata, index, fallback_metadata)
+        per_band[str(index)] = {"min": minimum, "max": maximum}
     return {
         "mode": mode,
         "bands": selected_bands,
         "stretch": {
             "enabled": True,
             "type": "minmax",
-            "perBand": {
-                str(index): {
-                    "min": band_min_max(metadata, index)[0],
-                    "max": band_min_max(metadata, index)[1],
-                }
-                if fallback_metadata is None
-                else {
-                    "min": band_min_max(metadata, index, fallback_metadata)[0],
-                    "max": band_min_max(metadata, index, fallback_metadata)[1],
-                }
-                for index in range(1, max(band_count, 1) + 1)
-            },
+            "perBand": per_band,
         },
         "palette": "poplar",
         "uniqueValues": [],

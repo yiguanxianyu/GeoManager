@@ -498,6 +498,10 @@ body {
   align-items: center;
   gap: 0;
   flex-shrink: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 .layer-row-tools {
@@ -516,6 +520,18 @@ body {
   width: 24px;
   height: 24px;
   padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.action-btn:hover,
+.action-btn:focus,
+.layer-icon-button:hover,
+.layer-icon-button:focus,
+.layer-drag-handle:hover,
+.layer-drag-handle:focus {
+  background: transparent;
 }
 
 .layer-drag-handle {
@@ -616,12 +632,6 @@ body {
 
 .symbolization-divider.ant-divider {
   margin: 6px 0;
-}
-
-.symbolization-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 10px;
 }
 
 .feature-popup {

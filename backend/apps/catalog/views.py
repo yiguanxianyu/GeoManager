@@ -97,7 +97,9 @@ def resource_profile(request, pk: int):
 @require_POST
 @login_required
 def resource_query(request, pk: int):
-    if not has_feature_perm(request.user, "core.query_data") or not has_feature_perm(request.user, "core.load_vector_layer"):
+    can_query = has_feature_perm(request.user, "core.query_data")
+    can_load_vector = has_feature_perm(request.user, "core.load_vector_layer")
+    if not can_query or not can_load_vector:
         return feature_denied_response(request.user)
     resource = get_object_or_404(
         DataResource.objects.select_related("category"),

@@ -4,7 +4,7 @@ from typing import Any
 
 import numpy as np
 
-from apps.raster.services.constants import PALETTES, UNIQUE_COLORS
+from apps.raster.services.constants import PALETTES
 
 
 def hex_to_rgba(value: str) -> tuple[int, int, int, int]:

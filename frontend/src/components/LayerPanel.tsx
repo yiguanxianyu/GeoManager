@@ -574,6 +574,36 @@ function NodeActions({
     setSymbolizationOpen(false);
   }
 
+  function renderSymbolizationEditor() {
+    if (isVectorSymbolization(draftSymbolization) && isDeferredSymbolization) {
+      return (
+        <VectorSymbolizationEditor
+          value={draftSymbolization}
+          fields={fields}
+          onChange={setDraftSymbolization}
+          onApply={applyDraftSymbolization}
+        />
+      );
+    }
+    if (isRasterSymbolization(draftSymbolization) && isDeferredSymbolization) {
+      return (
+        <RasterSymbolizationEditor
+          value={draftSymbolization}
+          bands={rasterBands}
+          datasetId={rasterDatasetId}
+          onChange={setDraftSymbolization}
+          onApply={applyDraftSymbolization}
+        />
+      );
+    }
+    return (
+      <GroupSymbolizationEditor
+        value={symbolization}
+        onChange={onSymbolizationChange}
+      />
+    );
+  }
+
   return (
     <button
       type="button"
@@ -626,31 +656,7 @@ function NodeActions({
         overlayClassName="symbolization-popover"
         open={symbolizationOpen}
         onOpenChange={handleSymbolizationOpenChange}
-        content={
-          isVectorSymbolization(draftSymbolization) &&
-          isDeferredSymbolization ? (
-            <VectorSymbolizationEditor
-              value={draftSymbolization}
-              fields={fields}
-              onChange={setDraftSymbolization}
-              onApply={applyDraftSymbolization}
-            />
-          ) : isRasterSymbolization(draftSymbolization) &&
-            isDeferredSymbolization ? (
-            <RasterSymbolizationEditor
-              value={draftSymbolization}
-              bands={rasterBands}
-              datasetId={rasterDatasetId}
-              onChange={setDraftSymbolization}
-              onApply={applyDraftSymbolization}
-            />
-          ) : (
-            <GroupSymbolizationEditor
-              value={symbolization}
-              onChange={onSymbolizationChange}
-            />
-          )
-        }
+        content={renderSymbolizationEditor()}
       >
         <Tooltip
           title={canUseCustomSymbolization ? "符号化" : permissionDeniedMessage}

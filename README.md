@@ -2,7 +2,7 @@
 
 本仓库按前后端分离实现：
 
-- `backend/`：Django 后端，负责认证、权限、业务数据、GeoPackage 读取、栅格 PNG 出图与缓存。
+- `backend/`：Django 后端，负责认证、权限、业务数据、GeoPackage 读取、栅格瓦片动态渲染。
 - `frontend/`：React + Vite + Ant Design + Mapbox GL JS 前端，负责统一登录、地图工作台和后台入口。
 - `config/`：TOML 配置示例，数据根目录由配置指定。
 - `docs/`：从设计文档提炼出的实现约束和开发记录。
@@ -41,7 +41,7 @@ pnpm install
 pnpm dev
 ```
 
-默认开发配置使用 `config/app.example.toml`，业务数据目录为 `/Users/gx/Documents/Source/huyang_system_data/appdata`，地理数据目录为 `/Users/gx/Documents/Source/huyang_system_data/geodata`。所有矢量数据统一从 `geodata/vector/vector.gpkg` 读取，业务库中矢量资源和图层填写该 GeoPackage 内的图层名。栅格数据统一放在 `geodata/raster/` 下，后端扫描 `raster/original/`，预处理、元数据和 PNG 缓存分别写入 `raster/preprocessed/`、`raster/metadata/` 和 `raster/png/`。生产部署时通过 `HUYANG_CONFIG=/path/to/app.toml` 指定实际配置文件。
+默认开发配置使用 `config/app.example.toml`，业务数据目录为 `/Users/gx/Documents/Source/huyang_system_data/appdata`，地理数据目录为 `/Users/gx/Documents/Source/huyang_system_data/geodata`。所有矢量数据统一从 `geodata/vector/vector.gpkg` 读取，业务库中矢量资源和图层填写该 GeoPackage 内的图层名。栅格数据统一放在 `geodata/raster/` 下，后端扫描 `raster/original/`，预处理和元数据分别写入 `raster/preprocessed/` 和 `raster/metadata/`。生产部署时通过 `HUYANG_CONFIG=/path/to/app.toml` 指定实际配置文件。
 
 ## Docker 部署
 

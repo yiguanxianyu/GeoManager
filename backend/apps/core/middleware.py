@@ -8,6 +8,9 @@ class AdminAccessPermissionMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if request.path.startswith("/admin/") and request.user.is_authenticated and not has_feature_perm(request.user, "core.access_admin"):
+        is_admin_path = request.path.startswith("/admin/")
+        is_authenticated = request.user.is_authenticated
+        has_perm = has_feature_perm(request.user, "core.access_admin")
+        if is_admin_path and is_authenticated and not has_perm:
             return HttpResponseForbidden(permission_denied_message(request.user))
         return self.get_response(request)

@@ -16,7 +16,7 @@ import {
   Typography,
 } from "antd";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { api } from "../api/client";
 import type {
   Alignment,
@@ -79,6 +79,16 @@ export function VectorSymbolizationEditor({
   onChange: (value: VectorSymbolization) => void;
   onApply?: () => void;
 }) {
+  const { message } = App.useApp();
+
+  const copyJson = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(value, null, 2));
+      message.success("符号化方案 JSON 已复制");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "复制失败");
+    }
+  }, [value, message]);
   function updateRoot<Key extends keyof VectorSymbolization>(
     key: Key,
     nextValue: VectorSymbolization[Key],
@@ -123,7 +133,13 @@ export function VectorSymbolizationEditor({
     <Card
       className="symbolization-card"
       size="small"
-      title={<SymbolizationTitle title="矢量符号化" onApply={onApply} />}
+      title={
+        <SymbolizationTitle
+          title="矢量符号化"
+          onApply={onApply}
+          onCopy={copyJson}
+        />
+      }
     >
       <Tabs
         size="small"
@@ -957,14 +973,14 @@ export function RasterSymbolizationEditor({
     update({ mode, bands: nextBands });
   }
 
-  async function copyRulesJson() {
+  const copyJson = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(JSON.stringify(value, null, 2));
       message.success("符号化方案 JSON 已复制");
     } catch (error) {
       message.error(error instanceof Error ? error.message : "复制失败");
     }
-  }
+  }, [value, message]);
 
   async function classifyUniqueValues() {
     if (!datasetId) {
@@ -1023,7 +1039,13 @@ export function RasterSymbolizationEditor({
     <Card
       className="symbolization-card"
       size="small"
-      title={<SymbolizationTitle title="栅格符号化" onApply={onApply} />}
+      title={
+        <SymbolizationTitle
+          title="栅格符号化"
+          onApply={onApply}
+          onCopy={copyJson}
+        />
+      }
     >
       <Tabs
         size="small"
@@ -1230,11 +1252,6 @@ export function RasterSymbolizationEditor({
           },
         ]}
       />
-      <div className="symbolization-footer">
-        <Button size="small" onClick={copyRulesJson}>
-          复制 JSON
-        </Button>
-      </div>
     </Card>
   );
 }
@@ -1250,23 +1267,32 @@ function isIntegerRasterBand(band: RasterBandMetadata) {
 function SymbolizationTitle({
   title,
   onApply,
+  onCopy,
 }: {
   title: string;
   onApply?: () => void;
+  onCopy?: () => void;
 }) {
   return (
     <div className="symbolization-title">
       <span>{title}</span>
-      {onApply && (
-        <Button
-          type="primary"
-          size="small"
-          autoInsertSpace={false}
-          onClick={onApply}
-        >
-          确定
-        </Button>
-      )}
+      <Space size={4}>
+        {onCopy && (
+          <Button size="small" autoInsertSpace={false} onClick={onCopy}>
+            复制 JSON
+          </Button>
+        )}
+        {onApply && (
+          <Button
+            type="primary"
+            size="small"
+            autoInsertSpace={false}
+            onClick={onApply}
+          >
+            确定
+          </Button>
+        )}
+      </Space>
     </div>
   );
 }

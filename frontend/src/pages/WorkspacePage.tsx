@@ -394,7 +394,6 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
 
   return (
     <Layout className="workspace">
-      {" "}
       <Layout.Header className="workspace-header">
         <div className="header-left">
           <div className="brand-block">

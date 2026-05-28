@@ -282,7 +282,7 @@ function syncLoadedLayers(map: MapboxMap, layers: LoadedLayer[]) {
   const existing =
     (map as unknown as { __loadedSources?: Set<string> }).__loadedSources ??
     new Set<string>();
-  for (const sourceId of Array.from(existing)) {
+  for (const sourceId of existing) {
     if (!activeIds.has(sourceId)) removeLoadedLayerGroup(map, sourceId);
   }
 

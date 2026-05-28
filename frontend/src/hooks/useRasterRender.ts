@@ -47,7 +47,7 @@ export function useRasterRender(
 
   const pollJob = useCallback(
     async (jobId: string, groupId: string, layerId: string) => {
-      for (;;) {
+      while (true) {
         await delay(900);
         try {
           const job = await api.rasterJob(jobId);

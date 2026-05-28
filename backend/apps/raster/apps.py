@@ -6,7 +6,7 @@ _startup_scan_started = False
 class RasterConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "apps.raster"
-    verbose_name = "栅格缓存"
+    verbose_name = "栅格数据"
 
     def ready(self) -> None:
         global _startup_scan_started

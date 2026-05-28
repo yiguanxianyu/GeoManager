@@ -217,8 +217,5 @@ def _json_value(value: Any):
     if isinstance(value, datetime | date):
         return value.isoformat()
     if hasattr(value, "item"):
-        try:
-            return value.item()
-        except ValueError:
-            pass
+        return value.item()
     return value

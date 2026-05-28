@@ -174,7 +174,7 @@ frontend/src/
   - `test_progress.py` — 进度文本规范化、百分比解析
   - `test_rules_engine.py` — 波段极值、规则归一化、模式校验
   - `test_color_mapping.py` — hex→RGBA、色带、缩放、色彩映射
-  - `test_geo_utils.py` — 坐标边界、瓦片计算、缓存键、相交判断
+  - `test_geo_utils.py` — 坐标边界、瓦片计算、样式哈希、相交判断
 - 集成测试覆盖 API 端点（bootstrap、layers、resource profile/query）和文件扫描逻辑。
 - 测试 mock 目标路径使用模块实际路径（如 `apps.raster.services.importer.import_raster_file`），不使用 `__init__.py` 重导出路径。
 

@@ -1,6 +1,7 @@
 import type mapboxgl from "mapbox-gl";
 import type { VectorSymbolization } from "../symbolization";
 import { clamp } from "../utils/geometry";
+import { removeVectorInteraction } from "./featureInteraction";
 
 export function stateColor(baseColor: string) {
   return [
@@ -68,8 +69,6 @@ export function addLayerIfMissing(map: mapboxgl.Map, layer: mapboxgl.AnyLayer) {
     map.addLayer(layer);
   }
 }
-
-import { removeVectorInteraction } from "./featureInteraction";
 
 export function buildVectorPaintProperties(
   style: VectorSymbolization,

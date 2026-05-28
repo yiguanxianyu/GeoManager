@@ -23,7 +23,7 @@ export function syncVectorInteractions(
     }
   }
   const handlers = getMapState(map).interactiveHandlers;
-  for (const layerId of Array.from(handlers.keys())) {
+  for (const layerId of handlers.keys()) {
     if (!activeLayerIds.has(layerId)) removeVectorInteraction(map, layerId);
   }
 }

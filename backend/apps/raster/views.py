@@ -150,11 +150,7 @@ def datasets(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
     queryset = RasterDataset.objects.select_related("data_resource", "map_layer").all()
-    items = []
-    for dataset in queryset:
-        if dataset.data_resource and not user_can_access(dataset.data_resource, request.user):
-            continue
-        items.append(serialize_raster_dataset(dataset))
+    items = [serialize_raster_dataset(dataset) for dataset in queryset if not dataset.data_resource or user_can_access(dataset.data_resource, request.user)]
     return JsonResponse({"items": items})
 
 

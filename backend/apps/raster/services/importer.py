@@ -25,7 +25,6 @@ from apps.raster.services.geo_utils import (
 )
 from apps.raster.services.progress import normalize_progress_text
 from apps.raster.services.rules_engine import default_raster_rules
-from apps.raster.services.serializers import serialize_raster_dataset
 
 
 RASTER_EXTENSIONS = {".tif", ".tiff", ".img", ".vrt"}
