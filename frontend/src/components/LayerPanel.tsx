@@ -17,9 +17,9 @@ import {
 } from 'lucide-react';
 import { type DragEvent, useEffect, useMemo, useState } from 'react';
 import { useLayerContext } from '../hooks/LayerContext';
-import { GroupSymbolizationEditor, RasterSymbolizationEditor, VectorSymbolizationEditor } from './SymbolizationEditor';
 import type { GroupSymbolization, RasterSymbolization, VectorSymbolization } from '../symbolization';
-import type { ExportLayerItem, LoadedLayer, LoadedLayerGroup, ResourceField, RasterBandMetadata } from '../types';
+import type { ExportLayerItem, LoadedLayer, LoadedLayerGroup, RasterBandMetadata, ResourceField } from '../types';
+import { GroupSymbolizationEditor, RasterSymbolizationEditor, VectorSymbolizationEditor } from './SymbolizationEditor';
 
 type DropPlacement = 'before' | 'after';
 
@@ -259,7 +259,7 @@ function LayerGroupNode({
               type="text"
               size="small"
               aria-label={expanded ? `折叠${group.name}` : `展开${group.name}`}
-              icon={expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              icon={expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
               onClick={(event) => {
                 event.stopPropagation();
                 onToggleExpand();
@@ -270,20 +270,11 @@ function LayerGroupNode({
             className="visibility-switch"
             checked={group.visible}
             size="small"
-            checkedChildren={<Eye size={12} />}
-            unCheckedChildren={<EyeOff size={12} />}
+            checkedChildren={<Eye size={10} />}
+            unCheckedChildren={<EyeOff size={10} />}
             onChange={(checked) => onVisibilityChange(group.id, checked)}
           />
-          <FolderTree size={16} />
-          <div>
-            <Typography.Text
-              strong
-              editable={{ onChange: (next) => onNameChange(group.id, next.trim() || group.name) }}
-            >
-              {group.name}
-            </Typography.Text>
-            <div className="layer-meta">{group.summary}</div>
-          </div>
+          <FolderTree size={14} />
         </div>
         <div className="layer-row-tools">
           <NodeActions
@@ -301,18 +292,26 @@ function LayerGroupNode({
           />
           <Tooltip title="拖动排序">
             <Button
-              className="layer-drag-handle"
+              className="layer-drag-handle action-btn"
               type="text"
               size="small"
               aria-label={`拖动${group.name}排序`}
               draggable
-              icon={<GripVertical size={15} />}
+              icon={<GripVertical size={14} />}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
               onClick={(event) => event.stopPropagation()}
             />
           </Tooltip>
         </div>
+      </div>
+      <div className="layer-name-row">
+        <Typography.Text
+          strong
+          editable={{ onChange: (next) => onNameChange(group.id, next.trim() || group.name) }}
+        >
+          {group.name}
+        </Typography.Text>
       </div>
     </div>
   );
@@ -348,28 +347,11 @@ function LayerItemNode({
             className="visibility-switch"
             checked={layer.visible}
             size="small"
-            checkedChildren={<Eye size={12} />}
-            unCheckedChildren={<EyeOff size={12} />}
+            checkedChildren={<Eye size={10} />}
+            unCheckedChildren={<EyeOff size={10} />}
             onChange={(checked) => onVisibilityChange(groupId, layer.id, checked)}
           />
-          <FileStack size={16} />
-          <div>
-            <Typography.Text
-              strong
-              editable={{ onChange: (next) => onNameChange(groupId, layer.id, next.trim() || layer.name) }}
-            >
-              {layer.name}
-            </Typography.Text>
-            <div className="layer-meta">{layer.summary}</div>
-            {layer.layerType === 'raster' && layer.renderStatus === 'running' && (
-              <Progress
-                className="layer-render-progress"
-                percent={layer.renderProgress ?? 0}
-                size="small"
-                showInfo={false}
-              />
-            )}
-          </div>
+          <FileStack size={14} />
         </div>
         <NodeActions
           metadata={layer.metadata}
@@ -385,6 +367,22 @@ function LayerItemNode({
           canExportData={ctx.canExportData}
           permissionDeniedMessage={ctx.permissionDeniedMessage}
         />
+      </div>
+      <div className="layer-name-row">
+        <Typography.Text
+          strong
+          editable={{ onChange: (next) => onNameChange(groupId, layer.id, next.trim() || layer.name) }}
+        >
+          {layer.name}
+        </Typography.Text>
+        {layer.layerType === 'raster' && layer.renderStatus === 'running' && (
+          <Progress
+            className="layer-render-progress"
+            percent={layer.renderProgress ?? 0}
+            size="small"
+            showInfo={false}
+          />
+        )}
       </div>
     </div>
   );
@@ -455,19 +453,20 @@ function NodeActions({
         content={<MetadataCard metadata={metadata} title={`${subjectName} 元数据`} />}
       >
         <Tooltip title="元数据">
-          <Button size="small" type="text" aria-label={`${subjectName}元数据`} icon={<Info size={15} />} />
+          <Button className="action-btn" size="small" type="text" aria-label={`${subjectName}元数据`} icon={<Info size={14} />} />
         </Tooltip>
       </Popover>
       <Tooltip title="定位">
-        <Button size="small" type="text" aria-label={`定位${subjectName}`} icon={<Crosshair size={15} />} onClick={onLocate} />
+        <Button className="action-btn" size="small" type="text" aria-label={`定位${subjectName}`} icon={<Crosshair size={14} />} onClick={onLocate} />
       </Tooltip>
       <Tooltip title={canExportData ? '导出' : permissionDeniedMessage}>
         <span>
           <Button
+            className="action-btn"
             size="small"
             type="text"
             aria-label={`导出${subjectName}`}
-            icon={<Download size={15} />}
+            icon={<Download size={14} />}
             disabled={!canExportData}
             onClick={onExport}
           />
@@ -502,17 +501,18 @@ function NodeActions({
         <Tooltip title={canUseCustomSymbolization ? '符号化' : permissionDeniedMessage}>
           <span>
             <Button
+              className="action-btn"
               size="small"
               type="text"
               aria-label={`${subjectName}符号化`}
-              icon={<Palette size={15} />}
+              icon={<Palette size={14} />}
               disabled={!canUseCustomSymbolization}
             />
           </span>
         </Tooltip>
       </Popover>
       <Tooltip title="移除">
-        <Button size="small" type="text" aria-label={`移除${subjectName}`} icon={<Trash2 size={15} />} onClick={onRemove} />
+        <Button className="action-btn" size="small" type="text" aria-label={`移除${subjectName}`} icon={<Trash2 size={14} />} onClick={onRemove} />
       </Tooltip>
     </div>
   );
