@@ -10,7 +10,11 @@ from django.conf import settings
 from shapely.geometry import shape
 
 from apps.catalog.models import DataResource
-from apps.core.storage import StoragePathError, validate_vector_layer_name, vector_geopackage_path
+from apps.core.storage import (
+    StoragePathError,
+    validate_vector_layer_name,
+    vector_geopackage_path,
+)
 
 
 class DataQueryError(ValueError):

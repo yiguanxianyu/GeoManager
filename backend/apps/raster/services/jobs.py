@@ -6,7 +6,10 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from apps.raster.services.progress import normalize_progress_text, parse_progress_percent
+from apps.raster.services.progress import (
+    normalize_progress_text,
+    parse_progress_percent,
+)
 
 
 @dataclass
@@ -109,7 +112,11 @@ def start_import_job(source_path: str, name: str = "") -> RasterJob:
     def runner() -> None:
         try:
             _set_job_running(job.id, "开始导入栅格文件", 2)
-            dataset = import_raster_file(Path(source_path), name=name, progress=lambda text: _append_job(job.id, text))
+            dataset = import_raster_file(
+                Path(source_path),
+                name=name,
+                progress=lambda text: _append_job(job.id, text),
+            )
             _finish_job(job.id, serialize_raster_dataset(dataset), "ready")
         except Exception as exc:
             _fail_job(job.id, str(exc))
@@ -130,7 +137,10 @@ def start_scan_job() -> RasterJob:
             datasets = scan_unprocessed_source_files(progress=lambda text: _append_job(job.id, text))
             _finish_job(
                 job.id,
-                {"items": [serialize_raster_dataset(dataset) for dataset in datasets], "count": len(datasets)},
+                {
+                    "items": [serialize_raster_dataset(dataset) for dataset in datasets],
+                    "count": len(datasets),
+                },
                 "ready",
             )
         except Exception as exc:

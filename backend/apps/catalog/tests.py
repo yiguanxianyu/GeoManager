@@ -49,7 +49,12 @@ class LayerApiTests(TestCase):
 class ResourceQueryApiTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username="resource-tester", password="pass12345")
-        grant(self.user, ("core", "browse_data"), ("core", "query_data"), ("core", "load_vector_layer"))
+        grant(
+            self.user,
+            ("core", "browse_data"),
+            ("core", "query_data"),
+            ("core", "load_vector_layer"),
+        )
         self.client.force_login(self.user)
         self.layer_name = "test_query_points"
         self.path = vector_geopackage_path()
@@ -60,8 +65,18 @@ class ResourceQueryApiTests(TestCase):
 
         gdf = gpd.GeoDataFrame(
             [
-                {"name": "样点一", "height": 4.2, "phase": "2025", "geometry": Point(87.6, 43.8)},
-                {"name": "样点二", "height": 8.5, "phase": "2026", "geometry": Point(87.7, 43.9)},
+                {
+                    "name": "样点一",
+                    "height": 4.2,
+                    "phase": "2025",
+                    "geometry": Point(87.6, 43.8),
+                },
+                {
+                    "name": "样点二",
+                    "height": 8.5,
+                    "phase": "2026",
+                    "geometry": Point(87.7, 43.9),
+                },
             ],
             geometry="geometry",
             crs="EPSG:4326",
@@ -88,7 +103,10 @@ class ResourceQueryApiTests(TestCase):
     def test_resource_query_filters_by_attribute(self):
         response = self.client.post(
             f"/api/catalog/resources/{self.resource.id}/query/",
-            data={"attributeFilters": [{"field": "height", "operator": "gte", "value": "8"}], "limit": 10},
+            data={
+                "attributeFilters": [{"field": "height", "operator": "gte", "value": "8"}],
+                "limit": 10,
+            },
             content_type="application/json",
         )
 

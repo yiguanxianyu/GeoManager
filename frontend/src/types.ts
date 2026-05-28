@@ -1,4 +1,8 @@
-import type { GroupSymbolization, RasterSymbolization, VectorSymbolization } from './symbolization';
+import type {
+  GroupSymbolization,
+  RasterSymbolization,
+  VectorSymbolization,
+} from "./symbolization";
 
 export interface Bootstrap {
   systemName: string;
@@ -48,7 +52,7 @@ export interface DataResource {
   id: number;
   name: string;
   code: string;
-  dataType: 'vector' | 'raster' | 'table' | 'document' | 'image';
+  dataType: "vector" | "raster" | "table" | "document" | "image";
   category: DictionaryItem | null;
   source: string;
   provider: string;
@@ -123,13 +127,13 @@ export interface RasterDatasetProfile {
 export interface AttributeFilter {
   id: string;
   field: string;
-  operator: 'contains' | 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte' | 'between';
+  operator: "contains" | "eq" | "ne" | "gt" | "gte" | "lt" | "lte" | "between";
   value: string;
   valueTo?: string;
 }
 
 export interface SpatialFilter {
-  mode: 'rectangle' | 'circle' | 'ellipse' | 'polygon';
+  mode: "rectangle" | "circle" | "ellipse" | "polygon";
   geometry: GeoJsonGeometry;
 }
 
@@ -145,7 +149,7 @@ export interface GeoJsonGeometry {
 }
 
 export interface GeoJsonFeatureCollection {
-  type: 'FeatureCollection';
+  type: "FeatureCollection";
   features: Array<Record<string, unknown>>;
 }
 
@@ -162,7 +166,7 @@ export interface ResourceQueryResult {
 export interface LoadedVectorLayer {
   id: string;
   name: string;
-  layerType: 'vector';
+  layerType: "vector";
   sourceResource: DataResource;
   geojson: GeoJsonFeatureCollection;
   geometryType: string;
@@ -176,13 +180,13 @@ export interface LoadedVectorLayer {
 export interface LoadedRasterLayer {
   id: string;
   name: string;
-  layerType: 'raster';
+  layerType: "raster";
   sourceResource: DataResource;
   tileUrl?: string;
   imageCoordinates?: Array<[number, number]>;
   rasterDatasetId?: number;
   rasterLayerId?: number | null;
-  rasterMetadata?: RasterDatasetProfile['metadata'];
+  rasterMetadata?: RasterDatasetProfile["metadata"];
   renderJobId?: string;
   renderStatus?: string;
   renderProgress?: number;
@@ -210,7 +214,7 @@ export interface LoadedLayerGroup {
 }
 
 export interface ExportLayerItem {
-  layerType: 'vector' | 'raster';
+  layerType: "vector" | "raster";
   name: string;
   resourceId: number;
   geojson?: GeoJsonFeatureCollection;
@@ -236,8 +240,8 @@ export interface MapLayer {
   id: number;
   name: string;
   code: string;
-  layerType: 'vector' | 'raster';
-  geometryType: 'point' | 'line' | 'polygon' | 'mixed';
+  layerType: "vector" | "raster";
+  geometryType: "point" | "line" | "polygon" | "mixed";
   category: DictionaryItem | null;
   dataResourceId: number | null;
   sortOrder: number;
@@ -252,7 +256,7 @@ export interface MapLayer {
 }
 
 export interface RasterRenderResult {
-  delivery: 'xyz';
+  delivery: "xyz";
   datasetId: number;
   layerId: number | null;
   styleHash: string;
@@ -275,11 +279,15 @@ export interface RasterUniqueValuesResult {
 
 export interface RasterJob {
   id: string;
-  kind: 'import' | 'scan' | 'render';
-  status: 'queued' | 'running' | 'ready' | 'failed';
+  kind: "import" | "scan" | "render";
+  status: "queued" | "running" | "ready" | "failed";
   progressPercent: number;
   messages: string[];
-  result: RasterRenderResult | RasterDatasetProfile | { items: RasterDatasetProfile[]; count: number } | null;
+  result:
+    | RasterRenderResult
+    | RasterDatasetProfile
+    | { items: RasterDatasetProfile[]; count: number }
+    | null;
   error: string;
   startedAt: number;
   finishedAt: number | null;

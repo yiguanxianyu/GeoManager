@@ -29,7 +29,10 @@ def serialize_raster_dataset(dataset: RasterDataset) -> dict[str, Any]:
         "errorMessage": dataset.error_message,
         "importedAt": dataset.imported_at.isoformat() if dataset.imported_at else None,
         "processedAt": dataset.processed_at.isoformat() if dataset.processed_at else None,
-        "metadata": compact_raster_metadata(dataset.processed_gdalinfo or dataset.source_gdalinfo, dataset.source_gdalinfo),
+        "metadata": compact_raster_metadata(
+            dataset.processed_gdalinfo or dataset.source_gdalinfo,
+            dataset.source_gdalinfo,
+        ),
     }
 
 
@@ -54,4 +57,3 @@ def compact_raster_metadata(metadata: dict[str, Any], fallback_metadata: dict[st
         "coordinateSystem": (metadata.get("stac") or {}).get("proj:epsg") or "",
         "bands": bands,
     }
-

@@ -1,4 +1,19 @@
-import { App, Badge, Button, Card, Descriptions, Empty, Input, InputNumber, Modal, Popover, Progress, Switch, Tooltip, Typography } from 'antd';
+import {
+  App,
+  Badge,
+  Button,
+  Card,
+  Descriptions,
+  Empty,
+  Input,
+  InputNumber,
+  Modal,
+  Popover,
+  Progress,
+  Switch,
+  Tooltip,
+  Typography,
+} from "antd";
 import {
   ChevronDown,
   ChevronRight,
@@ -14,24 +29,46 @@ import {
   Palette,
   Search,
   Trash2,
-} from 'lucide-react';
-import { type DragEvent, useEffect, useMemo, useState } from 'react';
-import { useLayerContext } from '../hooks/LayerContext';
-import type { GroupSymbolization, RasterSymbolization, VectorSymbolization } from '../symbolization';
-import type { ExportLayerItem, LoadedLayer, LoadedLayerGroup, RasterBandMetadata, ResourceField } from '../types';
-import { GroupSymbolizationEditor, RasterSymbolizationEditor, VectorSymbolizationEditor } from './SymbolizationEditor';
+} from "lucide-react";
+import { type DragEvent, useEffect, useMemo, useState } from "react";
+import { useLayerContext } from "../hooks/LayerContext";
+import type {
+  GroupSymbolization,
+  RasterSymbolization,
+  VectorSymbolization,
+} from "../symbolization";
+import type {
+  ExportLayerItem,
+  LoadedLayer,
+  LoadedLayerGroup,
+  RasterBandMetadata,
+  ResourceField,
+} from "../types";
+import {
+  GroupSymbolizationEditor,
+  RasterSymbolizationEditor,
+  VectorSymbolizationEditor,
+} from "./SymbolizationEditor";
 
-type DropPlacement = 'before' | 'after';
+type DropPlacement = "before" | "after";
 
 export default function LayerPanel() {
   const ctx = useLayerContext();
   const { message } = App.useApp();
   const groups = ctx.groups;
-  const [query, setQuery] = useState('');
-  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(() => new Set());
+  const [query, setQuery] = useState("");
+  const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [draggingGroupId, setDraggingGroupId] = useState<string | null>(null);
-  const [dragTarget, setDragTarget] = useState<{ groupId: string; placement: DropPlacement } | null>(null);
-  const [exportTarget, setExportTarget] = useState<{ name: string; items: ExportLayerItem[] } | null>(null);
+  const [dragTarget, setDragTarget] = useState<{
+    groupId: string;
+    placement: DropPlacement;
+  } | null>(null);
+  const [exportTarget, setExportTarget] = useState<{
+    name: string;
+    items: ExportLayerItem[];
+  } | null>(null);
   const [exportEpsg, setExportEpsg] = useState<number | null>(4326);
   const filteredGroups = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -40,9 +77,13 @@ export default function LayerPanel() {
     }
     return groups
       .map((group) => {
-        const groupMatched = `${group.name} ${group.sourceResource.name}`.toLowerCase().includes(keyword);
+        const groupMatched = `${group.name} ${group.sourceResource.name}`
+          .toLowerCase()
+          .includes(keyword);
         const children = group.children.filter((layer) =>
-          `${layer.name} ${layer.sourceResource.name} ${layer.summary}`.toLowerCase().includes(keyword),
+          `${layer.name} ${layer.sourceResource.name} ${layer.summary}`
+            .toLowerCase()
+            .includes(keyword),
         );
         return groupMatched ? group : { ...group, children };
       })
@@ -65,25 +106,31 @@ export default function LayerPanel() {
 
   function handleDragStart(event: DragEvent<HTMLElement>, groupId: string) {
     event.stopPropagation();
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('text/plain', groupId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", groupId);
     setDraggingGroupId(groupId);
   }
 
-  function handleDragOver(event: DragEvent<HTMLElement>, targetGroupId: string) {
-    const sourceGroupId = draggingGroupId ?? event.dataTransfer.getData('text/plain');
+  function handleDragOver(
+    event: DragEvent<HTMLElement>,
+    targetGroupId: string,
+  ) {
+    const sourceGroupId =
+      draggingGroupId ?? event.dataTransfer.getData("text/plain");
     if (!sourceGroupId || sourceGroupId === targetGroupId) {
       return;
     }
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
+    event.dataTransfer.dropEffect = "move";
     const rect = event.currentTarget.getBoundingClientRect();
-    const placement = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    const placement =
+      event.clientY < rect.top + rect.height / 2 ? "before" : "after";
     setDragTarget({ groupId: targetGroupId, placement });
   }
 
   function handleDrop(event: DragEvent<HTMLElement>, targetGroupId: string) {
-    const sourceGroupId = event.dataTransfer.getData('text/plain') || draggingGroupId;
+    const sourceGroupId =
+      event.dataTransfer.getData("text/plain") || draggingGroupId;
     if (!sourceGroupId || sourceGroupId === targetGroupId) {
       setDraggingGroupId(null);
       setDragTarget(null);
@@ -91,20 +138,37 @@ export default function LayerPanel() {
     }
     event.preventDefault();
     const rect = event.currentTarget.getBoundingClientRect();
-    const placement = event.clientY < rect.top + rect.height / 2 ? 'before' : 'after';
+    const placement =
+      event.clientY < rect.top + rect.height / 2 ? "before" : "after";
     ctx.reorderGroups(sourceGroupId, targetGroupId, placement);
     setDraggingGroupId(null);
     setDragTarget(null);
   }
 
-  function handleLayerSymbolizationChange(groupId: string, layerId: string, symbolization: VectorSymbolization | RasterSymbolization) {
+  function handleLayerSymbolizationChange(
+    groupId: string,
+    layerId: string,
+    symbolization: VectorSymbolization | RasterSymbolization,
+  ) {
     if (!ctx.canUseCustomSymbolization) {
       return;
     }
-    const targetLayer = ctx.groups.find((g) => g.id === groupId)?.children.find((l) => l.id === layerId);
+    const targetLayer = ctx.groups
+      .find((g) => g.id === groupId)
+      ?.children.find((l) => l.id === layerId);
     ctx.setLayerSymbolization(groupId, layerId, symbolization);
-    if ('mode' in symbolization && 'bands' in symbolization && targetLayer?.layerType === 'raster') {
-      ctx.startRasterRender(groupId, layerId, symbolization, { ...targetLayer, symbolization }, 'custom');
+    if (
+      "mode" in symbolization &&
+      "bands" in symbolization &&
+      targetLayer?.layerType === "raster"
+    ) {
+      ctx.startRasterRender(
+        groupId,
+        layerId,
+        symbolization,
+        { ...targetLayer, symbolization },
+        "custom",
+      );
     }
   }
 
@@ -113,9 +177,11 @@ export default function LayerPanel() {
       message.warning(ctx.permissionDeniedMessage);
       return;
     }
-    const exportableItems = items.filter((item) => item.layerType === 'vector' || item.datasetId);
+    const exportableItems = items.filter(
+      (item) => item.layerType === "vector" || item.datasetId,
+    );
     if (exportableItems.length === 0) {
-      message.warning('当前对象没有可导出的数据');
+      message.warning("当前对象没有可导出的数据");
       return;
     }
     setExportTarget({ name, items: exportableItems });
@@ -133,7 +199,10 @@ export default function LayerPanel() {
       <div className="panel-title">
         <Layers size={18} />
         <Typography.Title level={5}>已加载图层</Typography.Title>
-        <Badge count={groups.filter((group) => group.visible).length} color="#2f7d62" />
+        <Badge
+          count={groups.filter((group) => group.visible).length}
+          color="#2f7d62"
+        />
       </div>
       <Input
         prefix={<Search size={15} />}
@@ -147,11 +216,13 @@ export default function LayerPanel() {
           {filteredGroups.map((group) => {
             const expanded = keyword ? true : !collapsedGroupIds.has(group.id);
             const dropClass =
-              dragTarget?.groupId === group.id ? ` layer-group-drop-${dragTarget.placement}` : '';
+              dragTarget?.groupId === group.id
+                ? ` layer-group-drop-${dragTarget.placement}`
+                : "";
             return (
               <div
                 key={group.id}
-                className={`layer-group-shell${draggingGroupId === group.id ? ' is-dragging' : ''}${dropClass}`}
+                className={`layer-group-shell${draggingGroupId === group.id ? " is-dragging" : ""}${dropClass}`}
                 role="treeitem"
                 aria-expanded={expanded}
                 onDragOver={(event) => handleDragOver(event, group.id)}
@@ -172,7 +243,9 @@ export default function LayerPanel() {
                   onSymbolizationChange={ctx.setGroupSymbolization}
                   onLocate={ctx.locateGroup}
                   onRemove={ctx.removeGroup}
-                  onExport={() => openExportDialog(group.name, exportItemsForGroup(group))}
+                  onExport={() =>
+                    openExportDialog(group.name, exportItemsForGroup(group))
+                  }
                 />
                 {expanded && (
                   <div className="layer-children" role="group">
@@ -186,7 +259,12 @@ export default function LayerPanel() {
                         onSymbolizationChange={handleLayerSymbolizationChange}
                         onLocate={ctx.locateLayer}
                         onRemove={ctx.removeLayer}
-                        onExport={() => openExportDialog(layer.name, exportItemsForLayer(layer))}
+                        onExport={() =>
+                          openExportDialog(
+                            layer.name,
+                            exportItemsForLayer(layer),
+                          )
+                        }
                       />
                     ))}
                   </div>
@@ -196,10 +274,14 @@ export default function LayerPanel() {
           })}
         </div>
       ) : (
-        <Empty className="layer-empty" image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无已加载图层" />
+        <Empty
+          className="layer-empty"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description="暂无已加载图层"
+        />
       )}
       <Modal
-        title={`导出 ${exportTarget?.name ?? ''}`}
+        title={`导出 ${exportTarget?.name ?? ""}`}
         open={Boolean(exportTarget)}
         okText="导出"
         cancelText="取消"
@@ -213,7 +295,9 @@ export default function LayerPanel() {
             min={1024}
             max={999999}
             value={exportEpsg}
-            onChange={(value) => setExportEpsg(typeof value === 'number' ? value : null)}
+            onChange={(value) =>
+              setExportEpsg(typeof value === "number" ? value : null)
+            }
           />
         </label>
       </Modal>
@@ -253,13 +337,19 @@ function LayerGroupNode({
     <div className="layer-tree-node layer-tree-node-group">
       <div className="layer-row-main">
         <div className="layer-heading">
-          <Tooltip title={expanded ? '折叠图层组' : '展开图层组'}>
+          <Tooltip title={expanded ? "折叠图层组" : "展开图层组"}>
             <Button
               className="layer-icon-button"
               type="text"
               size="small"
               aria-label={expanded ? `折叠${group.name}` : `展开${group.name}`}
-              icon={expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              icon={
+                expanded ? (
+                  <ChevronDown size={14} />
+                ) : (
+                  <ChevronRight size={14} />
+                )
+              }
               onClick={(event) => {
                 event.stopPropagation();
                 onToggleExpand();
@@ -282,7 +372,9 @@ function LayerGroupNode({
             symbolization={group.symbolization}
             fields={[]}
             subjectName={group.name}
-            onSymbolizationChange={(next) => onSymbolizationChange(group.id, next as GroupSymbolization)}
+            onSymbolizationChange={(next) =>
+              onSymbolizationChange(group.id, next as GroupSymbolization)
+            }
             onLocate={() => onLocate(group.id)}
             onRemove={() => onRemove(group.id)}
             onExport={onExport}
@@ -308,7 +400,10 @@ function LayerGroupNode({
       <div className="layer-name-row">
         <Typography.Text
           strong
-          editable={{ onChange: (next) => onNameChange(group.id, next.trim() || group.name) }}
+          editable={{
+            onChange: (next) =>
+              onNameChange(group.id, next.trim() || group.name),
+          }}
         >
           {group.name}
         </Typography.Text>
@@ -320,9 +415,17 @@ function LayerGroupNode({
 interface LayerNodeProps {
   groupId: string;
   layer: LoadedLayer;
-  onVisibilityChange: (groupId: string, layerId: string, visible: boolean) => void;
+  onVisibilityChange: (
+    groupId: string,
+    layerId: string,
+    visible: boolean,
+  ) => void;
   onNameChange: (groupId: string, layerId: string, name: string) => void;
-  onSymbolizationChange: (groupId: string, layerId: string, value: VectorSymbolization | RasterSymbolization) => void;
+  onSymbolizationChange: (
+    groupId: string,
+    layerId: string,
+    value: VectorSymbolization | RasterSymbolization,
+  ) => void;
   onLocate: (groupId: string, layerId: string) => void;
   onRemove: (groupId: string, layerId: string) => void;
   onExport: () => void;
@@ -349,7 +452,9 @@ function LayerItemNode({
             size="small"
             checkedChildren={<Eye size={10} />}
             unCheckedChildren={<EyeOff size={10} />}
-            onChange={(checked) => onVisibilityChange(groupId, layer.id, checked)}
+            onChange={(checked) =>
+              onVisibilityChange(groupId, layer.id, checked)
+            }
           />
           <FileStack size={14} />
         </div>
@@ -357,10 +462,22 @@ function LayerItemNode({
           metadata={layer.metadata}
           symbolization={layer.symbolization}
           fields={layer.fields}
-          rasterBands={layer.layerType === 'raster' ? layer.rasterMetadata?.bands ?? [] : []}
-          rasterDatasetId={layer.layerType === 'raster' ? layer.rasterDatasetId : undefined}
+          rasterBands={
+            layer.layerType === "raster"
+              ? (layer.rasterMetadata?.bands ?? [])
+              : []
+          }
+          rasterDatasetId={
+            layer.layerType === "raster" ? layer.rasterDatasetId : undefined
+          }
           subjectName={layer.name}
-          onSymbolizationChange={(next) => onSymbolizationChange(groupId, layer.id, next as VectorSymbolization | RasterSymbolization)}
+          onSymbolizationChange={(next) =>
+            onSymbolizationChange(
+              groupId,
+              layer.id,
+              next as VectorSymbolization | RasterSymbolization,
+            )
+          }
           onLocate={() => onLocate(groupId, layer.id)}
           onRemove={() => onRemove(groupId, layer.id)}
           onExport={onExport}
@@ -372,11 +489,14 @@ function LayerItemNode({
       <div className="layer-name-row">
         <Typography.Text
           strong
-          editable={{ onChange: (next) => onNameChange(groupId, layer.id, next.trim() || layer.name) }}
+          editable={{
+            onChange: (next) =>
+              onNameChange(groupId, layer.id, next.trim() || layer.name),
+          }}
         >
           {layer.name}
         </Typography.Text>
-        {layer.layerType === 'raster' && layer.renderStatus === 'running' && (
+        {layer.layerType === "raster" && layer.renderStatus === "running" && (
           <Progress
             className="layer-render-progress"
             percent={layer.renderProgress ?? 0}
@@ -396,7 +516,9 @@ interface NodeActionProps {
   rasterBands?: RasterBandMetadata[];
   rasterDatasetId?: number;
   subjectName: string;
-  onSymbolizationChange: (value: GroupSymbolization | VectorSymbolization | RasterSymbolization) => void;
+  onSymbolizationChange: (
+    value: GroupSymbolization | VectorSymbolization | RasterSymbolization,
+  ) => void;
   onLocate: () => void;
   onRemove: () => void;
   onExport: () => void;
@@ -422,7 +544,9 @@ function NodeActions({
 }: NodeActionProps) {
   const [symbolizationOpen, setSymbolizationOpen] = useState(false);
   const [draftSymbolization, setDraftSymbolization] = useState(symbolization);
-  const isDeferredSymbolization = isVectorSymbolization(symbolization) || isRasterSymbolization(symbolization);
+  const isDeferredSymbolization =
+    isVectorSymbolization(symbolization) ||
+    isRasterSymbolization(symbolization);
 
   useEffect(() => {
     if (!symbolizationOpen) {
@@ -453,16 +577,31 @@ function NodeActions({
       <Popover
         trigger="click"
         placement="leftTop"
-        content={<MetadataCard metadata={metadata} title={`${subjectName} 元数据`} />}
+        content={
+          <MetadataCard metadata={metadata} title={`${subjectName} 元数据`} />
+        }
       >
         <Tooltip title="元数据">
-          <Button className="action-btn" size="small" type="text" aria-label={`${subjectName}元数据`} icon={<Info size={14} />} />
+          <Button
+            className="action-btn"
+            size="small"
+            type="text"
+            aria-label={`${subjectName}元数据`}
+            icon={<Info size={14} />}
+          />
         </Tooltip>
       </Popover>
       <Tooltip title="定位">
-        <Button className="action-btn" size="small" type="text" aria-label={`定位${subjectName}`} icon={<Crosshair size={14} />} onClick={onLocate} />
+        <Button
+          className="action-btn"
+          size="small"
+          type="text"
+          aria-label={`定位${subjectName}`}
+          icon={<Crosshair size={14} />}
+          onClick={onLocate}
+        />
       </Tooltip>
-      <Tooltip title={canExportData ? '导出' : permissionDeniedMessage}>
+      <Tooltip title={canExportData ? "导出" : permissionDeniedMessage}>
         <span>
           <Button
             className="action-btn"
@@ -482,14 +621,16 @@ function NodeActions({
         open={symbolizationOpen}
         onOpenChange={handleSymbolizationOpenChange}
         content={
-          isVectorSymbolization(draftSymbolization) && isDeferredSymbolization ? (
+          isVectorSymbolization(draftSymbolization) &&
+          isDeferredSymbolization ? (
             <VectorSymbolizationEditor
               value={draftSymbolization}
               fields={fields}
               onChange={setDraftSymbolization}
               onApply={applyDraftSymbolization}
             />
-          ) : isRasterSymbolization(draftSymbolization) && isDeferredSymbolization ? (
+          ) : isRasterSymbolization(draftSymbolization) &&
+            isDeferredSymbolization ? (
             <RasterSymbolizationEditor
               value={draftSymbolization}
               bands={rasterBands}
@@ -498,11 +639,16 @@ function NodeActions({
               onApply={applyDraftSymbolization}
             />
           ) : (
-            <GroupSymbolizationEditor value={symbolization} onChange={onSymbolizationChange} />
+            <GroupSymbolizationEditor
+              value={symbolization}
+              onChange={onSymbolizationChange}
+            />
           )
         }
       >
-        <Tooltip title={canUseCustomSymbolization ? '符号化' : permissionDeniedMessage}>
+        <Tooltip
+          title={canUseCustomSymbolization ? "符号化" : permissionDeniedMessage}
+        >
           <span>
             <Button
               className="action-btn"
@@ -516,7 +662,14 @@ function NodeActions({
         </Tooltip>
       </Popover>
       <Tooltip title="移除">
-        <Button className="action-btn" size="small" type="text" aria-label={`移除${subjectName}`} icon={<Trash2 size={14} />} onClick={onRemove} />
+        <Button
+          className="action-btn"
+          size="small"
+          type="text"
+          aria-label={`移除${subjectName}`}
+          icon={<Trash2 size={14} />}
+          onClick={onRemove}
+        />
       </Tooltip>
     </div>
   );
@@ -525,13 +678,13 @@ function NodeActions({
 function isVectorSymbolization(
   value: GroupSymbolization | VectorSymbolization | RasterSymbolization,
 ): value is VectorSymbolization {
-  return 'pointMode' in value;
+  return "pointMode" in value;
 }
 
 function isRasterSymbolization(
   value: GroupSymbolization | VectorSymbolization | RasterSymbolization,
 ): value is RasterSymbolization {
-  return 'mode' in value && 'bands' in value;
+  return "mode" in value && "bands" in value;
 }
 
 function exportItemsForGroup(group: LoadedLayerGroup): ExportLayerItem[] {
@@ -539,20 +692,24 @@ function exportItemsForGroup(group: LoadedLayerGroup): ExportLayerItem[] {
 }
 
 function exportItemsForLayer(layer: LoadedLayer): ExportLayerItem[] {
-  if (layer.layerType === 'vector') {
-    return [{
-      layerType: 'vector',
+  if (layer.layerType === "vector") {
+    return [
+      {
+        layerType: "vector",
+        name: layer.name,
+        resourceId: layer.sourceResource.id,
+        geojson: layer.geojson,
+      },
+    ];
+  }
+  return [
+    {
+      layerType: "raster",
       name: layer.name,
       resourceId: layer.sourceResource.id,
-      geojson: layer.geojson,
-    }];
-  }
-  return [{
-    layerType: 'raster',
-    name: layer.name,
-    resourceId: layer.sourceResource.id,
-    datasetId: layer.rasterDatasetId,
-  }];
+      datasetId: layer.rasterDatasetId,
+    },
+  ];
 }
 
 function MetadataCard({
@@ -562,13 +719,15 @@ function MetadataCard({
   metadata: Record<string, string | number | boolean | null | undefined>;
   title: string;
 }) {
-  const entries = Object.entries(metadata).filter(([, value]) => value !== undefined && value !== '');
+  const entries = Object.entries(metadata).filter(
+    ([, value]) => value !== undefined && value !== "",
+  );
   return (
     <Card className="metadata-card" size="small" title={title}>
       <Descriptions size="small" column={1}>
         {entries.map(([key, value]) => (
           <Descriptions.Item key={key} label={key}>
-            {String(value ?? '-')}
+            {String(value ?? "-")}
           </Descriptions.Item>
         ))}
       </Descriptions>

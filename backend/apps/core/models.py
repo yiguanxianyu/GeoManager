@@ -15,4 +15,3 @@ class FeaturePermission(models.Model):
             ("load_raster_layer", "可加载栅格图层"),
             ("custom_symbolization", "可自定义符号化"),
         ]
-

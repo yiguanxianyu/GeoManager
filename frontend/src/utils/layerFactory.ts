@@ -1,3 +1,9 @@
+import {
+  cloneDefaultGroupSymbolization,
+  cloneDefaultRasterSymbolization,
+  cloneDefaultVectorSymbolization,
+  rasterSymbolizationFromRules,
+} from "../symbolization";
 import type {
   DataResource,
   DataResourceProfile,
@@ -5,13 +11,7 @@ import type {
   LoadedRasterLayer,
   LoadedVectorLayer,
   ResourceQueryResult,
-} from '../types';
-import {
-  cloneDefaultGroupSymbolization,
-  cloneDefaultVectorSymbolization,
-  cloneDefaultRasterSymbolization,
-  rasterSymbolizationFromRules,
-} from '../symbolization';
+} from "../types";
 
 export function createVectorLayerGroup(
   resource: DataResource,
@@ -20,7 +20,7 @@ export function createVectorLayerGroup(
 ): LoadedLayerGroup {
   const now = new Date();
   const groupId = `query-${resource.id}-${now.getTime()}`;
-  const summary = `${queryResult.returnedCount}/${queryResult.totalCount} 条 · ${profile.geometryType || '空间数据'}`;
+  const summary = `${queryResult.returnedCount}/${queryResult.totalCount} 条 · ${profile.geometryType || "空间数据"}`;
   const metadata = {
     数据名称: resource.name,
     数据编号: resource.code,
@@ -32,7 +32,7 @@ export function createVectorLayerGroup(
     坐标系统: resource.coordinateSystem,
     返回条数: queryResult.returnedCount,
     命中条数: queryResult.totalCount,
-    加载时间: now.toLocaleString('zh-CN', { hour12: false }),
+    加载时间: now.toLocaleString("zh-CN", { hour12: false }),
   };
   return {
     id: groupId,
@@ -47,13 +47,17 @@ export function createVectorLayerGroup(
       {
         id: `${groupId}-vector`,
         name: resource.name,
-        layerType: 'vector',
+        layerType: "vector",
         sourceResource: resource,
         geojson: queryResult.geojson,
         geometryType: profile.geometryType,
         visible: true,
         summary,
-        metadata: { ...metadata, 图层类型: '矢量', 几何类型: profile.geometryType },
+        metadata: {
+          ...metadata,
+          图层类型: "矢量",
+          几何类型: profile.geometryType,
+        },
         symbolization: cloneDefaultVectorSymbolization(),
         fields: queryResult.fields,
       } satisfies LoadedVectorLayer,
@@ -73,17 +77,17 @@ export function createRasterLayerGroup(
   const symbolization = raster.defaultRules
     ? rasterSymbolizationFromRules(raster.defaultRules)
     : cloneDefaultRasterSymbolization();
-  const summary = `${raster.bandCount} 波段 · ${raster.metadata.size.join(' x ') || '栅格'}`;
+  const summary = `${raster.bandCount} 波段 · ${raster.metadata.size.join(" x ") || "栅格"}`;
   const metadata = {
     数据名称: resource.name,
     数据编号: resource.code,
-    数据类型: '栅格',
+    数据类型: "栅格",
     文件格式: resource.fileFormat,
     源文件: raster.sourcePath,
     预处理文件: raster.processedPath,
     坐标系统: resource.coordinateSystem,
     波段数: raster.bandCount,
-    加载时间: now.toLocaleString('zh-CN', { hour12: false }),
+    加载时间: now.toLocaleString("zh-CN", { hour12: false }),
   };
   return {
     id: groupId,
@@ -98,19 +102,19 @@ export function createRasterLayerGroup(
       {
         id: layerId,
         name: resource.name,
-        layerType: 'raster',
+        layerType: "raster",
         sourceResource: resource,
         rasterDatasetId: raster.id,
         rasterLayerId: raster.mapLayerId,
         rasterMetadata: raster.metadata,
         imageCoordinates: raster.imageCoordinates,
-        geometryType: 'Raster',
+        geometryType: "Raster",
         visible: true,
-        summary: '等待后台符号化',
-        metadata: { ...metadata, 图层类型: '栅格', 加载方式: 'XYZ 瓦片' },
+        summary: "等待后台符号化",
+        metadata: { ...metadata, 图层类型: "栅格", 加载方式: "XYZ 瓦片" },
         symbolization,
         fields: [],
-        renderStatus: 'queued',
+        renderStatus: "queued",
         renderProgress: 0,
         renderMessages: [],
       } satisfies LoadedRasterLayer,

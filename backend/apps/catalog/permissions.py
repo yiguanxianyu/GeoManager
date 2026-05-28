@@ -20,4 +20,3 @@ def user_can_access(obj, user) -> bool:
     if not access_groups.exists():
         return True
     return access_groups.filter(id__in=user.groups.values("id")).exists()
-

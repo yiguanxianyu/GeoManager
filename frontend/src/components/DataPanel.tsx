@@ -6,15 +6,24 @@ import {
   Empty,
   Input,
   List,
-  Select,
   Segmented,
+  Select,
   Space,
   Tag,
   Tooltip,
   Typography,
-} from 'antd';
-import { Crosshair, Database, Filter, ListFilter, MapPinned, Plus, Search, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+} from "antd";
+import {
+  Crosshair,
+  Database,
+  Filter,
+  ListFilter,
+  MapPinned,
+  Plus,
+  Search,
+  X,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import type {
   AttributeFilter,
   DataResource,
@@ -23,9 +32,9 @@ import type {
   ResourceQueryResult,
   SpatialFilter,
   User,
-} from '../types';
+} from "../types";
 
-type DrawMode = SpatialFilter['mode'] | null;
+type DrawMode = SpatialFilter["mode"] | null;
 
 interface Props {
   resources: DataResource[];
@@ -36,7 +45,7 @@ interface Props {
   queryResult: ResourceQueryResult | null;
   loadingProfile: boolean;
   querying: boolean;
-  permissions: User['permissions'];
+  permissions: User["permissions"];
   permissionDeniedMessage: string;
   onFilterResources: (filters: ResourceFilters) => void;
   onSelectResource: (resource: DataResource) => void;
@@ -48,14 +57,14 @@ interface Props {
 }
 
 const operatorOptions = [
-  { label: '包含', value: 'contains' },
-  { label: '等于', value: 'eq' },
-  { label: '不等于', value: 'ne' },
-  { label: '大于', value: 'gt' },
-  { label: '大于等于', value: 'gte' },
-  { label: '小于', value: 'lt' },
-  { label: '小于等于', value: 'lte' },
-  { label: '介于', value: 'between' },
+  { label: "包含", value: "contains" },
+  { label: "等于", value: "eq" },
+  { label: "不等于", value: "ne" },
+  { label: "大于", value: "gt" },
+  { label: "大于等于", value: "gte" },
+  { label: "小于", value: "lt" },
+  { label: "小于等于", value: "lte" },
+  { label: "介于", value: "between" },
 ];
 
 export default function DataPanel({
@@ -78,11 +87,14 @@ export default function DataPanel({
   onLoadRaster,
 }: Props) {
   const [resourceFilters, setResourceFilters] = useState<ResourceFilters>({});
-  const [attributeFilters, setAttributeFilters] = useState<AttributeFilter[]>([]);
+  const [attributeFilters, setAttributeFilters] = useState<AttributeFilter[]>(
+    [],
+  );
   const [field, setField] = useState<string>();
-  const [operator, setOperator] = useState<AttributeFilter['operator']>('contains');
-  const [value, setValue] = useState('');
-  const [valueTo, setValueTo] = useState('');
+  const [operator, setOperator] =
+    useState<AttributeFilter["operator"]>("contains");
+  const [value, setValue] = useState("");
+  const [valueTo, setValueTo] = useState("");
 
   const categoryOptions = useMemo(() => {
     const categories = new Map<string, string>();
@@ -91,17 +103,24 @@ export default function DataPanel({
         categories.set(resource.category.code, resource.category.name);
       }
     });
-    return Array.from(categories, ([code, name]) => ({ value: code, label: name }));
+    return Array.from(categories, ([code, name]) => ({
+      value: code,
+      label: name,
+    }));
   }, [resources]);
 
   const fieldOptions = (profile?.fields ?? []).map((item) => ({
     value: item.name,
     label: `${item.name} (${item.type})`,
   }));
-  const selectedIsRaster = profile?.resource.dataType === 'raster';
-  const canQueryAndLoadVector = permissions.canQueryData && permissions.canLoadVectorLayer;
+  const selectedIsRaster = profile?.resource.dataType === "raster";
+  const canQueryAndLoadVector =
+    permissions.canQueryData && permissions.canLoadVectorLayer;
 
-  function updateResourceFilter(key: keyof ResourceFilters, nextValue?: string) {
+  function updateResourceFilter(
+    key: keyof ResourceFilters,
+    nextValue?: string,
+  ) {
     setResourceFilters((current) => ({ ...current, [key]: nextValue }));
   }
 
@@ -116,11 +135,11 @@ export default function DataPanel({
         field,
         operator,
         value: value.trim(),
-        valueTo: operator === 'between' ? valueTo.trim() : undefined,
+        valueTo: operator === "between" ? valueTo.trim() : undefined,
       },
     ]);
-    setValue('');
-    setValueTo('');
+    setValue("");
+    setValueTo("");
   }
 
   function removeAttributeFilter(id: string) {
@@ -143,7 +162,7 @@ export default function DataPanel({
           prefix={<Search size={15} />}
           placeholder="数据名称或编号"
           value={resourceFilters.q}
-          onChange={(event) => updateResourceFilter('q', event.target.value)}
+          onChange={(event) => updateResourceFilter("q", event.target.value)}
           allowClear
         />
         <Select
@@ -151,25 +170,27 @@ export default function DataPanel({
           value={resourceFilters.dataType}
           allowClear
           options={[
-            { value: 'vector', label: '矢量空间数据' },
-            { value: 'raster', label: '栅格空间数据' },
-            { value: 'table', label: '表格属性数据' },
-            { value: 'document', label: '文档资料' },
-            { value: 'image', label: '图片资料' },
+            { value: "vector", label: "矢量空间数据" },
+            { value: "raster", label: "栅格空间数据" },
+            { value: "table", label: "表格属性数据" },
+            { value: "document", label: "文档资料" },
+            { value: "image", label: "图片资料" },
           ]}
-          onChange={(nextValue) => updateResourceFilter('dataType', nextValue)}
+          onChange={(nextValue) => updateResourceFilter("dataType", nextValue)}
         />
         <Select
           placeholder="数据分类"
           value={resourceFilters.category}
           allowClear
           options={categoryOptions}
-          onChange={(nextValue) => updateResourceFilter('category', nextValue)}
+          onChange={(nextValue) => updateResourceFilter("category", nextValue)}
         />
         <Input
           placeholder="数据来源"
           value={resourceFilters.source}
-          onChange={(event) => updateResourceFilter('source', event.target.value)}
+          onChange={(event) =>
+            updateResourceFilter("source", event.target.value)
+          }
           allowClear
         />
         <DatePicker.RangePicker
@@ -182,7 +203,11 @@ export default function DataPanel({
             }))
           }
         />
-        <Button type="primary" icon={<Filter size={15} />} onClick={() => onFilterResources(resourceFilters)}>
+        <Button
+          type="primary"
+          icon={<Filter size={15} />}
+          onClick={() => onFilterResources(resourceFilters)}
+        >
           筛选数据
         </Button>
       </Space>
@@ -194,15 +219,28 @@ export default function DataPanel({
       <List
         className="resource-list"
         dataSource={resources}
-        locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据资源" /> }}
+        locale={{
+          emptyText: (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="暂无数据资源"
+            />
+          ),
+        }}
         renderItem={(resource) => (
           <List.Item
-            className={resource.id === selectedResourceId ? 'resource-row resource-row-active' : 'resource-row'}
+            className={
+              resource.id === selectedResourceId
+                ? "resource-row resource-row-active"
+                : "resource-row"
+            }
             actions={[
               <Button
                 key="select"
                 size="small"
-                type={resource.id === selectedResourceId ? 'primary' : 'default'}
+                type={
+                  resource.id === selectedResourceId ? "primary" : "default"
+                }
                 disabled={!resource.isQueryable && !resource.isRenderable}
                 onClick={() => onSelectResource(resource)}
               >
@@ -214,11 +252,13 @@ export default function DataPanel({
               title={
                 <span>
                   {resource.name}
-                  {!resource.isQueryable && !resource.isRenderable && <Tag>仅元数据</Tag>}
+                  {!resource.isQueryable && !resource.isRenderable && (
+                    <Tag>仅元数据</Tag>
+                  )}
                   {resource.isRenderable && <Tag color="blue">栅格</Tag>}
                 </span>
               }
-              description={`${resource.category?.name ?? '未分类'} · ${resource.fileFormat || resource.dataType}`}
+              description={`${resource.category?.name ?? "未分类"} · ${resource.fileFormat || resource.dataType}`}
             />
           </List.Item>
         )}
@@ -231,18 +271,35 @@ export default function DataPanel({
             <Typography.Text strong>字段与元信息</Typography.Text>
           </div>
           <Descriptions size="small" column={1} bordered>
-            <Descriptions.Item label="数据来源">{profile.resource.source || '-'}</Descriptions.Item>
-            <Descriptions.Item label="提供单位">{profile.resource.provider || '-'}</Descriptions.Item>
-            <Descriptions.Item label="空间范围">{profile.resource.spatialExtent || '-'}</Descriptions.Item>
-            <Descriptions.Item label={selectedIsRaster ? '波段数' : '要素数'}>
-              {selectedIsRaster ? profile.raster?.bandCount ?? '-' : profile.featureCount ?? '-'}
+            <Descriptions.Item label="数据来源">
+              {profile.resource.source || "-"}
             </Descriptions.Item>
-            <Descriptions.Item label={selectedIsRaster ? '栅格大小' : '几何类型'}>
-              {selectedIsRaster ? profile.raster?.metadata.size?.join(' x ') || '-' : profile.geometryType || '-'}
+            <Descriptions.Item label="提供单位">
+              {profile.resource.provider || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label="空间范围">
+              {profile.resource.spatialExtent || "-"}
+            </Descriptions.Item>
+            <Descriptions.Item label={selectedIsRaster ? "波段数" : "要素数"}>
+              {selectedIsRaster
+                ? (profile.raster?.bandCount ?? "-")
+                : (profile.featureCount ?? "-")}
+            </Descriptions.Item>
+            <Descriptions.Item
+              label={selectedIsRaster ? "栅格大小" : "几何类型"}
+            >
+              {selectedIsRaster
+                ? profile.raster?.metadata.size?.join(" x ") || "-"
+                : profile.geometryType || "-"}
             </Descriptions.Item>
           </Descriptions>
           {loadingProfile ? (
-            <Alert className="inline-alert" type="info" showIcon message="正在读取字段信息" />
+            <Alert
+              className="inline-alert"
+              type="info"
+              showIcon
+              message="正在读取字段信息"
+            />
           ) : (
             <List
               size="small"
@@ -251,7 +308,9 @@ export default function DataPanel({
               renderItem={(item) => (
                 <List.Item>
                   <Typography.Text>{item.name}</Typography.Text>
-                  <Typography.Text type="secondary">{item.type}</Typography.Text>
+                  <Typography.Text type="secondary">
+                    {item.type}
+                  </Typography.Text>
                 </List.Item>
               )}
             />
@@ -267,26 +326,38 @@ export default function DataPanel({
           </div>
           <Segmented
             block
-            value={drawMode ?? 'none'}
+            value={drawMode ?? "none"}
             options={[
-              { label: '无', value: 'none' },
-              { label: '矩形', value: 'rectangle' },
-              { label: '圆', value: 'circle' },
-              { label: '椭圆', value: 'ellipse' },
-              { label: '多边形', value: 'polygon' },
+              { label: "无", value: "none" },
+              { label: "矩形", value: "rectangle" },
+              { label: "圆", value: "circle" },
+              { label: "椭圆", value: "ellipse" },
+              { label: "多边形", value: "polygon" },
             ]}
-            onChange={(nextValue) => onDrawModeChange(nextValue === 'none' ? null : (nextValue as DrawMode))}
+            onChange={(nextValue) =>
+              onDrawModeChange(
+                nextValue === "none" ? null : (nextValue as DrawMode),
+              )
+            }
           />
           <div className="spatial-status">
             {spatialFilter ? (
               <>
-                <Tag color="green">已绘制{spatialModeName(spatialFilter.mode)}</Tag>
-                <Button size="small" icon={<X size={13} />} onClick={onClearSpatialFilter}>
+                <Tag color="green">
+                  已绘制{spatialModeName(spatialFilter.mode)}
+                </Tag>
+                <Button
+                  size="small"
+                  icon={<X size={13} />}
+                  onClick={onClearSpatialFilter}
+                >
                   清除
                 </Button>
               </>
             ) : (
-              <Typography.Text type="secondary">选择图形后在地图上绘制查询范围</Typography.Text>
+              <Typography.Text type="secondary">
+                选择图形后在地图上绘制查询范围
+              </Typography.Text>
             )}
           </div>
 
@@ -295,21 +366,47 @@ export default function DataPanel({
             <Typography.Text strong>属性查询</Typography.Text>
           </div>
           <Space direction="vertical" className="full-width compact-stack">
-            <Select placeholder="选择字段" value={field} options={fieldOptions} onChange={setField} disabled={!profile} />
-            <Select value={operator} options={operatorOptions} onChange={setOperator} />
-            <Input placeholder="字段值" value={value} onChange={(event) => setValue(event.target.value)} />
-            {operator === 'between' && (
-              <Input placeholder="结束值" value={valueTo} onChange={(event) => setValueTo(event.target.value)} />
+            <Select
+              placeholder="选择字段"
+              value={field}
+              options={fieldOptions}
+              onChange={setField}
+              disabled={!profile}
+            />
+            <Select
+              value={operator}
+              options={operatorOptions}
+              onChange={setOperator}
+            />
+            <Input
+              placeholder="字段值"
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+            />
+            {operator === "between" && (
+              <Input
+                placeholder="结束值"
+                value={valueTo}
+                onChange={(event) => setValueTo(event.target.value)}
+              />
             )}
-            <Button icon={<Plus size={15} />} disabled={!field || !value.trim()} onClick={addAttributeFilter}>
+            <Button
+              icon={<Plus size={15} />}
+              disabled={!field || !value.trim()}
+              onClick={addAttributeFilter}
+            >
               添加属性条件
             </Button>
           </Space>
           <Space wrap className="filter-tags">
             {attributeFilters.map((item) => (
-              <Tag key={item.id} closable onClose={() => removeAttributeFilter(item.id)}>
+              <Tag
+                key={item.id}
+                closable
+                onClose={() => removeAttributeFilter(item.id)}
+              >
                 {item.field} {operatorLabel(item.operator)} {item.value}
-                {item.valueTo ? ` - ${item.valueTo}` : ''}
+                {item.valueTo ? ` - ${item.valueTo}` : ""}
               </Tag>
             ))}
           </Space>
@@ -318,7 +415,13 @@ export default function DataPanel({
 
       <div className="query-footer">
         {selectedIsRaster ? (
-          <Tooltip title={permissions.canLoadRasterLayer ? undefined : permissionDeniedMessage}>
+          <Tooltip
+            title={
+              permissions.canLoadRasterLayer
+                ? undefined
+                : permissionDeniedMessage
+            }
+          >
             <span>
               <Button
                 type="primary"
@@ -331,7 +434,11 @@ export default function DataPanel({
           </Tooltip>
         ) : (
           <>
-            <Tooltip title={canQueryAndLoadVector ? undefined : permissionDeniedMessage}>
+            <Tooltip
+              title={
+                canQueryAndLoadVector ? undefined : permissionDeniedMessage
+              }
+            >
               <span>
                 <Button
                   type="primary"
@@ -343,10 +450,20 @@ export default function DataPanel({
                 </Button>
               </span>
             </Tooltip>
-            <Tooltip title={permissions.canLoadVectorLayer ? undefined : permissionDeniedMessage}>
+            <Tooltip
+              title={
+                permissions.canLoadVectorLayer
+                  ? undefined
+                  : permissionDeniedMessage
+              }
+            >
               <span>
                 <Button
-                  disabled={!queryResult || queryResult.returnedCount === 0 || !permissions.canLoadVectorLayer}
+                  disabled={
+                    !queryResult ||
+                    queryResult.returnedCount === 0 ||
+                    !permissions.canLoadVectorLayer
+                  }
                   onClick={onLoadResult}
                 >
                   加载到图层
@@ -368,16 +485,18 @@ export default function DataPanel({
   );
 }
 
-function operatorLabel(operator: AttributeFilter['operator']) {
-  return operatorOptions.find((item) => item.value === operator)?.label ?? operator;
+function operatorLabel(operator: AttributeFilter["operator"]) {
+  return (
+    operatorOptions.find((item) => item.value === operator)?.label ?? operator
+  );
 }
 
-function spatialModeName(mode: SpatialFilter['mode']) {
+function spatialModeName(mode: SpatialFilter["mode"]) {
   const names = {
-    rectangle: '矩形',
-    circle: '圆',
-    ellipse: '椭圆',
-    polygon: '多边形',
+    rectangle: "矩形",
+    circle: "圆",
+    ellipse: "椭圆",
+    polygon: "多边形",
   };
   return names[mode];
 }

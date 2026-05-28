@@ -4,7 +4,10 @@ from typing import Any
 
 from apps.catalog.models import DataResource
 from apps.raster.models import RasterDataset
-from apps.raster.services.serializers import compact_raster_metadata, serialize_raster_dataset
+from apps.raster.services.serializers import (
+    compact_raster_metadata,
+    serialize_raster_dataset,
+)
 
 
 def dataset_for_resource(resource: DataResource) -> RasterDataset | None:

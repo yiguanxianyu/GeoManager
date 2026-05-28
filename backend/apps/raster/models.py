@@ -41,7 +41,12 @@ class RasterDataset(models.Model):
     band_count = models.PositiveIntegerField(default=0, verbose_name="波段数")
     source_file_size = models.PositiveBigIntegerField(default=0, verbose_name="源文件大小")
     processed_file_size = models.PositiveBigIntegerField(default=0, verbose_name="预处理文件大小")
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.PENDING, verbose_name="状态")
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="状态",
+    )
     progress_log = models.TextField(blank=True, verbose_name="处理日志")
     error_message = models.TextField(blank=True, verbose_name="错误信息")
     imported_at = models.DateTimeField(auto_now_add=True, verbose_name="导入时间")

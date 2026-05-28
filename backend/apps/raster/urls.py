@@ -11,5 +11,9 @@ urlpatterns = [
     path("render/async/", views.render_async, name="raster-render-async"),
     path("unique-values/", views.unique_values, name="raster-unique-values"),
     path("jobs/<str:job_id>/", views.job_status, name="raster-job-status"),
-    path("tiles/<int:dataset_id>/<str:style_hash>/<int:z>/<int:x>/<int:y>.png", views.tile, name="raster-tile"),
+    path(
+        "tiles/<int:dataset_id>/<str:style_hash>/<int:z>/<int:x>/<int:y>.png",
+        views.tile,
+        name="raster-tile",
+    ),
 ]

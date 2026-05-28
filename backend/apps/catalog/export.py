@@ -49,7 +49,10 @@ def export_vector_geojson(geojson: Any, epsg: int, output: Path) -> None:
         raise ExportError("矢量图层缺少有效 GeoJSON")
     features = geojson.get("features") or []
     if not features:
-        output.write_text(json.dumps({"type": "FeatureCollection", "features": []}, ensure_ascii=False), encoding="utf-8")
+        output.write_text(
+            json.dumps({"type": "FeatureCollection", "features": []}, ensure_ascii=False),
+            encoding="utf-8",
+        )
         return
 
     try:
@@ -85,7 +88,13 @@ def export_raster_tif(dataset_id: int, epsg: int, output: Path) -> None:
                 *src.bounds,
             )
             profile = src.profile.copy()
-            profile.update(driver="GTiff", crs=dst_crs, transform=transform, width=width, height=height)
+            profile.update(
+                driver="GTiff",
+                crs=dst_crs,
+                transform=transform,
+                width=width,
+                height=height,
+            )
             with rasterio.open(output, "w", **profile) as dst:
                 for band_index in range(1, src.count + 1):
                     reproject(

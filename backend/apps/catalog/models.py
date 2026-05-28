@@ -77,7 +77,12 @@ class DataResource(models.Model):
         related_name="maintained_resources",
         verbose_name="维护人员",
     )
-    status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE, verbose_name="状态")
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.ACTIVE,
+        verbose_name="状态",
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

@@ -71,12 +71,7 @@ def tile_bounds_3857(z: int, x: int, y: int) -> tuple[float, float, float, float
 
 def intersects_bounds(bounds: tuple[float, float, float, float], dataset_bounds: Any) -> bool:
     minx, miny, maxx, maxy = bounds
-    return not (
-        maxx <= dataset_bounds.left
-        or minx >= dataset_bounds.right
-        or maxy <= dataset_bounds.bottom
-        or miny >= dataset_bounds.top
-    )
+    return not (maxx <= dataset_bounds.left or minx >= dataset_bounds.right or maxy <= dataset_bounds.bottom or miny >= dataset_bounds.top)
 
 
 def transparent_png() -> bytes:

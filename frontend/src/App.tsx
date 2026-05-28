@@ -1,9 +1,9 @@
-import { App as AntApp, Spin } from 'antd';
-import { useEffect, useState } from 'react';
-import { api, ApiError } from './api/client';
-import LoginPage from './pages/LoginPage';
-import WorkspacePage from './pages/WorkspacePage';
-import type { Bootstrap, User } from './types';
+import { App as AntApp, Spin } from "antd";
+import { useEffect, useState } from "react";
+import { ApiError, api } from "./api/client";
+import LoginPage from "./pages/LoginPage";
+import WorkspacePage from "./pages/WorkspacePage";
+import type { Bootstrap, User } from "./types";
 
 export default function App() {
   const { message } = AntApp.useApp();
@@ -15,7 +15,10 @@ export default function App() {
     let mounted = true;
     async function boot() {
       try {
-        const [bootstrapData] = await Promise.all([api.bootstrap(), api.csrf()]);
+        const [bootstrapData] = await Promise.all([
+          api.bootstrap(),
+          api.csrf(),
+        ]);
         let currentUser: User | null = null;
         try {
           const me = await api.me();
@@ -31,7 +34,9 @@ export default function App() {
           document.title = bootstrapData.systemName;
         }
       } catch (error) {
-        message.error(error instanceof Error ? error.message : '系统初始化失败');
+        message.error(
+          error instanceof Error ? error.message : "系统初始化失败",
+        );
       } finally {
         if (mounted) {
           setLoading(false);
@@ -56,6 +61,11 @@ export default function App() {
     return <LoginPage bootstrap={bootstrap} onLogin={setUser} />;
   }
 
-  return <WorkspacePage bootstrap={bootstrap} user={user} onLogout={() => setUser(null)} />;
+  return (
+    <WorkspacePage
+      bootstrap={bootstrap}
+      user={user}
+      onLogout={() => setUser(null)}
+    />
+  );
 }
-

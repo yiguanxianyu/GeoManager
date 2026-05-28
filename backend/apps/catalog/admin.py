@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from apps.catalog.models import Achievement, DataCatalog, DataResource, DictionaryItem, MapLayer
+from apps.catalog.models import (
+    Achievement,
+    DataCatalog,
+    DataResource,
+    DictionaryItem,
+    MapLayer,
+)
 
 
 @admin.register(DictionaryItem)
@@ -28,7 +34,15 @@ class DataCatalogAdmin(admin.ModelAdmin):
 
 @admin.register(MapLayer)
 class MapLayerAdmin(admin.ModelAdmin):
-    list_display = ("name", "code", "layer_type", "category", "default_visible", "is_active", "updated_at")
+    list_display = (
+        "name",
+        "code",
+        "layer_type",
+        "category",
+        "default_visible",
+        "is_active",
+        "updated_at",
+    )
     list_filter = ("layer_type", "is_active", "category")
     search_fields = ("name", "code")
     filter_horizontal = ("access_groups",)
@@ -36,8 +50,14 @@ class MapLayerAdmin(admin.ModelAdmin):
 
 @admin.register(Achievement)
 class AchievementAdmin(admin.ModelAdmin):
-    list_display = ("title", "code", "category", "status", "display_order", "updated_at")
+    list_display = (
+        "title",
+        "code",
+        "category",
+        "status",
+        "display_order",
+        "updated_at",
+    )
     list_filter = ("status", "category")
     search_fields = ("title", "code", "source")
     filter_horizontal = ("access_groups",)
-

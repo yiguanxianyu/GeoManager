@@ -125,7 +125,10 @@ def import_raster(request):
     if not source_path:
         return JsonResponse({"detail": "缺少 sourcePath"}, status=400)
     if payload.get("async", True):
-        return JsonResponse(start_import_job(source_path, name=str(payload.get("name") or "")).as_dict(), status=202)
+        return JsonResponse(
+            start_import_job(source_path, name=str(payload.get("name") or "")).as_dict(),
+            status=202,
+        )
     try:
         dataset = import_raster_file(Path(source_path), name=str(payload.get("name") or ""))
     except (RasterImportError, OSError) as exc:

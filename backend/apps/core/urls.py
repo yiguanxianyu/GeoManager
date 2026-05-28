@@ -11,4 +11,3 @@ urlpatterns = [
     path("auth/logout/", auth_views.logout_view, name="logout"),
     path("auth/me/", auth_views.me_view, name="me"),
 ]
-

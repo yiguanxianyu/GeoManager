@@ -1,4 +1,10 @@
-from apps.catalog.models import Achievement, DataCatalog, DataResource, DictionaryItem, MapLayer
+from apps.catalog.models import (
+    Achievement,
+    DataCatalog,
+    DataResource,
+    DictionaryItem,
+    MapLayer,
+)
 
 
 def serialize_dictionary(item: DictionaryItem | None) -> dict | None:

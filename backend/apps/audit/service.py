@@ -3,7 +3,14 @@ from __future__ import annotations
 from typing import Any
 
 
-def log_operation(user: Any, module: str, action: str, status: str, message: str = "", request: Any = None) -> None:
+def log_operation(
+    user: Any,
+    module: str,
+    action: str,
+    status: str,
+    message: str = "",
+    request: Any = None,
+) -> None:
     from apps.audit.models import OperationLog
 
     OperationLog.objects.create(
@@ -23,4 +30,3 @@ def _client_ip(request: Any) -> str | None:
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
     return request.META.get("REMOTE_ADDR")
-

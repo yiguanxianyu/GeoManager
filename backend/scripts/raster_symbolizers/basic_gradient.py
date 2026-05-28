@@ -32,7 +32,12 @@ def main() -> int:
         palette = PALETTES.get(str(rules.get("palette", "poplar")), PALETTES["poplar"])
 
         with rasterio.open(raster_path) as src:
-            data = src.read(1, out_shape=(height, width), masked=True, resampling=Resampling.bilinear)
+            data = src.read(
+                1,
+                out_shape=(height, width),
+                masked=True,
+                resampling=Resampling.bilinear,
+            )
 
         image = colorize(data, palette, float(rules.get("opacity", 0.86)))
         output_png_path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,4 +88,3 @@ def stats(data) -> dict:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

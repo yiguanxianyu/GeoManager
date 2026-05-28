@@ -15,4 +15,3 @@ class HuyangAdminSite(AdminSite):
         from django.core.exceptions import PermissionDenied
 
         raise PermissionDenied(permission_denied_message(request.user))
-

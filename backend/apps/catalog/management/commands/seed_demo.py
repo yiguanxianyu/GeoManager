@@ -6,7 +6,13 @@ from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
 from shapely.geometry import Point
 
-from apps.catalog.models import Achievement, DataCatalog, DataResource, DictionaryItem, MapLayer
+from apps.catalog.models import (
+    Achievement,
+    DataCatalog,
+    DataResource,
+    DictionaryItem,
+    MapLayer,
+)
 from apps.core.storage import vector_geopackage_path
 
 
@@ -71,7 +77,11 @@ class Command(BaseCommand):
         User = get_user_model()
         admin_user, created = User.objects.get_or_create(
             username="admin",
-            defaults={"is_staff": True, "is_superuser": True, "email": "admin@example.local"},
+            defaults={
+                "is_staff": True,
+                "is_superuser": True,
+                "email": "admin@example.local",
+            },
         )
         if created:
             admin_user.set_password("admin12345")
@@ -113,7 +123,11 @@ class Command(BaseCommand):
 
         catalog, _ = DataCatalog.objects.get_or_create(
             code="base-data",
-            defaults={"name": "基础空间数据", "description": "项目基础空间数据目录", "sort_order": 10},
+            defaults={
+                "name": "基础空间数据",
+                "description": "项目基础空间数据目录",
+                "sort_order": 10,
+            },
         )
         catalog.resources.add(resource)
 

@@ -14,7 +14,7 @@ import type {
   ResourceQueryResult,
   SearchResult,
   User,
-} from '../types';
+} from "../types";
 
 interface ListResponse<T> {
   items: T[];
@@ -35,127 +35,148 @@ class ApiError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const method = (options.method ?? 'GET').toUpperCase();
+  const method = (options.method ?? "GET").toUpperCase();
   const headers = new Headers(options.headers);
-  if (options.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
+  if (options.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
-  if (method !== 'GET') {
-    headers.set('X-CSRFToken', getCookie('csrftoken') ?? '');
+  if (method !== "GET") {
+    headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
   }
 
   const response = await fetch(path, {
     ...options,
     method,
     headers,
-    credentials: 'include',
+    credentials: "include",
   });
 
-  const contentType = response.headers.get('Content-Type') ?? '';
-  const data = contentType.includes('application/json') ? await response.json() : null;
+  const contentType = response.headers.get("Content-Type") ?? "";
+  const data = contentType.includes("application/json")
+    ? await response.json()
+    : null;
   if (!response.ok) {
-    throw new ApiError(data?.detail ?? `请求失败：${response.status}`, response.status);
+    throw new ApiError(
+      data?.detail ?? `请求失败：${response.status}`,
+      response.status,
+    );
   }
   return data as T;
 }
 
-async function requestBlob(path: string, options: RequestInit = {}): Promise<{ blob: Blob; filename: string }> {
-  const method = (options.method ?? 'GET').toUpperCase();
+async function requestBlob(
+  path: string,
+  options: RequestInit = {},
+): Promise<{ blob: Blob; filename: string }> {
+  const method = (options.method ?? "GET").toUpperCase();
   const headers = new Headers(options.headers);
-  if (options.body && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
+  if (options.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
   }
-  if (method !== 'GET') {
-    headers.set('X-CSRFToken', getCookie('csrftoken') ?? '');
+  if (method !== "GET") {
+    headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
   }
 
   const response = await fetch(path, {
     ...options,
     method,
     headers,
-    credentials: 'include',
+    credentials: "include",
   });
 
   if (!response.ok) {
-    const contentType = response.headers.get('Content-Type') ?? '';
-    const data = contentType.includes('application/json') ? await response.json() : null;
-    throw new ApiError(data?.detail ?? `请求失败：${response.status}`, response.status);
+    const contentType = response.headers.get("Content-Type") ?? "";
+    const data = contentType.includes("application/json")
+      ? await response.json()
+      : null;
+    throw new ApiError(
+      data?.detail ?? `请求失败：${response.status}`,
+      response.status,
+    );
   }
-  const disposition = response.headers.get('Content-Disposition') ?? '';
-  const filename = disposition.match(/filename="([^"]+)"/)?.[1] ?? 'layers-export.zip';
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const filename =
+    disposition.match(/filename="([^"]+)"/)?.[1] ?? "layers-export.zip";
   return { blob: await response.blob(), filename };
 }
 
 function getCookie(name: string): string | null {
   const match = document.cookie
-    .split('; ')
+    .split("; ")
     .find((row) => row.startsWith(`${name}=`));
-  return match ? decodeURIComponent(match.split('=')[1]) : null;
+  return match ? decodeURIComponent(match.split("=")[1]) : null;
 }
 
 export const api = {
-  bootstrap: () => request<Bootstrap>('/api/bootstrap/'),
-  csrf: () => request<{ detail: string }>('/api/auth/csrf/'),
-  me: () => request<MeResponse>('/api/auth/me/'),
+  bootstrap: () => request<Bootstrap>("/api/bootstrap/"),
+  csrf: () => request<{ detail: string }>("/api/auth/csrf/"),
+  me: () => request<MeResponse>("/api/auth/me/"),
   login: (username: string, password: string, remember: boolean) =>
-    request<{ user: User }>('/api/auth/login/', {
-      method: 'POST',
+    request<{ user: User }>("/api/auth/login/", {
+      method: "POST",
       body: JSON.stringify({ username, password, remember }),
     }),
   logout: () =>
-    request<{ detail: string }>('/api/auth/logout/', {
-      method: 'POST',
+    request<{ detail: string }>("/api/auth/logout/", {
+      method: "POST",
       body: JSON.stringify({}),
     }),
-  catalogs: () => request<ListResponse<DataCatalog>>('/api/catalog/directories/'),
+  catalogs: () =>
+    request<ListResponse<DataCatalog>>("/api/catalog/directories/"),
   resources: (filters: ResourceFilters = {}) =>
-    request<ListResponse<DataResource>>(`/api/catalog/resources/?${toQueryString(filters)}`),
+    request<ListResponse<DataResource>>(
+      `/api/catalog/resources/?${toQueryString(filters)}`,
+    ),
   resourceProfile: (resourceId: number) =>
-    request<DataResourceProfile>(`/api/catalog/resources/${resourceId}/profile/`),
+    request<DataResourceProfile>(
+      `/api/catalog/resources/${resourceId}/profile/`,
+    ),
   queryResource: (resourceId: number, payload: ResourceQueryPayload) =>
-    request<ResourceQueryResult>(`/api/catalog/resources/${resourceId}/query/`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-  exportLayers: (payload: ExportLayersPayload) =>
-    requestBlob('/api/catalog/export/', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-  layers: () => request<ListResponse<MapLayer>>('/api/layers/'),
-  achievements: () => request<ListResponse<Achievement>>('/api/achievements/'),
-  search: (query: string) => request<SearchResult>(`/api/search/?q=${encodeURIComponent(query)}`),
-  renderRaster: (
-    layerId: number,
-    rulesMode: 'default' | 'custom' = 'default',
-    rules?: Record<string, unknown>,
-  ) =>
-    request<RasterRenderResult>(
-      '/api/raster/render/',
+    request<ResourceQueryResult>(
+      `/api/catalog/resources/${resourceId}/query/`,
       {
-        method: 'POST',
-        body: JSON.stringify({ layerId, rulesMode, rules }),
+        method: "POST",
+        body: JSON.stringify(payload),
       },
     ),
+  exportLayers: (payload: ExportLayersPayload) =>
+    requestBlob("/api/catalog/export/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  layers: () => request<ListResponse<MapLayer>>("/api/layers/"),
+  achievements: () => request<ListResponse<Achievement>>("/api/achievements/"),
+  search: (query: string) =>
+    request<SearchResult>(`/api/search/?q=${encodeURIComponent(query)}`),
+  renderRaster: (
+    layerId: number,
+    rulesMode: "default" | "custom" = "default",
+    rules?: Record<string, unknown>,
+  ) =>
+    request<RasterRenderResult>("/api/raster/render/", {
+      method: "POST",
+      body: JSON.stringify({ layerId, rulesMode, rules }),
+    }),
   renderRasterAsync: (payload: {
     layerId?: number | null;
     datasetId?: number | null;
     rules?: Record<string, unknown>;
-    rulesMode?: 'default' | 'custom';
+    rulesMode?: "default" | "custom";
   }) =>
-    request<RasterJob>('/api/raster/render/async/', {
-      method: 'POST',
+    request<RasterJob>("/api/raster/render/async/", {
+      method: "POST",
       body: JSON.stringify(payload),
     }),
-  rasterJob: (jobId: string) => request<RasterJob>(`/api/raster/jobs/${jobId}/`),
+  rasterJob: (jobId: string) =>
+    request<RasterJob>(`/api/raster/jobs/${jobId}/`),
   classifyRasterUniqueValues: (datasetId: number, band: number) =>
-    request<RasterUniqueValuesResult>('/api/raster/unique-values/', {
-      method: 'POST',
+    request<RasterUniqueValuesResult>("/api/raster/unique-values/", {
+      method: "POST",
       body: JSON.stringify({ datasetId, band }),
     }),
   scanRasterSources: () =>
-    request<RasterJob>('/api/raster/scan/', {
-      method: 'POST',
+    request<RasterJob>("/api/raster/scan/", {
+      method: "POST",
       body: JSON.stringify({}),
     }),
 };

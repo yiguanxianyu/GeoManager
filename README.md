@@ -7,6 +7,19 @@
 - `config/`：TOML 配置示例，数据根目录由配置指定。
 - `docs/`：从设计文档提炼出的实现约束和开发记录。
 
+## 代码格式化
+
+前端：参考 pnpm scripts:
+
+```
+"format": "biome format . --write",
+"lint": "biome lint .",
+"check": "biome check .",
+"fix": "biome check . --write"
+```
+
+后端：首先激活python环境，然后`ruff format . --line-length=160`
+
 ## 本地运行
 
 后端：

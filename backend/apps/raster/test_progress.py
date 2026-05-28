@@ -1,6 +1,9 @@
 from django.test import SimpleTestCase
 
-from apps.raster.services.progress import normalize_progress_text, parse_progress_percent
+from apps.raster.services.progress import (
+    normalize_progress_text,
+    parse_progress_percent,
+)
 
 
 class NormalizeProgressTextTests(SimpleTestCase):

@@ -25,7 +25,10 @@ def default_raster_rules(metadata: dict[str, Any], fallback_metadata: dict[str, 
             "enabled": True,
             "type": "minmax",
             "perBand": {
-                str(index): {"min": band_min_max(metadata, index)[0], "max": band_min_max(metadata, index)[1]}
+                str(index): {
+                    "min": band_min_max(metadata, index)[0],
+                    "max": band_min_max(metadata, index)[1],
+                }
                 if fallback_metadata is None
                 else {
                     "min": band_min_max(metadata, index, fallback_metadata)[0],

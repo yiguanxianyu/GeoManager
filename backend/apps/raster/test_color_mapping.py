@@ -54,7 +54,11 @@ class ScaleArrayTests(SimpleTestCase):
 class ArrayToRgbaTests(SimpleTestCase):
     def test_gray_mode(self):
         data = np.ma.MaskedArray(np.array([[0, 128]], dtype=np.float32), mask=False)
-        rules = {"mode": "gray", "bands": [1], "stretch": {"enabled": True, "perBand": {"1": {"min": 0, "max": 255}}}}
+        rules = {
+            "mode": "gray",
+            "bands": [1],
+            "stretch": {"enabled": True, "perBand": {"1": {"min": 0, "max": 255}}},
+        }
         metadata = {"bands": [{"band": 1}]}
         result = array_to_rgba(data, rules, metadata)
         self.assertEqual(result.shape, (1, 2, 4))
@@ -65,9 +69,18 @@ class ArrayToRgbaTests(SimpleTestCase):
             np.array([[[100, 150]], [[100, 150]], [[100, 150]]], dtype=np.float32),
             mask=False,
         )
-        rules = {"mode": "rgb", "bands": [1, 2, 3], "stretch": {"enabled": True, "perBand": {
-            "1": {"min": 0, "max": 255}, "2": {"min": 0, "max": 255}, "3": {"min": 0, "max": 255},
-        }}}
+        rules = {
+            "mode": "rgb",
+            "bands": [1, 2, 3],
+            "stretch": {
+                "enabled": True,
+                "perBand": {
+                    "1": {"min": 0, "max": 255},
+                    "2": {"min": 0, "max": 255},
+                    "3": {"min": 0, "max": 255},
+                },
+            },
+        }
         metadata = {"bands": [{"band": 1}, {"band": 2}, {"band": 3}]}
         result = array_to_rgba(data, rules, metadata)
         self.assertEqual(result.shape, (1, 2, 4))
@@ -77,16 +90,30 @@ class ArrayToRgbaTests(SimpleTestCase):
             np.array([[[100]], [[100]], [[100]], [[128]]], dtype=np.float32),
             mask=False,
         )
-        rules = {"mode": "rgb", "bands": [1, 2, 3], "alphaBand": 4, "stretch": {"enabled": True, "perBand": {
-            "1": {"min": 0, "max": 255}, "2": {"min": 0, "max": 255}, "3": {"min": 0, "max": 255},
-        }}}
+        rules = {
+            "mode": "rgb",
+            "bands": [1, 2, 3],
+            "alphaBand": 4,
+            "stretch": {
+                "enabled": True,
+                "perBand": {
+                    "1": {"min": 0, "max": 255},
+                    "2": {"min": 0, "max": 255},
+                    "3": {"min": 0, "max": 255},
+                },
+            },
+        }
         metadata = {"bands": [{"band": 1}, {"band": 2}, {"band": 3}, {"band": 4}]}
         result = array_to_rgba(data, rules, metadata)
         self.assertEqual(result[0, 0, 3], 128)
 
     def test_masked_pixels_become_transparent(self):
         data = np.ma.MaskedArray(np.array([[100]], dtype=np.float32), mask=True)
-        rules = {"mode": "gray", "bands": [1], "stretch": {"enabled": True, "perBand": {"1": {"min": 0, "max": 255}}}}
+        rules = {
+            "mode": "gray",
+            "bands": [1],
+            "stretch": {"enabled": True, "perBand": {"1": {"min": 0, "max": 255}}},
+        }
         metadata = {"bands": [{"band": 1}]}
         result = array_to_rgba(data, rules, metadata)
         self.assertEqual(result[0, 0, 3], 0)

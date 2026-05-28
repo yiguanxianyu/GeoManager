@@ -76,11 +76,21 @@ class TileBounds3857Tests(SimpleTestCase):
 class IntersectsBoundsTests(SimpleTestCase):
     def test_overlapping_bounds_intersect(self):
         bounds = (0.0, 0.0, 10.0, 10.0)
-        self.assertTrue(intersects_bounds(bounds, type("B", (), {"left": 5, "right": 15, "bottom": 5, "top": 15})()))
+        self.assertTrue(
+            intersects_bounds(
+                bounds,
+                type("B", (), {"left": 5, "right": 15, "bottom": 5, "top": 15})(),
+            )
+        )
 
     def test_non_overlapping_bounds_do_not_intersect(self):
         bounds = (0.0, 0.0, 10.0, 10.0)
-        self.assertFalse(intersects_bounds(bounds, type("B", (), {"left": 20, "right": 30, "bottom": 20, "top": 30})()))
+        self.assertFalse(
+            intersects_bounds(
+                bounds,
+                type("B", (), {"left": 20, "right": 30, "bottom": 20, "top": 30})(),
+            )
+        )
 
 
 class TransparentPngTests(SimpleTestCase):

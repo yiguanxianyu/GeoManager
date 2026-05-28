@@ -25,7 +25,10 @@ class BootstrapApiTests(TestCase):
         payload = response.json()
         self.assertIn("systemName", payload)
         self.assertIn("map", payload)
-        self.assertEqual(payload["map"]["mapboxAccessToken"], settings.PROJECT_CONFIG.map.mapbox_access_token)
+        self.assertEqual(
+            payload["map"]["mapboxAccessToken"],
+            settings.PROJECT_CONFIG.map.mapbox_access_token,
+        )
 
 
 class FeaturePermissionTests(TestCase):

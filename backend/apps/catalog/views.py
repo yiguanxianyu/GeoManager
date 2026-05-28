@@ -18,7 +18,11 @@ from apps.catalog.serializers import (
     serialize_resource,
 )
 from apps.core.permissions import feature_denied_response, has_feature_perm
-from apps.core.storage import StoragePathError, validate_vector_layer_name, vector_geopackage_path
+from apps.core.storage import (
+    StoragePathError,
+    validate_vector_layer_name,
+    vector_geopackage_path,
+)
 
 
 @require_GET
@@ -67,7 +71,11 @@ def resources(request):
 def resource_profile(request, pk: int):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
-    resource = get_object_or_404(DataResource.objects.select_related("category"), pk=pk, status=DataResource.Status.ACTIVE)
+    resource = get_object_or_404(
+        DataResource.objects.select_related("category"),
+        pk=pk,
+        status=DataResource.Status.ACTIVE,
+    )
     if not user_can_access(resource, request.user):
         return JsonResponse({"detail": "无权访问该数据资源"}, status=403)
     try:
@@ -89,11 +97,13 @@ def resource_profile(request, pk: int):
 @require_POST
 @login_required
 def resource_query(request, pk: int):
-    if not has_feature_perm(request.user, "core.query_data") or not has_feature_perm(
-        request.user, "core.load_vector_layer"
-    ):
+    if not has_feature_perm(request.user, "core.query_data") or not has_feature_perm(request.user, "core.load_vector_layer"):
         return feature_denied_response(request.user)
-    resource = get_object_or_404(DataResource.objects.select_related("category"), pk=pk, status=DataResource.Status.ACTIVE)
+    resource = get_object_or_404(
+        DataResource.objects.select_related("category"),
+        pk=pk,
+        status=DataResource.Status.ACTIVE,
+    )
     if not user_can_access(resource, request.user):
         return JsonResponse({"detail": "无权访问该数据资源"}, status=403)
     try:
@@ -217,9 +227,7 @@ def search(request):
     if not query:
         return JsonResponse({"resources": [], "achievements": []})
 
-    resource_qs = DataResource.objects.filter(status=DataResource.Status.ACTIVE, name__icontains=query).select_related(
-        "category"
-    )
+    resource_qs = DataResource.objects.filter(status=DataResource.Status.ACTIVE, name__icontains=query).select_related("category")
     achievement_qs = Achievement.objects.filter(
         status=Achievement.Status.PUBLISHED,
         title__icontains=query,

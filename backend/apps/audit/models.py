@@ -32,4 +32,3 @@ class OperationLog(models.Model):
 
     def __str__(self) -> str:
         return f"{self.module}.{self.action} {self.status}"
-

@@ -1,4 +1,4 @@
-import type mapboxgl from 'mapbox-gl';
+import type mapboxgl from "mapbox-gl";
 
 export interface FeatureStateTarget {
   source: string;
@@ -38,7 +38,7 @@ export function getMapState(map: mapboxgl.Map): MapInternalState {
 
 export function clearFeatureState(
   map: mapboxgl.Map,
-  key: 'hoveredFeature' | 'selectedFeature',
+  key: "hoveredFeature" | "selectedFeature",
   stateName: string,
 ) {
   const state = getMapState(map);
@@ -51,7 +51,9 @@ export function clearFeatureState(
   state[key] = undefined;
 }
 
-export function featureStateTarget(feature: mapboxgl.MapboxGeoJSONFeature): FeatureStateTarget | null {
+export function featureStateTarget(
+  feature: mapboxgl.MapboxGeoJSONFeature,
+): FeatureStateTarget | null {
   if (feature.id === undefined || !feature.source) return null;
   return { source: feature.source, id: feature.id };
 }

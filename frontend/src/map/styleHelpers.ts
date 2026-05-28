@@ -1,24 +1,24 @@
-import mapboxgl from 'mapbox-gl';
-import { clamp } from '../utils/geometry';
-import type { VectorSymbolization } from '../symbolization';
+import type mapboxgl from "mapbox-gl";
+import type { VectorSymbolization } from "../symbolization";
+import { clamp } from "../utils/geometry";
 
 export function stateColor(baseColor: string) {
   return [
-    'case',
-    ['boolean', ['feature-state', 'selected'], false],
-    '#e4582b',
-    ['boolean', ['feature-state', 'highlight'], false],
-    '#f2c36d',
+    "case",
+    ["boolean", ["feature-state", "selected"], false],
+    "#e4582b",
+    ["boolean", ["feature-state", "highlight"], false],
+    "#f2c36d",
     baseColor,
   ] as unknown as mapboxgl.ExpressionSpecification;
 }
 
 export function stateNumber(base: number, selected: number, highlight: number) {
   return [
-    'case',
-    ['boolean', ['feature-state', 'selected'], false],
+    "case",
+    ["boolean", ["feature-state", "selected"], false],
     selected,
-    ['boolean', ['feature-state', 'highlight'], false],
+    ["boolean", ["feature-state", "highlight"], false],
     highlight,
     base,
   ] as unknown as mapboxgl.ExpressionSpecification;
@@ -33,12 +33,20 @@ export function upsertLayer(map: mapboxgl.Map, layer: mapboxgl.AnyLayer) {
     map.addLayer(layer);
     return;
   }
-  if ('filter' in layer) {
+  if ("filter" in layer) {
     map.setFilter(layer.id, layer.filter);
   }
   const writableMap = map as unknown as {
-    setLayoutProperty: (layerId: string, property: string, value: unknown) => void;
-    setPaintProperty: (layerId: string, property: string, value: unknown) => void;
+    setLayoutProperty: (
+      layerId: string,
+      property: string,
+      value: unknown,
+    ) => void;
+    setPaintProperty: (
+      layerId: string,
+      property: string,
+      value: unknown,
+    ) => void;
   };
   for (const [property, value] of Object.entries(layer.layout ?? {})) {
     writableMap.setLayoutProperty(layer.id, property, value);
@@ -61,19 +69,38 @@ export function addLayerIfMissing(map: mapboxgl.Map, layer: mapboxgl.AnyLayer) {
   }
 }
 
-import { getMapState } from './mapState';
-import { removeVectorInteraction } from './featureInteraction';
+import { removeVectorInteraction } from "./featureInteraction";
+import { getMapState } from "./mapState";
 
-export function buildVectorPaintProperties(style: VectorSymbolization, layerOpacity: number) {
+export function buildVectorPaintProperties(
+  style: VectorSymbolization,
+  layerOpacity: number,
+) {
   const circleOpacity = clamp(style.circle.circleOpacity * layerOpacity, 0, 1);
-  const circleStrokeOpacity = clamp(style.circle.circleStrokeOpacity * layerOpacity, 0, 1);
-  const symbolIconOpacity = clamp(style.symbol.iconOpacity * layerOpacity, 0, 1);
-  const symbolTextOpacity = clamp(style.symbol.textOpacity * layerOpacity, 0, 1);
+  const circleStrokeOpacity = clamp(
+    style.circle.circleStrokeOpacity * layerOpacity,
+    0,
+    1,
+  );
+  const symbolIconOpacity = clamp(
+    style.symbol.iconOpacity * layerOpacity,
+    0,
+    1,
+  );
+  const symbolTextOpacity = clamp(
+    style.symbol.textOpacity * layerOpacity,
+    0,
+    1,
+  );
   const lineOpacity = clamp(style.line.lineOpacity * layerOpacity, 0, 1);
   const fillOpacity = clamp(style.fill.fillOpacity * layerOpacity, 0, 1);
 
   return {
-    circleOpacity, circleStrokeOpacity, symbolIconOpacity, symbolTextOpacity,
-    lineOpacity, fillOpacity,
+    circleOpacity,
+    circleStrokeOpacity,
+    symbolIconOpacity,
+    symbolTextOpacity,
+    lineOpacity,
+    fillOpacity,
   };
 }

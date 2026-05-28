@@ -64,7 +64,12 @@ class DefaultRasterRulesTests(SimpleTestCase):
         self.assertEqual(rules["bands"], [1, 2, 3])
 
     def test_two_bands_fills_third(self):
-        metadata = {"bands": [{"band": 1, "min": 0, "max": 100}, {"band": 2, "min": 0, "max": 100}]}
+        metadata = {
+            "bands": [
+                {"band": 1, "min": 0, "max": 100},
+                {"band": 2, "min": 0, "max": 100},
+            ]
+        }
         rules = default_raster_rules(metadata)
         self.assertEqual(rules["mode"], "rgb")
         self.assertEqual(rules["bands"], [1, 2, 2])
@@ -85,7 +90,10 @@ class NormalizeRulesTests(SimpleTestCase):
         self.assertEqual(len(rules["bands"]), 3)
 
     def test_normalizes_alpha_and_nodata(self):
-        rules = normalize_rules({"mode": "rgb", "alphaBand": 99, "nodata": {"enabled": False}}, _three_band_metadata())
+        rules = normalize_rules(
+            {"mode": "rgb", "alphaBand": 99, "nodata": {"enabled": False}},
+            _three_band_metadata(),
+        )
         self.assertEqual(rules["alphaBand"], 3)
         self.assertFalse(rules["nodata"]["enabled"])
 

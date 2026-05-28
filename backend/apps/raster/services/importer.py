@@ -87,7 +87,9 @@ def append_dataset_progress(dataset: RasterDataset, text: str) -> None:
     dataset.save(update_fields=("progress_log", "updated_at"))
 
 
-def scan_unprocessed_source_files(progress: Callable[[str], None] | None = None) -> list[RasterDataset]:
+def scan_unprocessed_source_files(
+    progress: Callable[[str], None] | None = None,
+) -> list[RasterDataset]:
     source_root = raster_source_path("")
     imported: list[RasterDataset] = []
     for source_path in sorted(source_root.rglob("*")):
