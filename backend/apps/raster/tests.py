@@ -79,6 +79,7 @@ class RasterScanPathTests(TestCase):
         config_path = root / "app.toml"
         business_root = root / "app"
         geographic_root = root / "geo"
+        non_geographic_root = root / "nongeo"
         config_path.write_text(
             f"""
 [system]
@@ -89,13 +90,13 @@ allow_registration = true
 [storage]
 app_data = "{business_root}"
 geographic_data_root = "{geographic_root}"
+non_geographic_data_root = "{non_geographic_root}"
 auto_create_directories = true
 
 [map]
 default_center = [80.0, 41.5]
 default_zoom = 4.5
 default_basemap = "osm"
-mapbox_access_token = "pk.test-token"
 
 [limits]
 upload_max_mb = 512

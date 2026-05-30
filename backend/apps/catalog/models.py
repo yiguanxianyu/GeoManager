@@ -35,6 +35,7 @@ class DataResource(models.Model):
     class DataType(models.TextChoices):
         VECTOR = "vector", "矢量空间数据"
         RASTER = "raster", "栅格空间数据"
+        GENE = "gene", "基因非地理数据"
         TABLE = "table", "表格属性数据"
         DOCUMENT = "document", "文档资料"
         IMAGE = "image", "图片资料"
@@ -64,7 +65,7 @@ class DataResource(models.Model):
         max_length=255,
         blank=True,
         verbose_name="存储相对路径",
-        help_text="矢量填写 geodata/vector/vector.gpkg 内的图层名；栅格相对于 geographic/raster。",
+        help_text="矢量填写 GeoPackage 图层名；栅格相对于地理数据 raster/；基因和表格相对于非地理数据根目录。",
     )
     description = models.TextField(blank=True, verbose_name="数据说明")
     quality_note = models.TextField(blank=True, verbose_name="数据质量说明")

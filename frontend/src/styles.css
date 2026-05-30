@@ -104,6 +104,148 @@ body {
   margin-bottom: 18px;
 }
 
+.visualization-home,
+.nongeo-workspace {
+  min-height: 100vh;
+  background:
+    linear-gradient(
+      135deg,
+      rgba(239, 244, 239, 0.96),
+      rgba(218, 229, 226, 0.94)
+    ),
+    url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1800&q=80");
+  background-size: cover;
+  background-position: center;
+}
+
+.portal-header {
+  height: 66px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 clamp(16px, 4vw, 52px);
+  background: rgba(250, 252, 249, 0.82);
+  border-bottom: 1px solid rgba(23, 63, 57, 0.14);
+  backdrop-filter: blur(18px) saturate(1.1);
+}
+
+.portal-header .brand-block h4.ant-typography {
+  margin: 0;
+  color: #173f39;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.portal-header .ant-btn {
+  border-color: rgba(23, 63, 57, 0.16);
+  color: #173f39;
+}
+
+.portal-body {
+  min-height: calc(100vh - 66px);
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 20px;
+  padding: clamp(22px, 5vw, 60px);
+}
+
+.visualization-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: clamp(18px, 3vw, 34px);
+  align-items: stretch;
+}
+
+.visualization-choice-card.ant-card {
+  min-height: min(48vh, 430px);
+  border-radius: 8px;
+  border: 1px solid rgba(23, 63, 57, 0.12);
+  overflow: hidden;
+  box-shadow: 0 22px 70px rgba(22, 48, 43, 0.16);
+}
+
+.visualization-choice-card .ant-card-body {
+  height: 100%;
+  min-height: inherit;
+  display: grid;
+  align-content: end;
+  gap: 18px;
+  padding: clamp(24px, 4vw, 42px);
+}
+
+.geo-choice-card.ant-card {
+  background:
+    linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.92),
+      rgba(214, 231, 219, 0.82)
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(47, 125, 98, 0.08) 0 1px,
+      transparent 1px 44px
+    );
+}
+
+.nongeo-choice-card.ant-card {
+  background:
+    linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.94),
+      rgba(231, 226, 211, 0.84)
+    ),
+    repeating-linear-gradient(
+      0deg,
+      rgba(122, 93, 43, 0.08) 0 1px,
+      transparent 1px 38px
+    );
+}
+
+.choice-card-icon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #173f39;
+}
+
+.visualization-choice-card h2.ant-typography {
+  margin: 0;
+  color: #173f39;
+  font-size: clamp(30px, 4vw, 52px);
+  line-height: 1.05;
+}
+
+.choice-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.choice-card-tags .ant-tag {
+  margin-inline-end: 0;
+}
+
+.portal-admin-entry {
+  display: flex;
+  justify-content: center;
+  padding-bottom: 8px;
+}
+
+.portal-admin-entry .ant-btn {
+  min-width: min(360px, 100%);
+  height: 48px;
+  border-color: rgba(23, 63, 57, 0.2);
+  color: #173f39;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 16px 48px rgba(22, 48, 43, 0.14);
+}
+
+.nongeo-stage {
+  min-height: calc(100vh - 66px);
+  background: rgba(250, 252, 249, 0.34);
+}
+
 .workspace {
   height: 100vh;
   overflow: hidden;
@@ -155,7 +297,7 @@ body {
   min-width: 0;
 }
 
-.brand-block h4.ant-typography {
+.workspace-header .brand-block h4.ant-typography {
   margin: 0;
   color: #ffffff;
   font-size: 17px;
@@ -780,6 +922,37 @@ body {
     font-size: 30px;
   }
 
+  .portal-header {
+    height: auto;
+    min-height: 66px;
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 12px 14px;
+  }
+
+  .portal-header .header-left,
+  .portal-header .header-account-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .portal-body {
+    min-height: calc(100vh - 112px);
+    padding: 16px;
+  }
+
+  .visualization-choice-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .visualization-choice-card.ant-card {
+    min-height: 240px;
+  }
+
+  .visualization-choice-card h2.ant-typography {
+    font-size: 32px;
+  }
+
   .workspace-header {
     height: auto;
     min-height: 58px;
@@ -811,7 +984,7 @@ body {
     bottom: 16px;
   }
 
-  .brand-block h4.ant-typography {
+  .workspace-header .brand-block h4.ant-typography {
     max-width: 250px;
   }
 }

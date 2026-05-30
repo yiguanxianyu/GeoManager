@@ -3,11 +3,13 @@
 ## 分层与目录
 
 - 前端和后端必须分离：`frontend/` 只放 React/Vite 工程，`backend/` 只放 Django 工程。
-- 程序代码、业务数据、地理数据分离存放。业务数据根目录和地理数据根目录只从 TOML 配置读取。
+- 程序代码、业务数据、地理数据、非地理数据分离存放。三类数据根目录只从 TOML 配置读取。
 - 业务数据固定子目录：`database/`、`media/`、`uploads/`、`exports/`、`logs/`、`static/`。
 - 地理数据固定子目录：`vector/`、`raster/original/`、`raster/preprocessed/`、`raster/metadata/source/`、`raster/metadata/preprocessed/`。
+- 非地理数据固定子目录：`gene/`、`table/`。
 - 当前本机业务数据根目录为 `/Users/gx/Documents/Source/huyang_system_data/appdata`，通过 TOML 的 `storage.app_data` 指定，不在程序中硬编码。
 - 当前本机地理数据根目录为 `/Users/gx/Documents/Source/huyang_system_data/geodata`，通过 TOML 的 `storage.geographic_data_root` 指定，不在程序中硬编码。
+- 当前本机非地理数据根目录为 `/Users/gx/Documents/Source/huyang_system_data/nongeodata`，通过 TOML 的 `storage.non_geographic_data_root` 指定，不在程序中硬编码。
 
 ## 后端模块结构
 
@@ -61,12 +63,13 @@ backend/apps/
 - 使用 Django 内置 auth、admin、session、permission；平台后台是登录后的功能入口，通过平台功能权限决定是否显示和访问。
 - 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。全新生产环境不使用演示初始化脚本，首个注册用户自动成为系统管理员，后续注册用户为普通账号。
 - 运行日志统一写入业务数据根目录的 `logs/`：Django 应用日志、Django 框架日志、安全日志、Gunicorn 访问/错误日志、Nginx 访问/错误日志都落在该目录。
-- Docker 启动入口必须先创建固定业务/地理数据子目录，再执行 `python manage.py migrate --noinput` 和 `collectstatic`，确保空 appdata 首次启动可以直接注册首个管理员。
+- Docker 启动入口必须先创建固定业务/地理/非地理数据子目录，再执行 `python manage.py migrate --noinput` 和 `collectstatic`，确保空 appdata 首次启动可以直接注册首个管理员。
 - SQLite 数据库放在业务数据根目录的 `database/` 下。
 - 所有矢量数据统一从地理数据根目录下的 `vector/vector.gpkg` 读取；业务库中的矢量 `storage_path` 和图层 `source_path` 字段填写该 GeoPackage 内的图层名，后端读取并输出 GeoJSON。
 - 栅格数据统一放在地理数据根目录的 `raster/` 总目录下：源文件放在 `raster/original/`，导入后预处理 COG 放在 `raster/preprocessed/`，两份 `gdalinfo -json` 元数据放在 `raster/metadata/source/` 和 `raster/metadata/preprocessed/`。
+- 非地理数据统一放在非地理数据根目录下：基因数据放在 `gene/`，表格数据放在 `table/`。后端目录扫描会登记 `gene` 和 `table` 类型的 `DataResource`，不创建地图图层。
 - 栅格导入预处理固定使用 `gdalwarp -t_srs EPSG:3857 -r nearest -co COMPRESS=DEFLATE -of COG "$in" "$out"`，导入记录保存源文件、预处理文件、两份 GDAL 元数据、导入时间、处理日志、错误信息、默认符号化规则、范围和关联数据资源/地图图层。
-- 后端启动 `runserver` 或 WSGI/ASGI 进程时会异步扫描 `vector/vector.gpkg` 和 `raster/original/` 下已有数据；矢量图层会登记为 `DataResource/MapLayer`，栅格源文件会完成预处理并登记目录。迁移、测试等管理命令不触发扫描。可用 `APP_DISABLE_CATALOG_STARTUP_SCAN=1` 或 `APP_DISABLE_RASTER_STARTUP_SCAN=1` 显式关闭。
+- 后端启动 `runserver` 或 WSGI/ASGI 进程时会异步扫描 `vector/vector.gpkg`、非地理数据 `gene/`、`table/` 和 `raster/original/` 下已有数据；矢量图层会登记为 `DataResource/MapLayer`，非地理文件登记为 `DataResource`，栅格源文件会完成预处理并登记目录。迁移、测试等管理命令不触发扫描。可用 `APP_DISABLE_CATALOG_STARTUP_SCAN=1` 或 `APP_DISABLE_RASTER_STARTUP_SCAN=1` 显式关闭。
 
 ## 统一功能权限
 
@@ -125,7 +128,7 @@ frontend/src/
 ## 首批前端边界
 
 - 统一登录页不展示独立后台入口。
-- 登录后进入地图工作台，包含顶部栏、地图、数据管理面板和已加载图层面板。
+- 登录后进入可视化入口页，分为地理可视化和非地理可视化两个入口；地理可视化进入地图工作台，非地理可视化当前保留空白承载页。
 - 后台入口始终作为工作台功能呈现；无权限时禁用并显示用户组无权限提示，入口指向 Django admin。
 - 前端仅做矢量样式表达和 XYZ 瓦片叠加，不实现栅格符号化。
 - Mapbox 公共 token 优先从环境变量 `MAPBOX_ACCESS_TOKEN` 读取，也可在 TOML 的 `map.mapbox_access_token` 中配置；经后端 bootstrap 下发，前端不硬编码默认 token。

@@ -6,6 +6,7 @@ allow_registration = true
 [storage]
 app_data = "/path/to/data/business"
 geographic_data_root = "/path/to/data/geographic"
+non_geographic_data_root = "/path/to/data/nongeographic"
 auto_create_directories = true
 
 [map]

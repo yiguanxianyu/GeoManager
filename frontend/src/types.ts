@@ -52,7 +52,7 @@ export interface DataResource {
   id: number;
   name: string;
   code: string;
-  dataType: "vector" | "raster" | "table" | "document" | "image";
+  dataType: "vector" | "raster" | "gene" | "table" | "document" | "image";
   category: DictionaryItem | null;
   source: string;
   provider: string;

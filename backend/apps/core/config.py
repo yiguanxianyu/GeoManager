@@ -16,6 +16,7 @@ GEOGRAPHIC_SUBDIRS = (
     "raster/metadata/source",
     "raster/metadata/preprocessed",
 )
+NONGEOGRAPHIC_SUBDIRS = ("gene", "table")
 
 
 class ConfigValidationError(RuntimeError):
@@ -27,7 +28,6 @@ class MapConfig:
     default_center: tuple[float, float]
     default_zoom: float
     default_basemap: str
-    mapbox_access_token: str
 
 
 @dataclass(frozen=True)
@@ -50,6 +50,7 @@ class ProjectConfig:
     allow_registration: bool
     app_data: Path
     geographic_data_root: Path
+    non_geographic_data_root: Path
     auto_create_directories: bool
     map: MapConfig
     limits: LimitConfig
@@ -60,6 +61,9 @@ class ProjectConfig:
 
     def geographic_path(self, *parts: str) -> Path:
         return self.geographic_data_root.joinpath(*parts)
+
+    def non_geographic_path(self, *parts: str) -> Path:
+        return self.non_geographic_data_root.joinpath(*parts)
 
 
 def load_project_config(config_path: Path, program_root: Path) -> ProjectConfig:
@@ -82,7 +86,8 @@ def load_project_config(config_path: Path, program_root: Path) -> ProjectConfig:
 
     app_root = _absolute_path(storage.get("app_data"), "storage.app_data")
     geographic_root = _absolute_path(storage.get("geographic_data_root"), "storage.geographic_data_root")
-    _validate_separate_roots(program_root, app_root, geographic_root)
+    non_geographic_root = _absolute_path(storage.get("non_geographic_data_root"), "storage.non_geographic_data_root")
+    _validate_separate_roots(program_root, app_root, geographic_root, non_geographic_root)
 
     project_config = ProjectConfig(
         config_path=config_path,
@@ -91,12 +96,12 @@ def load_project_config(config_path: Path, program_root: Path) -> ProjectConfig:
         allow_registration=bool(system.get("allow_registration", False)),
         app_data=app_root,
         geographic_data_root=geographic_root,
+        non_geographic_data_root=non_geographic_root,
         auto_create_directories=bool(storage.get("auto_create_directories", False)),
         map=MapConfig(
             default_center=_center(map_config.get("default_center")),
             default_zoom=float(map_config.get("default_zoom", 4.5)),
             default_basemap=_string(map_config.get("default_basemap"), "map.default_basemap"),
-            mapbox_access_token=_mapbox_token(map_config.get("mapbox_access_token")),
         ),
         limits=LimitConfig(
             upload_max_mb=_positive_int(limits.get("upload_max_mb"), "limits.upload_max_mb"),
@@ -154,32 +159,31 @@ def _center(value: Any) -> tuple[float, float]:
     return lon, lat
 
 
-def _mapbox_token(value: Any) -> str:
-    # 优先从环境变量读取
-    env_token = os.environ.get("MAPBOX_ACCESS_TOKEN")
-    if env_token:
-        token = env_token.strip()
-    else:
-        token = _string(value, "map.mapbox_access_token") if value else ""
-
-    if not token:
-        raise ConfigValidationError("Mapbox access token 未配置，请设置环境变量 MAPBOX_ACCESS_TOKEN 或在配置文件中设置 map.mapbox_access_token")
-    if not token.startswith("pk."):
-        raise ConfigValidationError("Mapbox access token 必须是公共 token（pk.*）")
-    return token
-
-
-def _validate_separate_roots(program_root: Path, app_root: Path, geographic_root: Path) -> None:
-    if app_root == geographic_root:
-        raise ConfigValidationError("业务数据总目录和地理数据总目录不能相同")
-    if _is_relative_to(app_root, program_root) or _is_relative_to(geographic_root, program_root):
-        raise ConfigValidationError("业务数据总目录和地理数据总目录不能位于程序目录内")
+def _validate_separate_roots(program_root: Path, app_root: Path, geographic_root: Path, non_geographic_root: Path) -> None:
+    roots = {
+        "业务数据总目录": app_root,
+        "地理数据总目录": geographic_root,
+        "非地理数据总目录": non_geographic_root,
+    }
+    seen: dict[Path, str] = {}
+    for label, root in roots.items():
+        if root in seen:
+            raise ConfigValidationError(f"{seen[root]}和{label}不能相同")
+        seen[root] = label
+        if _is_relative_to(root, program_root):
+            raise ConfigValidationError(f"{label}不能位于程序目录内")
+    root_items = list(roots.items())
+    for index, (label, root) in enumerate(root_items):
+        for other_label, other_root in root_items[index + 1 :]:
+            if _is_relative_to(root, other_root) or _is_relative_to(other_root, root):
+                raise ConfigValidationError(f"{label}和{other_label}不能互为上下级目录")
 
 
 def _prepare_fixed_directories(config: ProjectConfig) -> None:
     required_paths = [
         *(config.app_path(subdir) for subdir in APP_SUBDIRS),
         *(config.geographic_path(subdir) for subdir in GEOGRAPHIC_SUBDIRS),
+        *(config.non_geographic_path(subdir) for subdir in NONGEOGRAPHIC_SUBDIRS),
     ]
     for directory in required_paths:
         if config.auto_create_directories:

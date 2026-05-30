@@ -17,6 +17,10 @@ def geographic_path(*parts: str) -> Path:
     return _safe_join(settings.PROJECT_CONFIG.geographic_data_root, *parts)
 
 
+def non_geographic_path(*parts: str) -> Path:
+    return _safe_join(settings.PROJECT_CONFIG.non_geographic_data_root, *parts)
+
+
 def vector_geopackage_path() -> Path:
     return geographic_path("vector", "vector.gpkg")
 
@@ -43,6 +47,14 @@ def raster_processed_path(relative_path: str) -> Path:
 
 def raster_metadata_path(relative_path: str) -> Path:
     return geographic_path("raster", "metadata", relative_path)
+
+
+def gene_data_path(relative_path: str = "") -> Path:
+    return non_geographic_path("gene", relative_path) if relative_path else non_geographic_path("gene")
+
+
+def table_data_path(relative_path: str = "") -> Path:
+    return non_geographic_path("table", relative_path) if relative_path else non_geographic_path("table")
 
 
 def _safe_join(root: Path, *parts: str) -> Path:

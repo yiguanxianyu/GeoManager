@@ -13,9 +13,12 @@ from apps.core.models import SystemSetting
 from apps.core.storage import (
     StoragePathError,
     geographic_path,
+    gene_data_path,
+    non_geographic_path,
     raster_metadata_path,
     raster_processed_path,
     raster_source_path,
+    table_data_path,
 )
 
 
@@ -30,10 +33,6 @@ class BootstrapApiTests(TestCase):
         self.assertIn("systemName", payload)
         self.assertFalse(payload["allowRegistration"])
         self.assertIn("map", payload)
-        self.assertEqual(
-            payload["map"]["mapboxAccessToken"],
-            settings.PROJECT_CONFIG.map.mapbox_access_token,
-        )
 
 
 class RegistrationApiTests(TestCase):
@@ -120,10 +119,18 @@ class StoragePathTests(SimpleTestCase):
         with self.assertRaises(StoragePathError):
             geographic_path("vector", "../secret.gpkg")
 
+    def test_non_geographic_path_rejects_parent_traversal(self):
+        with self.assertRaises(StoragePathError):
+            non_geographic_path("gene", "../secret.fasta")
+
     def test_raster_paths_are_under_raster_root(self):
         self.assertTrue(str(raster_source_path("a.tif")).endswith("/raster/original/a.tif"))
         self.assertTrue(str(raster_processed_path("a.cog.tif")).endswith("/raster/preprocessed/a.cog.tif"))
         self.assertTrue(str(raster_metadata_path("source/a.tif.gdalinfo.json")).endswith("/raster/metadata/source/a.tif.gdalinfo.json"))
+
+    def test_non_geographic_paths_are_under_fixed_subdirectories(self):
+        self.assertTrue(str(gene_data_path("sample.fasta")).endswith("/gene/sample.fasta"))
+        self.assertTrue(str(table_data_path("survey.csv")).endswith("/table/survey.csv"))
 
 
 class ConfigLoaderTests(SimpleTestCase):
@@ -133,6 +140,7 @@ class ConfigLoaderTests(SimpleTestCase):
             config_path = root / "app.toml"
             business_root = root / "app"
             geographic_root = root / "geo"
+            non_geographic_root = root / "nongeo"
             config_path.write_text(
                 f"""
 [system]
@@ -143,13 +151,13 @@ allow_registration = true
 [storage]
 app_data = "{business_root}"
 geographic_data_root = "{geographic_root}"
+non_geographic_data_root = "{non_geographic_root}"
 auto_create_directories = true
 
 [map]
 default_center = [80.0, 41.5]
 default_zoom = 4.5
 default_basemap = "osm"
-mapbox_access_token = "pk.test-token"
 
 [limits]
 upload_max_mb = 512
@@ -171,6 +179,8 @@ default_symbolizer_script = "scripts/raster_symbolizers/basic_gradient.py"
             self.assertTrue(config.geographic_path("raster", "preprocessed").is_dir())
             self.assertTrue(config.geographic_path("raster", "metadata", "source").is_dir())
             self.assertTrue(config.geographic_path("raster", "metadata", "preprocessed").is_dir())
+            self.assertTrue(config.non_geographic_path("gene").is_dir())
+            self.assertTrue(config.non_geographic_path("table").is_dir())
 
 
 def grant(user, *specs):

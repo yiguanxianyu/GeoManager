@@ -1,3 +1,5 @@
+import os
+
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
@@ -24,7 +26,7 @@ def bootstrap(request):
                 "defaultCenter": config.map.default_center,
                 "defaultZoom": config.map.default_zoom,
                 "defaultBasemap": config.map.default_basemap,
-                "mapboxAccessToken": config.map.mapbox_access_token,
+                "mapboxAccessToken": os.environ.get("MAPBOX_ACCESS_TOKEN", ""),
             },
             "limits": {
                 "uploadMaxMb": config.limits.upload_max_mb,

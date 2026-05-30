@@ -16,6 +16,7 @@ services:
       - ${APP_CONFIG_FILE:-./config/app.docker.toml}:/config/app.toml:ro
       - ${APP_DATA_HOST:-./data/business}:/data/app
       - ${GEOGRAPHIC_DATA_HOST:-./data/geographic}:/data/geographic
+      - ${NONGEOGRAPHIC_DATA_HOST:-./data/nongeographic}:/data/nongeographic
     expose:
       - "8000"
 

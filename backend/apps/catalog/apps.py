@@ -26,8 +26,8 @@ class CatalogConfig(AppConfig):
             return
 
         def run_scan() -> None:
-            from apps.catalog.services import scan_vector_geopackage_safely
+            from apps.catalog.services import scan_catalog_sources_safely
 
-            scan_vector_geopackage_safely()
+            scan_catalog_sources_safely()
 
         threading.Thread(target=run_scan, name="catalog-startup-scan", daemon=True).start()

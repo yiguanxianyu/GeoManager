@@ -8,8 +8,8 @@ from django.test import TestCase
 from shapely.geometry import Point
 
 from apps.catalog.models import DataResource, MapLayer
-from apps.catalog.services import scan_vector_geopackage
-from apps.core.storage import vector_geopackage_path
+from apps.catalog.services import scan_catalog_sources, scan_vector_geopackage
+from apps.core.storage import gene_data_path, table_data_path, vector_geopackage_path
 
 
 class LayerApiTests(TestCase):
@@ -61,6 +61,8 @@ class ResourceQueryApiTests(TestCase):
         self.path = vector_geopackage_path()
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.unlink(missing_ok=True)
+        gene_data_path("populus.fasta").unlink(missing_ok=True)
+        table_data_path("survey.csv").unlink(missing_ok=True)
 
         import geopandas as gpd
 
@@ -160,6 +162,22 @@ class CatalogScanTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["items"][0]["name"], self.layer_name)
+
+    def test_scan_catalog_sources_registers_nongeographic_files(self):
+        gene_file = gene_data_path("populus.fasta")
+        table_file = table_data_path("survey.csv")
+        gene_file.parent.mkdir(parents=True, exist_ok=True)
+        table_file.parent.mkdir(parents=True, exist_ok=True)
+        gene_file.write_text(">sample\nATCG\n", encoding="utf-8")
+        table_file.write_text("id,value\n1,42\n", encoding="utf-8")
+        self.addCleanup(gene_file.unlink, missing_ok=True)
+        self.addCleanup(table_file.unlink, missing_ok=True)
+
+        resources = scan_catalog_sources()
+
+        resource_types = {resource.storage_path: resource.data_type for resource in resources}
+        self.assertEqual(resource_types["gene/populus.fasta"], DataResource.DataType.GENE)
+        self.assertEqual(resource_types["table/survey.csv"], DataResource.DataType.TABLE)
 
 
 class ExportApiTests(TestCase):
