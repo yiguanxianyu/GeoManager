@@ -9,7 +9,7 @@ from typing import Any, Callable
 
 from django.core.exceptions import ValidationError
 
-from apps.core.storage import raster_processed_path
+from apps.core.storage import raster_processed_path, raster_source_path
 from apps.raster.models import RasterDataset
 from apps.raster.services.gdal_ops import run_gdal_command
 
@@ -97,11 +97,11 @@ def export_raster_tif(
     progress: ProgressCallback | None = None,
 ) -> None:
     dataset = RasterDataset.objects.filter(pk=dataset_id, status=RasterDataset.Status.READY).first()
-    if not dataset or not dataset.processed_relative_path:
+    if not dataset or not dataset.source_relative_path:
         raise ExportError("栅格数据集不可导出")
-    source = raster_processed_path(dataset.processed_relative_path)
+    source = raster_source_path(dataset.source_relative_path)
     if not source.exists():
-        raise ExportError("栅格预处理文件不存在")
+        raise ExportError("栅格源文件不存在")
 
     try:
         command = [
