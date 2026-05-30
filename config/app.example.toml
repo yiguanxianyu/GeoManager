@@ -4,8 +4,8 @@ mode = "development"
 allow_registration = true
 
 [storage]
-business_data_root = "/data/business"
-geographic_data_root = "/data/geographic"
+business_data_root = "../data/business"
+geographic_data_root = "../data/geographic"
 auto_create_directories = true
 
 [map]

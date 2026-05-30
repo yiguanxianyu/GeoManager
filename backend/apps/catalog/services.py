@@ -28,12 +28,15 @@ def scan_vector_geopackage() -> list[DataResource]:
 
 
 def scan_vector_geopackage_safely() -> None:
+    import logging
+
+    logger = logging.getLogger(__name__)
     try:
         scan_vector_geopackage()
     except (OperationalError, ProgrammingError):
-        return
+        logger.debug("矢量目录扫描跳过：数据库尚未就绪")
     except Exception:
-        return
+        logger.exception("矢量目录扫描失败")
 
 
 def upsert_vector_catalog_records(layer_name: str) -> DataResource:
@@ -76,7 +79,7 @@ def upsert_vector_catalog_records(layer_name: str) -> DataResource:
 
 def _vector_layer_names(path) -> list[str]:
     layers = gpd.list_layers(path)
-    if hasattr(layers, "name"):
+    if hasattr(layers, "columns") and "name" in layers.columns:
         return [str(name) for name in layers["name"].dropna().tolist()]
     return [str(item[0] if isinstance(item, (list, tuple)) else item) for item in layers]
 

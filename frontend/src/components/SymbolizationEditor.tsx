@@ -1081,12 +1081,12 @@ export function RasterSymbolizationEditor({
                     }
                   />
                 </ControlRow>
-                {selectedBands.map((band) => (
+                {selectedBands.map((band, index) => (
                   <ControlRow
-                    key={band}
+                    key={value.mode === "rgb" ? ["R", "G", "B"][index] : "band"}
                     label={
                       value.mode === "rgb"
-                        ? ["R", "G", "B"][selectedBands.indexOf(band)]
+                        ? ["R", "G", "B"][index]
                         : "波段"
                     }
                   >
@@ -1095,7 +1095,7 @@ export function RasterSymbolizationEditor({
                       value={band}
                       options={bandOptions}
                       onChange={(nextBand) =>
-                        updateBand(selectedBands.indexOf(band), nextBand)
+                        updateBand(index, nextBand)
                       }
                     />
                   </ControlRow>

@@ -87,6 +87,9 @@ def append_dataset_progress(dataset: RasterDataset, text: str) -> None:
 def scan_unprocessed_source_files(
     progress: Callable[[str], None] | None = None,
 ) -> list[RasterDataset]:
+    import logging
+
+    logger = logging.getLogger(__name__)
     source_root = raster_source_path("")
     imported: list[RasterDataset] = []
     for source_path in sorted(source_root.rglob("*")):
@@ -99,17 +102,25 @@ def scan_unprocessed_source_files(
             continue
         if progress:
             progress(f"发现未处理源文件：{source_relative}")
-        imported.append(import_raster_file(source_path, progress=progress))
+        try:
+            imported.append(import_raster_file(source_path, progress=progress))
+        except Exception:
+            logger.exception("扫描导入栅格文件失败：%s", source_relative)
+            if progress:
+                progress(f"导入失败（已跳过）：{source_relative}")
     return imported
 
 
 def scan_unprocessed_source_files_safely() -> None:
+    import logging
+
+    logger = logging.getLogger(__name__)
     try:
         scan_unprocessed_source_files()
     except (OperationalError, ProgrammingError):
-        return
+        logger.debug("栅格扫描跳过：数据库尚未就绪")
     except Exception:
-        return
+        logger.exception("栅格扫描失败")
 
 
 def import_raster_file(
