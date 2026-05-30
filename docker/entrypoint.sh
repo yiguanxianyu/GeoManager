@@ -7,6 +7,7 @@ BUSINESS_ROOT="${APP_BUSINESS_ROOT:-/data/business}"
 GEOGRAPHIC_ROOT="${APP_GEOGRAPHIC_ROOT:-/data/geographic}"
 GUNICORN_BIND="${GUNICORN_BIND:-0.0.0.0:8000}"
 GUNICORN_WORKERS="${GUNICORN_WORKERS:-1}"
+LOG_ROOT="${BUSINESS_ROOT}/logs"
 
 export PATH="/opt/conda/bin:${PATH}"
 export PYTHONPATH="${BACKEND_ROOT}:${PYTHONPATH:-}"
@@ -23,13 +24,18 @@ prepare_data_dirs() {
     "${BUSINESS_ROOT}/static" \
     "${GEOGRAPHIC_ROOT}/vector" \
     "${GEOGRAPHIC_ROOT}/raster" \
-    "${GEOGRAPHIC_ROOT}/preprocessed" \
-    "${GEOGRAPHIC_ROOT}/metadata" \
-    "${GEOGRAPHIC_ROOT}/png/output" \
-    "${GEOGRAPHIC_ROOT}/png/cache"
+    "${GEOGRAPHIC_ROOT}/raster/original" \
+    "${GEOGRAPHIC_ROOT}/raster/preprocessed" \
+    "${GEOGRAPHIC_ROOT}/raster/metadata/source" \
+    "${GEOGRAPHIC_ROOT}/raster/metadata/preprocessed"
   do
     mkdir -p "${dir}"
   done
+}
+
+business_data_is_empty() {
+  [[ ! -d "${BUSINESS_ROOT}" ]] && return 0
+  [[ -z "$(find "${BUSINESS_ROOT}" -mindepth 1 -maxdepth 1 -print -quit)" ]]
 }
 
 wait_for_config() {
@@ -42,6 +48,9 @@ wait_for_config() {
 
 case "${1:-serve}" in
   serve)
+    if business_data_is_empty; then
+      echo "业务数据目录为空，按首次启动流程初始化数据目录并执行数据库迁移。"
+    fi
     prepare_data_dirs
     wait_for_config
     cd "${BACKEND_ROOT}"
@@ -50,8 +59,8 @@ case "${1:-serve}" in
     exec gunicorn data_sharing_platform.wsgi:application \
       --bind "${GUNICORN_BIND}" \
       --workers "${GUNICORN_WORKERS}" \
-      --access-logfile - \
-      --error-logfile -
+      --access-logfile "${LOG_ROOT}/gunicorn-access.log" \
+      --error-logfile "${LOG_ROOT}/gunicorn-error.log"
     ;;
   manage)
     shift

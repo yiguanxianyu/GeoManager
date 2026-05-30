@@ -1,7 +1,7 @@
 [system]
 name = "Data Sharing Platform"
 mode = "development"
-allow_registration = false
+allow_registration = true
 
 [storage]
 business_data_root = "/data/business"

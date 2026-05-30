@@ -3,6 +3,14 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 from apps.core.config import BUSINESS_SUBDIRS, GEOGRAPHIC_SUBDIRS
+from apps.core.models import SystemSetting
+
+
+def registration_allowed() -> bool:
+    system_setting = SystemSetting.objects.filter(pk=1).only("allow_registration").first()
+    if system_setting is None:
+        return settings.PROJECT_CONFIG.allow_registration
+    return system_setting.allow_registration
 
 
 @require_GET
@@ -11,7 +19,7 @@ def bootstrap(request):
     return JsonResponse(
         {
             "systemName": config.system_name,
-            "allowRegistration": config.allow_registration,
+            "allowRegistration": registration_allowed(),
             "map": {
                 "defaultCenter": config.map.default_center,
                 "defaultZoom": config.map.default_zoom,

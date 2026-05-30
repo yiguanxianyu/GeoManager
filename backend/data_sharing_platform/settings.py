@@ -110,3 +110,56 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "/"
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+
+LOG_DIR = PROJECT_CONFIG.business_path("logs")
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s [%(levelname)s] %(name)s:%(lineno)d %(message)s",
+        },
+    },
+    "handlers": {
+        "application_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOG_DIR / "application.log",
+            "maxBytes": 10 * 1024 * 1024,
+            "backupCount": 10,
+            "formatter": "standard",
+            "encoding": "utf-8",
+        },
+        "django_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOG_DIR / "django.log",
+            "maxBytes": 10 * 1024 * 1024,
+            "backupCount": 10,
+            "formatter": "standard",
+            "encoding": "utf-8",
+        },
+        "security_file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": LOG_DIR / "security.log",
+            "maxBytes": 10 * 1024 * 1024,
+            "backupCount": 10,
+            "formatter": "standard",
+            "encoding": "utf-8",
+        },
+    },
+    "root": {
+        "handlers": ["application_file"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["django_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+        "django.security": {
+            "handlers": ["security_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}

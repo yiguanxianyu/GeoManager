@@ -13,6 +13,7 @@ COMPOSE_FILE="${COMPOSE_FILE:-${PROJECT_ROOT}/docker-compose.yml}"
 SOURCE_CONFIG_FILE="${APP_SOURCE_CONFIG_FILE:-${1:-}}"
 RUNTIME_DIR="${APP_RUNTIME_DIR:-${PROJECT_ROOT}/.deploy}"
 APP_HTTP_PORT="${APP_HTTP_PORT:-80}"
+APP_DOCKER_BUILD_MODE="${APP_DOCKER_BUILD_MODE:-serial}"
 
 if [[ -z "${SOURCE_CONFIG_FILE}" ]]; then
   cat >&2 <<EOF
@@ -46,6 +47,18 @@ export APP_HTTP_PORT
 cd "${PROJECT_ROOT}"
 
 git pull --ff-only
-docker compose -f "${COMPOSE_FILE}" build
+case "${APP_DOCKER_BUILD_MODE}" in
+  parallel)
+    docker compose -f "${COMPOSE_FILE}" build
+    ;;
+  serial)
+    docker compose -f "${COMPOSE_FILE}" build django
+    docker compose -f "${COMPOSE_FILE}" build nginx
+    ;;
+  *)
+    echo "APP_DOCKER_BUILD_MODE 只能是 parallel 或 serial，当前值：${APP_DOCKER_BUILD_MODE}" >&2
+    exit 1
+    ;;
+esac
 docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
 docker compose -f "${COMPOSE_FILE}" ps

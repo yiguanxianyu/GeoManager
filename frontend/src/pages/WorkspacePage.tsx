@@ -70,6 +70,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
   const [querying, setQuerying] = useState(false);
   const [dataPanelOpen, setDataPanelOpen] = useState(false);
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const startupScanStartedRef = useRef(false);
 
   const layerGroups = useLayerGroups();
   const { startRasterRender, setMapInstance } = useRasterRender(
@@ -107,10 +108,12 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
       try {
         const response = await api.resources(filters);
         setResources(response.items);
+        return response.items;
       } catch (error) {
         message.error(
           error instanceof Error ? error.message : "数据资源加载失败",
         );
+        return [];
       }
     },
     [message],
@@ -118,9 +121,49 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
 
   useEffect(() => {
     if (user.permissions.canBrowseData) {
-      loadResources({});
+      void loadResources({});
     }
   }, [user.permissions.canBrowseData, loadResources]);
+
+  const waitForJob = useCallback(async (jobId: string) => {
+    while (true) {
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+      const job = await api.rasterJob(jobId);
+      if (job.status === "ready") {
+        return job;
+      }
+      if (job.status === "failed") {
+        throw new Error(job.error || "数据目录扫描失败");
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user.permissions.canBrowseData || startupScanStartedRef.current) {
+      return;
+    }
+    startupScanStartedRef.current = true;
+
+    async function scanAndRefreshResources() {
+      try {
+        const scanJobs: Promise<unknown>[] = [];
+        scanJobs.push(api.scanCatalogSources());
+        const rasterScanJob = await api.scanRasterSources();
+        scanJobs.push(waitForJob(rasterScanJob.id));
+        if (scanJobs.length > 0) {
+          await Promise.all(scanJobs);
+        }
+      } catch (error) {
+        message.warning(
+          error instanceof Error ? error.message : "数据目录自动扫描失败",
+        );
+      } finally {
+        await loadResources({});
+      }
+    }
+
+    void scanAndRefreshResources();
+  }, [loadResources, message, user.permissions.canBrowseData, waitForJob]);
 
   async function handleSelectResource(resource: DataResource) {
     setSelectedResource(resource);

@@ -15,3 +15,15 @@ class FeaturePermission(models.Model):
             ("load_raster_layer", "可加载栅格图层"),
             ("custom_symbolization", "可自定义符号化"),
         ]
+
+
+class SystemSetting(models.Model):
+    allow_registration = models.BooleanField(default=True, verbose_name="开放自助注册")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "系统设置"
+        verbose_name_plural = "系统设置"
+
+    def __str__(self):
+        return "系统设置"

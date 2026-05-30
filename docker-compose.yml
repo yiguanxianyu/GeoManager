@@ -33,4 +33,4 @@ services:
     ports:
       - "${APP_HTTP_PORT:-80}:80"
     volumes:
-      - ./data/business:/data/business:ro
+      - ./data/business:/data/business

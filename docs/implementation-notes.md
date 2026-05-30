@@ -59,11 +59,14 @@ backend/apps/
 ## 首批后端边界
 
 - 使用 Django 内置 auth、admin、session、permission；平台后台是登录后的功能入口，通过平台功能权限决定是否显示和访问。
+- 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。全新生产环境不使用演示初始化脚本，首个注册用户自动成为系统管理员，后续注册用户为普通账号。
+- 运行日志统一写入业务数据根目录的 `logs/`：Django 应用日志、Django 框架日志、安全日志、Gunicorn 访问/错误日志、Nginx 访问/错误日志都落在该目录。
+- Docker 启动入口必须先创建固定业务/地理数据子目录，再执行 `python manage.py migrate --noinput` 和 `collectstatic`，确保空 appdata 首次启动可以直接注册首个管理员。
 - SQLite 数据库放在业务数据根目录的 `database/` 下。
 - 所有矢量数据统一从地理数据根目录下的 `vector/vector.gpkg` 读取；业务库中的矢量 `storage_path` 和图层 `source_path` 字段填写该 GeoPackage 内的图层名，后端读取并输出 GeoJSON。
 - 栅格数据统一放在地理数据根目录的 `raster/` 总目录下：源文件放在 `raster/original/`，导入后预处理 COG 放在 `raster/preprocessed/`，两份 `gdalinfo -json` 元数据放在 `raster/metadata/source/` 和 `raster/metadata/preprocessed/`。
 - 栅格导入预处理固定使用 `gdalwarp -t_srs EPSG:3857 -r nearest -co COMPRESS=DEFLATE -of COG "$in" "$out"`，导入记录保存源文件、预处理文件、两份 GDAL 元数据、导入时间、处理日志、错误信息、默认符号化规则、范围和关联数据资源/地图图层。
-- 后端启动 `runserver` 或 WSGI/ASGI 进程时会异步扫描 `raster/original/` 下未完成预处理的栅格源文件；迁移、测试等管理命令不触发扫描。可用 `HUYANG_DISABLE_RASTER_STARTUP_SCAN=1` 显式关闭。
+- 后端启动 `runserver` 或 WSGI/ASGI 进程时会异步扫描 `vector/vector.gpkg` 和 `raster/original/` 下已有数据；矢量图层会登记为 `DataResource/MapLayer`，栅格源文件会完成预处理并登记目录。迁移、测试等管理命令不触发扫描。可用 `APP_DISABLE_CATALOG_STARTUP_SCAN=1` 或 `APP_DISABLE_RASTER_STARTUP_SCAN=1` 显式关闭。
 
 ## 统一功能权限
 
@@ -133,7 +136,7 @@ frontend/src/
 - 数据管理负责浏览、按元数据筛选、读取字段与元信息、配置空间查询和属性查询。
 - 数据管理不作为地图左侧常驻面板展示；在工作台顶栏通过"数据管理"按钮弹出。
 - 图层管理只管理已经加载到地图上的查询结果，不直接承担数据检索职责。
-- 数据加载流程固定为：筛选或选择数据资源 -> 后端返回字段与元信息 -> 执行空间/属性查询 -> 将查询结果加载为临时图层。
+- 数据加载流程固定为：工作台打开后自动扫描数据目录并刷新资源列表 -> 自动加载已有可查询/可渲染资源到地图；用户也可筛选或选择数据资源 -> 后端返回字段与元信息 -> 执行空间/属性查询 -> 将查询结果加载为临时图层。
 - 空间查询由前端在地图上绘制矩形、圆、椭圆或多边形，作为 GeoJSON geometry 传给后端。
 - 元数据查询作用于资源列表，当前支持名称、数据类型、分类、来源、提供单位和日期范围。
 - 属性查询基于后端读取到的字段列表构建过滤条件，后端在 GeoPackage 读取结果上执行过滤。

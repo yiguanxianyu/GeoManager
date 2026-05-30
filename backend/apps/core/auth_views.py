@@ -1,13 +1,17 @@
 import json
 
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.audit.service import log_operation
 from apps.core.permissions import has_feature_perm
+from apps.core.views import registration_allowed
 
 
 @require_GET
@@ -36,6 +40,51 @@ def login_view(request):
         request.session.set_expiry(0)
     log_operation(user, "auth", "login", "success", "登录成功", request)
     return JsonResponse({"user": serialize_user(user)})
+
+
+@require_POST
+def register_view(request):
+    if not registration_allowed():
+        return JsonResponse({"detail": "当前系统未开放自助注册"}, status=403)
+
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
+
+    username = str(payload.get("username", "")).strip()
+    email = str(payload.get("email", "")).strip()
+    password = str(payload.get("password", ""))
+    password_confirm = str(payload.get("passwordConfirm", ""))
+    if not username:
+        return JsonResponse({"detail": "请输入账号"}, status=400)
+    if password != password_confirm:
+        return JsonResponse({"detail": "两次输入的密码不一致"}, status=400)
+
+    User = get_user_model()
+    user = User(username=username, email=email)
+    try:
+        validate_password(password, user)
+    except ValidationError as exc:
+        return JsonResponse({"detail": "；".join(exc.messages)}, status=400)
+
+    try:
+        with transaction.atomic():
+            is_first_user = not User.objects.select_for_update().exists()
+            user.is_staff = is_first_user
+            user.is_superuser = is_first_user
+            user.set_password(password)
+            user.save()
+    except IntegrityError:
+        return JsonResponse({"detail": "账号已存在"}, status=400)
+
+    login(request, user)
+    if user.is_superuser:
+        message = "首个注册用户已创建为系统管理员"
+    else:
+        message = "用户注册成功"
+    log_operation(user, "auth", "register", "success", message, request)
+    return JsonResponse({"user": serialize_user(user), "detail": message})
 
 
 @require_POST

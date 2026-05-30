@@ -116,6 +116,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ username, password, remember }),
     }),
+  register: (
+    username: string,
+    email: string,
+    password: string,
+    passwordConfirm: string,
+  ) =>
+    request<{ user: User; detail: string }>("/api/auth/register/", {
+      method: "POST",
+      body: JSON.stringify({ username, email, password, passwordConfirm }),
+    }),
   logout: () =>
     request<{ detail: string }>("/api/auth/logout/", {
       method: "POST",
@@ -126,6 +136,14 @@ export const api = {
   resources: (filters: ResourceFilters = {}) =>
     request<ListResponse<DataResource>>(
       `/api/catalog/resources/?${toQueryString(filters)}`,
+    ),
+  scanCatalogSources: () =>
+    request<ListResponse<DataResource> & { count: number }>(
+      "/api/catalog/scan/",
+      {
+        method: "POST",
+        body: JSON.stringify({}),
+      },
     ),
   resourceProfile: (resourceId: number) =>
     request<DataResourceProfile>(

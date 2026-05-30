@@ -1,3 +1,4 @@
+import json
 import tempfile
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from django.test import SimpleTestCase, TestCase
 
 from apps.core.admin import FeatureGroupForm
 from apps.core.config import load_project_config
+from apps.core.models import SystemSetting
 from apps.core.storage import (
     StoragePathError,
     geographic_path,
@@ -19,16 +21,59 @@ from apps.core.storage import (
 
 class BootstrapApiTests(TestCase):
     def test_bootstrap_returns_public_runtime_settings(self):
+        SystemSetting.objects.update_or_create(pk=1, defaults={"allow_registration": False})
+
         response = self.client.get("/api/bootstrap/")
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertIn("systemName", payload)
+        self.assertFalse(payload["allowRegistration"])
         self.assertIn("map", payload)
         self.assertEqual(
             payload["map"]["mapboxAccessToken"],
             settings.PROJECT_CONFIG.map.mapbox_access_token,
         )
+
+
+class RegistrationApiTests(TestCase):
+    def test_first_registered_user_becomes_system_admin(self):
+        SystemSetting.objects.update_or_create(pk=1, defaults={"allow_registration": True})
+
+        response = self.client.post(
+            "/api/auth/register/",
+            data=json.dumps(
+                {
+                    "username": "admin",
+                    "email": "admin@example.local",
+                    "password": "StrongPass12345",
+                    "passwordConfirm": "StrongPass12345",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        user = get_user_model().objects.get(username="admin")
+        self.assertTrue(user.is_staff)
+        self.assertTrue(user.is_superuser)
+
+    def test_registration_can_be_closed_by_system_setting(self):
+        SystemSetting.objects.update_or_create(pk=1, defaults={"allow_registration": False})
+
+        response = self.client.post(
+            "/api/auth/register/",
+            data=json.dumps(
+                {
+                    "username": "closed",
+                    "password": "StrongPass12345",
+                    "passwordConfirm": "StrongPass12345",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
 
 
 class FeaturePermissionTests(TestCase):
@@ -93,7 +138,7 @@ class ConfigLoaderTests(SimpleTestCase):
 [system]
 name = "测试系统"
 mode = "development"
-allow_registration = false
+allow_registration = true
 
 [storage]
 business_data_root = "{business_root}"

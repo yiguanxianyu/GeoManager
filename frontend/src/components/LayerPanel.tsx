@@ -597,10 +597,12 @@ function NodeActions({
   }
 
   return (
-    <button
-      type="button"
+    <div
       className="icon-cluster"
+      role="toolbar"
+      aria-label={`${subjectName}图层操作`}
       onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
     >
       <Popover
         trigger="click"
@@ -699,7 +701,7 @@ function NodeActions({
           onClick={onRemove}
         />
       </Tooltip>
-    </button>
+    </div>
   );
 }
 

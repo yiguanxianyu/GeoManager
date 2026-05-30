@@ -139,7 +139,7 @@ def import_raster(request):
 @require_POST
 @login_required
 def scan_sources(request):
-    if not can_manage_raster_data(request.user):
+    if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
     return JsonResponse(start_scan_job().as_dict(), status=202)
 

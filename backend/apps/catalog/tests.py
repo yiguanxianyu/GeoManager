@@ -8,6 +8,7 @@ from django.test import TestCase
 from shapely.geometry import Point
 
 from apps.catalog.models import DataResource, MapLayer
+from apps.catalog.services import scan_vector_geopackage
 from apps.core.storage import vector_geopackage_path
 
 
@@ -114,6 +115,51 @@ class ResourceQueryApiTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["totalCount"], 1)
         self.assertEqual(payload["geojson"]["features"][0]["properties"]["name"], "样点二")
+
+
+class CatalogScanTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="catalog-scanner", password="pass12345")
+        grant(self.user, ("core", "browse_data"))
+        self.client.force_login(self.user)
+        self.layer_name = "scan_test_points"
+        self.path = vector_geopackage_path()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.unlink(missing_ok=True)
+
+        import geopandas as gpd
+
+        gdf = gpd.GeoDataFrame(
+            [{"name": "扫描点", "geometry": Point(87.6, 43.8)}],
+            geometry="geometry",
+            crs="EPSG:4326",
+        )
+        gdf.to_file(self.path, layer=self.layer_name, driver="GPKG")
+
+    def test_scan_vector_geopackage_registers_resources_and_layers(self):
+        resources = scan_vector_geopackage()
+
+        self.assertEqual([resource.storage_path for resource in resources], [self.layer_name])
+        resource = DataResource.objects.get(storage_path=self.layer_name)
+        layer = MapLayer.objects.get(source_path=self.layer_name)
+        self.assertEqual(resource.data_type, DataResource.DataType.VECTOR)
+        self.assertEqual(layer.geometry_type, MapLayer.GeometryType.POINT)
+        self.assertTrue(layer.default_visible)
+
+    def test_scan_endpoint_requires_browse_permission(self):
+        self.user.user_permissions.clear()
+
+        response = self.client.post("/api/catalog/scan/", data={}, content_type="application/json")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_scan_endpoint_registers_sources(self):
+        response = self.client.post("/api/catalog/scan/", data={}, content_type="application/json")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["items"][0]["name"], self.layer_name)
 
 
 class ExportApiTests(TestCase):

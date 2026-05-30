@@ -17,6 +17,7 @@ from apps.catalog.serializers import (
     serialize_layer,
     serialize_resource,
 )
+from apps.catalog.services import scan_vector_geopackage
 from apps.core.permissions import feature_denied_response, has_feature_perm
 from apps.core.storage import (
     StoragePathError,
@@ -65,6 +66,15 @@ def resources(request):
         queryset = queryset.filter(data_date__lte=date_to)
     resources_qs = filter_accessible(queryset, request.user)
     return JsonResponse({"items": [serialize_resource(item) for item in resources_qs]})
+
+
+@require_POST
+@login_required
+def scan_sources(request):
+    if not has_feature_perm(request.user, "core.browse_data"):
+        return feature_denied_response(request.user)
+    resources = scan_vector_geopackage()
+    return JsonResponse({"items": [serialize_resource(item) for item in resources], "count": len(resources)})
 
 
 @require_GET

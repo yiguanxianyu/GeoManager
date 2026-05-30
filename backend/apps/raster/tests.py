@@ -84,7 +84,7 @@ class RasterScanPathTests(TestCase):
 [system]
 name = "测试系统"
 mode = "development"
-allow_registration = false
+allow_registration = true
 
 [storage]
 business_data_root = "{business_root}"

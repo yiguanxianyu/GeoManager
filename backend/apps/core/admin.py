@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.models import Group, Permission
 
+from apps.core.models import SystemSetting
 from apps.core.permissions import (
     feature_permission_ids_for,
     feature_permission_queryset,
@@ -67,3 +68,29 @@ class FeatureGroupAdmin(DjangoGroupAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return has_feature_perm(request.user, "core.manage_feature_permissions")
+
+
+@admin.register(SystemSetting)
+class SystemSettingAdmin(admin.ModelAdmin):
+    fields = ("allow_registration", "updated_at")
+    list_display = ("allow_registration", "updated_at")
+    readonly_fields = ("updated_at",)
+
+    def has_module_permission(self, request):
+        return has_feature_perm(request.user, "core.access_admin")
+
+    def has_view_permission(self, request, obj=None):
+        return has_feature_perm(request.user, "core.access_admin")
+
+    def has_add_permission(self, request):
+        return not SystemSetting.objects.exists() and has_feature_perm(request.user, "core.access_admin")
+
+    def has_change_permission(self, request, obj=None):
+        return has_feature_perm(request.user, "core.access_admin")
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def save_model(self, request, obj, form, change):
+        obj.pk = 1
+        super().save_model(request, obj, form, change)
