@@ -1,4 +1,4 @@
-import { App, Button, Layout, Popover, Tag, Tooltip, Typography } from "antd";
+import { App, Button, Layout, Popover, Tag, Typography } from "antd";
 import { Database, Layers, LogOut, Settings, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
@@ -428,7 +428,6 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
     mapRef: mapInstanceRef,
     canUseCustomSymbolization: user.permissions.canUseCustomSymbolization,
     canExportData: user.permissions.canExportData,
-    permissionDeniedMessage,
     exportClipGeometry,
     startExportClipDraw: (mode) =>
       setActiveDraw({ purpose: "exportClip", mode }),
@@ -447,7 +446,6 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
       loadingProfile={loadingProfile}
       querying={querying}
       permissions={user.permissions}
-      permissionDeniedMessage={permissionDeniedMessage}
       onFilterResources={loadResources}
       onSelectResource={handleSelectResource}
       onDrawModeChange={setQueryDrawMode}
@@ -471,7 +469,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
             </div>
           </div>
           <div className="header-primary-actions">
-            {user.permissions.canBrowseData ? (
+            {user.permissions.canBrowseData && (
               <Popover
                 trigger="click"
                 placement="bottomLeft"
@@ -482,32 +480,15 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
               >
                 <Button icon={<Layers size={16} />}>数据管理</Button>
               </Popover>
-            ) : (
-              <Tooltip title={permissionDeniedMessage}>
-                <span>
-                  <Button icon={<Layers size={16} />} disabled>
-                    数据管理
-                  </Button>
-                </span>
-              </Tooltip>
             )}
-            <Tooltip
-              title={
-                user.permissions.canAccessAdmin
-                  ? undefined
-                  : permissionDeniedMessage
-              }
-            >
-              <span>
-                <Button
-                  icon={<Settings size={16} />}
-                  disabled={!user.permissions.canAccessAdmin}
-                  onClick={() => window.location.assign("/admin/")}
-                >
-                  后台管理
-                </Button>
-              </span>
-            </Tooltip>
+            {user.permissions.canAccessAdmin && (
+              <Button
+                icon={<Settings size={16} />}
+                onClick={() => window.location.assign("/admin/")}
+              >
+                后台管理
+              </Button>
+            )}
           </div>
         </div>
         <div className="header-account-actions">

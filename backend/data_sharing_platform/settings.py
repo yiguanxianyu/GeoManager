@@ -1,10 +1,8 @@
 import os
 from pathlib import Path
 
-from django.core.exceptions import ImproperlyConfigured
-
 from apps.core.config import ConfigValidationError, load_project_config
-
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROGRAM_ROOT = BASE_DIR.parent
@@ -15,7 +13,23 @@ try:
 except ConfigValidationError as exc:
     raise ImproperlyConfigured(str(exc)) from exc
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-only-change-me")
+
+def _get_secret_key() -> str:
+    env_key = os.environ.get("DJANGO_SECRET_KEY")
+    if env_key:
+        return env_key
+    key_file = PROJECT_CONFIG.business_path("database", ".secret_key")
+    if key_file.exists():
+        return key_file.read_text().strip()
+    from django.core.management.utils import get_random_secret_key
+
+    key = get_random_secret_key()
+    key_file.parent.mkdir(parents=True, exist_ok=True)
+    key_file.write_text(key)
+    return key
+
+
+SECRET_KEY = _get_secret_key()
 DEBUG = PROJECT_CONFIG.mode == "development"
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,[::1]").split(",") if host.strip()]
 

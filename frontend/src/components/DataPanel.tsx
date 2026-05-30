@@ -10,7 +10,6 @@ import {
   Select,
   Space,
   Tag,
-  Tooltip,
   Typography,
 } from "antd";
 import {
@@ -46,7 +45,6 @@ interface Props {
   loadingProfile: boolean;
   querying: boolean;
   permissions: User["permissions"];
-  permissionDeniedMessage: string;
   onFilterResources: (filters: ResourceFilters) => void;
   onSelectResource: (resource: DataResource) => void;
   onDrawModeChange: (mode: DrawMode) => void;
@@ -77,7 +75,6 @@ export default function DataPanel({
   loadingProfile,
   querying,
   permissions,
-  permissionDeniedMessage,
   onFilterResources,
   onSelectResource,
   onDrawModeChange,
@@ -415,61 +412,37 @@ export default function DataPanel({
 
       <div className="query-footer">
         {selectedIsRaster ? (
-          <Tooltip
-            title={
-              permissions.canLoadRasterLayer
-                ? undefined
-                : permissionDeniedMessage
-            }
-          >
-            <span>
-              <Button
-                type="primary"
-                disabled={!profile?.raster || !permissions.canLoadRasterLayer}
-                onClick={onLoadRaster}
-              >
-                加载栅格
-              </Button>
-            </span>
-          </Tooltip>
+          permissions.canLoadRasterLayer && (
+            <Button
+              type="primary"
+              disabled={!profile?.raster}
+              onClick={onLoadRaster}
+            >
+              加载栅格
+            </Button>
+          )
         ) : (
           <>
-            <Tooltip
-              title={
-                canQueryAndLoadVector ? undefined : permissionDeniedMessage
-              }
-            >
-              <span>
-                <Button
-                  type="primary"
-                  loading={querying}
-                  disabled={!profile || !canQueryAndLoadVector}
-                  onClick={() => onQuery(attributeFilters)}
-                >
-                  查询数据
-                </Button>
-              </span>
-            </Tooltip>
-            <Tooltip
-              title={
-                permissions.canLoadVectorLayer
-                  ? undefined
-                  : permissionDeniedMessage
-              }
-            >
-              <span>
-                <Button
-                  disabled={
-                    !queryResult ||
-                    queryResult.returnedCount === 0 ||
-                    !permissions.canLoadVectorLayer
-                  }
-                  onClick={onLoadResult}
-                >
-                  加载到图层
-                </Button>
-              </span>
-            </Tooltip>
+            {canQueryAndLoadVector && (
+              <Button
+                type="primary"
+                loading={querying}
+                disabled={!profile}
+                onClick={() => onQuery(attributeFilters)}
+              >
+                查询数据
+              </Button>
+            )}
+            {permissions.canLoadVectorLayer && (
+              <Button
+                disabled={
+                  !queryResult || queryResult.returnedCount === 0
+                }
+                onClick={onLoadResult}
+              >
+                加载到图层
+              </Button>
+            )}
           </>
         )}
       </div>

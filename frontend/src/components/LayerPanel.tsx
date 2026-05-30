@@ -328,7 +328,6 @@ function LayerGroupNode({
             exportItems={exportItems}
             canUseCustomSymbolization={ctx.canUseCustomSymbolization}
             canExportData={ctx.canExportData}
-            permissionDeniedMessage={ctx.permissionDeniedMessage}
           />
           <Tooltip title="拖动排序">
             <Button
@@ -431,7 +430,6 @@ function LayerItemNode({
           exportItems={exportItems}
           canUseCustomSymbolization={ctx.canUseCustomSymbolization}
           canExportData={ctx.canExportData}
-          permissionDeniedMessage={ctx.permissionDeniedMessage}
         />
       </div>
       <div className="layer-name-row">
@@ -464,7 +462,6 @@ interface NodeActionProps {
   exportItems: ExportLayerItem[];
   canUseCustomSymbolization: boolean;
   canExportData: boolean;
-  permissionDeniedMessage: string;
 }
 
 function NodeActions({
@@ -480,7 +477,6 @@ function NodeActions({
   exportItems,
   canUseCustomSymbolization,
   canExportData,
-  permissionDeniedMessage,
 }: NodeActionProps) {
   const ctx = useLayerContext();
   const { message } = App.useApp();
@@ -663,18 +659,17 @@ function NodeActions({
           />
         }
       >
-        <Tooltip title={canExportData ? "导出" : permissionDeniedMessage}>
-          <span>
+        {canExportData && (
+          <Tooltip title="导出">
             <Button
               className="action-btn"
               size="small"
               type="text"
               aria-label={`导出${subjectName}`}
               icon={<Download size={14} />}
-              disabled={!canExportData}
             />
-          </span>
-        </Tooltip>
+          </Tooltip>
+        )}
       </Popover>
       <Popover
         trigger="click"
@@ -684,20 +679,17 @@ function NodeActions({
         onOpenChange={handleSymbolizationOpenChange}
         content={renderSymbolizationEditor()}
       >
-        <Tooltip
-          title={canUseCustomSymbolization ? "符号化" : permissionDeniedMessage}
-        >
-          <span>
+        {canUseCustomSymbolization && (
+          <Tooltip title="符号化">
             <Button
               className="action-btn"
               size="small"
               type="text"
               aria-label={`${subjectName}符号化`}
               icon={<Palette size={14} />}
-              disabled={!canUseCustomSymbolization}
             />
-          </span>
-        </Tooltip>
+          </Tooltip>
+        )}
       </Popover>
       <Tooltip title="移除">
         <Button

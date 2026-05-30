@@ -75,7 +75,6 @@ export interface LayerContextValue {
   mapRef: RefObject<mapboxgl.Map | null>;
   canUseCustomSymbolization: boolean;
   canExportData: boolean;
-  permissionDeniedMessage: string;
   exportClipGeometry: GeoJsonGeometry | null;
   startExportClipDraw: (mode: DrawMode) => void;
   clearExportClipGeometry: () => void;

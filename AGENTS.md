@@ -4,7 +4,7 @@ Central Asia Poplar Forest Ecosystem Protection Data Sharing Platform (中亚胡
 
 ## Attention
 
-- Summarise the details into a document for reference during the coding process
+- Summarise the details into documents (docs/) for reference during the coding process.
 - format code before commiting git. 
 
 ## Key reference

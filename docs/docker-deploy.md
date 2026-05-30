@@ -79,7 +79,6 @@ docker run -d \
   --name huyang-system \
   -p 8080:80 \
   -e HUYANG_CONFIG=/config/app.toml \
-  -e DJANGO_SECRET_KEY='change-this-to-a-long-random-secret' \
   -e DJANGO_ALLOWED_HOSTS='localhost,127.0.0.1,your.domain.com' \
   -v /srv/huyang/config:/config:ro \
   -v /srv/huyang/business-data:/data/business \
@@ -154,7 +153,7 @@ curl http://服务器IP:8080/api/health/
 
 ## 9. 生产部署注意事项
 
-- 必须设置强随机 `DJANGO_SECRET_KEY`。
+- `DJANGO_SECRET_KEY` 可选，未设置时自动生成并持久化到 `${business_data_root}/database/.secret_key`。
 - `DJANGO_ALLOWED_HOSTS` 必须包含实际访问域名或服务器 IP。
 - 对外提供 HTTPS 时，建议在宿主机或上游网关终止 TLS，再反代到容器的 `80` 端口。
 - 配置文件可以只读挂载，业务数据和地理数据目录必须可读写。
