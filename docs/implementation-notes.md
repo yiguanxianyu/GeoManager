@@ -125,7 +125,7 @@ frontend/src/
 - 登录后进入地图工作台，包含顶部栏、地图、数据管理面板和已加载图层面板。
 - 后台入口始终作为工作台功能呈现；无权限时禁用并显示用户组无权限提示，入口指向 Django admin。
 - 前端仅做矢量样式表达和 XYZ 瓦片叠加，不实现栅格符号化。
-- Mapbox 公共 token 从 TOML 的 `map.mapbox_access_token` 读取，经后端 bootstrap 下发；前端不硬编码默认 token。
+- Mapbox 公共 token 优先从环境变量 `MAPBOX_ACCESS_TOKEN` 读取，也可在 TOML 的 `map.mapbox_access_token` 中配置；经后端 bootstrap 下发，前端不硬编码默认 token。
 - Mapbox 底图标注语言使用 `zh-Hans`，并在样式加载后优先读取中文名称字段。
 
 ## 数据管理与图层管理

@@ -29,15 +29,14 @@ mode = "production"
 allow_registration = false
 
 [storage]
-business_data_root = "/srv/data-platform/business-data"
-geographic_data_root = "/srv/data-platform/geographic-data"
+business_data_root = "/data/business"
+geographic_data_root = "/data/geographic"
 auto_create_directories = true
 
 [map]
 default_center = [80.0, 41.5]
 default_zoom = 4.5
 default_basemap = "osm"
-mapbox_access_token = "pk.your-mapbox-public-token"
 
 [limits]
 upload_max_mb = 512
@@ -48,14 +47,7 @@ symbolizer_timeout_seconds = 120
 default_symbolizer_script = "scripts/raster_symbolizers/basic_gradient.py"
 ```
 
-部署脚本会读取配置文件中的 `storage.business_data_root` 和 `storage.geographic_data_root` 作为宿主机数据目录，并生成 `.deploy/app.toml` 作为容器运行时配置。生成后的运行时配置会把这两个目录改写为容器内路径：
-
-```toml
-business_data_root = "/data/business"
-geographic_data_root = "/data/geographic"
-```
-
-这样配置文件可以按宿主机实际目录编写，容器内仍保持固定路径约定。
+配置文件中的 `storage.business_data_root` 和 `storage.geographic_data_root` 是容器内的路径，通过 Docker volume 挂载映射到宿主机目录。
 
 ## 3. 配置环境变量
 
@@ -64,6 +56,7 @@ geographic_data_root = "/data/geographic"
 ```bash
 APP_SOURCE_CONFIG_FILE=/srv/data-platform/app.toml
 APP_HTTP_PORT=80
+MAPBOX_ACCESS_TOKEN=pk.your-mapbox-public-token
 DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,your.domain.com,your.server.ip
 GUNICORN_WORKERS=3
 ```
@@ -114,11 +107,10 @@ APP_SOURCE_CONFIG_FILE=/srv/data-platform/app.toml scripts/deploy.sh
 脚本流程：
 
 1. 读取传入的 TOML 配置文件。
-2. 从 `[storage]` 中取得宿主机业务数据目录和地理数据目录，并创建目录。
-3. 生成 `.deploy/app.toml`，把数据目录改写为容器内 `/data/business` 和 `/data/geographic`。
-4. 执行 `git pull --ff-only`。
-5. 执行 `docker compose build`。
-6. 执行 `docker compose up -d --remove-orphans`。
+2. 复制配置文件到 `.deploy/app.toml`。
+3. 执行 `git pull --ff-only`。
+4. 执行 `docker compose build`。
+5. 执行 `docker compose up -d --remove-orphans`。
 
 ## 6. 初始化管理员
 

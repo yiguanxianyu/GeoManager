@@ -155,9 +155,17 @@ def _center(value: Any) -> tuple[float, float]:
 
 
 def _mapbox_token(value: Any) -> str:
-    token = _string(value, "map.mapbox_access_token")
+    # 优先从环境变量读取
+    env_token = os.environ.get("MAPBOX_ACCESS_TOKEN")
+    if env_token:
+        token = env_token.strip()
+    else:
+        token = _string(value, "map.mapbox_access_token") if value else ""
+
+    if not token:
+        raise ConfigValidationError("Mapbox access token 未配置，请设置环境变量 MAPBOX_ACCESS_TOKEN 或在配置文件中设置 map.mapbox_access_token")
     if not token.startswith("pk."):
-        raise ConfigValidationError("配置项 map.mapbox_access_token 必须是 Mapbox 公共 token（pk.*）")
+        raise ConfigValidationError("Mapbox access token 必须是公共 token（pk.*）")
     return token
 
 

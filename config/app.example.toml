@@ -4,15 +4,14 @@ mode = "development"
 allow_registration = false
 
 [storage]
-business_data_root = "data/appdata"
-geographic_data_root = "data/geodata"
+business_data_root = "/data/business"
+geographic_data_root = "/data/geographic"
 auto_create_directories = true
 
 [map]
 default_center = [80.0, 41.5]
 default_zoom = 4.5
 default_basemap = "osm"
-mapbox_access_token = "your_mapbox_access_token_here"
 
 [limits]
 upload_max_mb = 512

@@ -11,10 +11,11 @@ services:
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
       GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
       APP_DISABLE_RASTER_STARTUP_SCAN: ${APP_DISABLE_RASTER_STARTUP_SCAN:-0}
+      MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN:-}
     volumes:
-      - ${APP_CONFIG_FILE:?APP_CONFIG_FILE is required}:/config/app.toml:ro
-      - ${APP_BUSINESS_DATA_ROOT:?APP_BUSINESS_DATA_ROOT is required}:/data/business
-      - ${APP_GEOGRAPHIC_DATA_ROOT:?APP_GEOGRAPHIC_DATA_ROOT is required}:/data/geographic
+      - ${APP_CONFIG_FILE:-./config/app.example.toml}:/config/app.toml:ro
+      - ./data/business:/data/business
+      - ./data/geographic:/data/geographic
     expose:
       - "8000"
 
@@ -32,4 +33,4 @@ services:
     ports:
       - "${APP_HTTP_PORT:-80}:80"
     volumes:
-      - ${APP_BUSINESS_DATA_ROOT:?APP_BUSINESS_DATA_ROOT is required}:/data/business:ro
+      - ./data/business:/data/business:ro

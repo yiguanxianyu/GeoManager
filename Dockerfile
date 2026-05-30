@@ -6,7 +6,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     APP_CONFIG=/config/app.toml \
     DJANGO_SETTINGS_MODULE=data_sharing_platform.settings \
     DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,[::1] \
-    APP_DISABLE_RASTER_STARTUP_SCAN=0
+    APP_DISABLE_RASTER_STARTUP_SCAN=0 \
+    MAPBOX_ACCESS_TOKEN=""
 
 USER root
 

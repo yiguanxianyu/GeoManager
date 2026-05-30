@@ -36,7 +36,7 @@ CONFIG_VALUES="$(
 
 while IFS='=' read -r key value; do
   case "${key}" in
-    APP_CONFIG_FILE | APP_BUSINESS_DATA_ROOT | APP_GEOGRAPHIC_DATA_ROOT)
+    APP_CONFIG_FILE)
       export "${key}=${value}"
       ;;
   esac
