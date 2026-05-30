@@ -6,7 +6,7 @@
 - 程序代码、业务数据、地理数据分离存放。业务数据根目录和地理数据根目录只从 TOML 配置读取。
 - 业务数据固定子目录：`database/`、`media/`、`uploads/`、`exports/`、`logs/`、`static/`。
 - 地理数据固定子目录：`vector/`、`raster/original/`、`raster/preprocessed/`、`raster/metadata/source/`、`raster/metadata/preprocessed/`。
-- 当前本机业务数据根目录为 `/Users/gx/Documents/Source/huyang_system_data/appdata`，通过 TOML 的 `storage.business_data_root` 指定，不在程序中硬编码。
+- 当前本机业务数据根目录为 `/Users/gx/Documents/Source/huyang_system_data/appdata`，通过 TOML 的 `storage.app_data` 指定，不在程序中硬编码。
 - 当前本机地理数据根目录为 `/Users/gx/Documents/Source/huyang_system_data/geodata`，通过 TOML 的 `storage.geographic_data_root` 指定，不在程序中硬编码。
 
 ## 后端模块结构

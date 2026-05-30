@@ -2,7 +2,7 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
-from apps.core.config import BUSINESS_SUBDIRS, GEOGRAPHIC_SUBDIRS
+from apps.core.config import APP_SUBDIRS, GEOGRAPHIC_SUBDIRS
 from apps.core.models import SystemSetting
 
 
@@ -42,7 +42,7 @@ def health(request):
             "status": "ok",
             "mode": config.mode,
             "configLoaded": True,
-            "businessSubdirs": list(BUSINESS_SUBDIRS),
+            "appSubdirs": list(APP_SUBDIRS),
             "geographicSubdirs": list(GEOGRAPHIC_SUBDIRS),
         }
     )

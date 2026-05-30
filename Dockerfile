@@ -35,7 +35,7 @@ COPY desgin-docs.md README.md AGENTS.md ./
 COPY docker/entrypoint.sh /usr/local/bin/app-entrypoint
 
 RUN chmod +x /usr/local/bin/app-entrypoint \
-    && mkdir -p /data/business /data/geographic /config
+    && mkdir -p /data/app /data/geographic /config
 
 EXPOSE 8000
 
@@ -61,7 +61,7 @@ RUN pnpm build
 FROM nginx:1.27-alpine AS nginx
 
 ENV DJANGO_UPSTREAM=django:8000 \
-    BUSINESS_ROOT=/data/business
+    APP_DATA_ROOT=/data/app
 
 COPY --from=frontend-build /build/frontend/dist /usr/share/nginx/html
 COPY docker/app.conf.template /etc/nginx/templates/default.conf.template

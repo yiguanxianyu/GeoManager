@@ -3,39 +3,20 @@ set -euo pipefail
 
 APP_ROOT=/opt/app
 BACKEND_ROOT="${APP_ROOT}/backend"
-BUSINESS_ROOT="${APP_BUSINESS_ROOT:-/data/business}"
+APP_DATA_ROOT="${APP_DATA_ROOT:-/data/app}"
 GEOGRAPHIC_ROOT="${APP_GEOGRAPHIC_ROOT:-/data/geographic}"
 GUNICORN_BIND="${GUNICORN_BIND:-0.0.0.0:8000}"
 GUNICORN_WORKERS="${GUNICORN_WORKERS:-1}"
-LOG_ROOT="${BUSINESS_ROOT}/logs"
+LOG_ROOT="${APP_DATA_ROOT}/logs"
 
 export PATH="/opt/conda/bin:${PATH}"
 export PYTHONPATH="${BACKEND_ROOT}:${PYTHONPATH:-}"
 export APP_CONFIG="${APP_CONFIG:-/config/app.toml}"
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-data_sharing_platform.settings}"
 
-prepare_data_dirs() {
-  for dir in \
-    "${BUSINESS_ROOT}/database" \
-    "${BUSINESS_ROOT}/media" \
-    "${BUSINESS_ROOT}/uploads" \
-    "${BUSINESS_ROOT}/exports" \
-    "${BUSINESS_ROOT}/logs" \
-    "${BUSINESS_ROOT}/static" \
-    "${GEOGRAPHIC_ROOT}/vector" \
-    "${GEOGRAPHIC_ROOT}/raster" \
-    "${GEOGRAPHIC_ROOT}/raster/original" \
-    "${GEOGRAPHIC_ROOT}/raster/preprocessed" \
-    "${GEOGRAPHIC_ROOT}/raster/metadata/source" \
-    "${GEOGRAPHIC_ROOT}/raster/metadata/preprocessed"
-  do
-    mkdir -p "${dir}"
-  done
-}
-
-business_data_is_empty() {
-  [[ ! -d "${BUSINESS_ROOT}" ]] && return 0
-  [[ -z "$(find "${BUSINESS_ROOT}" -mindepth 1 -maxdepth 1 -print -quit)" ]]
+app_data_is_empty() {
+  [[ ! -d "${APP_DATA_ROOT}" ]] && return 0
+  [[ -z "$(find "${APP_DATA_ROOT}" -mindepth 1 -maxdepth 1 -print -quit)" ]]
 }
 
 wait_for_config() {
@@ -48,10 +29,9 @@ wait_for_config() {
 
 case "${1:-serve}" in
   serve)
-    if business_data_is_empty; then
-      echo "业务数据目录为空，按首次启动流程初始化数据目录并执行数据库迁移。"
+    if app_data_is_empty; then
+      echo "业务数据目录为空，按首次启动流程执行数据库迁移。"
     fi
-    prepare_data_dirs
     wait_for_config
     cd "${BACKEND_ROOT}"
     python manage.py migrate --noinput
@@ -64,7 +44,6 @@ case "${1:-serve}" in
     ;;
   manage)
     shift
-    prepare_data_dirs
     wait_for_config
     cd "${BACKEND_ROOT}"
     exec python manage.py "$@"

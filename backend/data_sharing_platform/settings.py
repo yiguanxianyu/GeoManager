@@ -18,7 +18,7 @@ def _get_secret_key() -> str:
     env_key = os.environ.get("DJANGO_SECRET_KEY")
     if env_key:
         return env_key
-    key_file = PROJECT_CONFIG.business_path("database", ".secret_key")
+    key_file = PROJECT_CONFIG.app_path("database", ".secret_key")
     if key_file.exists():
         return key_file.read_text().strip()
     from django.core.management.utils import get_random_secret_key
@@ -85,7 +85,7 @@ WSGI_APPLICATION = "data_sharing_platform.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": PROJECT_CONFIG.business_path("database", "data.sqlite3"),
+        "NAME": PROJECT_CONFIG.app_path("database", "data.sqlite3"),
     }
 }
 
@@ -102,16 +102,16 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
-STATIC_ROOT = PROJECT_CONFIG.business_path("static")
+STATIC_ROOT = PROJECT_CONFIG.app_path("static")
 MEDIA_URL = "media/"
-MEDIA_ROOT = PROJECT_CONFIG.business_path("media")
+MEDIA_ROOT = PROJECT_CONFIG.app_path("media")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "/"
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
 
-LOG_DIR = PROJECT_CONFIG.business_path("logs")
+LOG_DIR = PROJECT_CONFIG.app_path("logs")
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

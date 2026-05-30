@@ -131,7 +131,7 @@ class ConfigLoaderTests(SimpleTestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             config_path = root / "app.toml"
-            business_root = root / "business"
+            business_root = root / "app"
             geographic_root = root / "geo"
             config_path.write_text(
                 f"""
@@ -141,7 +141,7 @@ mode = "development"
 allow_registration = true
 
 [storage]
-business_data_root = "{business_root}"
+app_data = "{business_root}"
 geographic_data_root = "{geographic_root}"
 auto_create_directories = true
 
@@ -164,7 +164,7 @@ default_symbolizer_script = "scripts/raster_symbolizers/basic_gradient.py"
 
             config = load_project_config(config_path, program_root=Path("/opt/data-sharing-platform"))
 
-            self.assertTrue(config.business_path("database").is_dir())
+            self.assertTrue(config.app_path("database").is_dir())
             self.assertTrue(config.geographic_path("vector").is_dir())
             self.assertTrue(config.geographic_path("raster").is_dir())
             self.assertTrue(config.geographic_path("raster", "original").is_dir())

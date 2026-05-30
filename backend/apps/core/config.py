@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 
-BUSINESS_SUBDIRS = ("database", "media", "uploads", "exports", "logs", "static")
+APP_SUBDIRS = ("database", "media", "uploads", "exports", "logs", "static")
 GEOGRAPHIC_SUBDIRS = (
     "vector",
     "raster",
@@ -48,15 +48,15 @@ class ProjectConfig:
     system_name: str
     mode: str
     allow_registration: bool
-    business_data_root: Path
+    app_data: Path
     geographic_data_root: Path
     auto_create_directories: bool
     map: MapConfig
     limits: LimitConfig
     raster: RasterConfig
 
-    def business_path(self, *parts: str) -> Path:
-        return self.business_data_root.joinpath(*parts)
+    def app_path(self, *parts: str) -> Path:
+        return self.app_data.joinpath(*parts)
 
     def geographic_path(self, *parts: str) -> Path:
         return self.geographic_data_root.joinpath(*parts)
@@ -80,16 +80,16 @@ def load_project_config(config_path: Path, program_root: Path) -> ProjectConfig:
     limits = _table(raw, "limits")
     raster = _table(raw, "raster")
 
-    business_root = _absolute_path(storage.get("business_data_root"), "storage.business_data_root")
+    app_root = _absolute_path(storage.get("app_data"), "storage.app_data")
     geographic_root = _absolute_path(storage.get("geographic_data_root"), "storage.geographic_data_root")
-    _validate_separate_roots(program_root, business_root, geographic_root)
+    _validate_separate_roots(program_root, app_root, geographic_root)
 
     project_config = ProjectConfig(
         config_path=config_path,
         system_name=_string(system.get("name"), "system.name"),
         mode=_string(system.get("mode"), "system.mode"),
         allow_registration=bool(system.get("allow_registration", False)),
-        business_data_root=business_root,
+        app_data=app_root,
         geographic_data_root=geographic_root,
         auto_create_directories=bool(storage.get("auto_create_directories", False)),
         map=MapConfig(
@@ -169,16 +169,16 @@ def _mapbox_token(value: Any) -> str:
     return token
 
 
-def _validate_separate_roots(program_root: Path, business_root: Path, geographic_root: Path) -> None:
-    if business_root == geographic_root:
+def _validate_separate_roots(program_root: Path, app_root: Path, geographic_root: Path) -> None:
+    if app_root == geographic_root:
         raise ConfigValidationError("业务数据总目录和地理数据总目录不能相同")
-    if _is_relative_to(business_root, program_root) or _is_relative_to(geographic_root, program_root):
+    if _is_relative_to(app_root, program_root) or _is_relative_to(geographic_root, program_root):
         raise ConfigValidationError("业务数据总目录和地理数据总目录不能位于程序目录内")
 
 
 def _prepare_fixed_directories(config: ProjectConfig) -> None:
     required_paths = [
-        *(config.business_path(subdir) for subdir in BUSINESS_SUBDIRS),
+        *(config.app_path(subdir) for subdir in APP_SUBDIRS),
         *(config.geographic_path(subdir) for subdir in GEOGRAPHIC_SUBDIRS),
     ]
     for directory in required_paths:

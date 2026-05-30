@@ -9,8 +9,8 @@ class StoragePathError(ValueError):
     pass
 
 
-def business_path(*parts: str) -> Path:
-    return _safe_join(settings.PROJECT_CONFIG.business_data_root, *parts)
+def app_path(*parts: str) -> Path:
+    return _safe_join(settings.PROJECT_CONFIG.app_data, *parts)
 
 
 def geographic_path(*parts: str) -> Path:

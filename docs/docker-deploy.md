@@ -13,7 +13,7 @@
 - 后端目录：`/opt/app/backend`
 - 前端静态目录：`/usr/share/nginx/html`
 - 默认配置路径：`/config/app.toml`
-- 默认业务数据根目录：`/data/business`
+- 默认业务数据根目录：`/data/app`
 - 默认地理数据根目录：`/data/geographic`
 
 业务数据和地理数据通过宿主机目录挂载进入容器，不能打包进镜像。容器内程序目录使用通用路径，不包含项目名。
@@ -29,7 +29,7 @@ mode = "production"
 allow_registration = true
 
 [storage]
-business_data_root = "/data/business"
+app_data = "/data/app"
 geographic_data_root = "/data/geographic"
 auto_create_directories = true
 
@@ -47,7 +47,7 @@ symbolizer_timeout_seconds = 120
 default_symbolizer_script = "scripts/raster_symbolizers/basic_gradient.py"
 ```
 
-配置文件中的 `storage.business_data_root` 和 `storage.geographic_data_root` 是容器内的路径，通过 Docker volume 挂载映射到宿主机目录。
+配置文件中的 `storage.app_data` 和 `storage.geographic_data_root` 是容器内的路径，通过 Docker volume 挂载映射到宿主机目录。
 
 ## 3. 配置环境变量
 

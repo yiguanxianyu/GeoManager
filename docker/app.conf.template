@@ -2,9 +2,9 @@ server {
     listen 80;
     server_name _;
 
-    client_max_body_size 512m;
-    access_log ${BUSINESS_ROOT}/logs/nginx-access.log;
-    error_log ${BUSINESS_ROOT}/logs/nginx-error.log warn;
+    client_max_body_size ${CLIENT_MAX_BODY_SIZE};
+    access_log ${APP_DATA_ROOT}/logs/nginx-access.log;
+    error_log ${APP_DATA_ROOT}/logs/nginx-error.log warn;
 
     root /usr/share/nginx/html;
     index index.html;
@@ -28,13 +28,13 @@ server {
     }
 
     location /static/ {
-        alias ${BUSINESS_ROOT}/static/;
+        alias ${APP_DATA_ROOT}/static/;
         expires 30d;
         add_header Cache-Control "public";
     }
 
     location /media/ {
-        alias ${BUSINESS_ROOT}/media/;
+        alias ${APP_DATA_ROOT}/media/;
     }
 
     location / {

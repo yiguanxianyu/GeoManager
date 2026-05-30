@@ -77,7 +77,7 @@ class RasterScanPathTests(TestCase):
 
     def _config(self, root: Path):
         config_path = root / "app.toml"
-        business_root = root / "business"
+        business_root = root / "app"
         geographic_root = root / "geo"
         config_path.write_text(
             f"""
@@ -87,7 +87,7 @@ mode = "development"
 allow_registration = true
 
 [storage]
-business_data_root = "{business_root}"
+app_data = "{business_root}"
 geographic_data_root = "{geographic_root}"
 auto_create_directories = true
 
