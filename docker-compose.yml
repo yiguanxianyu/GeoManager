@@ -1,0 +1,35 @@
+services:
+  django:
+    build:
+      context: .
+      target: django
+    image: data-platform-django:latest
+    restart: unless-stopped
+    environment:
+      APP_CONFIG: /config/app.toml
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+      APP_DISABLE_RASTER_STARTUP_SCAN: ${APP_DISABLE_RASTER_STARTUP_SCAN:-0}
+    volumes:
+      - ${APP_CONFIG_FILE:?APP_CONFIG_FILE is required}:/config/app.toml:ro
+      - ${APP_BUSINESS_DATA_ROOT:?APP_BUSINESS_DATA_ROOT is required}:/data/business
+      - ${APP_GEOGRAPHIC_DATA_ROOT:?APP_GEOGRAPHIC_DATA_ROOT is required}:/data/geographic
+    expose:
+      - "8000"
+
+  nginx:
+    build:
+      context: .
+      target: nginx
+    image: data-platform-nginx:latest
+    restart: unless-stopped
+    depends_on:
+      - django
+    environment:
+      DJANGO_UPSTREAM: django:8000
+      BUSINESS_ROOT: /data/business
+    ports:
+      - "${APP_HTTP_PORT:-80}:80"
+    volumes:
+      - ${APP_BUSINESS_DATA_ROOT:?APP_BUSINESS_DATA_ROOT is required}:/data/business:ro

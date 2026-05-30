@@ -1,4 +1,4 @@
-FROM mambaorg/micromamba:latest
+FROM mambaorg/micromamba:latest AS django
 
 ENV DEBIAN_FRONTEND=noninteractive \
     MAMBA_ROOT_PREFIX=/opt/conda \
@@ -13,8 +13,6 @@ USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
-        nginx \
-        gettext-base \
         tini \
     && rm -rf /var/lib/apt/lists/*
 
@@ -28,22 +26,41 @@ RUN micromamba install -y -n base -c conda-forge \
         gunicorn \
     && micromamba clean -a -y
 
-WORKDIR /opt/data_sharing_platform
+WORKDIR /opt/app
 
 COPY backend ./backend
-COPY frontend/dist ./frontend-dist
 COPY config ./config
 COPY desgin-docs.md README.md AGENTS.md ./
-
-WORKDIR /opt/data_sharing_platform
-
-COPY docker/nginx.conf.template /etc/nginx/templates/app.conf.template
 COPY docker/entrypoint.sh /usr/local/bin/app-entrypoint
-RUN chmod +x /usr/local/bin/app-entrypoint \
-    && mkdir -p /run/nginx /var/log/nginx /data/business /data/geographic /config \
-    && rm -f /etc/nginx/sites-enabled/default
 
-EXPOSE 80
+RUN chmod +x /usr/local/bin/app-entrypoint \
+    && mkdir -p /data/business /data/geographic /config
+
+EXPOSE 8000
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/app-entrypoint"]
 CMD ["serve"]
+
+
+FROM node:22-bookworm-slim AS frontend-build
+
+WORKDIR /build/frontend
+
+RUN corepack enable
+
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY frontend ./
+RUN pnpm build
+
+
+FROM nginx:1.27-alpine AS nginx
+
+ENV DJANGO_UPSTREAM=django:8000 \
+    BUSINESS_ROOT=/data/business
+
+COPY --from=frontend-build /build/frontend/dist /usr/share/nginx/html
+COPY docker/app.conf.template /etc/nginx/templates/default.conf.template
+
+EXPOSE 80

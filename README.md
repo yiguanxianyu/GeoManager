@@ -39,8 +39,8 @@ pnpm install
 pnpm dev
 ```
 
-默认开发配置使用 `config/app.example.toml`，业务数据目录为 `/Users/gx/Documents/Source/huyang_system_data/appdata`，地理数据目录为 `/Users/gx/Documents/Source/huyang_system_data/geodata`。所有矢量数据统一从 `geodata/vector/vector.gpkg` 读取，业务库中矢量资源和图层填写该 GeoPackage 内的图层名。栅格数据统一放在 `geodata/raster/` 下，后端扫描 `raster/original/`，预处理和元数据分别写入 `raster/preprocessed/` 和 `raster/metadata/`。生产部署时通过 `HUYANG_CONFIG=/path/to/app.toml` 指定实际配置文件。
+默认开发配置使用 `config/app.example.toml`，业务数据目录为 `/Users/gx/Documents/Source/huyang_system_data/appdata`，地理数据目录为 `/Users/gx/Documents/Source/huyang_system_data/geodata`。所有矢量数据统一从 `geodata/vector/vector.gpkg` 读取，业务库中矢量资源和图层填写该 GeoPackage 内的图层名。栅格数据统一放在 `geodata/raster/` 下，后端扫描 `raster/original/`，预处理和元数据分别写入 `raster/preprocessed/` 和 `raster/metadata/`。生产部署时通过 `APP_CONFIG=/path/to/app.toml` 指定实际配置文件。
 
 ## Docker 部署
 
-Linux Docker 部署说明见 [`docs/docker-deploy.md`](docs/docker-deploy.md)。镜像直接基于 `mambaorg/micromamba:latest`，并使用 conda-forge 安装 Python 3.14、Django、Pillow、GDAL、Rasterio、GeoPandas 等运行依赖；前端需提前构建到 `frontend/dist`，程序源文件内置到镜像，业务数据、地理数据和 TOML 配置通过挂载传入。
+Linux Docker Compose 部署说明见 [`docs/docker-deploy.md`](docs/docker-deploy.md)。部署拆分为 `django` 和 `nginx` 两个容器：后端使用 Gunicorn，前端在 Docker 多阶段构建中执行 `pnpm build`，最终 Nginx 镜像只保留编译后的静态文件。部署时传入 TOML 配置文件，脚本会读取配置中的宿主机数据目录并映射到容器内固定目录，业务数据和地理数据不进入镜像。
