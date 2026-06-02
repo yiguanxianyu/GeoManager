@@ -1,6 +1,5 @@
 [system]
 name = "Data Sharing Platform"
-mode = "development"
 allow_registration = true
 
 [storage]

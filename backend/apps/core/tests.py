@@ -141,7 +141,6 @@ class ConfigLoaderTests(SimpleTestCase):
                 f"""
 [system]
 name = "测试系统"
-mode = "development"
 allow_registration = true
 
 [storage]

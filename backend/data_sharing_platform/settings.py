@@ -30,7 +30,7 @@ def _get_secret_key() -> str:
 
 
 SECRET_KEY = _get_secret_key()
-DEBUG = PROJECT_CONFIG.mode == "development"
+DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",") if h.strip()]
 
 _env_csrf_origins = os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "")

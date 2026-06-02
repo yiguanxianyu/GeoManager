@@ -47,7 +47,6 @@ class RasterConfig:
 class ProjectConfig:
     config_path: Path
     system_name: str
-    mode: str
     allow_registration: bool
     app_data: Path
     research_data_root: Path
@@ -88,7 +87,6 @@ def load_project_config(config_path: Path, program_root: Path) -> ProjectConfig:
     project_config = ProjectConfig(
         config_path=config_path,
         system_name=_string(system.get("name"), "system.name"),
-        mode=_string(system.get("mode"), "system.mode"),
         allow_registration=bool(system.get("allow_registration", False)),
         app_data=app_root,
         research_data_root=research_root,
