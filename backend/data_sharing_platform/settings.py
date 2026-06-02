@@ -37,11 +37,24 @@ SECRET_KEY = _get_secret_key()
 DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",") if h.strip()]
 
+
+def _default_csrf_trusted_origins(allowed_hosts: list[str], debug: bool) -> list[str]:
+    origins = {origin for host in allowed_hosts if host != "*" for origin in (f"http://{host}", f"https://{host}")}
+    if debug:
+        origins.update(
+            {
+                "http://127.0.0.1:5173",
+                "http://localhost:5173",
+            }
+        )
+    return sorted(origins)
+
+
 _env_csrf_origins = os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "")
 if _env_csrf_origins:
     CSRF_TRUSTED_ORIGINS = [o.strip() for o in _env_csrf_origins.split(",") if o.strip()]
 else:
-    CSRF_TRUSTED_ORIGINS = [origin for host in ALLOWED_HOSTS if host != "*" for origin in (f"http://{host}", f"https://{host}")]
+    CSRF_TRUSTED_ORIGINS = _default_csrf_trusted_origins(ALLOWED_HOSTS, DEBUG)
 
 INSTALLED_APPS = [
     "apps.core.admin_config.HuyangAdminConfig",

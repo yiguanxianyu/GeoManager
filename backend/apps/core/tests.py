@@ -2,10 +2,10 @@ import json
 import tempfile
 from pathlib import Path
 
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.test import SimpleTestCase, TestCase
+from data_sharing_platform.settings import _default_csrf_trusted_origins
 
 from apps.core.admin import FeatureGroupForm
 from apps.core.config import load_project_config
@@ -32,6 +32,15 @@ class BootstrapApiTests(TestCase):
         self.assertIn("systemName", payload)
         self.assertFalse(payload["allowRegistration"])
         self.assertIn("map", payload)
+
+
+class CsrfSettingsTests(SimpleTestCase):
+    def test_debug_defaults_trust_vite_dev_origins_with_wildcard_allowed_hosts(self):
+        origins = _default_csrf_trusted_origins(["*"], debug=True)
+
+        self.assertIn("http://127.0.0.1:5173", origins)
+        self.assertIn("http://localhost:5173", origins)
+        self.assertNotIn("http://*", origins)
 
 
 class RegistrationApiTests(TestCase):

@@ -21,7 +21,7 @@ def main() -> int:
     # 直接复制配置文件到 runtime 位置
     runtime.write_text(raw)
 
-    print(f"APP_CONFIG_FILE={runtime}")
+    print(f"APP_CONFIG={runtime}")
     return 0
 
 

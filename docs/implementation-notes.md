@@ -60,6 +60,7 @@ backend/apps/
 
 - 使用 Django 内置 auth、admin、session、permission；平台后台是登录后的功能入口，通过平台功能权限决定是否显示和访问。
 - 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。全新生产环境不使用演示初始化脚本，首个注册用户自动成为系统管理员，后续注册用户为普通账号。
+- 本地前后端分离开发时，Vite dev server 运行在 `5173` 并代理 `/api` 到 Django；`DEBUG=True` 且未显式设置 `DJANGO_CSRF_TRUSTED_ORIGINS` 时，后端默认信任 `http://127.0.0.1:5173` 和 `http://localhost:5173`，确保首次注册和登录的 CSRF Origin 校验通过。
 - 运行日志统一写入业务数据根目录的 `logs/`：Django 应用日志、Django 框架日志、安全日志、Gunicorn 访问/错误日志、Nginx 访问/错误日志都落在该目录。
 - Docker 启动入口必须先创建固定业务/地理/非地理数据子目录，再执行 `python manage.py migrate --noinput` 和 `collectstatic`，确保空 appdata 首次启动可以直接注册首个管理员。
 - SQLite 数据库放在业务数据根目录的 `database/` 下。
