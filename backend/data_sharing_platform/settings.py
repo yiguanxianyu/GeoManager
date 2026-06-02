@@ -6,7 +6,11 @@ from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROGRAM_ROOT = BASE_DIR.parent
-CONFIG_PATH = Path(os.environ.get("APP_CONFIG", PROGRAM_ROOT / "config" / "app.example.toml"))
+
+_app_config = os.environ.get("APP_CONFIG")
+if not _app_config:
+    raise ImproperlyConfigured("环境变量 APP_CONFIG 未设置。请在 .env 文件或系统环境变量中指定 TOML 配置文件路径。")
+CONFIG_PATH = Path(_app_config)
 
 try:
     PROJECT_CONFIG = load_project_config(CONFIG_PATH, program_root=PROGRAM_ROOT)

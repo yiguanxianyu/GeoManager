@@ -38,11 +38,9 @@ def bootstrap(request):
 
 @require_GET
 def health(request):
-    config = settings.PROJECT_CONFIG
     return JsonResponse(
         {
             "status": "ok",
-            "mode": config.mode,
             "configLoaded": True,
             "appSubdirs": list(APP_SUBDIRS),
             "researchSubdirs": list(RESEARCH_SUBDIRS),
