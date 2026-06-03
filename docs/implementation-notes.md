@@ -98,11 +98,14 @@ frontend/src/
 │   └── client.ts               # fetch 封装、CSRF、API 端点
 ├── pages/
 │   ├── LoginPage.tsx            # 登录页
-│   └── WorkspacePage.tsx       # 工作台主页面（协调各组件）
+│   └── MapPage.tsx              # 地图工作台主页面（协调各组件）
 ├── components/
 │   ├── MapCanvas.tsx            # Mapbox GL JS 地图组件
 │   ├── DataPanel.tsx            # 数据管理面板
 │   ├── LayerPanel.tsx           # 图层管理面板（从 LayerContext 消费状态）
+│   ├── RightSidePanel.tsx       # 右侧导航式信息面板
+│   ├── WorkspaceBottomPanel.tsx # 底部导航式绘制/元数据面板
+│   ├── LayerDataTableModal.tsx  # 图层数据表弹窗
 │   └── SymbolizationEditor.tsx  # 符号化编辑器
 ├── hooks/
 │   ├── LayerContext.tsx          # 图层状态 Context，消除 props drilling
@@ -113,7 +116,7 @@ frontend/src/
 │   ├── styleHelpers.ts          # Mapbox 样式层增删改工具
 │   ├── vectorLayerSync.ts       # 矢量图层同步 + 符号化映射
 │   ├── rasterLayerSync.ts       # 栅格图层同步
-│   ├── featureInteraction.ts    # hover/click/popup 交互
+│   ├── featureInteraction.ts    # 单击选中与 hover 高亮交互
 │   └── spatialDraw.ts           # 空间绘制预览
 └── utils/
     ├── geometry.ts              # 纯几何计算、边界合并、工具函数
@@ -132,7 +135,7 @@ frontend/src/
 
 - 统一登录页不展示独立后台入口。
 - 登录后进入可视化入口页，分为地理可视化和非地理可视化两个入口；地理可视化进入地图工作台，非地理可视化当前保留空白承载页。
-- 后台入口始终作为工作台功能呈现；无权限时禁用并显示用户组无权限提示，入口指向 Django admin。
+- 后台入口只在上级入口页呈现；地图工作台不再展示后台管理按钮，避免重复入口。
 - 前端仅做矢量样式表达和 XYZ 瓦片叠加，不实现栅格符号化。
 - Mapbox 公共 token 优先从环境变量 `MAPBOX_ACCESS_TOKEN` 读取，也可在 TOML 的 `map.mapbox_access_token` 中配置；经后端 bootstrap 下发，前端不硬编码默认 token。
 - Mapbox 底图标注语言使用 `zh-Hans`，并在样式加载后优先读取中文名称字段。
@@ -153,8 +156,8 @@ frontend/src/
 - 每次"查询数据 -> 加载到图层"都会生成一个独立图层组，用于保留本次查询的时间、条件结果和元数据上下文。
 - 矢量数据查询结果来自统一 GeoJSON 数据源，正常情况下每个图层组下只有一个矢量子图层。
 - 栅格数据在前端状态模型中作为图层组下的栅格子图层加载，子图层持有 `tileUrl`、Mapbox 图片角点、透明度、元数据和符号化配置；栅格符号化仍由后端完成。
-- 图层组和子图层均保留独立显隐、元数据按钮和符号化面板入口；透明度在符号化面板内配置。
-- 元数据展示使用临时弹出小卡片，不占用地图常驻布局。
+- 图层组和子图层均保留独立显隐、定位、导出和符号化入口；透明度在符号化面板内配置。
+- 子图层提供数据表按钮，点击后以弹窗展示整层属性表；元数据不再作为图层树按钮展示，而是放入底部导航面板。
 
 ## 矢量图层符号化与交互
 
@@ -162,7 +165,8 @@ frontend/src/
 - 透明度不再作为图层树独立滑块展示，而是放入符号化面板：图层组透明度与子图层透明度在渲染前相乘，作为 Mapbox paint opacity 的基础值。
 - 点要素符号化按 Mapbox Style Specification 的 `circle` 和 `symbol` 图层拆分：`circle` 参数覆盖颜色、半径、描边、模糊、位移、pitch、sort key、emissive 等；`symbol` 参数覆盖 icon/text 的 layout 与 paint 配置。
 - 线、面要素继续使用 Mapbox `line`、`fill` 图层表达，符号化面板同步暴露线色、线宽、线型、填充色、透明度、位移、sort key 等参数。
-- 每个前端加载的 GeoJSON source 使用 `generateId`，所有矢量 style layer 注册统一点击/悬停交互。悬停改变鼠标指针并高亮要素，点击后通过 Mapbox Popup 展示该要素 properties。
+- 每个前端加载的 GeoJSON source 使用 `generateId`，所有矢量 style layer 注册统一交互：鼠标覆盖仅改变指针并高亮要素，单击要素后选中并在右侧导航面板的“要素属性”标签中展示该单条记录属性，地图不再弹出属性 Popup。
+- 右侧面板采用导航栏形式承载要素属性；底部面板采用标签页且标签位于底部，当前包括 `图形绘制` 与 `元数据`。`图形绘制` 统一管理空间查询范围和导出裁切范围，DataPanel 与导出弹窗不再各自发起地图绘制；`元数据` 展示图层树当前选中图层的元数据，并在“空间范围”字段提供开关，将 `minLng,minLat,maxLng,maxLat` 范围绘制为地图覆盖层。
 - 当前符号化模型位于 `frontend/src/symbolization.ts`，编辑界面位于 `frontend/src/components/SymbolizationEditor.tsx`，Mapbox 转换逻辑位于 `frontend/src/map/vectorLayerSync.ts`。
 
 ## 栅格符号化与加载方案

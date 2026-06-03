@@ -4,13 +4,11 @@ import {
   Badge,
   Button,
   Card,
-  Descriptions,
   Empty,
   Input,
   InputNumber,
   Popover,
   Progress,
-  Segmented,
   Space,
   Switch,
   Tooltip,
@@ -26,15 +24,14 @@ import {
   FileStack,
   FolderTree,
   GripVertical,
-  Info,
   Layers,
   Palette,
   Search,
+  Table2,
   Trash2,
 } from "lucide-react";
 import { type DragEvent, useEffect, useMemo, useState } from "react";
 import { type DropPlacement, useLayerContext } from "../hooks/LayerContext";
-import type { DrawMode } from "../map/spatialDraw";
 import type {
   GroupSymbolization,
   RasterSymbolization,
@@ -217,6 +214,12 @@ export default function LayerPanel() {
                   onSymbolizationChange={ctx.setGroupSymbolization}
                   onLocate={ctx.locateGroup}
                   onRemove={ctx.removeGroup}
+                  onSelect={() => {
+                    const firstLayer = group.children[0];
+                    if (firstLayer) {
+                      ctx.selectLayer(group.id, firstLayer.id);
+                    }
+                  }}
                   exportItems={exportItemsForGroup(group)}
                 />
                 {expanded && (
@@ -231,6 +234,8 @@ export default function LayerPanel() {
                         onSymbolizationChange={handleLayerSymbolizationChange}
                         onLocate={ctx.locateLayer}
                         onRemove={ctx.removeLayer}
+                        onSelect={() => ctx.selectLayer(group.id, layer.id)}
+                        selected={ctx.selectedLayerId === layer.id}
                         exportItems={exportItemsForLayer(layer)}
                       />
                     ))}
@@ -262,6 +267,7 @@ interface GroupNodeProps {
   onSymbolizationChange: (groupId: string, value: GroupSymbolization) => void;
   onLocate: (groupId: string) => void;
   onRemove: (groupId: string) => void;
+  onSelect: () => void;
   exportItems: ExportLayerItem[];
 }
 
@@ -276,6 +282,7 @@ function LayerGroupNode({
   onSymbolizationChange,
   onLocate,
   onRemove,
+  onSelect,
   exportItems,
 }: GroupNodeProps) {
   const ctx = useLayerContext();
@@ -314,7 +321,6 @@ function LayerGroupNode({
         </div>
         <div className="layer-row-tools">
           <NodeActions
-            metadata={group.metadata}
             symbolization={group.symbolization}
             fields={[]}
             subjectName={group.name}
@@ -352,6 +358,9 @@ function LayerGroupNode({
         >
           {group.name}
         </Typography.Text>
+        <Button size="small" type="link" onClick={onSelect}>
+          选中
+        </Button>
       </div>
     </div>
   );
@@ -373,6 +382,8 @@ interface LayerNodeProps {
   ) => void;
   onLocate: (groupId: string, layerId: string) => void;
   onRemove: (groupId: string, layerId: string) => void;
+  onSelect: () => void;
+  selected: boolean;
   exportItems: ExportLayerItem[];
 }
 
@@ -384,11 +395,15 @@ function LayerItemNode({
   onSymbolizationChange,
   onLocate,
   onRemove,
+  onSelect,
+  selected,
   exportItems,
 }: LayerNodeProps) {
   const ctx = useLayerContext();
   return (
-    <div className="layer-tree-node">
+    <div
+      className={`layer-tree-node${selected ? " layer-tree-node-selected" : ""}`}
+    >
       <div className="layer-row-main">
         <div className="layer-heading">
           <Switch
@@ -404,7 +419,6 @@ function LayerItemNode({
           <FileStack size={14} />
         </div>
         <NodeActions
-          metadata={layer.metadata}
           symbolization={layer.symbolization}
           fields={layer.fields}
           rasterBands={
@@ -428,6 +442,7 @@ function LayerItemNode({
           exportItems={exportItems}
           canUseCustomSymbolization={ctx.canUseCustomSymbolization}
           canExportData={ctx.canExportData}
+          onOpenTable={() => ctx.openLayerTable(groupId, layer.id)}
         />
       </div>
       <div className="layer-name-row">
@@ -440,13 +455,19 @@ function LayerItemNode({
         >
           {layer.name}
         </Typography.Text>
+        <Button
+          size="small"
+          type={selected ? "primary" : "link"}
+          onClick={onSelect}
+        >
+          {selected ? "已选" : "选中"}
+        </Button>
       </div>
     </div>
   );
 }
 
 interface NodeActionProps {
-  metadata: Record<string, string | number | boolean | null | undefined>;
   symbolization: GroupSymbolization | VectorSymbolization | RasterSymbolization;
   fields: ResourceField[];
   rasterBands?: RasterBandMetadata[];
@@ -457,13 +478,13 @@ interface NodeActionProps {
   ) => void;
   onLocate: () => void;
   onRemove: () => void;
+  onOpenTable?: () => void;
   exportItems: ExportLayerItem[];
   canUseCustomSymbolization: boolean;
   canExportData: boolean;
 }
 
 function NodeActions({
-  metadata,
   symbolization,
   fields,
   rasterBands = [],
@@ -472,6 +493,7 @@ function NodeActions({
   onSymbolizationChange,
   onLocate,
   onRemove,
+  onOpenTable,
   exportItems,
   canUseCustomSymbolization,
   canExportData,
@@ -604,23 +626,18 @@ function NodeActions({
       onClick={(event) => event.stopPropagation()}
       onKeyDown={(event) => event.stopPropagation()}
     >
-      <Popover
-        trigger="click"
-        placement="leftTop"
-        content={
-          <MetadataCard metadata={metadata} title={`${subjectName} 元数据`} />
-        }
-      >
-        <Tooltip title="元数据">
+      {onOpenTable && (
+        <Tooltip title="数据表">
           <Button
             className="action-btn"
             size="small"
             type="text"
-            aria-label={`${subjectName}元数据`}
-            icon={<Info size={14} />}
+            aria-label={`${subjectName}数据表`}
+            icon={<Table2 size={14} />}
+            onClick={onOpenTable}
           />
         </Tooltip>
-      </Popover>
+      )}
       <Tooltip title="定位">
         <Button
           className="action-btn"
@@ -653,7 +670,6 @@ function NodeActions({
               setExportClip(checked);
               if (!checked) ctx.clearExportClipGeometry();
             }}
-            onDrawClip={ctx.startExportClipDraw}
             onClearClip={ctx.clearExportClipGeometry}
             onExport={confirmExport}
           />
@@ -746,29 +762,6 @@ function exportItemsForLayer(layer: LoadedLayer): ExportLayerItem[] {
   ];
 }
 
-function MetadataCard({
-  metadata,
-  title,
-}: {
-  metadata: Record<string, string | number | boolean | null | undefined>;
-  title: string;
-}) {
-  const entries = Object.entries(metadata).filter(
-    ([, value]) => value !== undefined && value !== "",
-  );
-  return (
-    <Card className="metadata-card" size="small" title={title}>
-      <Descriptions size="small" column={1}>
-        {entries.map(([key, value]) => (
-          <Descriptions.Item key={key} label={key}>
-            {String(value ?? "-")}
-          </Descriptions.Item>
-        ))}
-      </Descriptions>
-    </Card>
-  );
-}
-
 function ExportOptionsCard({
   title,
   epsg,
@@ -781,7 +774,6 @@ function ExportOptionsCard({
   onEpsgChange,
   onReprojectChange,
   onClipChange,
-  onDrawClip,
   onClearClip,
   onExport,
 }: {
@@ -796,7 +788,6 @@ function ExportOptionsCard({
   onEpsgChange: (value: number | null) => void;
   onReprojectChange: (value: boolean) => void;
   onClipChange: (value: boolean) => void;
-  onDrawClip: (mode: DrawMode) => void;
   onClearClip: () => void;
   onExport: () => void;
 }) {
@@ -829,18 +820,11 @@ function ExportOptionsCard({
         </div>
         {clip && (
           <Space direction="vertical" className="full-width compact-stack">
-            <Segmented
-              block
-              options={[
-                { label: "矩形", value: "rectangle" },
-                { label: "圆形", value: "circle" },
-                { label: "多边形", value: "polygon" },
-              ]}
-              onChange={(mode) => onDrawClip(mode as DrawMode)}
-            />
             <div className="export-clip-actions">
               <Typography.Text type={clipReady ? "success" : "secondary"}>
-                {clipReady ? "已绘制裁切范围" : "未绘制裁切范围"}
+                {clipReady
+                  ? "已绘制裁切范围"
+                  : "请在底部图形绘制中设置裁切范围"}
               </Typography.Text>
               <Button size="small" onClick={onClearClip} disabled={!clipReady}>
                 清除

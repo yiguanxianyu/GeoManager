@@ -24,6 +24,7 @@ import {
 } from "../map/vectorLayerSync";
 import type {
   Bootstrap,
+  FeatureInfo,
   GeoJsonGeometry,
   LoadedLayer,
   LoadedRasterLayer,
@@ -44,6 +45,9 @@ const spatialFilterLineId = "query-spatial-filter-line";
 const exportClipSourceId = "export-clip-filter";
 const exportClipFillId = "export-clip-filter-fill";
 const exportClipLineId = "export-clip-filter-line";
+const layerExtentSourceId = "selected-layer-extent";
+const layerExtentFillId = "selected-layer-extent-fill";
+const layerExtentLineId = "selected-layer-extent-line";
 
 interface Props {
   bootstrap: Bootstrap;
@@ -51,7 +55,9 @@ interface Props {
   drawMode: DrawMode | null;
   spatialFilter: SpatialFilter | null;
   exportClipGeometry: GeoJsonGeometry | null;
+  layerExtentGeometry: GeoJsonGeometry | null;
   onDrawComplete: (mode: DrawMode, geometry: GeoJsonGeometry) => void;
+  onFeatureSelect?: (feature: FeatureInfo | null) => void;
   onMapReady?: (map: MapboxMap) => void;
   onMapDestroy?: () => void;
 }
@@ -62,7 +68,9 @@ export default function MapCanvas({
   drawMode,
   spatialFilter,
   exportClipGeometry,
+  layerExtentGeometry,
   onDrawComplete,
+  onFeatureSelect,
   onMapReady,
   onMapDestroy,
 }: Props) {
@@ -122,10 +130,10 @@ export default function MapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const sync = () => syncLoadedLayers(map, loadedLayers);
+    const sync = () => syncLoadedLayers(map, loadedLayers, onFeatureSelect);
     if (map.isStyleLoaded()) sync();
     else map.once("load", sync);
-  }, [loadedLayers]);
+  }, [loadedLayers, onFeatureSelect]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -170,6 +178,28 @@ export default function MapCanvas({
       );
     }
   }, [exportClipGeometry]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map?.isStyleLoaded()) return;
+    if (layerExtentGeometry) {
+      upsertPolygonLayer(
+        map,
+        layerExtentSourceId,
+        layerExtentFillId,
+        layerExtentLineId,
+        layerExtentGeometry,
+        0.08,
+      );
+    } else {
+      removeLayerGroup(
+        map,
+        layerExtentSourceId,
+        [layerExtentFillId, layerExtentLineId],
+        { cleanInteraction: false },
+      );
+    }
+  }, [layerExtentGeometry]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -235,7 +265,11 @@ export default function MapCanvas({
   );
 }
 
-function syncLoadedLayers(map: MapboxMap, layers: LoadedLayer[]) {
+function syncLoadedLayers(
+  map: MapboxMap,
+  layers: LoadedLayer[],
+  onFeatureSelect?: (feature: FeatureInfo | null) => void,
+) {
   const renderableVectorLayers = layers.filter(
     (l): l is LoadedVectorLayer => l.layerType === "vector" && "geojson" in l,
   );
@@ -310,7 +344,7 @@ function syncLoadedLayers(map: MapboxMap, layers: LoadedLayer[]) {
     ...renderableVectorLayers,
     ...renderableRasterLayers,
   ]);
-  syncVectorInteractions(map, renderableVectorLayers);
+  syncVectorInteractions(map, renderableVectorLayers, onFeatureSelect);
   (map as unknown as { __loadedSources: Set<string> }).__loadedSources =
     activeIds;
 }

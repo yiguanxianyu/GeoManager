@@ -6,31 +6,26 @@ import {
   Empty,
   Input,
   List,
-  Segmented,
   Select,
   Space,
   Tag,
   Typography,
 } from "antd";
 import {
-  Crosshair,
   Database,
   Filter,
   ListFilter,
   MapPinned,
   Plus,
   Search,
-  X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import type { DrawMode } from "../map/spatialDraw";
 import type {
   AttributeFilter,
   DataResource,
   DataResourceProfile,
   ResourceFilters,
   ResourceQueryResult,
-  SpatialFilter,
   User,
 } from "../types";
 
@@ -38,16 +33,12 @@ interface Props {
   resources: DataResource[];
   profile: DataResourceProfile | null;
   selectedResourceId: number | null;
-  spatialFilter: SpatialFilter | null;
-  drawMode: DrawMode | null;
   queryResult: ResourceQueryResult | null;
   loadingProfile: boolean;
   querying: boolean;
   permissions: User["permissions"];
   onFilterResources: (filters: ResourceFilters) => void;
   onSelectResource: (resource: DataResource) => void;
-  onDrawModeChange: (mode: DrawMode | null) => void;
-  onClearSpatialFilter: () => void;
   onQuery: (filters: AttributeFilter[]) => void;
   onLoadResult: () => void;
   onLoadRaster: () => void;
@@ -68,16 +59,12 @@ export default function DataPanel({
   resources,
   profile,
   selectedResourceId,
-  spatialFilter,
-  drawMode,
   queryResult,
   loadingProfile,
   querying,
   permissions,
   onFilterResources,
   onSelectResource,
-  onDrawModeChange,
-  onClearSpatialFilter,
   onQuery,
   onLoadResult,
   onLoadRaster,
@@ -317,47 +304,6 @@ export default function DataPanel({
       {!selectedIsRaster && (
         <>
           <div className="subsection-title">
-            <Crosshair size={15} />
-            <Typography.Text strong>空间查询</Typography.Text>
-          </div>
-          <Segmented
-            block
-            value={drawMode ?? "none"}
-            options={[
-              { label: "无", value: "none" },
-              { label: "矩形", value: "rectangle" },
-              { label: "圆", value: "circle" },
-              { label: "椭圆", value: "ellipse" },
-              { label: "多边形", value: "polygon" },
-            ]}
-            onChange={(nextValue) =>
-              onDrawModeChange(
-                nextValue === "none" ? null : (nextValue as DrawMode),
-              )
-            }
-          />
-          <div className="spatial-status">
-            {spatialFilter ? (
-              <>
-                <Tag color="green">
-                  已绘制{spatialModeName(spatialFilter.mode)}
-                </Tag>
-                <Button
-                  size="small"
-                  icon={<X size={13} />}
-                  onClick={onClearSpatialFilter}
-                >
-                  清除
-                </Button>
-              </>
-            ) : (
-              <Typography.Text type="secondary">
-                选择图形后在地图上绘制查询范围
-              </Typography.Text>
-            )}
-          </div>
-
-          <div className="subsection-title">
             <Plus size={15} />
             <Typography.Text strong>属性查询</Typography.Text>
           </div>
@@ -459,14 +405,4 @@ function operatorLabel(operator: AttributeFilter["operator"]) {
   return (
     operatorOptions.find((item) => item.value === operator)?.label ?? operator
   );
-}
-
-function spatialModeName(mode: SpatialFilter["mode"]) {
-  const names = {
-    rectangle: "矩形",
-    circle: "圆",
-    ellipse: "椭圆",
-    polygon: "多边形",
-  };
-  return names[mode];
 }

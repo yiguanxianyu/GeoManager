@@ -199,6 +199,12 @@ export interface GeoJsonFeatureCollection {
   features: Array<Record<string, unknown>>;
 }
 
+export interface FeatureInfo {
+  layerId: string;
+  layerName: string;
+  properties: Record<string, unknown>;
+}
+
 export interface ResourceQueryResult {
   resourceId: number;
   resourceName: string;

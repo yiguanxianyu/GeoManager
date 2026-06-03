@@ -1,13 +1,17 @@
-import mapboxgl from "mapbox-gl";
-import type { LoadedVectorLayer } from "../types";
+import type mapboxgl from "mapbox-gl";
+import type { FeatureInfo, LoadedVectorLayer } from "../types";
 import { sourceIdFor } from "../utils/geometry";
 import { clearFeatureState, featureStateTarget, getMapState } from "./mapState";
 
 export function syncVectorInteractions(
   map: mapboxgl.Map,
   layers: LoadedVectorLayer[],
+  onFeatureSelect?: (feature: FeatureInfo | null) => void,
 ) {
   const activeLayerIds = new Set<string>();
+  const layerBySourceId = new Map(
+    layers.map((layer) => [sourceIdFor(layer.id), layer]),
+  );
   for (const layer of layers) {
     const sourceId = sourceIdFor(layer.id);
     for (const styleLayerId of [
@@ -18,7 +22,12 @@ export function syncVectorInteractions(
     ]) {
       if (map.getLayer(styleLayerId)) {
         activeLayerIds.add(styleLayerId);
-        addVectorInteraction(map, styleLayerId);
+        addVectorInteraction(
+          map,
+          styleLayerId,
+          layerBySourceId,
+          onFeatureSelect,
+        );
       }
     }
   }
@@ -28,9 +37,16 @@ export function syncVectorInteractions(
   }
 }
 
-export function addVectorInteraction(map: mapboxgl.Map, layerId: string) {
+export function addVectorInteraction(
+  map: mapboxgl.Map,
+  layerId: string,
+  layerBySourceId: Map<string, LoadedVectorLayer>,
+  onFeatureSelect?: (feature: FeatureInfo | null) => void,
+) {
   const handlers = getMapState(map).interactiveHandlers;
-  if (handlers.has(layerId)) return;
+  if (handlers.has(layerId)) {
+    removeVectorInteraction(map, layerId);
+  }
 
   const click = (event: mapboxgl.MapLayerMouseEvent) => {
     const feature = event.features?.[0];
@@ -42,7 +58,17 @@ export function addVectorInteraction(map: mapboxgl.Map, layerId: string) {
       map.setFeatureState(target, { selected: true });
       getMapState(map).selectedFeature = target;
     }
-    showFeaturePopup(map, event.lngLat, feature.properties ?? {});
+    const sourceId = String(feature.source ?? "");
+    const layer = layerBySourceId.get(sourceId);
+    onFeatureSelect?.(
+      layer
+        ? {
+            layerId: layer.id,
+            layerName: layer.name,
+            properties: feature.properties ?? {},
+          }
+        : null,
+    );
   };
 
   const mousemove = (event: mapboxgl.MapLayerMouseEvent) => {
@@ -82,53 +108,10 @@ export function removeVectorInteraction(map: mapboxgl.Map, layerId: string) {
   const handlers = getMapState(map).interactiveHandlers;
   const handler = handlers.get(layerId);
   if (!handler) return;
-  map.off("click", layerId, handler.click);
+  if (handler.click) {
+    map.off("click", layerId, handler.click);
+  }
   map.off("mousemove", layerId, handler.mousemove);
   map.off("mouseleave", layerId, handler.mouseleave);
   handlers.delete(layerId);
-}
-
-function showFeaturePopup(
-  map: mapboxgl.Map,
-  lngLat: mapboxgl.LngLat,
-  properties: Record<string, unknown> | null,
-) {
-  const state = getMapState(map);
-  state.popup?.remove();
-  const container = document.createElement("div");
-  container.className = "feature-popup";
-  const title = document.createElement("div");
-  title.className = "feature-popup-title";
-  title.textContent = "属性值";
-  container.appendChild(title);
-
-  const table = document.createElement("div");
-  table.className = "feature-popup-table";
-  const entries = Object.entries(properties ?? {});
-  if (entries.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "feature-popup-empty";
-    empty.textContent = "无属性";
-    table.appendChild(empty);
-  } else {
-    for (const [key, value] of entries) {
-      const row = document.createElement("div");
-      row.className = "feature-popup-row";
-      const keyCell = document.createElement("span");
-      keyCell.textContent = key;
-      const valueCell = document.createElement("strong");
-      valueCell.textContent = String(value ?? "-");
-      row.append(keyCell, valueCell);
-      table.appendChild(row);
-    }
-  }
-  container.appendChild(table);
-  state.popup = new mapboxgl.Popup({
-    closeButton: true,
-    closeOnClick: true,
-    maxWidth: "360px",
-  })
-    .setLngLat(lngLat)
-    .setDOMContent(container)
-    .addTo(map);
 }

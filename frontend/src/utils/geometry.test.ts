@@ -8,6 +8,7 @@ import {
   delay,
   ellipseGeometry,
   extractCoordinates,
+  geometryFromBoundsText,
   geometryFromPoints,
   polygonGeometry,
   rasterSourceKey,
@@ -32,6 +33,22 @@ describe("rectangleGeometry", () => {
     const coords = (geo as { coordinates: number[][][] }).coordinates[0];
     expect(coords[0][0]).toBe(10);
     expect(coords[2][0]).toBe(30);
+  });
+});
+
+describe("geometryFromBoundsText", () => {
+  it("creates a rectangle from comma separated bounds", () => {
+    const geo = geometryFromBoundsText("80,40,85,45");
+    expect(geo?.type).toBe("Polygon");
+    const coords = (geo as { coordinates: number[][][] }).coordinates[0];
+    expect(coords[0]).toEqual([80, 40]);
+    expect(coords[2]).toEqual([85, 45]);
+  });
+
+  it("returns null for invalid bounds", () => {
+    expect(geometryFromBoundsText("")).toBeNull();
+    expect(geometryFromBoundsText("200,40,205,45")).toBeNull();
+    expect(geometryFromBoundsText("80,40,80,45")).toBeNull();
   });
 });
 

@@ -27,6 +27,31 @@ export function rectangleGeometry(
   };
 }
 
+export function geometryFromBoundsText(value: unknown): GeoJsonGeometry | null {
+  if (typeof value !== "string" && typeof value !== "number") {
+    return null;
+  }
+  const numbers = String(value)
+    .match(/-?\d+(?:\.\d+)?/g)
+    ?.map(Number);
+  if (!numbers || numbers.length < 4) {
+    return null;
+  }
+  const [minLng, minLat, maxLng, maxLat] = numbers;
+  if (
+    ![minLng, minLat, maxLng, maxLat].every(Number.isFinite) ||
+    Math.abs(minLng) > 180 ||
+    Math.abs(maxLng) > 180 ||
+    Math.abs(minLat) > 90 ||
+    Math.abs(maxLat) > 90 ||
+    minLng === maxLng ||
+    minLat === maxLat
+  ) {
+    return null;
+  }
+  return rectangleGeometry([minLng, minLat], [maxLng, maxLat]);
+}
+
 export function circleGeometry(
   center: [number, number],
   edge: [number, number],

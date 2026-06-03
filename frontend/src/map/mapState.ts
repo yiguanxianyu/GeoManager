@@ -6,7 +6,7 @@ export interface FeatureStateTarget {
 }
 
 export interface VectorInteractionHandlers {
-  click: (event: mapboxgl.MapLayerMouseEvent) => void;
+  click?: (event: mapboxgl.MapLayerMouseEvent) => void;
   mousemove: (event: mapboxgl.MapLayerMouseEvent) => void;
   mouseleave: () => void;
 }

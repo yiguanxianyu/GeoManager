@@ -1,6 +1,5 @@
 import type mapboxgl from "mapbox-gl";
 import { createContext, type RefObject, useContext } from "react";
-import type { DrawMode } from "../map/spatialDraw";
 import type {
   GroupSymbolization,
   RasterSymbolization,
@@ -14,7 +13,6 @@ import type {
   LoadedRasterLayer,
 } from "../types";
 
-export type { DrawMode };
 export type DropPlacement = "before" | "after";
 export interface ExportOptions {
   epsg: number | null;
@@ -31,6 +29,9 @@ export type ExportProgressHandler = (state: {
 
 export interface LayerContextValue {
   groups: LoadedLayerGroup[];
+  selectedLayerId: string | null;
+  selectLayer: (groupId: string, layerId: string) => void;
+  openLayerTable: (groupId: string, layerId: string) => void;
   addGroup: (group: LoadedLayerGroup) => void;
   updateLayer: (
     groupId: string,
@@ -76,7 +77,6 @@ export interface LayerContextValue {
   canUseCustomSymbolization: boolean;
   canExportData: boolean;
   exportClipGeometry: GeoJsonGeometry | null;
-  startExportClipDraw: (mode: DrawMode) => void;
   clearExportClipGeometry: () => void;
   exportLayers: (
     items: ExportLayerItem[],

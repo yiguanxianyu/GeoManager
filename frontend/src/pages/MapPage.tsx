@@ -1,18 +1,14 @@
 import { App, Button, Layout, Popover, Tag, Typography } from "antd";
-import {
-  ArrowLeft,
-  Database,
-  Layers,
-  LogOut,
-  Settings,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowLeft, Database, Layers, LogOut, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import DataPanel from "../components/DataPanel";
+import LayerDataTableModal from "../components/LayerDataTableModal";
 import LayerPanel from "../components/LayerPanel";
 import MapCanvas from "../components/MapCanvas";
+import RightSidePanel from "../components/RightSidePanel";
+import WorkspaceBottomPanel from "../components/WorkspaceBottomPanel";
 import { useAppContext } from "../contexts/AppContext";
 import {
   type ExportOptions,
@@ -28,9 +24,11 @@ import type {
   DataResource,
   DataResourceProfile,
   ExportLayerItem,
+  FeatureInfo,
   GeoJsonGeometry,
   LoadedLayer,
   LoadedRasterLayer,
+  LoadedVectorLayer,
   ResourceFilters,
   ResourceQueryResult,
   SpatialFilter,
@@ -39,6 +37,7 @@ import {
   boundsFromImageCoordinates,
   combinedFeatureBounds,
   fitGeojsonBounds,
+  geometryFromBoundsText,
 } from "../utils/geometry";
 import {
   createRasterLayerGroup,
@@ -46,6 +45,19 @@ import {
 } from "../utils/layerFactory";
 
 type DrawPurpose = "query" | "exportClip";
+
+const emptyPermissions = {
+  canAccessAdmin: false,
+  canManageFeaturePermissions: false,
+  canBrowseData: false,
+  canQueryData: false,
+  canLoadVectorLayer: false,
+  canLoadRasterLayer: false,
+  canUseCustomSymbolization: false,
+  canExportData: false,
+  canMaintainData: false,
+  canManageRasterData: false,
+};
 
 export default function MapPage() {
   const { bootstrap, user, setUser } = useAppContext();
@@ -73,14 +85,22 @@ export default function MapPage() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [querying, setQuerying] = useState(false);
   const [dataPanelOpen, setDataPanelOpen] = useState(false);
+  const [selectedFeature, setSelectedFeature] = useState<FeatureInfo | null>(
+    null,
+  );
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [tableLayer, setTableLayer] = useState<LoadedLayer | null>(null);
+  const [layerExtentVisible, setLayerExtentVisible] = useState(false);
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
   const startupScanStartedRef = useRef(false);
+  const permissions = user?.permissions ?? emptyPermissions;
+  const userRoles = user?.roles ?? [];
 
   const layerGroups = useLayerGroups();
   const { startRasterRender, setMapInstance } = useRasterRender(
     layerGroups.updateRasterLayer,
   );
-  const permissionDeniedMessage = `当前用户组"${user!.roles.length > 0 ? user!.roles.join("、") : "未分组"}"无权限`;
+  const permissionDeniedMessage = `当前用户组"${userRoles.length > 0 ? userRoles.join("、") : "未分组"}"无权限`;
 
   const mapLayers = useMemo(
     () =>
@@ -107,6 +127,26 @@ export default function MapPage() {
     [layerGroups.groups],
   );
 
+  const selectedLayer = useMemo(() => {
+    const allLayers = layerGroups.groups.flatMap((group) => group.children);
+    return (
+      allLayers.find((layer) => layer.id === selectedLayerId) ??
+      allLayers.find((layer) => layer.layerType === "vector") ??
+      allLayers[0] ??
+      null
+    );
+  }, [layerGroups.groups, selectedLayerId]);
+
+  const selectedLayerExtentGeometry = useMemo(() => {
+    if (!layerExtentVisible || !selectedLayer) {
+      return null;
+    }
+    return geometryFromBoundsText(
+      selectedLayer.metadata.空间范围 ??
+        selectedLayer.sourceResource.spatialExtent,
+    );
+  }, [layerExtentVisible, selectedLayer]);
+
   const loadResources = useCallback(
     async (filters: ResourceFilters) => {
       try {
@@ -124,10 +164,10 @@ export default function MapPage() {
   );
 
   useEffect(() => {
-    if (user!.permissions.canBrowseData) {
+    if (permissions.canBrowseData) {
       void loadResources({});
     }
-  }, [user!.permissions.canBrowseData, loadResources]);
+  }, [permissions.canBrowseData, loadResources]);
 
   const waitForJob = useCallback(async (jobId: string) => {
     while (true) {
@@ -143,7 +183,7 @@ export default function MapPage() {
   }, []);
 
   useEffect(() => {
-    if (!user!.permissions.canBrowseData || startupScanStartedRef.current) {
+    if (!permissions.canBrowseData || startupScanStartedRef.current) {
       return;
     }
     startupScanStartedRef.current = true;
@@ -167,7 +207,7 @@ export default function MapPage() {
     }
 
     void scanAndRefreshResources();
-  }, [loadResources, message, user!.permissions.canBrowseData, waitForJob]);
+  }, [loadResources, message, permissions.canBrowseData, waitForJob]);
 
   async function handleSelectResource(resource: DataResource) {
     setSelectedResource(resource);
@@ -202,11 +242,12 @@ export default function MapPage() {
     setActiveDraw(mode ? { purpose: "query", mode } : null);
   }, []);
 
+  const setExportClipDrawMode = useCallback((mode: DrawMode) => {
+    setActiveDraw({ purpose: "exportClip", mode });
+  }, []);
+
   async function handleQuery(attributeFilters: AttributeFilter[]) {
-    if (
-      !user!.permissions.canQueryData ||
-      !user!.permissions.canLoadVectorLayer
-    ) {
+    if (!permissions.canQueryData || !permissions.canLoadVectorLayer) {
       message.warning(permissionDeniedMessage);
       return;
     }
@@ -231,7 +272,7 @@ export default function MapPage() {
   }
 
   function handleLoadResult() {
-    if (!user!.permissions.canLoadVectorLayer) {
+    if (!permissions.canLoadVectorLayer) {
       message.warning(permissionDeniedMessage);
       return;
     }
@@ -242,12 +283,13 @@ export default function MapPage() {
       queryResult,
     );
     layerGroups.addGroup(group);
+    setSelectedLayerId(group.children[0]?.id ?? null);
     setDataPanelOpen(false);
     message.success("查询结果已加载到图层");
   }
 
   function handleLoadRaster() {
-    if (!user!.permissions.canLoadRasterLayer) {
+    if (!permissions.canLoadRasterLayer) {
       message.warning(permissionDeniedMessage);
       return;
     }
@@ -258,6 +300,7 @@ export default function MapPage() {
     const group = createRasterLayerGroup(selectedResource, resourceProfile);
     if (!group) return;
     layerGroups.addGroup(group);
+    setSelectedLayerId(group.children[0]?.id ?? null);
     setDataPanelOpen(false);
     const child = group.children[0] as LoadedRasterLayer;
     void startRasterRender(
@@ -338,16 +381,12 @@ export default function MapPage() {
       const targetGroup = layerGroups.groups.find((g) => g.id === groupId);
       if (!targetGroup) return;
       const geojsons = targetGroup.children
-        .filter(
-          (l): l is import("../types").LoadedVectorLayer =>
-            l.layerType === "vector",
-        )
+        .filter((l): l is LoadedVectorLayer => l.layerType === "vector")
         .map((l) => l.geojson);
       const rasterBounds = targetGroup.children
         .filter((l) => l.layerType === "raster" && l.imageCoordinates?.length)
         .map((l) => {
-          const coords = (l as import("../types").LoadedRasterLayer)
-            .imageCoordinates;
+          const coords = (l as LoadedRasterLayer).imageCoordinates;
           return coords ? boundsFromImageCoordinates(coords) : null;
         })
         .filter(Boolean) as mapboxgl.LngLatBounds[];
@@ -397,7 +436,7 @@ export default function MapPage() {
       options: ExportOptions,
       onProgress?: ExportProgressHandler,
     ) => {
-      if (!user!.permissions.canExportData) {
+      if (!permissions.canExportData) {
         message.warning(permissionDeniedMessage);
         return;
       }
@@ -451,11 +490,20 @@ export default function MapPage() {
         throw error;
       }
     },
-    [message, permissionDeniedMessage, user!.permissions.canExportData],
+    [message, permissionDeniedMessage, permissions.canExportData],
   );
 
   const layerContextValue: LayerContextValue = {
     groups: layerGroups.groups,
+    selectedLayerId,
+    selectLayer: (_groupId, layerId) => setSelectedLayerId(layerId),
+    openLayerTable: (_groupId, layerId) => {
+      const layer =
+        layerGroups.groups
+          .flatMap((group) => group.children)
+          .find((item) => item.id === layerId) ?? null;
+      setTableLayer(layer);
+    },
     addGroup: layerGroups.addGroup,
     updateLayer: layerGroups.updateLayer,
     updateRasterLayer: layerGroups.updateRasterLayer,
@@ -473,11 +521,9 @@ export default function MapPage() {
     locateLayer,
     locateGroup,
     mapRef: mapInstanceRef,
-    canUseCustomSymbolization: user!.permissions.canUseCustomSymbolization,
-    canExportData: user!.permissions.canExportData,
+    canUseCustomSymbolization: permissions.canUseCustomSymbolization,
+    canExportData: permissions.canExportData,
     exportClipGeometry,
-    startExportClipDraw: (mode) =>
-      setActiveDraw({ purpose: "exportClip", mode }),
     clearExportClipGeometry: () => setExportClipGeometry(null),
     exportLayers,
   };
@@ -487,16 +533,12 @@ export default function MapPage() {
       resources={resources}
       profile={resourceProfile}
       selectedResourceId={selectedResource?.id ?? null}
-      spatialFilter={spatialFilter}
-      drawMode={activeDraw?.purpose === "query" ? activeDraw.mode : null}
       queryResult={queryResult}
       loadingProfile={loadingProfile}
       querying={querying}
-      permissions={user!.permissions}
+      permissions={permissions}
       onFilterResources={loadResources}
       onSelectResource={handleSelectResource}
-      onDrawModeChange={setQueryDrawMode}
-      onClearSpatialFilter={() => setSpatialFilter(null)}
       onQuery={handleQuery}
       onLoadResult={handleLoadResult}
       onLoadRaster={handleLoadRaster}
@@ -522,7 +564,7 @@ export default function MapPage() {
             >
               返回入口
             </Button>
-            {user!.permissions.canBrowseData && (
+            {permissions.canBrowseData && (
               <Popover
                 trigger="click"
                 placement="bottomLeft"
@@ -534,26 +576,18 @@ export default function MapPage() {
                 <Button icon={<Layers size={16} />}>数据管理</Button>
               </Popover>
             )}
-            {user!.permissions.canAccessAdmin && (
-              <Button
-                icon={<Settings size={16} />}
-                onClick={() => window.location.assign("/admin/")}
-              >
-                后台管理
-              </Button>
-            )}
           </div>
         </div>
         <div className="header-account-actions">
           <div className="role-tags">
-            {user!.roles.map((role) => (
+            {userRoles.map((role) => (
               <Tag key={role} color="green">
                 {role}
               </Tag>
             ))}
           </div>
           <Button icon={<ShieldCheck size={16} />} className="user-button">
-            {user!.displayName}
+            {user?.displayName ?? ""}
           </Button>
           <Button icon={<LogOut size={16} />} onClick={handleLogout}>
             退出
@@ -568,7 +602,9 @@ export default function MapPage() {
             drawMode={activeDraw?.mode ?? null}
             spatialFilter={spatialFilter}
             exportClipGeometry={exportClipGeometry}
+            layerExtentGeometry={selectedLayerExtentGeometry}
             onDrawComplete={handleDrawComplete}
+            onFeatureSelect={setSelectedFeature}
             onMapReady={handleMapReady}
             onMapDestroy={handleMapDestroy}
           />
@@ -580,9 +616,32 @@ export default function MapPage() {
         </aside>
         <aside
           className="floating-panel floating-panel-right"
-          aria-label="右侧预留面板"
+          aria-label="要素信息面板"
+        >
+          <RightSidePanel selectedFeature={selectedFeature} />
+        </aside>
+        <aside
+          className="floating-panel-bottom"
+          aria-label="底部数据与绘制面板"
+        >
+          <WorkspaceBottomPanel
+            selectedLayer={selectedLayer}
+            exportClipGeometry={exportClipGeometry}
+            spatialFilter={spatialFilter}
+            layerExtentVisible={layerExtentVisible}
+            activeDraw={activeDraw}
+            onStartQueryDraw={setQueryDrawMode}
+            onStartExportClipDraw={setExportClipDrawMode}
+            onLayerExtentVisibleChange={setLayerExtentVisible}
+            onClearSpatialFilter={() => setSpatialFilter(null)}
+            onClearExportClipGeometry={() => setExportClipGeometry(null)}
+          />
+        </aside>
+        <LayerDataTableModal
+          layer={tableLayer}
+          open={Boolean(tableLayer)}
+          onClose={() => setTableLayer(null)}
         />
-        <aside className="floating-panel-bottom" aria-label="底部预留面板" />
       </div>
     </Layout>
   );
