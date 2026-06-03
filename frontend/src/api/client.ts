@@ -5,6 +5,9 @@ import type {
   DataResource,
   DataResourceProfile,
   ExportLayersPayload,
+  ImportCommitPayload,
+  ImportCommitResult,
+  ImportPreview,
   MapLayer,
   RasterJob,
   RasterRenderResult,
@@ -38,7 +41,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const method = (options.method ?? "GET").toUpperCase();
   const headers = new Headers(options.headers);
   if (options.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
+    if (!(options.body instanceof FormData)) {
+      headers.set("Content-Type", "application/json");
+    }
   }
   if (method !== "GET") {
     headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
@@ -145,6 +150,23 @@ export const api = {
         body: JSON.stringify({}),
       },
     ),
+  importPreview: (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return request<ImportPreview>("/api/catalog/import/preview/", {
+      method: "POST",
+      body,
+    });
+  },
+  importCommit: (file: File, payload: ImportCommitPayload) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("payload", JSON.stringify(payload));
+    return request<ImportCommitResult>("/api/catalog/import/commit/", {
+      method: "POST",
+      body,
+    });
+  },
   resourceProfile: (resourceId: number) =>
     request<DataResourceProfile>(
       `/api/catalog/resources/${resourceId}/profile/`,

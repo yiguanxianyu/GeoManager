@@ -1,9 +1,11 @@
 import io
 import json
+import sqlite3
 import zipfile
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from shapely.geometry import Point
 
@@ -178,6 +180,151 @@ class CatalogScanTests(TestCase):
         resource_types = {resource.storage_path: resource.data_type for resource in resources}
         self.assertEqual(resource_types["gene/populus.fasta"], DataResource.DataType.GENE)
         self.assertEqual(resource_types["table/survey.csv"], DataResource.DataType.TABLE)
+
+
+class DataImportApiTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="importer", password="pass12345")
+        grant(self.user, ("catalog", "maintain_dataresource"))
+        self.client.force_login(self.user)
+        self.vector_path = vector_geopackage_path()
+        self.table_path = table_data_path("data.sqlite")
+        self.vector_path.parent.mkdir(parents=True, exist_ok=True)
+        self.table_path.parent.mkdir(parents=True, exist_ok=True)
+        self.vector_path.unlink(missing_ok=True)
+        self.table_path.unlink(missing_ok=True)
+
+    def test_import_preview_detects_coordinate_columns_and_quantization_error(self):
+        response = self.client.post(
+            "/api/catalog/import/preview/",
+            data={"file": self._csv_file("sample.csv", "name,longitude,latitude\nA,87.600,43.80\n")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertTrue(payload["detected"]["isGeographic"])
+        self.assertEqual(payload["detected"]["longitudeColumn"], "longitude")
+        self.assertEqual(payload["detected"]["latitudeColumn"], "latitude")
+        self.assertEqual(payload["detected"]["coordinateStats"]["validRows"], 1)
+        self.assertGreater(payload["detected"]["coordinateStats"]["quantizationErrorMeters"]["max"], 0)
+
+    def test_import_geographic_table_writes_gpkg_metadata_and_catalog_records(self):
+        response = self.client.post(
+            "/api/catalog/import/commit/",
+            data={
+                "file": self._csv_file("points.csv", "name,lon,lat\nA,87.600,43.800\n"),
+                "payload": json.dumps(
+                    {
+                        "name": "导入点位",
+                        "tableName": "import_points",
+                        "importMode": "geographic",
+                        "longitudeColumn": "lon",
+                        "latitudeColumn": "lat",
+                        "missingCoordinatePolicy": "cancel",
+                        "overwrite": False,
+                        "fieldMetadata": {"name": "样点名称", "lon": "经度", "lat": "纬度"},
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertEqual(payload["mode"], "geographic")
+        self.assertEqual(payload["importedRows"], 1)
+        resource = DataResource.objects.get(storage_path="import_points")
+        layer = MapLayer.objects.get(source_path="import_points")
+        self.assertEqual(resource.data_type, DataResource.DataType.VECTOR)
+        self.assertEqual(layer.geometry_type, MapLayer.GeometryType.POINT)
+        with sqlite3.connect(self.vector_path) as connection:
+            description = connection.execute(
+                "SELECT description FROM gpkg_data_columns WHERE table_name = ? AND column_name = ?",
+                ("import_points", "name"),
+            ).fetchone()[0]
+        self.assertEqual(description, "样点名称")
+
+    def test_import_geographic_table_requires_missing_coordinate_policy(self):
+        response = self.client.post(
+            "/api/catalog/import/commit/",
+            data={
+                "file": self._csv_file("points.csv", "name,lon,lat\nA,87.600,\n"),
+                "payload": json.dumps(
+                    {
+                        "name": "导入点位",
+                        "tableName": "missing_points",
+                        "importMode": "geographic",
+                        "longitudeColumn": "lon",
+                        "latitudeColumn": "lat",
+                        "missingCoordinatePolicy": "cancel",
+                        "overwrite": False,
+                        "fieldMetadata": {},
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("存在空或非法坐标", response.json()["detail"])
+
+    def test_import_geographic_table_can_ignore_missing_coordinates(self):
+        response = self.client.post(
+            "/api/catalog/import/commit/",
+            data={
+                "file": self._csv_file("points.csv", "name,lon,lat\nA,87.600,43.800\nB,,43.900\n"),
+                "payload": json.dumps(
+                    {
+                        "name": "导入点位",
+                        "tableName": "ignore_missing_points",
+                        "importMode": "geographic",
+                        "longitudeColumn": "lon",
+                        "latitudeColumn": "lat",
+                        "missingCoordinatePolicy": "ignore",
+                        "overwrite": False,
+                        "fieldMetadata": {},
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertEqual(payload["importedRows"], 1)
+        self.assertEqual(payload["skippedRows"], 1)
+
+    def test_import_plain_table_writes_sqlite_data_and_metadata(self):
+        response = self.client.post(
+            "/api/catalog/import/commit/",
+            data={
+                "file": self._csv_file("survey.csv", "name,value\nA,42\n"),
+                "payload": json.dumps(
+                    {
+                        "name": "调查表",
+                        "tableName": "survey_table",
+                        "importMode": "table",
+                        "missingCoordinatePolicy": "cancel",
+                        "overwrite": False,
+                        "fieldMetadata": {"name": "名称", "value": "数值"},
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        payload = response.json()
+        self.assertEqual(payload["mode"], "table")
+        resource = DataResource.objects.get(storage_path="survey_table")
+        self.assertEqual(resource.data_type, DataResource.DataType.TABLE)
+        with sqlite3.connect(self.table_path) as connection:
+            row = connection.execute("SELECT name, value FROM survey_table").fetchone()
+            description = connection.execute(
+                "SELECT description FROM data_columns WHERE table_name = ? AND column_name = ?",
+                ("survey_table", "value"),
+            ).fetchone()[0]
+        self.assertEqual(row, ("A", "42"))
+        self.assertEqual(description, "数值")
+
+    def _csv_file(self, name: str, content: str) -> SimpleUploadedFile:
+        return SimpleUploadedFile(name, content.encode("utf-8"), content_type="text/csv")
 
 
 class ExportApiTests(TestCase):

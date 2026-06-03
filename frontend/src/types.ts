@@ -84,6 +84,52 @@ export interface DataResourceProfile {
   raster?: RasterDatasetProfile | null;
 }
 
+export interface ImportCoordinateStats {
+  totalRows: number;
+  validRows: number;
+  missingRows: number;
+  quantizationErrorMeters: {
+    min: number | null;
+    max: number | null;
+  };
+}
+
+export interface ImportPreview {
+  columns: string[];
+  rows: Array<Record<string, string>>;
+  rowCount: number;
+  suggestedTableName: string;
+  suggestedName: string;
+  detected: {
+    isGeographic: boolean;
+    longitudeColumn: string | null;
+    latitudeColumn: string | null;
+    coordinateStats: ImportCoordinateStats | null;
+  };
+  limitations: string[];
+}
+
+export interface ImportCommitPayload {
+  name: string;
+  tableName: string;
+  importMode: "geographic" | "table";
+  longitudeColumn?: string;
+  latitudeColumn?: string;
+  missingCoordinatePolicy: "cancel" | "ignore" | "force";
+  overwrite: boolean;
+  fieldMetadata: Record<string, string>;
+}
+
+export interface ImportCommitResult {
+  mode: "geographic" | "table";
+  resourceId: number;
+  layerId: number | null;
+  tableName: string;
+  importedRows: number;
+  skippedRows: number;
+  coordinateStats: ImportCoordinateStats | null;
+}
+
 export interface RasterBandMetadata {
   band: number;
   type: string;

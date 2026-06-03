@@ -7,6 +7,8 @@ urlpatterns = [
     path("catalog/directories/", views.directories, name="catalog-directories"),
     path("catalog/resources/", views.resources, name="catalog-resources"),
     path("catalog/scan/", views.scan_sources, name="catalog-scan"),
+    path("catalog/import/preview/", views.import_preview, name="catalog-import-preview"),
+    path("catalog/import/commit/", views.import_commit, name="catalog-import-commit"),
     path(
         "catalog/resources/<int:pk>/profile/",
         views.resource_profile,

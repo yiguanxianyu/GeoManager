@@ -4,6 +4,7 @@ import { Route, Routes, useLocation } from "react-router-dom";
 import { ApiError, api } from "./api/client";
 import { AppContext } from "./contexts/AppContext";
 import HomePage from "./pages/HomePage";
+import ImportPage from "./pages/ImportPage";
 import LoginPage from "./pages/LoginPage";
 import MapPage from "./pages/MapPage";
 import NonGeoPage from "./pages/NonGeoPage";
@@ -110,6 +111,14 @@ export default function App() {
             element={
               <RouteTransition>
                 <NonGeoPage />
+              </RouteTransition>
+            }
+          />
+          <Route
+            path="/import"
+            element={
+              <RouteTransition>
+                <ImportPage />
               </RouteTransition>
             }
           />

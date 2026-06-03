@@ -119,7 +119,8 @@ body {
 }
 
 .visualization-home,
-.nongeo-workspace {
+.nongeo-workspace,
+.import-workspace {
   min-height: 100vh;
   background:
     linear-gradient(
@@ -166,7 +167,7 @@ body {
 
 .visualization-choice-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: clamp(18px, 3vw, 34px);
   align-items: stretch;
 }
@@ -216,6 +217,20 @@ body {
     );
 }
 
+.import-choice-card.ant-card {
+  background:
+    linear-gradient(
+      150deg,
+      rgba(255, 255, 255, 0.94),
+      rgba(218, 231, 238, 0.82)
+    ),
+    repeating-linear-gradient(
+      45deg,
+      rgba(47, 101, 125, 0.08) 0 1px,
+      transparent 1px 40px
+    );
+}
+
 .choice-card-icon {
   display: flex;
   align-items: center;
@@ -258,6 +273,80 @@ body {
 .nongeo-stage {
   min-height: calc(100vh - 66px);
   background: rgba(250, 252, 249, 0.34);
+}
+
+.import-stage {
+  min-height: calc(100vh - 66px);
+  padding: 24px clamp(16px, 4vw, 48px);
+  background: rgba(250, 252, 249, 0.5);
+}
+
+.import-main {
+  width: min(1280px, 100%);
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.import-upload-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: stretch;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(23, 63, 57, 0.12);
+  border-radius: 8px;
+}
+
+.import-upload-panel .ant-upload-wrapper,
+.import-upload-panel .ant-upload-drag {
+  min-width: 0;
+}
+
+.import-upload-panel > .ant-btn {
+  align-self: center;
+}
+
+.import-config-form {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(23, 63, 57, 0.12);
+  border-radius: 8px;
+}
+
+.import-config-grid,
+.import-coordinate-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(160px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.import-coordinate-grid {
+  grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(
+      260px,
+      2fr
+    );
+}
+
+.import-stats {
+  overflow-x: auto;
+}
+
+.import-section {
+  display: grid;
+  gap: 10px;
+}
+
+.import-section h5.ant-typography {
+  margin: 0;
+}
+
+.import-actions {
+  justify-content: flex-end;
 }
 
 .workspace {
@@ -965,6 +1054,27 @@ body {
 
   .visualization-choice-card h2.ant-typography {
     font-size: 32px;
+  }
+
+  .import-stage {
+    min-height: calc(100vh - 112px);
+    padding: 14px;
+  }
+
+  .import-upload-panel,
+  .import-config-grid,
+  .import-coordinate-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .import-upload-panel > .ant-btn,
+  .import-actions .ant-btn {
+    width: 100%;
+  }
+
+  .import-actions {
+    width: 100%;
+    justify-content: stretch;
   }
 
   .workspace-header {

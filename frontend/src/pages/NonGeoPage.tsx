@@ -1,12 +1,16 @@
 import { Button, Layout, Typography } from "antd";
 import { ArrowLeft, Dna, LogOut, ShieldCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useAppContext } from "../contexts/AppContext";
 import { api } from "../api/client";
+import { useAppContext } from "../contexts/AppContext";
 
 export default function NonGeoPage() {
   const { bootstrap, user, setUser } = useAppContext();
   const navigate = useNavigate();
+
+  if (!user) {
+    return null;
+  }
 
   async function handleLogout() {
     try {
@@ -33,7 +37,7 @@ export default function NonGeoPage() {
         </div>
         <div className="header-account-actions">
           <Button icon={<ShieldCheck size={16} />} className="user-button">
-            {user!.displayName}
+            {user.displayName}
           </Button>
           <Button icon={<LogOut size={16} />} onClick={handleLogout}>
             退出

@@ -65,7 +65,7 @@ def query_resource(resource: DataResource, payload: dict[str, Any]) -> dict[str,
 
     limit = _limit(payload.get("limit"))
     total_count = len(gdf)
-    returned = gdf.head(limit).copy()
+    returned = gdf[gdf.geometry.notna()].head(limit).copy()
     returned = normalize_for_geojson(returned)
 
     return {

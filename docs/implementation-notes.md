@@ -65,6 +65,10 @@ backend/apps/
 - Docker 启动入口必须先创建固定业务/地理/非地理数据子目录，再执行 `python manage.py migrate --noinput` 和 `collectstatic`，确保空 appdata 首次启动可以直接注册首个管理员。
 - SQLite 数据库放在业务数据根目录的 `database/` 下。
 - 所有矢量数据统一从地理数据根目录下的 `vector/vector.gpkg` 读取；业务库中的矢量 `storage_path` 和图层 `source_path` 字段填写该 GeoPackage 内的图层名，后端读取并输出 GeoJSON。
+- Excel/CSV 导入分为预检与提交两步。预检只读取第一张表、按文本读取全部字段、自动推测常见经纬度列并计算坐标量化误差范围；提交时由用户选择地理/非地理导入、经纬度列、字段元数据和空坐标处理策略。
+- 导入的地理表统一写入 `vector/vector.gpkg` 的点图层，并在 GeoPackage `gpkg_data_columns` 中写入字段级描述，记录键为 `table_name + column_name + description`。强行导入空坐标时允许 GeoPackage 保留空几何记录，但图层要素接口和查询 GeoJSON 输出会过滤空几何，避免前端地图渲染异常。
+- 导入的非地理表统一写入 `table/data.sqlite`，业务表之外维护 `data_columns(table_name, column_name, description)` 作为 SQLite 侧字段元数据实现。非地理导入只登记 `DataResource`，不创建 `MapLayer`，资源 `storage_path` 记录 SQLite 内的表名。
+- 坐标量化误差按经纬度文本小数位数估算：每个坐标分量取最后一位小数半个单位作为最大角度误差，纬度方向按 111320 m/deg 换算，经度方向乘以 `cos(latitude)`，再合成平面最大可能误差；该值只表示坐标记录精度引入的位置不确定性，不包含测量设备误差。
 - 栅格数据统一放在地理数据根目录的 `raster/` 总目录下：源文件放在 `raster/original/`，导入后预处理 COG 放在 `raster/preprocessed/`，两份 `gdalinfo -json` 元数据放在 `raster/metadata/source/` 和 `raster/metadata/preprocessed/`。
 - 非地理数据统一放在非地理数据根目录下：基因数据放在 `gene/`，表格数据放在 `table/`。后端目录扫描会登记 `gene` 和 `table` 类型的 `DataResource`，不创建地图图层。
 - 栅格导入预处理固定使用 `gdalwarp -t_srs EPSG:3857 -r nearest -co COMPRESS=DEFLATE -of COG "$in" "$out"`，导入记录保存源文件、预处理文件、两份 GDAL 元数据、导入时间、处理日志、错误信息、默认符号化规则、范围和关联数据资源/地图图层。

@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from apps.catalog.data_query import DataQueryError, get_resource_profile, query_resource
 from apps.catalog.export import ExportError, export_layers_zip, validate_epsg
+from apps.catalog.importer import ImportDataError, import_uploaded_table, preview_uploaded_table
 from apps.catalog.models import Achievement, DataCatalog, DataResource, MapLayer
 from apps.catalog.permissions import filter_accessible, user_can_access
 from apps.catalog.serializers import (
@@ -75,6 +76,39 @@ def scan_sources(request):
         return feature_denied_response(request.user)
     resources = scan_catalog_sources()
     return JsonResponse({"items": [serialize_resource(item) for item in resources], "count": len(resources)})
+
+
+@require_POST
+@login_required
+def import_preview(request):
+    if not has_feature_perm(request.user, "catalog.maintain_dataresource"):
+        return feature_denied_response(request.user)
+    uploaded_file = request.FILES.get("file")
+    if uploaded_file is None:
+        return JsonResponse({"detail": "请上传 Excel 或 CSV 文件"}, status=400)
+    try:
+        return JsonResponse(preview_uploaded_table(uploaded_file))
+    except ImportDataError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+
+
+@require_POST
+@login_required
+def import_commit(request):
+    if not has_feature_perm(request.user, "catalog.maintain_dataresource"):
+        return feature_denied_response(request.user)
+    uploaded_file = request.FILES.get("file")
+    if uploaded_file is None:
+        return JsonResponse({"detail": "请上传 Excel 或 CSV 文件"}, status=400)
+    try:
+        payload = json.loads(request.POST.get("payload", "{}"))
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "导入参数不是有效 JSON"}, status=400)
+    try:
+        result = import_uploaded_table(uploaded_file, payload, request.user)
+    except ImportDataError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+    return JsonResponse(result, status=201)
 
 
 @require_GET
@@ -272,6 +306,7 @@ def layer_features(request, pk: int):
         gdf = gpd.read_file(geopackage_path, layer=layer_name)
         if gdf.crs and gdf.crs.to_epsg() != 4326:
             gdf = gdf.to_crs(4326)
+        gdf = gdf[gdf.geometry.notna()]
         if len(gdf) > limit:
             gdf = gdf.head(limit)
         geojson = json.loads(gdf.to_json())

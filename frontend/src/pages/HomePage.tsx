@@ -2,6 +2,7 @@ import { Button, Card, Layout, Tag, Typography } from "antd";
 import {
   Database,
   Dna,
+  FileSpreadsheet,
   LogOut,
   MapPinned,
   Settings,
@@ -15,6 +16,10 @@ import { useAppContext } from "../contexts/AppContext";
 export default function HomePage() {
   const { bootstrap, user, setUser } = useAppContext();
   const navigate = useNavigate();
+
+  if (!user) {
+    return null;
+  }
 
   async function handleLogout() {
     try {
@@ -34,14 +39,14 @@ export default function HomePage() {
         </div>
         <div className="header-account-actions">
           <div className="role-tags">
-            {user!.roles.map((role) => (
+            {user.roles.map((role) => (
               <Tag key={role} color="green">
                 {role}
               </Tag>
             ))}
           </div>
           <Button icon={<ShieldCheck size={16} />} className="user-button">
-            {user!.displayName}
+            {user.displayName}
           </Button>
           <Button icon={<LogOut size={16} />} onClick={handleLogout}>
             退出
@@ -93,8 +98,33 @@ export default function HomePage() {
               <Tag color="gold">表格</Tag>
             </div>
           </Card>
+          {user.permissions.canMaintainData && (
+            <Card
+              hoverable
+              className="visualization-choice-card import-choice-card"
+              role="button"
+              tabIndex={0}
+              onClick={() => navigate("/import")}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  navigate("/import");
+                }
+              }}
+            >
+              <div className="choice-card-icon">
+                <FileSpreadsheet size={36} />
+                <Database size={30} />
+              </div>
+              <Typography.Title level={2}>数据导入</Typography.Title>
+              <div className="choice-card-tags">
+                <Tag color="blue">Excel/CSV</Tag>
+                <Tag color="green">GPKG</Tag>
+                <Tag color="gold">SQLite</Tag>
+              </div>
+            </Card>
+          )}
         </section>
-        {user!.permissions.canAccessAdmin && (
+        {user.permissions.canAccessAdmin && (
           <section className="portal-admin-entry">
             <Button
               size="large"
