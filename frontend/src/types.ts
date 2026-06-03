@@ -324,3 +324,16 @@ export interface ResourceFilters {
   dateFrom?: string;
   dateTo?: string;
 }
+
+export interface LoginFormValues {
+  username: string;
+  password: string;
+  remember?: boolean;
+}
+
+export interface RegisterFormValues {
+  username: string;
+  email?: string;
+  password: string;
+  passwordConfirm: string;
+}

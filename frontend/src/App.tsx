@@ -1,9 +1,24 @@
 import { App as AntApp, Spin } from "antd";
 import { useEffect, useState } from "react";
+import { Route, Routes, useLocation } from "react-router-dom";
 import { ApiError, api } from "./api/client";
+import { AppContext } from "./contexts/AppContext";
+import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import WorkspacePage from "./pages/WorkspacePage";
+import MapPage from "./pages/MapPage";
+import NonGeoPage from "./pages/NonGeoPage";
+import { RedirectIfAuth, RequireAuth } from "./router";
 import type { Bootstrap, User } from "./types";
+
+/** 为路由页面添加淡入过渡效果的包装组件 */
+function RouteTransition({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  return (
+    <div className="route-enter" key={location.pathname}>
+      {children}
+    </div>
+  );
+}
 
 export default function App() {
   const { message } = AntApp.useApp();
@@ -57,15 +72,49 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return <LoginPage bootstrap={bootstrap} onLogin={setUser} />;
-  }
-
   return (
-    <WorkspacePage
-      bootstrap={bootstrap}
-      user={user}
-      onLogout={() => setUser(null)}
-    />
+    <AppContext.Provider value={{ bootstrap, user, setUser }}>
+      <Routes>
+        {/* 已登录用户访问登录页时重定向到首页 */}
+        <Route element={<RedirectIfAuth />}>
+          <Route
+            path="/login"
+            element={
+              <RouteTransition>
+                <LoginPage />
+              </RouteTransition>
+            }
+          />
+        </Route>
+
+        {/* 需要登录才能访问的页面 */}
+        <Route element={<RequireAuth />}>
+          <Route
+            path="/"
+            element={
+              <RouteTransition>
+                <HomePage />
+              </RouteTransition>
+            }
+          />
+          <Route
+            path="/map"
+            element={
+              <RouteTransition>
+                <MapPage />
+              </RouteTransition>
+            }
+          />
+          <Route
+            path="/nongeo"
+            element={
+              <RouteTransition>
+                <NonGeoPage />
+              </RouteTransition>
+            }
+          />
+        </Route>
+      </Routes>
+    </AppContext.Provider>
   );
 }

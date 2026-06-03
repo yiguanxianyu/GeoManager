@@ -2,6 +2,7 @@ import { App as AntdApp, ConfigProvider, theme } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { BrowserRouter } from "react-router-dom";
 import "antd/dist/reset.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 import "./styles.css";
@@ -35,7 +36,9 @@ if (rootElement) {
         }}
       >
         <AntdApp>
-          <App />
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
         </AntdApp>
       </ConfigProvider>
     </React.StrictMode>,

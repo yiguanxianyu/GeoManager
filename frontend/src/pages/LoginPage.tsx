@@ -12,29 +12,15 @@ import {
 } from "antd";
 import { LogIn } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import type { Bootstrap, User } from "../types";
+import { useAppContext } from "../contexts/AppContext";
+import type { LoginFormValues, RegisterFormValues } from "../types";
 
-interface LoginFormValues {
-  username: string;
-  password: string;
-  remember?: boolean;
-}
-
-interface RegisterFormValues {
-  username: string;
-  email?: string;
-  password: string;
-  passwordConfirm: string;
-}
-
-interface Props {
-  bootstrap: Bootstrap;
-  onLogin: (user: User) => void;
-}
-
-export default function LoginPage({ bootstrap, onLogin }: Props) {
+export default function LoginPage() {
+  const { bootstrap, setUser } = useAppContext();
   const { message } = App.useApp();
+  const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [mode, setMode] = useState<"login" | "register">("login");
 
@@ -47,8 +33,9 @@ export default function LoginPage({ bootstrap, onLogin }: Props) {
         values.password,
         Boolean(values.remember),
       );
-      onLogin(response.user);
+      setUser(response.user);
       message.success("登录成功");
+      navigate("/", { replace: true });
     } catch (error) {
       message.error(error instanceof Error ? error.message : "登录失败");
     } finally {
@@ -66,8 +53,9 @@ export default function LoginPage({ bootstrap, onLogin }: Props) {
         values.password,
         values.passwordConfirm,
       );
-      onLogin(response.user);
+      setUser(response.user);
       message.success(response.detail);
+      navigate("/", { replace: true });
     } catch (error) {
       message.error(error instanceof Error ? error.message : "注册失败");
     } finally {

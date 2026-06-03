@@ -1,20 +1,19 @@
-import { App, Button, Card, Layout, Popover, Tag, Typography } from "antd";
+import { App, Button, Layout, Popover, Tag, Typography } from "antd";
 import {
   ArrowLeft,
   Database,
-  Dna,
   Layers,
   LogOut,
-  MapPinned,
   Settings,
   ShieldCheck,
-  Table2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import DataPanel from "../components/DataPanel";
 import LayerPanel from "../components/LayerPanel";
 import MapCanvas from "../components/MapCanvas";
+import { useAppContext } from "../contexts/AppContext";
 import {
   type ExportOptions,
   type ExportProgressHandler,
@@ -26,7 +25,6 @@ import { useRasterRender } from "../hooks/useRasterRender";
 import type { DrawMode } from "../map/spatialDraw";
 import type {
   AttributeFilter,
-  Bootstrap,
   DataResource,
   DataResourceProfile,
   ExportLayerItem,
@@ -36,7 +34,6 @@ import type {
   ResourceFilters,
   ResourceQueryResult,
   SpatialFilter,
-  User,
 } from "../types";
 import {
   boundsFromImageCoordinates,
@@ -49,17 +46,12 @@ import {
 } from "../utils/layerFactory";
 
 type DrawPurpose = "query" | "exportClip";
-type WorkspaceMode = "home" | "geo" | "nongeo";
 
-interface Props {
-  bootstrap: Bootstrap;
-  user: User;
-  onLogout: () => void;
-}
-
-export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
+export default function MapPage() {
+  const { bootstrap, user, setUser } = useAppContext();
   const { message } = App.useApp();
-  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>("home");
+  const navigate = useNavigate();
+
   const [resources, setResources] = useState<DataResource[]>([]);
   const [selectedResource, setSelectedResource] = useState<DataResource | null>(
     null,
@@ -88,7 +80,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
   const { startRasterRender, setMapInstance } = useRasterRender(
     layerGroups.updateRasterLayer,
   );
-  const permissionDeniedMessage = `当前用户组“${user.roles.length > 0 ? user.roles.join("、") : "未分组"}”无权限`;
+  const permissionDeniedMessage = `当前用户组"${user!.roles.length > 0 ? user!.roles.join("、") : "未分组"}"无权限`;
 
   const mapLayers = useMemo(
     () =>
@@ -132,10 +124,10 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
   );
 
   useEffect(() => {
-    if (workspaceMode === "geo" && user.permissions.canBrowseData) {
+    if (user!.permissions.canBrowseData) {
       void loadResources({});
     }
-  }, [user.permissions.canBrowseData, loadResources, workspaceMode]);
+  }, [user!.permissions.canBrowseData, loadResources]);
 
   const waitForJob = useCallback(async (jobId: string) => {
     while (true) {
@@ -151,11 +143,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
   }, []);
 
   useEffect(() => {
-    if (
-      workspaceMode !== "geo" ||
-      !user.permissions.canBrowseData ||
-      startupScanStartedRef.current
-    ) {
+    if (!user!.permissions.canBrowseData || startupScanStartedRef.current) {
       return;
     }
     startupScanStartedRef.current = true;
@@ -179,13 +167,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
     }
 
     void scanAndRefreshResources();
-  }, [
-    loadResources,
-    message,
-    user.permissions.canBrowseData,
-    waitForJob,
-    workspaceMode,
-  ]);
+  }, [loadResources, message, user!.permissions.canBrowseData, waitForJob]);
 
   async function handleSelectResource(resource: DataResource) {
     setSelectedResource(resource);
@@ -222,8 +204,8 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
 
   async function handleQuery(attributeFilters: AttributeFilter[]) {
     if (
-      !user.permissions.canQueryData ||
-      !user.permissions.canLoadVectorLayer
+      !user!.permissions.canQueryData ||
+      !user!.permissions.canLoadVectorLayer
     ) {
       message.warning(permissionDeniedMessage);
       return;
@@ -249,7 +231,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
   }
 
   function handleLoadResult() {
-    if (!user.permissions.canLoadVectorLayer) {
+    if (!user!.permissions.canLoadVectorLayer) {
       message.warning(permissionDeniedMessage);
       return;
     }
@@ -265,7 +247,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
   }
 
   function handleLoadRaster() {
-    if (!user.permissions.canLoadRasterLayer) {
+    if (!user!.permissions.canLoadRasterLayer) {
       message.warning(permissionDeniedMessage);
       return;
     }
@@ -405,7 +387,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
         error instanceof Error ? error.message : "退出接口异常，本地会话已清空",
       );
     } finally {
-      onLogout();
+      setUser(null);
     }
   }
 
@@ -415,7 +397,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
       options: ExportOptions,
       onProgress?: ExportProgressHandler,
     ) => {
-      if (!user.permissions.canExportData) {
+      if (!user!.permissions.canExportData) {
         message.warning(permissionDeniedMessage);
         return;
       }
@@ -469,7 +451,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
         throw error;
       }
     },
-    [message, permissionDeniedMessage, user.permissions.canExportData],
+    [message, permissionDeniedMessage, user!.permissions.canExportData],
   );
 
   const layerContextValue: LayerContextValue = {
@@ -491,8 +473,8 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
     locateLayer,
     locateGroup,
     mapRef: mapInstanceRef,
-    canUseCustomSymbolization: user.permissions.canUseCustomSymbolization,
-    canExportData: user.permissions.canExportData,
+    canUseCustomSymbolization: user!.permissions.canUseCustomSymbolization,
+    canExportData: user!.permissions.canExportData,
     exportClipGeometry,
     startExportClipDraw: (mode) =>
       setActiveDraw({ purpose: "exportClip", mode }),
@@ -510,7 +492,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
       queryResult={queryResult}
       loadingProfile={loadingProfile}
       querying={querying}
-      permissions={user.permissions}
+      permissions={user!.permissions}
       onFilterResources={loadResources}
       onSelectResource={handleSelectResource}
       onDrawModeChange={setQueryDrawMode}
@@ -520,30 +502,6 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
       onLoadRaster={handleLoadRaster}
     />
   );
-
-  if (workspaceMode === "home") {
-    return (
-      <VisualizationHome
-        bootstrap={bootstrap}
-        user={user}
-        onOpenGeo={() => setWorkspaceMode("geo")}
-        onOpenNonGeo={() => setWorkspaceMode("nongeo")}
-        onOpenAdmin={() => window.location.assign("/admin/")}
-        onLogout={handleLogout}
-      />
-    );
-  }
-
-  if (workspaceMode === "nongeo") {
-    return (
-      <NonGeographicVisualizationPage
-        bootstrap={bootstrap}
-        user={user}
-        onBack={() => setWorkspaceMode("home")}
-        onLogout={handleLogout}
-      />
-    );
-  }
 
   return (
     <Layout className="workspace">
@@ -560,11 +518,11 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
           <div className="header-primary-actions">
             <Button
               icon={<ArrowLeft size={16} />}
-              onClick={() => setWorkspaceMode("home")}
+              onClick={() => navigate("/")}
             >
               返回入口
             </Button>
-            {user.permissions.canBrowseData && (
+            {user!.permissions.canBrowseData && (
               <Popover
                 trigger="click"
                 placement="bottomLeft"
@@ -576,7 +534,7 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
                 <Button icon={<Layers size={16} />}>数据管理</Button>
               </Popover>
             )}
-            {user.permissions.canAccessAdmin && (
+            {user!.permissions.canAccessAdmin && (
               <Button
                 icon={<Settings size={16} />}
                 onClick={() => window.location.assign("/admin/")}
@@ -588,14 +546,14 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
         </div>
         <div className="header-account-actions">
           <div className="role-tags">
-            {user.roles.map((role) => (
+            {user!.roles.map((role) => (
               <Tag key={role} color="green">
                 {role}
               </Tag>
             ))}
           </div>
           <Button icon={<ShieldCheck size={16} />} className="user-button">
-            {user.displayName}
+            {user!.displayName}
           </Button>
           <Button icon={<LogOut size={16} />} onClick={handleLogout}>
             退出
@@ -626,149 +584,6 @@ export default function WorkspacePage({ bootstrap, user, onLogout }: Props) {
         />
         <aside className="floating-panel-bottom" aria-label="底部预留面板" />
       </div>
-    </Layout>
-  );
-}
-
-interface VisualizationHomeProps {
-  bootstrap: Bootstrap;
-  user: User;
-  onOpenGeo: () => void;
-  onOpenNonGeo: () => void;
-  onOpenAdmin: () => void;
-  onLogout: () => void;
-}
-
-function VisualizationHome({
-  bootstrap,
-  user,
-  onOpenGeo,
-  onOpenNonGeo,
-  onOpenAdmin,
-  onLogout,
-}: VisualizationHomeProps) {
-  return (
-    <Layout className="visualization-home">
-      <Layout.Header className="portal-header">
-        <div className="brand-block">
-          <Database size={22} />
-          <Typography.Title level={4}>{bootstrap.systemName}</Typography.Title>
-        </div>
-        <div className="header-account-actions">
-          <div className="role-tags">
-            {user.roles.map((role) => (
-              <Tag key={role} color="green">
-                {role}
-              </Tag>
-            ))}
-          </div>
-          <Button icon={<ShieldCheck size={16} />} className="user-button">
-            {user.displayName}
-          </Button>
-          <Button icon={<LogOut size={16} />} onClick={onLogout}>
-            退出
-          </Button>
-        </div>
-      </Layout.Header>
-      <main className="portal-body">
-        <section className="visualization-choice-grid">
-          <Card
-            hoverable
-            className="visualization-choice-card geo-choice-card"
-            role="button"
-            tabIndex={0}
-            onClick={onOpenGeo}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                onOpenGeo();
-              }
-            }}
-          >
-            <div className="choice-card-icon">
-              <MapPinned size={36} />
-            </div>
-            <Typography.Title level={2}>地理可视化</Typography.Title>
-            <div className="choice-card-tags">
-              <Tag color="green">矢量</Tag>
-              <Tag color="cyan">栅格</Tag>
-            </div>
-          </Card>
-          <Card
-            hoverable
-            className="visualization-choice-card nongeo-choice-card"
-            role="button"
-            tabIndex={0}
-            onClick={onOpenNonGeo}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                onOpenNonGeo();
-              }
-            }}
-          >
-            <div className="choice-card-icon">
-              <Dna size={36} />
-              <Table2 size={30} />
-            </div>
-            <Typography.Title level={2}>非地理可视化</Typography.Title>
-            <div className="choice-card-tags">
-              <Tag color="purple">基因</Tag>
-              <Tag color="gold">表格</Tag>
-            </div>
-          </Card>
-        </section>
-        {user.permissions.canAccessAdmin && (
-          <section className="portal-admin-entry">
-            <Button
-              size="large"
-              icon={<Settings size={18} />}
-              onClick={onOpenAdmin}
-            >
-              管理后台
-            </Button>
-          </section>
-        )}
-      </main>
-    </Layout>
-  );
-}
-
-interface NonGeographicVisualizationPageProps {
-  bootstrap: Bootstrap;
-  user: User;
-  onBack: () => void;
-  onLogout: () => void;
-}
-
-function NonGeographicVisualizationPage({
-  bootstrap,
-  user,
-  onBack,
-  onLogout,
-}: NonGeographicVisualizationPageProps) {
-  return (
-    <Layout className="nongeo-workspace">
-      <Layout.Header className="portal-header">
-        <div className="header-left">
-          <Button icon={<ArrowLeft size={16} />} onClick={onBack}>
-            返回入口
-          </Button>
-          <div className="brand-block">
-            <Dna size={22} />
-            <Typography.Title level={4}>
-              {bootstrap.systemName} / 非地理可视化
-            </Typography.Title>
-          </div>
-        </div>
-        <div className="header-account-actions">
-          <Button icon={<ShieldCheck size={16} />} className="user-button">
-            {user.displayName}
-          </Button>
-          <Button icon={<LogOut size={16} />} onClick={onLogout}>
-            退出
-          </Button>
-        </div>
-      </Layout.Header>
-      <main className="nongeo-stage" aria-label="非地理可视化" />
     </Layout>
   );
 }
