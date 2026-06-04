@@ -27,6 +27,7 @@ import type {
   ExportLayerItem,
   FeatureInfo,
   GeoJsonGeometry,
+  GeoJsonValidationWarning,
   LoadedLayer,
   LoadedRasterLayer,
   LoadedVectorLayer,
@@ -64,7 +65,7 @@ const emptyPermissions = {
 
 export default function MapPage() {
   const { bootstrap, user, setUser } = useAppContext();
-  const { message } = App.useApp();
+  const { message, notification } = App.useApp();
   const navigate = useNavigate();
 
   const [resources, setResources] = useState<DataResource[]>([]);
@@ -258,6 +259,7 @@ export default function MapPage() {
         limit: bootstrap.limits.queryResultLimit,
       });
       setQueryResult(result);
+      showGeojsonWarnings(notification, result.warnings);
       message.success(`查询完成：返回 ${result.returnedCount} 条`);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "查询失败");
@@ -695,4 +697,27 @@ export default function MapPage() {
       </div>
     </Layout>
   );
+}
+
+function showGeojsonWarnings(
+  notification: ReturnType<typeof App.useApp>["notification"],
+  warnings?: GeoJsonValidationWarning[],
+) {
+  if (!warnings?.length) {
+    return;
+  }
+  notification.warning({
+    message: "地理坐标数据警告",
+    description: (
+      <div className="geojson-warning-list">
+        {warnings.map((warning) => (
+          <div key={`${warning.code}-${warning.message}`}>
+            {warning.message}
+          </div>
+        ))}
+      </div>
+    ),
+    placement: "topRight",
+    duration: 8,
+  });
 }

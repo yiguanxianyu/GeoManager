@@ -129,6 +129,7 @@ class ResourceQueryApiTests(TestCase):
         self.assertEqual(
             payload["geojson"]["features"][0]["properties"]["name"], "样点二"
         )
+        self.assertIn("warnings", payload)
 
 
 class CatalogScanTests(TestCase):
@@ -235,10 +236,45 @@ class DataImportApiTests(TestCase):
         self.assertTrue(payload["detected"]["isGeographic"])
         self.assertEqual(payload["detected"]["longitudeColumn"], "longitude")
         self.assertEqual(payload["detected"]["latitudeColumn"], "latitude")
-        self.assertEqual(payload["detected"]["coordinateStats"]["validRows"], 1)
-        self.assertGreater(
-            payload["detected"]["coordinateStats"]["quantizationErrorMeters"]["max"], 0
+        self.assertIsNone(payload["detected"]["coordinateStats"])
+        self.assertEqual(payload["detected"]["validationIssues"], [])
+
+    def test_import_preview_does_not_run_coordinate_validation(self):
+        response = self.client.post(
+            "/api/catalog/import/preview/",
+            data={
+                "file": self._csv_file(
+                    "sample.csv", "name,longitude,latitude\nA,87.600,\n"
+                )
+            },
         )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIsNone(payload["detected"]["coordinateStats"])
+        self.assertEqual(payload["detected"]["validationIssues"], [])
+
+    def test_import_validate_returns_coordinate_issues(self):
+        response = self.client.post(
+            "/api/catalog/import/validate/",
+            data={
+                "file": self._csv_file(
+                    "points.csv", "name,lon,lat\nA,181.000,43.800\n"
+                ),
+                "payload": json.dumps(
+                    {
+                        "importMode": "geographic",
+                        "longitudeColumn": "lon",
+                        "latitudeColumn": "lat",
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["coordinateStats"]["totalRows"], 1)
+        self.assertEqual(payload["validationIssues"][0]["code"], "invalid_longitude")
 
     def test_import_geographic_table_writes_gpkg_metadata_and_catalog_records(self):
         response = self.client.post(
@@ -252,7 +288,6 @@ class DataImportApiTests(TestCase):
                         "importMode": "geographic",
                         "longitudeColumn": "lon",
                         "latitudeColumn": "lat",
-                        "missingCoordinatePolicy": "cancel",
                         "overwrite": False,
                         "fieldMetadata": {
                             "name": "样点名称",
@@ -279,7 +314,47 @@ class DataImportApiTests(TestCase):
             ).fetchone()[0]
         self.assertEqual(description, "样点名称")
 
-    def test_import_geographic_table_requires_missing_coordinate_policy(self):
+    def test_import_geographic_table_respects_included_columns(self):
+        response = self.client.post(
+            "/api/catalog/import/commit/",
+            data={
+                "file": self._csv_file(
+                    "points.csv",
+                    "name,lon,lat,drop_me\nA,87.600,43.800,hidden\n",
+                ),
+                "payload": json.dumps(
+                    {
+                        "name": "导入点位",
+                        "tableName": "included_points",
+                        "importMode": "geographic",
+                        "longitudeColumn": "lon",
+                        "latitudeColumn": "lat",
+                        "overwrite": False,
+                        "includedColumns": ["name", "lon", "lat"],
+                        "fieldMetadata": {
+                            "name": "样点名称",
+                            "lon": "经度",
+                            "lat": "纬度",
+                            "drop_me": "不应入库",
+                        },
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        import geopandas as gpd
+
+        gdf = gpd.read_file(self.vector_path, layer="included_points")
+        self.assertNotIn("drop_me", gdf.columns)
+        with sqlite3.connect(self.vector_path) as connection:
+            hidden_metadata = connection.execute(
+                "SELECT description FROM gpkg_data_columns WHERE table_name = ? AND column_name = ?",
+                ("included_points", "drop_me"),
+            ).fetchone()
+        self.assertIsNone(hidden_metadata)
+
+    def test_import_geographic_table_rejects_missing_coordinates(self):
         response = self.client.post(
             "/api/catalog/import/commit/",
             data={
@@ -291,7 +366,6 @@ class DataImportApiTests(TestCase):
                         "importMode": "geographic",
                         "longitudeColumn": "lon",
                         "latitudeColumn": "lat",
-                        "missingCoordinatePolicy": "cancel",
                         "overwrite": False,
                         "fieldMetadata": {},
                     }
@@ -300,23 +374,101 @@ class DataImportApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn("存在空或非法坐标", response.json()["detail"])
+        payload = response.json()
+        self.assertEqual(payload["detail"], "数据校验未通过")
+        self.assertEqual(payload["issues"][0]["code"], "missing_geometry")
 
-    def test_import_geographic_table_can_ignore_missing_coordinates(self):
+    def test_import_geographic_table_rejects_non_decimal_coordinates(self):
+        response = self.client.post(
+            "/api/catalog/import/commit/",
+            data={
+                "file": self._csv_file("points.csv", "name,lon,lat\nA,87,43.800\n"),
+                "payload": json.dumps(
+                    {
+                        "name": "导入点位",
+                        "tableName": "integer_coordinate_points",
+                        "importMode": "geographic",
+                        "longitudeColumn": "lon",
+                        "latitudeColumn": "lat",
+                        "overwrite": False,
+                        "fieldMetadata": {},
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["issues"][0]["code"], "invalid_coordinate_format"
+        )
+
+    def test_import_geographic_table_rejects_out_of_range_coordinates(self):
         response = self.client.post(
             "/api/catalog/import/commit/",
             data={
                 "file": self._csv_file(
-                    "points.csv", "name,lon,lat\nA,87.600,43.800\nB,,43.900\n"
+                    "points.csv", "name,lon,lat\nA,181.000,43.800\nB,87.600,91.000\n"
                 ),
                 "payload": json.dumps(
                     {
                         "name": "导入点位",
-                        "tableName": "ignore_missing_points",
+                        "tableName": "out_of_range_points",
                         "importMode": "geographic",
                         "longitudeColumn": "lon",
                         "latitudeColumn": "lat",
-                        "missingCoordinatePolicy": "ignore",
+                        "overwrite": False,
+                        "fieldMetadata": {},
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        issue_codes = [issue["code"] for issue in response.json()["issues"]]
+        self.assertIn("invalid_longitude", issue_codes)
+        self.assertIn("invalid_latitude", issue_codes)
+
+    def test_import_geographic_table_requires_uncertainty_confirmation(self):
+        response = self.client.post(
+            "/api/catalog/import/commit/",
+            data={
+                "file": self._csv_file(
+                    "points.csv",
+                    "name,lon,lat\nA,87.6,43.8\nB,87.600001,43.800001\n",
+                ),
+                "payload": json.dumps(
+                    {
+                        "name": "导入点位",
+                        "tableName": "uncertain_points",
+                        "importMode": "geographic",
+                        "longitudeColumn": "lon",
+                        "latitudeColumn": "lat",
+                        "overwrite": False,
+                        "fieldMetadata": {},
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["issues"][0]["code"], "coordinate_uncertainty")
+
+    def test_import_geographic_table_can_ignore_uncertainty(self):
+        response = self.client.post(
+            "/api/catalog/import/commit/",
+            data={
+                "file": self._csv_file(
+                    "points.csv",
+                    "name,lon,lat\nA,87.6,43.8\nB,87.600001,43.800001\n",
+                ),
+                "payload": json.dumps(
+                    {
+                        "name": "导入点位",
+                        "tableName": "confirmed_uncertain_points",
+                        "importMode": "geographic",
+                        "longitudeColumn": "lon",
+                        "latitudeColumn": "lat",
+                        "ignoreCoordinateUncertainty": True,
                         "overwrite": False,
                         "fieldMetadata": {},
                     }
@@ -325,9 +477,7 @@ class DataImportApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 201)
-        payload = response.json()
-        self.assertEqual(payload["importedRows"], 1)
-        self.assertEqual(payload["skippedRows"], 1)
+        self.assertEqual(response.json()["importedRows"], 2)
 
     def test_import_plain_table_writes_sqlite_data_and_metadata(self):
         response = self.client.post(
@@ -339,7 +489,6 @@ class DataImportApiTests(TestCase):
                         "name": "调查表",
                         "tableName": "survey_table",
                         "importMode": "table",
-                        "missingCoordinatePolicy": "cancel",
                         "overwrite": False,
                         "fieldMetadata": {"name": "名称", "value": "数值"},
                     }
@@ -360,6 +509,41 @@ class DataImportApiTests(TestCase):
             ).fetchone()[0]
         self.assertEqual(row, ("A", "42"))
         self.assertEqual(description, "数值")
+
+    def test_import_plain_table_respects_included_columns(self):
+        response = self.client.post(
+            "/api/catalog/import/commit/",
+            data={
+                "file": self._csv_file("survey.csv", "name,value,drop_me\nA,42,x\n"),
+                "payload": json.dumps(
+                    {
+                        "name": "调查表",
+                        "tableName": "included_table",
+                        "importMode": "table",
+                        "overwrite": False,
+                        "includedColumns": ["name", "value"],
+                        "fieldMetadata": {
+                            "name": "名称",
+                            "value": "数值",
+                            "drop_me": "不应入库",
+                        },
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 201)
+        with sqlite3.connect(self.table_path) as connection:
+            columns = [
+                row[1]
+                for row in connection.execute("PRAGMA table_info(included_table)")
+            ]
+            hidden_metadata = connection.execute(
+                "SELECT description FROM data_columns WHERE table_name = ? AND column_name = ?",
+                ("included_table", "drop_me"),
+            ).fetchone()
+        self.assertEqual(columns, ["name", "value"])
+        self.assertIsNone(hidden_metadata)
 
     def _csv_file(self, name: str, content: str) -> SimpleUploadedFile:
         return SimpleUploadedFile(

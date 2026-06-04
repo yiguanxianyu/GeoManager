@@ -8,6 +8,8 @@ import type {
   ImportCommitPayload,
   ImportCommitResult,
   ImportPreview,
+  ImportValidatePayload,
+  ImportValidateResult,
   MapLayer,
   RasterJob,
   RasterRenderResult,
@@ -30,10 +32,12 @@ interface MeResponse {
 
 class ApiError extends Error {
   status: number;
+  data: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, data?: unknown) {
     super(message);
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -64,6 +68,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new ApiError(
       data?.detail ?? `请求失败：${response.status}`,
       response.status,
+      data,
     );
   }
   return data as T;
@@ -163,6 +168,15 @@ export const api = {
     body.append("file", file);
     body.append("payload", JSON.stringify(payload));
     return request<ImportCommitResult>("/api/catalog/import/commit/", {
+      method: "POST",
+      body,
+    });
+  },
+  importValidate: (file: File, payload: ImportValidatePayload) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("payload", JSON.stringify(payload));
+    return request<ImportValidateResult>("/api/catalog/import/validate/", {
       method: "POST",
       body,
     });

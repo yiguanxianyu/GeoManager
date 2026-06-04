@@ -542,7 +542,7 @@ POST /api/catalog/scan/
 
 ### 7.4 导入数据预检
 
-解析上传的 Excel/CSV 第一张表，按文本读取字段，自动推测经纬度列，并返回样例行、字段列表、空坐标统计和坐标量化误差范围。该接口不写入数据。
+解析上传的 Excel/CSV 第一张表，按文本读取字段，自动推测经纬度列，并返回样例行和字段列表。该接口不执行坐标数据校验，不写入数据。
 
 ```
 POST /api/catalog/import/preview/
@@ -569,18 +569,52 @@ POST /api/catalog/import/preview/
     "isGeographic": true,
     "longitudeColumn": "longitude",
     "latitudeColumn": "latitude",
-    "coordinateStats": {
-      "totalRows": 1,
-      "validRows": 1,
-      "missingRows": 0,
-      "quantizationErrorMeters": { "min": 0.7134, "max": 0.7134 }
-    }
+    "coordinateStats": null,
+    "validationIssues": []
   },
-  "limitations": ["仅支持 Excel 或 CSV 文件，Excel 只读取第一张表。"]
+  "limitations": [
+    "仅支持 Excel 或 CSV 文件，Excel 只读取第一张表。",
+    "导入时所有字段按文本读取，以保留经纬度记录的小数位数。"
+  ]
 }
 ```
 
-### 7.5 提交数据导入
+预检响应中的 `coordinateStats` 固定为 `null`、`validationIssues` 固定为空数组；坐标统计和校验问题由数据校验接口返回。
+
+### 7.5 上传数据校验
+
+按当前表单选择的导入类型和经纬度列校验上传文件。该接口不写入数据。
+
+```
+POST /api/catalog/import/validate/
+```
+
+**认证**：需要，权限 `catalog.maintain_dataresource`
+
+**请求格式**：`multipart/form-data`
+
+| 字段      | 类型     | 必填 | 说明 |
+| --------- | -------- | ---- | ---- |
+| `file`    | `file`   | 是   | 与预检一致的 `.csv` / `.xls` / `.xlsx` 文件 |
+| `payload` | `string` | 是   | JSON 字符串，包含 `importMode`、`longitudeColumn`、`latitudeColumn` |
+
+**响应** `200 OK`：
+
+```json
+{
+  "coordinateStats": {
+    "totalRows": 1,
+    "validRows": 1,
+    "missingRows": 0,
+    "quantizationErrorMeters": { "min": 0.7134, "max": 0.7134 }
+  },
+  "validationIssues": []
+}
+```
+
+`validationIssues` 为上传数据校验问题数组。地理数据会校验：经纬度不得为空、经度范围 `-180..180`、纬度范围 `-90..90`、经纬度必须为十进制小数格式、坐标不确定性最大/最小差距不得超过 200 倍。其中仅 `coordinate_uncertainty` 可由用户确认忽略。
+
+### 7.6 提交数据导入
 
 将预检后的 Excel/CSV 导入统一存储。选择地理数据时写入科研数据根目录 `vector/vector.gpkg` 的同名图层，并写入 `gpkg_data_columns` 字段元数据；选择非地理数据时写入科研数据根目录 `table/data.sqlite`，并写入 SQLite 的 `data_columns` 字段元数据表。接口会同步创建或更新 `DataResource`，地理数据还会同步 `MapLayer`。
 
@@ -606,8 +640,9 @@ POST /api/catalog/import/commit/
 | `importMode`               | `string` | 是   | `geographic` 或 `table` |
 | `longitudeColumn`          | `string` | 地理数据必填 | 经度列名 |
 | `latitudeColumn`           | `string` | 地理数据必填 | 纬度列名 |
-| `missingCoordinatePolicy`  | `string` | 是   | `cancel` / `ignore` / `force` |
+| `ignoreCoordinateUncertainty` | `bool` | 否 | 是否确认忽略 `coordinate_uncertainty` 问题。默认 `false` |
 | `overwrite`                | `bool`   | 是   | 同名表/图层是否覆盖 |
+| `includedColumns`          | `array`  | 否   | 需要导入的字段名列表；省略时导入全部字段。地理数据会强制保留经纬度列 |
 | `fieldMetadata`            | `object` | 是   | `{字段名: 描述}`，描述可为空，建议包含中文名称、单位、计算方式、数据来源 |
 
 **请求示例**：
@@ -619,8 +654,9 @@ POST /api/catalog/import/commit/
   "importMode": "geographic",
   "longitudeColumn": "lon",
   "latitudeColumn": "lat",
-  "missingCoordinatePolicy": "ignore",
+  "ignoreCoordinateUncertainty": false,
   "overwrite": false,
+  "includedColumns": ["species", "height", "lon", "lat"],
   "fieldMetadata": {
     "species": "中文名称：物种；数据来源：野外调查",
     "height": "中文名称：株高；单位：m"
@@ -637,17 +673,42 @@ POST /api/catalog/import/commit/
   "layerId": 8,
   "tableName": "survey_points_2026",
   "importedRows": 120,
-  "skippedRows": 3,
+  "skippedRows": 0,
   "coordinateStats": {
-    "totalRows": 123,
+    "totalRows": 120,
     "validRows": 120,
-    "missingRows": 3,
+    "missingRows": 0,
     "quantizationErrorMeters": { "min": 0.071, "max": 7.134 }
-  }
+  },
+  "validationIssues": []
 }
 ```
 
-### 7.6 获取数据资源详情
+**校验失败响应** `400 Bad Request`：
+
+```json
+{
+  "detail": "数据校验未通过",
+  "issues": [
+    {
+      "code": "invalid_coordinate_format",
+      "count": 2,
+      "blocking": true,
+      "message": "存在 2 行经纬度不是小数格式，请使用例如 87.600、43.800 的十进制小数。"
+    },
+    {
+      "code": "coordinate_uncertainty",
+      "blocking": false,
+      "minMeters": 0.071,
+      "maxMeters": 7.134,
+      "ratio": 100.48,
+      "message": "坐标不确定性差距超过 200 倍：最小约 0.071000 米，最大约 14.200000 米。"
+    }
+  ]
+}
+```
+
+### 7.7 获取数据资源详情
 
 获取指定数据资源的元数据、字段信息及空间范围。
 
@@ -762,7 +823,7 @@ GET /api/catalog/resources/{id}/profile/
 | 404    | 资源不存在     | `{"detail": "未找到..."}`          |
 | 403    | 无权访问       | `{"detail": "无权访问该数据资源"}` |
 
-### 7.7 查询矢量数据
+### 7.8 查询矢量数据
 
 对矢量数据资源执行属性 + 空间联合查询，返回 GeoJSON FeatureCollection。
 
@@ -851,7 +912,14 @@ POST /api/catalog/resources/{id}/query/
         }
       }
     ]
-  }
+  },
+  "warnings": [
+    {
+      "code": "missing_geometry",
+      "count": 2,
+      "message": "已忽略 2 条不含地理坐标的数据。"
+    }
+  ]
 }
 ```
 
@@ -866,6 +934,7 @@ POST /api/catalog/resources/{id}/query/
 | limit | number | 查询结果上限 |
 | fields | array | 字段信息数组（含 description 字段） |
 | geojson | object | GeoJSON FeatureCollection |
+| warnings | array | 地理坐标校验警告。后端返回前会忽略无几何、经度越界、纬度越界的数据；坐标不确定性最大/最小差距超过 200 倍时返回 `coordinate_uncertainty` 警告 |
 
 **错误响应**：
 
@@ -876,7 +945,7 @@ POST /api/catalog/resources/{id}/query/
 | 400    | 不支持的操作符       | `{"detail": "不支持的属性操作符：xxx"}`       |
 | 403    | 权限不足             | `{"detail": "当前用户组"xxx"无权限"}`         |
 
-### 7.8 同步导出图层
+### 7.9 同步导出图层
 
 将指定图层数据导出为 ZIP 文件（含 Shapefile 或 GeoTIFF）。
 
@@ -940,7 +1009,7 @@ POST /api/catalog/export/
 | 400    | EPSG 无效      | `{"detail": "不支持的 EPSG: 9999"}` |
 | 403    | 权限不足       | `{"detail": "当前用户组"xxx"无权限"}` |
 
-### 7.9 异步导出图层
+### 7.10 异步导出图层
 
 与同步导出参数相同，但以异步任务方式执行，返回任务 ID。
 
@@ -979,7 +1048,7 @@ POST /api/catalog/export/async/
 }
 ```
 
-### 7.10 下载导出文件
+### 7.11 下载导出文件
 
 ```
 GET /api/catalog/export/jobs/{job_id}/download/
@@ -1105,9 +1174,18 @@ GET /api/layers/{id}/features/
         "area_ha": 45.2
       }
     }
+  ],
+  "warnings": [
+    {
+      "code": "invalid_longitude",
+      "count": 1,
+      "message": "已忽略 1 条经度不在 -180 到 180 范围内的数据。"
+    }
   ]
 }
 ```
+
+`warnings` 为地理坐标校验警告数组。后端返回前会忽略无几何、经度越界、纬度越界的数据；坐标不确定性最大/最小差距超过 200 倍时返回 `coordinate_uncertainty` 警告。
 
 **错误响应**：
 

@@ -9,10 +9,12 @@ from django.views.decorators.http import require_GET, require_POST
 
 from apps.catalog.data_query import DataQueryError, get_resource_profile, query_resource
 from apps.catalog.export import ExportError, export_layers_zip, validate_epsg
+from apps.catalog.geojson_validation import validate_geojson_geometries
 from apps.catalog.importer import (
     ImportDataError,
     import_uploaded_table,
     preview_uploaded_table,
+    validate_uploaded_table,
 )
 from apps.catalog.models import Achievement, DataCatalog, DataResource, MapLayer
 from apps.catalog.permissions import filter_accessible, user_can_access
@@ -107,7 +109,25 @@ def import_preview(request):
     try:
         return JsonResponse(preview_uploaded_table(uploaded_file))
     except ImportDataError as exc:
-        return JsonResponse({"detail": str(exc)}, status=400)
+        return JsonResponse(_import_error_payload(exc), status=400)
+
+
+@require_POST
+@login_required
+def import_validate(request):
+    if not has_feature_perm(request.user, "catalog.maintain_dataresource"):
+        return feature_denied_response(request.user)
+    uploaded_file = request.FILES.get("file")
+    if uploaded_file is None:
+        return JsonResponse({"detail": "请上传 Excel 或 CSV 文件"}, status=400)
+    try:
+        payload = json.loads(request.POST.get("payload", "{}"))
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "导入参数不是有效 JSON"}, status=400)
+    try:
+        return JsonResponse(validate_uploaded_table(uploaded_file, payload))
+    except ImportDataError as exc:
+        return JsonResponse(_import_error_payload(exc), status=400)
 
 
 @require_POST
@@ -125,8 +145,16 @@ def import_commit(request):
     try:
         result = import_uploaded_table(uploaded_file, payload, request.user)
     except ImportDataError as exc:
-        return JsonResponse({"detail": str(exc)}, status=400)
+        return JsonResponse(_import_error_payload(exc), status=400)
     return JsonResponse(result, status=201)
+
+
+def _import_error_payload(exc: ImportDataError) -> dict:
+    detail = str(exc.args[0]) if exc.args else str(exc)
+    payload = {"detail": detail}
+    if len(exc.args) > 1 and isinstance(exc.args[1], list):
+        payload["issues"] = exc.args[1]
+    return payload
 
 
 @require_GET
@@ -345,10 +373,11 @@ def layer_features(request, pk: int):
         gdf = gpd.read_file(geopackage_path, layer=layer_name)
         if gdf.crs and gdf.crs.to_epsg() != 4326:
             gdf = gdf.to_crs(4326)
-        gdf = gdf[gdf.geometry.notna()]
+        gdf, warnings = validate_geojson_geometries(gdf)
         if len(gdf) > limit:
             gdf = gdf.head(limit)
         geojson = json.loads(gdf.to_json())
+        geojson["warnings"] = warnings
     except Exception as exc:
         return JsonResponse(
             {"detail": f"读取 GeoPackage 图层失败：{layer_name}，{exc}"}, status=500

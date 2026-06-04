@@ -95,6 +95,22 @@ export interface ImportCoordinateStats {
   };
 }
 
+export interface ImportValidationIssue {
+  code:
+    | "missing_geometry"
+    | "invalid_coordinate_format"
+    | "invalid_longitude"
+    | "invalid_latitude"
+    | "coordinate_uncertainty"
+    | string;
+  message: string;
+  blocking: boolean;
+  count?: number;
+  minMeters?: number;
+  maxMeters?: number;
+  ratio?: number;
+}
+
 export interface ImportPreview {
   columns: string[];
   rows: Array<Record<string, string>>;
@@ -106,6 +122,7 @@ export interface ImportPreview {
     longitudeColumn: string | null;
     latitudeColumn: string | null;
     coordinateStats: ImportCoordinateStats | null;
+    validationIssues: ImportValidationIssue[];
   };
   limitations: string[];
 }
@@ -116,9 +133,21 @@ export interface ImportCommitPayload {
   importMode: "geographic" | "table";
   longitudeColumn?: string;
   latitudeColumn?: string;
-  missingCoordinatePolicy: "cancel" | "ignore" | "force";
+  ignoreCoordinateUncertainty: boolean;
   overwrite: boolean;
+  includedColumns: string[];
   fieldMetadata: Record<string, string>;
+}
+
+export interface ImportValidatePayload {
+  importMode: "geographic" | "table";
+  longitudeColumn?: string;
+  latitudeColumn?: string;
+}
+
+export interface ImportValidateResult {
+  coordinateStats: ImportCoordinateStats | null;
+  validationIssues: ImportValidationIssue[];
 }
 
 export interface ImportCommitResult {
@@ -129,6 +158,7 @@ export interface ImportCommitResult {
   importedRows: number;
   skippedRows: number;
   coordinateStats: ImportCoordinateStats | null;
+  validationIssues: ImportValidationIssue[];
 }
 
 export interface RasterBandMetadata {
@@ -198,6 +228,21 @@ export interface GeoJsonGeometry {
 export interface GeoJsonFeatureCollection {
   type: "FeatureCollection";
   features: Array<Record<string, unknown>>;
+  warnings?: GeoJsonValidationWarning[];
+}
+
+export interface GeoJsonValidationWarning {
+  code:
+    | "missing_geometry"
+    | "invalid_longitude"
+    | "invalid_latitude"
+    | "coordinate_uncertainty"
+    | string;
+  message: string;
+  count?: number;
+  minMeters?: number;
+  maxMeters?: number;
+  ratio?: number;
 }
 
 export interface FeatureInfo {
@@ -214,6 +259,7 @@ export interface ResourceQueryResult {
   limit: number;
   fields: ResourceField[];
   geojson: GeoJsonFeatureCollection;
+  warnings: GeoJsonValidationWarning[];
 }
 
 export interface LoadedVectorLayer {

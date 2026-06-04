@@ -10,6 +10,11 @@ urlpatterns = [
     path(
         "catalog/import/preview/", views.import_preview, name="catalog-import-preview"
     ),
+    path(
+        "catalog/import/validate/",
+        views.import_validate,
+        name="catalog-import-validate",
+    ),
     path("catalog/import/commit/", views.import_commit, name="catalog-import-commit"),
     path(
         "catalog/resources/<int:pk>/profile/",

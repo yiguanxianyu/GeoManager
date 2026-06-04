@@ -27,6 +27,7 @@ class ImportDataError(ValueError):
 
 MAX_PREVIEW_ROWS = 8
 MAX_TABLE_NAME_LENGTH = 63
+COORDINATE_UNCERTAINTY_RATIO_THRESHOLD = 200
 TABLE_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 LATITUDE_ALIASES = {
     "lat",
@@ -65,13 +66,21 @@ class CoordinateStats:
     error_max_meters: float | None
 
 
+@dataclass(frozen=True)
+class ImportValidationIssue:
+    code: str
+    message: str
+    count: int | None = None
+    blocking: bool = True
+    min_meters: float | None = None
+    max_meters: float | None = None
+    ratio: float | None = None
+
+
 def preview_uploaded_table(uploaded_file) -> dict[str, Any]:
     df = read_uploaded_table(uploaded_file)
     columns = list(df.columns)
     longitude_column, latitude_column = infer_coordinate_columns(df)
-    coordinate_stats = None
-    if longitude_column and latitude_column:
-        coordinate_stats = coordinate_stats_for(df, longitude_column, latitude_column)
     return {
         "columns": columns,
         "rows": _preview_rows(df),
@@ -82,15 +91,35 @@ def preview_uploaded_table(uploaded_file) -> dict[str, Any]:
             "isGeographic": bool(longitude_column and latitude_column),
             "longitudeColumn": longitude_column,
             "latitudeColumn": latitude_column,
-            "coordinateStats": _serialize_coordinate_stats(coordinate_stats),
+            "coordinateStats": None,
+            "validationIssues": [],
         },
         "limitations": [
             "仅支持 Excel 或 CSV 文件，Excel 只读取第一张表。",
             "导入时所有字段按文本读取，以保留经纬度记录的小数位数。",
-            "带经纬度的数据写入统一 GeoPackage：vector/vector.gpkg。",
-            "不带经纬度的数据写入表格库：table/data.sqlite。",
             "字段元数据可留空，但建议填写中文名称、单位、计算方式和数据来源。",
         ],
+    }
+
+
+def validate_uploaded_table(uploaded_file, payload: dict[str, Any]) -> dict[str, Any]:
+    df = read_uploaded_table(uploaded_file)
+    import_mode = str(payload.get("importMode") or "").strip()
+    longitude_column = str(payload.get("longitudeColumn") or "").strip()
+    latitude_column = str(payload.get("latitudeColumn") or "").strip()
+
+    if import_mode not in {"geographic", "table"}:
+        raise ImportDataError("导入方式必须是 geographic 或 table")
+    if import_mode == "table":
+        return {"coordinateStats": None, "validationIssues": []}
+    if longitude_column not in df.columns or latitude_column not in df.columns:
+        raise ImportDataError("地理数据必须指定有效的经度列和纬度列")
+
+    stats = coordinate_stats_for(df, longitude_column, latitude_column)
+    issues = validate_coordinate_columns(df, longitude_column, latitude_column)
+    return {
+        "coordinateStats": _serialize_coordinate_stats(stats),
+        "validationIssues": _serialize_validation_issues(issues),
     }
 
 
@@ -103,11 +132,12 @@ def import_uploaded_table(
     table_name = validate_import_table_name(
         _required_text(payload.get("tableName"), "入库表名")
     )
-    metadata = _metadata_map(payload.get("fieldMetadata"), set(df.columns))
     import_mode = str(payload.get("importMode") or "").strip()
     longitude_column = str(payload.get("longitudeColumn") or "").strip()
     latitude_column = str(payload.get("latitudeColumn") or "").strip()
-    missing_policy = str(payload.get("missingCoordinatePolicy") or "cancel").strip()
+    ignore_coordinate_uncertainty = bool(
+        payload.get("ignoreCoordinateUncertainty", False)
+    )
     overwrite = bool(payload.get("overwrite", False))
 
     if import_mode not in {"geographic", "table"}:
@@ -116,6 +146,13 @@ def import_uploaded_table(
     if import_mode == "geographic":
         if longitude_column not in df.columns or latitude_column not in df.columns:
             raise ImportDataError("地理数据必须指定有效的经度列和纬度列")
+        included_columns = _included_columns(
+            payload.get("includedColumns"),
+            df.columns,
+            required_columns={longitude_column, latitude_column},
+        )
+        df = df[included_columns].copy()
+        metadata = _metadata_map(payload.get("fieldMetadata"), set(included_columns))
         return import_geographic_table(
             df=df,
             name=name,
@@ -123,11 +160,14 @@ def import_uploaded_table(
             longitude_column=longitude_column,
             latitude_column=latitude_column,
             metadata=metadata,
-            missing_policy=missing_policy,
+            ignore_coordinate_uncertainty=ignore_coordinate_uncertainty,
             overwrite=overwrite,
             user=user,
         )
 
+    included_columns = _included_columns(payload.get("includedColumns"), df.columns)
+    df = df[included_columns].copy()
+    metadata = _metadata_map(payload.get("fieldMetadata"), set(included_columns))
     return import_plain_table(
         df=df,
         name=name,
@@ -146,32 +186,41 @@ def import_geographic_table(
     longitude_column: str,
     latitude_column: str,
     metadata: dict[str, str],
-    missing_policy: str,
+    ignore_coordinate_uncertainty: bool,
     overwrite: bool,
     user,
 ) -> dict[str, Any]:
     stats = coordinate_stats_for(df, longitude_column, latitude_column)
-    if stats.missing_rows and missing_policy == "cancel":
-        raise ImportDataError("存在空或非法坐标，请选择忽略、强行导入或取消导入")
-    if missing_policy not in {"cancel", "ignore", "force"}:
-        raise ImportDataError("空坐标处理方式必须是 cancel、ignore 或 force")
+    validation_issues = validate_coordinate_columns(
+        df, longitude_column, latitude_column
+    )
+    blocking_issues = [
+        issue
+        for issue in validation_issues
+        if issue.blocking
+        or (
+            issue.code == "coordinate_uncertainty" and not ignore_coordinate_uncertainty
+        )
+    ]
+    if blocking_issues:
+        raise ImportDataError(
+            "数据校验未通过", _serialize_validation_issues(validation_issues)
+        )
 
     import geopandas as gpd
 
     working = df.copy()
     valid_mask = _valid_coordinate_mask(working, longitude_column, latitude_column)
-    if missing_policy == "ignore":
-        working = working[valid_mask].copy()
-        valid_mask = _valid_coordinate_mask(working, longitude_column, latitude_column)
 
     geometries = []
     for index, row in working.iterrows():
-        if bool(valid_mask.loc[index]):
-            geometries.append(
-                Point(float(row[longitude_column]), float(row[latitude_column]))
-            )
-        else:
-            geometries.append(None)
+        if not bool(valid_mask.loc[index]):
+            continue
+        geometries.append(
+            Point(float(row[longitude_column]), float(row[latitude_column]))
+        )
+
+    working = working[valid_mask].copy()
 
     gdf = gpd.GeoDataFrame(working, geometry=geometries, crs="EPSG:4326")
     path = vector_geopackage_path()
@@ -202,7 +251,7 @@ def import_geographic_table(
             "file_format": "GPKG",
             "storage_path": table_name,
             "description": "由 Excel/CSV 导入的点位数据",
-            "quality_note": _quality_note(stats, missing_policy),
+            "quality_note": _quality_note(stats, ignore_coordinate_uncertainty),
             "maintainer": user if getattr(user, "is_authenticated", False) else None,
             "status": DataResource.Status.ACTIVE,
         },
@@ -228,8 +277,9 @@ def import_geographic_table(
         "layerId": layer.id,
         "tableName": table_name,
         "importedRows": int(len(gdf)),
-        "skippedRows": int(stats.missing_rows if missing_policy == "ignore" else 0),
+        "skippedRows": 0,
         "coordinateStats": _serialize_coordinate_stats(stats),
+        "validationIssues": _serialize_validation_issues(validation_issues),
     }
 
 
@@ -275,6 +325,7 @@ def import_plain_table(
         "importedRows": int(len(df)),
         "skippedRows": 0,
         "coordinateStats": None,
+        "validationIssues": [],
     }
 
 
@@ -345,6 +396,98 @@ def coordinate_stats_for(
         error_min_meters=round(min(errors), 6) if errors else None,
         error_max_meters=round(max(errors), 6) if errors else None,
     )
+
+
+def validate_coordinate_columns(
+    df: pd.DataFrame, longitude_column: str, latitude_column: str
+) -> list[ImportValidationIssue]:
+    issues: list[ImportValidationIssue] = []
+    missing_count = 0
+    invalid_format_count = 0
+    invalid_longitude_count = 0
+    invalid_latitude_count = 0
+    errors = []
+
+    for _, row in df.iterrows():
+        lon_text = str(row[longitude_column]).strip()
+        lat_text = str(row[latitude_column]).strip()
+        if not lon_text or not lat_text:
+            missing_count += 1
+            continue
+        if not _is_decimal_coordinate(lon_text) or not _is_decimal_coordinate(lat_text):
+            invalid_format_count += 1
+            continue
+
+        longitude = float(Decimal(lon_text))
+        latitude = float(Decimal(lat_text))
+        row_has_range_error = False
+        if longitude < -180 or longitude > 180:
+            invalid_longitude_count += 1
+            row_has_range_error = True
+        if latitude < -90 or latitude > 90:
+            invalid_latitude_count += 1
+            row_has_range_error = True
+        if not row_has_range_error:
+            errors.append(_position_error_meters(lon_text, lat_text))
+
+    if missing_count:
+        issues.append(
+            ImportValidationIssue(
+                code="missing_geometry",
+                count=missing_count,
+                message=f"存在 {missing_count} 行缺少经度或纬度，无法导入。",
+            )
+        )
+    if invalid_format_count:
+        issues.append(
+            ImportValidationIssue(
+                code="invalid_coordinate_format",
+                count=invalid_format_count,
+                message=f"存在 {invalid_format_count} 行经纬度不是小数格式，请使用例如 87.600、43.800 的十进制小数。",
+            )
+        )
+    if invalid_longitude_count:
+        issues.append(
+            ImportValidationIssue(
+                code="invalid_longitude",
+                count=invalid_longitude_count,
+                message=f"存在 {invalid_longitude_count} 行经度不在 -180 到 180 范围内，无法导入。",
+            )
+        )
+    if invalid_latitude_count:
+        issues.append(
+            ImportValidationIssue(
+                code="invalid_latitude",
+                count=invalid_latitude_count,
+                message=f"存在 {invalid_latitude_count} 行纬度不在 -90 到 90 范围内，无法导入。",
+            )
+        )
+
+    positive_errors = [error for error in errors if error > 0]
+    if positive_errors:
+        minimum = min(positive_errors)
+        maximum = max(positive_errors)
+        ratio = maximum / minimum
+        if ratio > COORDINATE_UNCERTAINTY_RATIO_THRESHOLD:
+            issues.append(
+                ImportValidationIssue(
+                    code="coordinate_uncertainty",
+                    blocking=False,
+                    min_meters=round(minimum, 6),
+                    max_meters=round(maximum, 6),
+                    ratio=round(ratio, 2),
+                    message=(
+                        "坐标不确定性差距超过 "
+                        f"{COORDINATE_UNCERTAINTY_RATIO_THRESHOLD} 倍："
+                        f"最小约 {minimum:.6f} 米，最大约 {maximum:.6f} 米。"
+                    ),
+                )
+            )
+    return issues
+
+
+def position_error_meters(lon_text: str, lat_text: str) -> float:
+    return _position_error_meters(lon_text, lat_text)
 
 
 def validate_import_table_name(table_name: str) -> str:
@@ -477,12 +620,58 @@ def _metadata_map(raw: Any, columns: set[str]) -> dict[str, str]:
     return metadata
 
 
+def _included_columns(
+    raw: Any,
+    available_columns,
+    *,
+    required_columns: set[str] | None = None,
+) -> list[str]:
+    available = list(available_columns)
+    required = required_columns or set()
+    if raw in (None, ""):
+        selected = available
+    else:
+        if not isinstance(raw, list):
+            raise ImportDataError("上传字段列表必须是数组")
+        selected = []
+        seen = set()
+        for item in raw:
+            column = str(item or "").strip()
+            if column in seen:
+                continue
+            if column not in available:
+                raise ImportDataError(f"上传字段不存在：{column}")
+            selected.append(column)
+            seen.add(column)
+
+    for column in available:
+        if column in required and column not in selected:
+            selected.append(column)
+    if not selected:
+        raise ImportDataError("至少需要选择一个上传字段")
+    return selected
+
+
 def _valid_coordinate_mask(
     df: pd.DataFrame, longitude_column: str, latitude_column: str
 ) -> pd.Series:
     lon = pd.to_numeric(df[longitude_column], errors="coerce")
     lat = pd.to_numeric(df[latitude_column], errors="coerce")
-    return lon.between(-180, 180) & lat.between(-90, 90)
+    decimal_mask = df[longitude_column].map(_is_decimal_coordinate) & df[
+        latitude_column
+    ].map(_is_decimal_coordinate)
+    return decimal_mask & lon.between(-180, 180) & lat.between(-90, 90)
+
+
+def _is_decimal_coordinate(value: Any) -> bool:
+    text = str(value).strip()
+    if not re.fullmatch(r"[+-]?\d+\.\d+", text):
+        return False
+    try:
+        Decimal(text)
+    except InvalidOperation:
+        return False
+    return True
 
 
 def _position_error_meters(lon_text: str, lat_text: str) -> float:
@@ -572,6 +761,28 @@ def _serialize_coordinate_stats(stats: CoordinateStats | None) -> dict[str, Any]
     }
 
 
+def _serialize_validation_issues(
+    issues: list[ImportValidationIssue],
+) -> list[dict[str, Any]]:
+    serialized = []
+    for issue in issues:
+        item: dict[str, Any] = {
+            "code": issue.code,
+            "message": issue.message,
+            "blocking": issue.blocking,
+        }
+        if issue.count is not None:
+            item["count"] = issue.count
+        if issue.min_meters is not None:
+            item["minMeters"] = issue.min_meters
+        if issue.max_meters is not None:
+            item["maxMeters"] = issue.max_meters
+        if issue.ratio is not None:
+            item["ratio"] = issue.ratio
+        serialized.append(item)
+    return serialized
+
+
 def _ensure_table_can_be_written(
     path: Path, table_name: str, overwrite: bool, *, geographic: bool
 ) -> None:
@@ -598,12 +809,15 @@ def _ensure_table_can_be_written(
         raise ImportDataError(f"SQLite 表已存在：{table_name}")
 
 
-def _quality_note(stats: CoordinateStats, missing_policy: str) -> str:
+def _quality_note(stats: CoordinateStats, ignore_coordinate_uncertainty: bool) -> str:
     error_range = ""
     if stats.error_min_meters is not None and stats.error_max_meters is not None:
         error_range = f"坐标量化误差范围约 {stats.error_min_meters:.6f} - {stats.error_max_meters:.6f} 米。"
-    missing_note = f"坐标有效 {stats.valid_rows}/{stats.total_rows} 行，空或非法坐标 {stats.missing_rows} 行，处理方式：{missing_policy}。"
-    return f"{missing_note}{error_range}"
+    uncertainty_note = (
+        "坐标不确定性差距已由用户确认忽略。" if ignore_coordinate_uncertainty else ""
+    )
+    missing_note = f"坐标有效 {stats.valid_rows}/{stats.total_rows} 行。"
+    return f"{missing_note}{error_range}{uncertainty_note}"
 
 
 def _required_text(value: Any, label: str) -> str:

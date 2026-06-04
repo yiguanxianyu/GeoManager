@@ -290,7 +290,6 @@ body {
 
 .import-upload-panel {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
   gap: 14px;
   align-items: stretch;
   padding: 18px;
@@ -304,8 +303,15 @@ body {
   min-width: 0;
 }
 
-.import-upload-panel > .ant-btn {
-  align-self: center;
+.import-upload-panel .ant-upload-drag {
+  display: grid;
+  place-items: center;
+}
+
+.import-selected-file {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
 }
 
 .import-config-form {
@@ -315,6 +321,13 @@ body {
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid rgba(23, 63, 57, 0.12);
   border-radius: 8px;
+}
+
+.import-limit-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
 }
 
 .import-config-grid,
@@ -339,6 +352,7 @@ body {
 .import-section {
   display: grid;
   gap: 10px;
+  min-width: 0;
 }
 
 .import-section h5.ant-typography {
@@ -347,6 +361,24 @@ body {
 
 .import-actions {
   justify-content: flex-end;
+}
+
+.import-validation-actions {
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.import-preview-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.import-preview-scroll .ant-table-wrapper {
+  min-width: 0;
+}
+
+.import-issue-table {
+  margin: 14px 0;
 }
 
 .workspace {

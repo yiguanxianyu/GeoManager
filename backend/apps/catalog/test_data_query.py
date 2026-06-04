@@ -7,6 +7,7 @@ from apps.catalog.data_query import (
     geometry_type,
     normalize_for_geojson,
 )
+from apps.catalog.geojson_validation import validate_geojson_geometries
 from unittest.mock import patch
 import pandas as pd
 import numpy as np
@@ -124,3 +125,51 @@ class NormalizeForGeojsonTests(SimpleTestCase):
         result = normalize_for_geojson(gdf)
         self.assertEqual(result["name"].iloc[0], "A")
         self.assertEqual(result["value"].iloc[0], 42)
+
+
+class GeojsonGeometryValidationTests(SimpleTestCase):
+    def test_filters_missing_and_out_of_range_coordinates(self):
+        import geopandas as gpd
+        from shapely.geometry import Point
+
+        gdf = gpd.GeoDataFrame(
+            [
+                {"name": "valid", "geometry": Point(87.6, 43.8)},
+                {"name": "missing", "geometry": None},
+                {"name": "bad-lon", "geometry": Point(181, 43.8)},
+                {"name": "bad-lat", "geometry": Point(87.6, 91)},
+            ],
+            geometry="geometry",
+            crs="EPSG:4326",
+        )
+
+        filtered, warnings = validate_geojson_geometries(gdf)
+
+        self.assertEqual(filtered["name"].tolist(), ["valid"])
+        warning_counts = {warning["code"]: warning["count"] for warning in warnings}
+        self.assertEqual(warning_counts["missing_geometry"], 1)
+        self.assertEqual(warning_counts["invalid_longitude"], 1)
+        self.assertEqual(warning_counts["invalid_latitude"], 1)
+
+    def test_warns_when_coordinate_uncertainty_range_exceeds_threshold(self):
+        import geopandas as gpd
+        from shapely.geometry import Point
+
+        gdf = gpd.GeoDataFrame(
+            [
+                {"name": "coarse", "geometry": Point(87.6, 43.8)},
+                {"name": "precise", "geometry": Point(87.600001, 43.800001)},
+            ],
+            geometry="geometry",
+            crs="EPSG:4326",
+        )
+
+        _, warnings = validate_geojson_geometries(gdf)
+
+        uncertainty = [
+            warning
+            for warning in warnings
+            if warning["code"] == "coordinate_uncertainty"
+        ]
+        self.assertEqual(len(uncertainty), 1)
+        self.assertGreater(uncertainty[0]["ratio"], 10)

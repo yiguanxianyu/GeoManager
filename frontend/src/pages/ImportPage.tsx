@@ -2,16 +2,19 @@ import {
   Alert,
   App as AntApp,
   Button,
+  Checkbox,
   Descriptions,
   Form,
   Input,
   Layout,
+  Modal,
   Radio,
   Select,
   Space,
   Switch,
   Table,
   Tag,
+  Tooltip,
   Typography,
   Upload,
 } from "antd";
@@ -19,26 +22,28 @@ import {
   ArrowLeft,
   CheckCircle2,
   FileSpreadsheet,
+  HelpCircle,
   LogOut,
   UploadCloud,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/client";
+import { ApiError, api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
 import type {
   ImportCommitPayload,
   ImportCommitResult,
+  ImportCoordinateStats,
   ImportPreview,
+  ImportValidatePayload,
+  ImportValidationIssue,
 } from "../types";
 
 interface ImportFormValues {
   name: string;
-  tableName: string;
   importMode: "geographic" | "table";
   longitudeColumn?: string;
   latitudeColumn?: string;
-  missingCoordinatePolicy: "cancel" | "ignore" | "force";
   overwrite: boolean;
 }
 
@@ -52,9 +57,20 @@ export default function ImportPage() {
   const [fieldMetadata, setFieldMetadata] = useState<Record<string, string>>(
     {},
   );
+  const [includedColumns, setIncludedColumns] = useState<string[]>([]);
   const [previewing, setPreviewing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportCommitResult | null>(null);
+  const [validationIssues, setValidationIssues] = useState<
+    ImportValidationIssue[]
+  >([]);
+  const [validationStats, setValidationStats] =
+    useState<ImportCoordinateStats | null>(null);
+  const [validating, setValidating] = useState(false);
+  const [hasValidated, setHasValidated] = useState(false);
+  const [issuesOpen, setIssuesOpen] = useState(false);
+  const [ignoreCoordinateUncertainty, setIgnoreCoordinateUncertainty] =
+    useState(false);
 
   const columnOptions = useMemo(
     () =>
@@ -65,10 +81,11 @@ export default function ImportPage() {
 
   const previewColumns = useMemo(
     () =>
-      preview?.columns.slice(0, 10).map((column) => ({
+      preview?.columns.map((column) => ({
         title: column,
         dataIndex: column,
         key: column,
+        width: 180,
         ellipsis: true,
       })) ?? [],
     [preview],
@@ -94,28 +111,32 @@ export default function ImportPage() {
     setUser(null);
   }
 
-  async function handlePreview() {
-    if (!file) {
+  async function handlePreview(selectedFile?: File) {
+    const targetFile = selectedFile ?? file;
+    if (!targetFile) {
       message.warning("请先选择 Excel 或 CSV 文件");
       return;
     }
     setPreviewing(true);
     setResult(null);
     try {
-      const data = await api.importPreview(file);
+      const data = await api.importPreview(targetFile);
       setPreview(data);
       setFieldMetadata(
         Object.fromEntries(data.columns.map((column) => [column, ""])),
       );
+      setIncludedColumns(data.columns);
       form.setFieldsValue({
         name: data.suggestedName,
-        tableName: data.suggestedTableName,
         importMode: data.detected.isGeographic ? "geographic" : "table",
         longitudeColumn: data.detected.longitudeColumn ?? undefined,
         latitudeColumn: data.detected.latitudeColumn ?? undefined,
-        missingCoordinatePolicy: "cancel",
         overwrite: false,
       });
+      setValidationIssues([]);
+      setValidationStats(null);
+      setHasValidated(false);
+      setIgnoreCoordinateUncertainty(false);
       message.success("预检完成");
     } catch (error) {
       message.error(error instanceof Error ? error.message : "预检失败");
@@ -125,29 +146,98 @@ export default function ImportPage() {
   }
 
   async function handleImport() {
+    await submitImport(ignoreCoordinateUncertainty);
+  }
+
+  async function handleValidate() {
     if (!file || !preview) {
       message.warning("请先完成文件预检");
       return;
     }
     try {
+      const values = await form.validateFields([
+        "importMode",
+        "longitudeColumn",
+        "latitudeColumn",
+      ]);
+      const payload: ImportValidatePayload = {
+        importMode: values.importMode,
+        longitudeColumn: values.longitudeColumn,
+        latitudeColumn: values.latitudeColumn,
+      };
+      setValidating(true);
+      const validated = await api.importValidate(file, payload);
+      setValidationStats(validated.coordinateStats);
+      setValidationIssues(validated.validationIssues);
+      setIgnoreCoordinateUncertainty(false);
+      setHasValidated(true);
+      if (validated.validationIssues.length) {
+        setIssuesOpen(true);
+      } else {
+        message.success("数据校验通过");
+      }
+    } catch (error) {
+      const issues = importIssuesFromError(error);
+      if (issues.length) {
+        setValidationIssues(issues);
+        setIssuesOpen(true);
+      } else {
+        message.error(error instanceof Error ? error.message : "数据校验失败");
+      }
+    } finally {
+      setValidating(false);
+    }
+  }
+
+  async function submitImport(ignoreUncertainty: boolean) {
+    if (!file || !preview) {
+      message.warning("请先完成文件预检");
+      return;
+    }
+    try {
+      if (form.getFieldValue("importMode") === "geographic" && !hasValidated) {
+        message.warning("请先进行数据校验");
+        return;
+      }
+      if (shouldBlockImport(validationIssues, ignoreUncertainty)) {
+        setIssuesOpen(true);
+        return;
+      }
       const values = await form.validateFields();
+      const selectedMetadata = Object.fromEntries(
+        includedColumns.map((column) => [column, fieldMetadata[column] ?? ""]),
+      );
       const payload: ImportCommitPayload = {
         ...values,
+        tableName: preview.suggestedTableName,
+        ignoreCoordinateUncertainty: ignoreUncertainty,
         overwrite: Boolean(values.overwrite),
-        fieldMetadata,
+        includedColumns,
+        fieldMetadata: selectedMetadata,
       };
       setImporting(true);
       const imported = await api.importCommit(file, payload);
       setResult(imported);
+      setValidationIssues(imported.validationIssues);
       message.success("导入完成");
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "导入失败");
+      const issues = importIssuesFromError(error);
+      if (issues.length) {
+        setValidationIssues(issues);
+        setIssuesOpen(true);
+      } else {
+        message.error(error instanceof Error ? error.message : "导入失败");
+      }
     } finally {
       setImporting(false);
     }
   }
 
-  const stats = preview?.detected.coordinateStats;
+  const stats = validationStats;
+  const hasBlockingIssues = validationIssues.some((issue) => issue.blocking);
+  const hasIgnorableUncertainty = validationIssues.some(
+    (issue) => issue.code === "coordinate_uncertainty",
+  );
 
   if (!user) {
     return null;
@@ -179,17 +269,30 @@ export default function ImportPage() {
           <div className="import-upload-panel">
             <Upload.Dragger
               accept=".csv,.xls,.xlsx"
+              disabled={previewing}
               beforeUpload={(selectedFile) => {
                 setFile(selectedFile);
                 setPreview(null);
                 setResult(null);
+                setIncludedColumns([]);
+                setValidationIssues([]);
+                setValidationStats(null);
+                setHasValidated(false);
+                setIgnoreCoordinateUncertainty(false);
+                void handlePreview(selectedFile);
                 return false;
               }}
               maxCount={1}
+              showUploadList={false}
               onRemove={() => {
                 setFile(null);
                 setPreview(null);
                 setResult(null);
+                setIncludedColumns([]);
+                setValidationIssues([]);
+                setValidationStats(null);
+                setHasValidated(false);
+                setIgnoreCoordinateUncertainty(false);
               }}
             >
               <UploadCloud size={34} />
@@ -199,24 +302,47 @@ export default function ImportPage() {
               <Typography.Text type="secondary">
                 Excel 只读取第一张表；所有字段按文本读取。
               </Typography.Text>
+              <div className="import-selected-file">
+                {previewing ? (
+                  <Tag color="processing">正在预检文件...</Tag>
+                ) : file ? (
+                  <Tag color="green">{file.name}</Tag>
+                ) : (
+                  <Tag>尚未选择文件</Tag>
+                )}
+              </div>
             </Upload.Dragger>
-            <Button
-              type="primary"
-              icon={<FileSpreadsheet size={16} />}
-              loading={previewing}
-              onClick={handlePreview}
-            >
-              预检文件
-            </Button>
           </div>
 
           {preview && (
-            <Form form={form} layout="vertical" className="import-config-form">
+            <Form
+              form={form}
+              layout="vertical"
+              className="import-config-form"
+              onValuesChange={(changed) => {
+                if (
+                  "importMode" in changed ||
+                  "longitudeColumn" in changed ||
+                  "latitudeColumn" in changed
+                ) {
+                  setValidationIssues([]);
+                  setValidationStats(null);
+                  setHasValidated(false);
+                  setIgnoreCoordinateUncertainty(false);
+                }
+              }}
+            >
               <Alert
                 type="info"
                 showIcon
                 title="导入限制"
-                description={preview.limitations.join("；")}
+                description={
+                  <ul className="import-limit-list">
+                    {preview.limitations.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                }
               />
               <div className="import-config-grid">
                 <Form.Item
@@ -225,20 +351,6 @@ export default function ImportPage() {
                   rules={[{ required: true, message: "请输入数据名称" }]}
                 >
                   <Input placeholder="例如：样地调查点位" />
-                </Form.Item>
-                <Form.Item
-                  name="tableName"
-                  label="入库表名"
-                  rules={[
-                    { required: true, message: "请输入入库表名" },
-                    {
-                      pattern: /^[A-Za-z_][A-Za-z0-9_]{0,62}$/,
-                      message:
-                        "仅支持英文字母、数字和下划线，且必须以字母或下划线开头",
-                    },
-                  ]}
-                >
-                  <Input placeholder="例如：survey_points_2026" />
                 </Form.Item>
                 <Form.Item
                   name="importMode"
@@ -255,7 +367,7 @@ export default function ImportPage() {
                 </Form.Item>
                 <Form.Item
                   name="overwrite"
-                  label="同名覆盖"
+                  label="同名数据覆盖"
                   valuePropName="checked"
                 >
                   <Switch checkedChildren="覆盖" unCheckedChildren="拒绝" />
@@ -293,19 +405,25 @@ export default function ImportPage() {
                           showSearch
                         />
                       </Form.Item>
-                      <Form.Item
-                        name="missingCoordinatePolicy"
-                        label="空坐标处理"
-                        rules={[{ required: true }]}
-                      >
-                        <Radio.Group
-                          options={[
-                            { label: "取消导入", value: "cancel" },
-                            { label: "忽略空坐标行", value: "ignore" },
-                            { label: "强行导入", value: "force" },
-                          ]}
-                        />
-                      </Form.Item>
+                      <Space className="import-validation-actions">
+                        <Button
+                          icon={<CheckCircle2 size={16} />}
+                          loading={validating}
+                          onClick={handleValidate}
+                        >
+                          数据校验
+                        </Button>
+                        {hasValidated && validationIssues.length === 0 && (
+                          <Tag color="green">校验通过</Tag>
+                        )}
+                        {hasValidated && validationIssues.length > 0 && (
+                          <Tag color={hasBlockingIssues ? "red" : "gold"}>
+                            {hasBlockingIssues
+                              ? "存在阻断问题"
+                              : "存在可忽略问题"}
+                          </Tag>
+                        )}
+                      </Space>
                     </div>
                   ) : null
                 }
@@ -352,8 +470,28 @@ export default function ImportPage() {
                   dataSource={preview.columns.map((column) => ({
                     column,
                     description: fieldMetadata[column] ?? "",
+                    included: includedColumns.includes(column),
                   }))}
                   columns={[
+                    {
+                      title: "上传",
+                      dataIndex: "included",
+                      width: 88,
+                      render: (_, record) => (
+                        <Checkbox
+                          checked={includedColumns.includes(record.column)}
+                          onChange={(event) => {
+                            setIncludedColumns((current) =>
+                              event.target.checked
+                                ? [...current, record.column]
+                                : current.filter(
+                                    (column) => column !== record.column,
+                                  ),
+                            );
+                          }}
+                        />
+                      ),
+                    },
                     { title: "字段", dataIndex: "column", width: 220 },
                     {
                       title: "描述",
@@ -378,14 +516,16 @@ export default function ImportPage() {
 
               <section className="import-section">
                 <Typography.Title level={5}>数据预览</Typography.Title>
-                <Table
-                  size="small"
-                  rowKey="previewRowKey"
-                  pagination={false}
-                  scroll={{ x: true }}
-                  dataSource={previewRows}
-                  columns={previewColumns}
-                />
+                <div className="import-preview-scroll">
+                  <Table
+                    size="small"
+                    rowKey="previewRowKey"
+                    pagination={false}
+                    scroll={{ x: "max-content" }}
+                    dataSource={previewRows}
+                    columns={previewColumns}
+                  />
+                </div>
               </section>
 
               <Space className="import-actions">
@@ -398,18 +538,120 @@ export default function ImportPage() {
                   提交导入
                 </Button>
                 {result && (
-                  <Tag color="green">
-                    已导入 {result.importedRows} 行
-                    {result.skippedRows
-                      ? `，忽略 ${result.skippedRows} 行`
-                      : ""}
-                  </Tag>
+                  <Tag color="green">已导入 {result.importedRows} 行</Tag>
                 )}
               </Space>
             </Form>
           )}
         </section>
       </main>
+      <Modal
+        title="上传数据校验结果"
+        open={issuesOpen}
+        onCancel={() => setIssuesOpen(false)}
+        cancelButtonProps={{ style: { display: "none" } }}
+        okText={
+          hasBlockingIssues
+            ? ""
+            : hasIgnorableUncertainty
+              ? "忽略并继续导入"
+              : ""
+        }
+        confirmLoading={importing}
+        okButtonProps={{
+          style:
+            hasBlockingIssues || !hasIgnorableUncertainty
+              ? { display: "none" }
+              : undefined,
+          disabled: hasIgnorableUncertainty && !ignoreCoordinateUncertainty,
+        }}
+        onOk={() => {
+          if (hasBlockingIssues || !hasIgnorableUncertainty) {
+            setIssuesOpen(false);
+            return;
+          }
+          setIgnoreCoordinateUncertainty(true);
+          setIssuesOpen(false);
+          void submitImport(true);
+        }}
+      >
+        <Alert
+          type={hasBlockingIssues ? "error" : "warning"}
+          showIcon
+          title={
+            hasBlockingIssues
+              ? "检测到阻止上传的问题"
+              : "检测到可确认忽略的问题"
+          }
+          description={
+            hasBlockingIssues
+              ? "请修正以下问题后重新预检或提交。"
+              : "坐标不确定性差距可能影响空间分析精度，确认后可继续导入。"
+          }
+        />
+        <Table
+          className="import-issue-table"
+          size="small"
+          rowKey={(record) => `${record.code}-${record.message}`}
+          pagination={false}
+          dataSource={validationIssues}
+          columns={[
+            {
+              title: "问题项",
+              dataIndex: "message",
+              render: (value, record) => (
+                <Space direction="vertical" size={2}>
+                  <Typography.Text>{value}</Typography.Text>
+                  <Space size={4} align="center">
+                    <Tag color={record.blocking ? "red" : "gold"}>
+                      {record.blocking ? "必须修正" : "可忽略"}
+                    </Tag>
+                    {record.code === "coordinate_uncertainty" && (
+                      <Tooltip title="系统会根据经纬度小数位数估算坐标量化误差；该项表示最大误差与最小误差的比值过大，可能说明同一批数据的坐标精度不一致。">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<HelpCircle size={14} />}
+                          aria-label="坐标不确定性差距说明"
+                        />
+                      </Tooltip>
+                    )}
+                  </Space>
+                </Space>
+              ),
+            },
+          ]}
+        />
+        {hasIgnorableUncertainty && !hasBlockingIssues && (
+          <Checkbox
+            checked={ignoreCoordinateUncertainty}
+            onChange={(event) =>
+              setIgnoreCoordinateUncertainty(event.target.checked)
+            }
+          >
+            我已了解坐标不确定性差距，并继续导入
+          </Checkbox>
+        )}
+      </Modal>
     </Layout>
   );
+}
+
+function shouldBlockImport(
+  issues: ImportValidationIssue[],
+  ignoreCoordinateUncertainty: boolean,
+) {
+  return issues.some(
+    (issue) =>
+      issue.blocking ||
+      (issue.code === "coordinate_uncertainty" && !ignoreCoordinateUncertainty),
+  );
+}
+
+function importIssuesFromError(error: unknown): ImportValidationIssue[] {
+  if (!(error instanceof ApiError)) {
+    return [];
+  }
+  const data = error.data as { issues?: ImportValidationIssue[] } | null;
+  return Array.isArray(data?.issues) ? data.issues : [];
 }

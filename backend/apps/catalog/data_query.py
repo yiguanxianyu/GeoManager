@@ -11,6 +11,7 @@ import pandas as pd
 from django.conf import settings
 from shapely.geometry import shape
 
+from apps.catalog.geojson_validation import validate_geojson_geometries
 from apps.catalog.models import DataResource
 from apps.core.storage import (
     StoragePathError,
@@ -95,7 +96,8 @@ def query_resource(resource: DataResource, payload: dict[str, Any]) -> dict[str,
 
     limit = _limit(payload.get("limit"))
     total_count = len(gdf)
-    returned = gdf[gdf.geometry.notna()].head(limit).copy()
+    returned, warnings = validate_geojson_geometries(gdf)
+    returned = returned.head(limit).copy()
     returned = normalize_for_geojson(returned)
 
     return {
@@ -106,6 +108,7 @@ def query_resource(resource: DataResource, payload: dict[str, Any]) -> dict[str,
         "limit": limit,
         "fields": field_profiles(gdf, field_metadata),
         "geojson": json.loads(returned.to_json()),
+        "warnings": warnings,
     }
 
 
