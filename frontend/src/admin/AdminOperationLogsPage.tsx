@@ -6,28 +6,29 @@ import type {
 } from "@ant-design/pro-components";
 import { ProTable } from "@ant-design/pro-components";
 import { App, Button, Space, Tag } from "antd";
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { api } from "../api/client";
+import type { AdminOperationLog, AdminOperationLogQuery } from "../types";
 import { downloadTextFile } from "../utils/download";
-import {
-  filterOperationLogs,
-  type OperationLog,
-  type OperationLogQuery,
-  operationLogsToCsv,
-} from "./data";
+import { operationLogsToCsv } from "./data";
 
-const resultText: Record<OperationLog["result"], string> = {
+interface OperationLogTableQuery extends AdminOperationLogQuery {
+  occurredAt?: unknown[];
+}
+
+const resultText: Record<string, string> = {
   success: "成功",
   warning: "告警",
   failed: "失败",
 };
 
-const resultColor: Record<OperationLog["result"], string> = {
+const resultColor: Record<string, string> = {
   success: "success",
   warning: "warning",
   failed: "error",
 };
 
-const columns: ProColumns<OperationLog>[] = [
+const columns: ProColumns<AdminOperationLog>[] = [
   {
     title: "操作时间",
     dataIndex: "occurredAt",
@@ -46,12 +47,7 @@ const columns: ProColumns<OperationLog>[] = [
     title: "模块",
     dataIndex: "module",
     width: 130,
-    valueType: "select",
-    valueEnum: {
-      操作日志: { text: "操作日志" },
-      系统设置: { text: "系统设置" },
-      认证授权: { text: "认证授权" },
-    },
+    ellipsis: true,
   },
   {
     title: "动作",
@@ -70,7 +66,9 @@ const columns: ProColumns<OperationLog>[] = [
       failed: { text: "失败", status: "Error" },
     },
     render: (_, record) => (
-      <Tag color={resultColor[record.result]}>{resultText[record.result]}</Tag>
+      <Tag color={resultColor[record.result] ?? "default"}>
+        {resultText[record.result] ?? record.result}
+      </Tag>
     ),
   },
   {
@@ -97,17 +95,40 @@ export default function AdminOperationLogsPage() {
   const actionRef = useRef<ActionType>(null);
   const formRef = useRef<ProFormInstance | undefined>(undefined);
   const { message } = App.useApp();
+  const [exporting, setExporting] = useState(false);
 
-  function exportLogs() {
-    const query = (formRef.current?.getFieldsValue() ??
-      {}) as OperationLogQuery;
-    const rows = filterOperationLogs(query);
-    downloadTextFile(operationLogsToCsv(rows), "operation-logs.csv");
-    message.success("已生成操作日志导出文件");
+  async function exportLogs() {
+    setExporting(true);
+    try {
+      const query = buildLogQuery(
+        (formRef.current?.getFieldsValue() ?? {}) as OperationLogTableQuery,
+      );
+      const firstPage = await api.adminOperationLogs({
+        ...query,
+        current: 1,
+        pageSize: 1,
+      });
+      const result =
+        firstPage.total <= firstPage.items.length
+          ? firstPage
+          : await api.adminOperationLogs({
+              ...query,
+              current: 1,
+              pageSize: firstPage.total,
+            });
+      downloadTextFile(operationLogsToCsv(result.items), "operation-logs.csv");
+      message.success("已生成操作日志导出文件");
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : "操作日志导出失败",
+      );
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
-    <ProTable<OperationLog, OperationLogQuery>
+    <ProTable<AdminOperationLog, OperationLogTableQuery>
       className="admin-table"
       actionRef={actionRef}
       formRef={formRef}
@@ -125,10 +146,10 @@ export default function AdminOperationLogsPage() {
       }}
       scroll={{ x: 1200 }}
       request={async (params) => {
-        const data = filterOperationLogs(params);
+        const result = await api.adminOperationLogs(buildLogQuery(params));
         return {
-          data,
-          total: data.length,
+          data: result.items,
+          total: result.total,
           success: true,
         };
       }}
@@ -145,6 +166,7 @@ export default function AdminOperationLogsPage() {
           key="export"
           type="primary"
           icon={<DownloadOutlined />}
+          loading={exporting}
           onClick={exportLogs}
         >
           导出日志
@@ -158,4 +180,31 @@ export default function AdminOperationLogsPage() {
       rowSelection={{}}
     />
   );
+}
+
+function buildLogQuery(params: OperationLogTableQuery): AdminOperationLogQuery {
+  const [startTime, endTime] = params.occurredAt ?? [];
+  return {
+    current: params.current,
+    pageSize: params.pageSize,
+    operator: params.operator,
+    module: params.module,
+    action: params.action,
+    result: params.result,
+    keyword: params.keyword,
+    startTime: formatQueryDate(startTime),
+    endTime: formatQueryDate(endTime),
+  };
+}
+
+function formatQueryDate(value: unknown): string | undefined {
+  if (!value) return undefined;
+  if (
+    typeof value === "object" &&
+    "format" in value &&
+    typeof value.format === "function"
+  ) {
+    return value.format("YYYY-MM-DD HH:mm:ss");
+  }
+  return String(value);
 }

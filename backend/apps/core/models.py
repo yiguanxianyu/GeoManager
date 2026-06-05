@@ -1,4 +1,29 @@
+from django.conf import settings
 from django.db import models
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="profile",
+        verbose_name="用户",
+    )
+    avatar_url = models.URLField(blank=True, verbose_name="头像 URL")
+    department = models.CharField(max_length=120, blank=True, verbose_name="部门")
+    disabled_permissions = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="用户主动关闭的权限",
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "用户资料"
+        verbose_name_plural = "用户资料"
+
+    def __str__(self):
+        return self.user.get_username()
 
 
 class FeaturePermission(models.Model):

@@ -18,6 +18,7 @@ dependencies:
   - rasterio
   - ruff
   - pip:
+    - tomlkit==0.13.3
     - xlrd==2.0.2
 
 prefix: "/Users/gx/.local/share/mamba/envs/zyhy"

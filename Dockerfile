@@ -3,11 +3,7 @@ FROM mambaorg/micromamba:latest
 ENV DEBIAN_FRONTEND=noninteractive \
     MAMBA_ROOT_PREFIX=/opt/conda \
     PATH=/opt/conda/bin:$PATH \
-    APP_CONFIG=/config/app.toml \
-    DJANGO_SETTINGS_MODULE=data_sharing_platform.settings \
-    DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,[::1] \
-    APP_DISABLE_RASTER_STARTUP_SCAN=0 \
-    MAPBOX_ACCESS_TOKEN=""
+    DJANGO_SETTINGS_MODULE=data_sharing_platform.settings
 
 USER root
 
@@ -23,6 +19,7 @@ RUN micromamba install -y -n base -c conda-forge \
         pillow \
         gdal \
         rasterio \
+        tomlkit \
         geopandas \
         gunicorn \
     && micromamba clean -a -y
@@ -31,13 +28,13 @@ WORKDIR /opt/app
 
 COPY backend ./backend
 COPY config ./config
-COPY desgin-docs.md README.md AGENTS.md ./
+COPY docs/desgin-docs.md README.md AGENTS.md ./
 COPY docker/entrypoint.sh /usr/local/bin/app-entrypoint
 
 RUN chmod +x /usr/local/bin/app-entrypoint \
-    && mkdir -p /data/app /data/geographic /config
+    && mkdir -p /data/app /data/research /config
 
 EXPOSE 8000
 
 ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/app-entrypoint"]
-CMD ["serve"]
+CMD ["serve", "/config/app.toml"]

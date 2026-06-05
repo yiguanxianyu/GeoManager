@@ -1,47 +1,37 @@
-import os
 from pathlib import Path
 
-from apps.core.config import ConfigValidationError, load_project_config
+from apps.core.config import (
+    ConfigValidationError,
+    load_project_config,
+    resolve_config_path,
+)
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROGRAM_ROOT = BASE_DIR.parent
 
-_app_config = os.environ.get("APP_CONFIG")
-if not _app_config:
-    raise ImproperlyConfigured(
-        "环境变量 APP_CONFIG 未设置。请在 .env 文件或系统环境变量中指定 TOML 配置文件路径。"
-    )
-CONFIG_PATH = Path(_app_config)
-
 try:
+    CONFIG_PATH = resolve_config_path(PROGRAM_ROOT)
     PROJECT_CONFIG = load_project_config(CONFIG_PATH, program_root=PROGRAM_ROOT)
 except ConfigValidationError as exc:
     raise ImproperlyConfigured(str(exc)) from exc
 
 
 def _get_secret_key() -> str:
-    env_key = os.environ.get("DJANGO_SECRET_KEY")
-    if env_key:
-        return env_key
     key_file = PROJECT_CONFIG.app_path("database", ".secret_key")
     if key_file.exists():
-        return key_file.read_text().strip()
+        return key_file.read_text(encoding="utf-8").strip()
     from django.core.management.utils import get_random_secret_key
 
     key = get_random_secret_key()
     key_file.parent.mkdir(parents=True, exist_ok=True)
-    key_file.write_text(key)
+    key_file.write_text(key, encoding="utf-8")
     return key
 
 
 SECRET_KEY = _get_secret_key()
-DEBUG = os.environ.get("DEBUG", "False").lower() in ("true", "1", "yes")
-ALLOWED_HOSTS = [
-    h.strip()
-    for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
-    if h.strip()
-]
+DEBUG = PROJECT_CONFIG.runtime.debug
+ALLOWED_HOSTS = list(PROJECT_CONFIG.runtime.allowed_hosts)
 
 
 def _default_csrf_trusted_origins(allowed_hosts: list[str], debug: bool) -> list[str]:
@@ -61,11 +51,8 @@ def _default_csrf_trusted_origins(allowed_hosts: list[str], debug: bool) -> list
     return sorted(origins)
 
 
-_env_csrf_origins = os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "")
-if _env_csrf_origins:
-    CSRF_TRUSTED_ORIGINS = [
-        o.strip() for o in _env_csrf_origins.split(",") if o.strip()
-    ]
+if PROJECT_CONFIG.runtime.csrf_trusted_origins:
+    CSRF_TRUSTED_ORIGINS = list(PROJECT_CONFIG.runtime.csrf_trusted_origins)
 else:
     CSRF_TRUSTED_ORIGINS = _default_csrf_trusted_origins(ALLOWED_HOSTS, DEBUG)
 

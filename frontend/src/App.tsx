@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import AdminAuthPage from "./admin/AdminAuthPage";
 import AdminLayout from "./admin/AdminLayout";
 import AdminOperationLogsPage from "./admin/AdminOperationLogsPage";
+import AdminProfilePage from "./admin/AdminProfilePage";
 import AdminSystemSettingsPage from "./admin/AdminSystemSettingsPage";
 import { ApiError, api } from "./api/client";
 import { AppContext } from "./contexts/AppContext";
@@ -128,7 +129,8 @@ export default function App() {
           />
           <Route element={<RequireAdmin />}>
             <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<Navigate to="logs" replace />} />
+              <Route index element={<Navigate to="profile" replace />} />
+              <Route path="profile" element={<AdminProfilePage />} />
               <Route path="logs" element={<AdminOperationLogsPage />} />
               <Route path="settings" element={<AdminSystemSettingsPage />} />
               <Route path="auth" element={<AdminAuthPage />} />

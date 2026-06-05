@@ -14,6 +14,7 @@ class OperationLogModelTests(TestCase):
 
     def test_status_choices(self):
         self.assertEqual(OperationLog.Status.SUCCESS, "success")
+        self.assertEqual(OperationLog.Status.WARNING, "warning")
         self.assertEqual(OperationLog.Status.FAILED, "failed")
 
     def test_ordering_by_created_at_desc(self):

@@ -2,6 +2,7 @@ import json
 
 from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -100,6 +101,7 @@ def me_view(request):
 
 def serialize_user(user):
     groups = list(user.groups.values_list("name", flat=True))
+    profile = _profile_values(user)
     permissions = {
         "canAccessAdmin": has_feature_perm(user, "core.access_admin"),
         "canManageFeaturePermissions": has_feature_perm(
@@ -112,21 +114,31 @@ def serialize_user(user):
         "canUseCustomSymbolization": has_feature_perm(
             user, "core.custom_symbolization"
         ),
-        "canExportData": user.has_perm("catalog.export_dataresource")
-        or user.is_superuser,
-        "canMaintainData": user.has_perm("catalog.maintain_dataresource")
-        or user.is_superuser,
-        "canManageRasterData": user.has_perm("raster.manage_raster_dataset")
-        or user.has_perm("catalog.maintain_dataresource")
-        or user.is_superuser,
+        "canExportData": has_feature_perm(user, "catalog.export_dataresource"),
+        "canMaintainData": has_feature_perm(user, "catalog.maintain_dataresource"),
+        "canManageRasterData": has_feature_perm(user, "raster.manage_raster_dataset")
+        or has_feature_perm(user, "catalog.maintain_dataresource"),
     }
     return {
         "id": user.id,
         "username": user.get_username(),
         "displayName": user.get_full_name() or user.get_username(),
         "email": user.email,
+        "avatarUrl": profile["avatar_url"],
+        "department": profile["department"],
         "isStaff": user.is_staff,
         "isSuperuser": user.is_superuser,
         "roles": groups,
         "permissions": permissions,
+    }
+
+
+def _profile_values(user):
+    try:
+        profile = user.profile
+    except ObjectDoesNotExist:
+        return {"avatar_url": "", "department": ""}
+    return {
+        "avatar_url": profile.avatar_url,
+        "department": profile.department,
     }

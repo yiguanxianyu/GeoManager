@@ -8,14 +8,36 @@ import {
 import { App as AntApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppContext } from "../contexts/AppContext";
 import { RequireAdmin } from "../router";
 import type { Bootstrap, User } from "../types";
 import AdminAuthPage from "./AdminAuthPage";
 import AdminLayout from "./AdminLayout";
 import AdminOperationLogsPage from "./AdminOperationLogsPage";
+import AdminProfilePage from "./AdminProfilePage";
 import AdminSystemSettingsPage from "./AdminSystemSettingsPage";
+
+const mockApi = vi.hoisted(() => ({
+  logout: vi.fn(),
+  adminProfile: vi.fn(),
+  updateAdminProfile: vi.fn(),
+  updateAdminProfilePermissions: vi.fn(),
+  adminOperationLogs: vi.fn(),
+  adminUsers: vi.fn(),
+  createAdminUser: vi.fn(),
+  updateAdminUserGroups: vi.fn(),
+  adminGroups: vi.fn(),
+  createAdminGroup: vi.fn(),
+  updateAdminGroup: vi.fn(),
+  deleteAdminGroup: vi.fn(),
+  adminSettings: vi.fn(),
+  updateAdminSettings: vi.fn(),
+}));
+
+vi.mock("../api/client", () => ({
+  api: mockApi,
+}));
 
 const bootstrap: Bootstrap = {
   systemName: "中亚胡杨林生态系统保护数据共享平台",
@@ -37,6 +59,8 @@ const adminUser: User = {
   username: "admin",
   displayName: "系统管理员",
   email: "admin@example.local",
+  avatarUrl: "",
+  department: "平台运维组",
   isStaff: true,
   isSuperuser: true,
   roles: ["系统管理员"],
@@ -54,6 +78,50 @@ const adminUser: User = {
   },
 };
 
+const availablePermissions = [
+  { id: "core.access_admin", label: "进入后台管理", group: "系统管理" },
+  {
+    id: "core.manage_feature_permissions",
+    label: "配置功能权限",
+    group: "系统管理",
+  },
+  { id: "core.browse_data", label: "浏览数据目录", group: "数据功能" },
+  { id: "core.query_data", label: "查询数据", group: "数据功能" },
+  {
+    id: "catalog.export_dataresource",
+    label: "导出数据资源",
+    group: "数据管理",
+  },
+];
+
+const grantedPermissions = availablePermissions.map(
+  (permission) => permission.id,
+);
+
+const adminGroup = {
+  id: 1,
+  name: "系统管理员",
+  userCount: 1,
+  permissions: grantedPermissions,
+};
+
+const adminApiUser = {
+  ...adminUser,
+  groupIds: [adminGroup.id],
+  isActive: true,
+};
+
+const adminSettings = {
+  systemName: bootstrap.systemName,
+  allowRegistration: bootstrap.allowRegistration,
+  map: bootstrap.map,
+  limits: bootstrap.limits,
+  raster: {
+    symbolizerTimeoutSeconds: 120,
+  },
+  editable: true,
+};
+
 function renderAdminRoute(initialEntry: string) {
   return render(
     <AdminTestProviders>
@@ -62,7 +130,8 @@ function renderAdminRoute(initialEntry: string) {
           <Route path="/" element={<div>业务入口</div>} />
           <Route element={<RequireAdmin />}>
             <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<Navigate to="logs" replace />} />
+              <Route index element={<Navigate to="profile" replace />} />
+              <Route path="profile" element={<AdminProfilePage />} />
               <Route path="logs" element={<AdminOperationLogsPage />} />
               <Route path="settings" element={<AdminSystemSettingsPage />} />
               <Route path="auth" element={<AdminAuthPage />} />
@@ -97,13 +166,45 @@ function AdminTestProviders({ children }: { children: React.ReactNode }) {
 }
 
 describe("admin routes", () => {
-  it("redirects /admin to operation logs", async () => {
+  beforeEach(() => {
+    mockApi.logout.mockResolvedValue({ detail: "已退出" });
+    mockApi.adminProfile.mockResolvedValue({
+      user: adminUser,
+      avatarUrl: "",
+      department: "平台运维组",
+      grantedPermissions,
+      disabledPermissions: [],
+      effectivePermissions: grantedPermissions,
+      availablePermissions,
+    });
+    mockApi.updateAdminProfilePermissions.mockImplementation((payload) =>
+      Promise.resolve({
+        user: adminUser,
+        avatarUrl: "",
+        department: "平台运维组",
+        grantedPermissions,
+        disabledPermissions: payload.disabledPermissions,
+        effectivePermissions: grantedPermissions.filter(
+          (permission) => !payload.disabledPermissions.includes(permission),
+        ),
+        availablePermissions,
+      }),
+    );
+    mockApi.adminUsers.mockResolvedValue({ items: [adminApiUser] });
+    mockApi.adminOperationLogs.mockResolvedValue({ items: [], total: 0 });
+    mockApi.adminGroups.mockResolvedValue({
+      items: [adminGroup],
+      availablePermissions,
+    });
+    mockApi.adminSettings.mockResolvedValue(adminSettings);
+    mockApi.updateAdminSettings.mockResolvedValue(adminSettings);
+  });
+
+  it("redirects /admin to user settings", async () => {
     renderAdminRoute("/admin");
 
-    expect(await screen.findByText("日志列表")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /导出日志/ }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("个人信息")).toBeInTheDocument();
+    expect(screen.getByText("我的权限")).toBeInTheDocument();
   });
 
   it("navigates from operation logs to system settings", async () => {
@@ -115,7 +216,7 @@ describe("admin routes", () => {
     fireEvent.click(settingsLinks[0] as HTMLElement);
 
     expect(await screen.findAllByText("基础配置")).not.toHaveLength(0);
-    expect(screen.getByLabelText("系统名称")).toBeInTheDocument();
+    expect(screen.getAllByText(bootstrap.systemName).length).toBeGreaterThan(0);
   });
 
   it("opens the user detail drawer from auth management", async () => {

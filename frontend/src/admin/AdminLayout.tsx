@@ -5,6 +5,7 @@ import {
   SafetyCertificateOutlined,
   SettingOutlined,
   TeamOutlined,
+  UserOutlined,
 } from "@ant-design/icons";
 import type { MenuDataItem, ProLayoutProps } from "@ant-design/pro-components";
 import { PageContainer, ProLayout } from "@ant-design/pro-components";
@@ -16,6 +17,11 @@ import { useAppContext } from "../contexts/AppContext";
 const adminRoute: ProLayoutProps["route"] = {
   path: "/admin",
   routes: [
+    {
+      path: "/admin/profile",
+      name: "用户设置",
+      icon: <UserOutlined />,
+    },
     {
       path: "/admin/logs",
       name: "操作日志",
@@ -35,12 +41,16 @@ const adminRoute: ProLayoutProps["route"] = {
 };
 
 const defaultPageMeta = {
-  title: "操作日志",
-  subTitle: "查询、筛选并导出关键操作记录",
+  title: "用户设置",
+  subTitle: "维护个人信息并查看当前权限",
 };
 
 const pageMeta: Record<string, { title: string; subTitle: string }> = {
-  "/admin/logs": defaultPageMeta,
+  "/admin/profile": defaultPageMeta,
+  "/admin/logs": {
+    title: "操作日志",
+    subTitle: "查询、筛选并导出关键操作记录",
+  },
   "/admin/settings": {
     title: "系统设置",
     subTitle: "维护基础配置与平台运行参数",
@@ -111,6 +121,7 @@ export default function AdminLayout() {
       ]}
       avatarProps={{
         icon: <SafetyCertificateOutlined />,
+        src: user?.avatarUrl || undefined,
         title: user?.displayName ?? "未登录",
         render: (_, dom) => (
           <div className="admin-avatar-block">

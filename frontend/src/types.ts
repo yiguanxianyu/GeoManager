@@ -9,6 +9,24 @@ type Schemas = components["schemas"];
 
 export type Bootstrap = Schemas["BootstrapResponse"];
 export type User = Schemas["UserInfo"];
+export type AdminProfile = Schemas["AdminProfileResponse"];
+export type AdminProfileUpdate = Schemas["AdminProfileUpdateRequest"];
+export type AdminProfilePermissionsUpdate =
+  Schemas["AdminProfilePermissionsRequest"];
+export type AdminPermissionItem = Schemas["AdminPermissionItem"];
+export type AdminOperationLog = Schemas["AdminOperationLog"];
+export type AdminOperationLogQuery = NonNullable<
+  operations["listAdminOperationLogs"]["parameters"]["query"]
+>;
+export type AdminGroup = Schemas["AdminGroup"];
+export type AdminGroupListResponse = Schemas["AdminGroupListResponse"];
+export type AdminGroupCreate = Schemas["AdminGroupCreateRequest"];
+export type AdminGroupUpdate = Schemas["AdminGroupUpdateRequest"];
+export type AdminUser = Schemas["AdminUserInfo"];
+export type AdminUserCreate = Schemas["AdminUserCreateRequest"];
+export type AdminUserGroupUpdate = Schemas["AdminUserGroupUpdateRequest"];
+export type AdminSettings = Schemas["AdminSettingsResponse"];
+export type AdminSettingsUpdate = Schemas["AdminSettingsUpdateRequest"];
 export type DictionaryItem = Schemas["DictionaryItem"];
 export type DataResource = Schemas["DataResource"];
 export type VectorLayerResource = Schemas["VectorLayerResource"];

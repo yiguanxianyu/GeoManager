@@ -269,21 +269,14 @@ mamba activate zyhy
 # 进入后端目录（如果尚未进入）
 cd backend
 
-# 设置环境变量（如果尚未设置）
-# 创建 .env 文件并设置 DJANGO_SECRET_KEY 和 DJANGO_DEBUG
-# 参考“5.2 Django 密钥”部分获取详细说明
-# 示例：
-# echo "DJANGO_SECRET_KEY=your_random_secret_key_here" > .env
-# echo "DJANGO_DEBUG=True" >> .env
-
 # 运行数据库迁移
-python manage.py migrate
+python manage.py migrate --config ../config/app.test.toml
 
 # 创建超级用户（可选）
 python manage.py createsuperuser
 
 # 启动开发服务器
-python manage.py runserver 127.0.0.1:8000
+python manage.py runserver 127.0.0.1:8000 --config ../config/app.test.toml
 ```
 
 后端服务将在 `http://127.0.0.1:8000` 启动。
@@ -311,11 +304,8 @@ mamba activate zyhy
 # 进入后端目录
 cd backend
 
-# 确保环境变量已设置（参考“5.2 Django 密钥”部分）
-# 如果尚未设置，请先创建 .env 文件
-
 # 运行开发服务器
-python manage.py runserver
+python manage.py runserver --config ../config/app.test.toml
 
 # 在浏览器中访问 http://127.0.0.1:8000
 ```
@@ -372,46 +362,22 @@ mamba env create -f environment.yml
    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
    ```
 
-## 第五部分：环境变量配置
+## 第五部分：TOML 配置
 
 ### 5.1 Mapbox GL JS Token
 
-前端地图功能需要 Mapbox Access Token。在 `frontend` 目录下创建 `.env` 文件：
+前端地图功能需要 Mapbox Access Token。将 token 写入 TOML 配置：
 
-```bash
-cd frontend
-cp .env.example .env  # 如果存在示例文件
-```
-
-然后编辑 `.env` 文件，添加你的 Mapbox token：
-
-```
-VITE_MAPBOX_ACCESS_TOKEN=your_mapbox_token_here
+```toml
+[application.map]
+mapbox_access_token = "your_mapbox_token_here"
 ```
 
 你可以从 [Mapbox 官网](https://account.mapbox.com/) 获取免费的 access token。
 
 ### 5.2 Django 密钥
 
-后端 Django 项目需要 `SECRET_KEY`。在 `backend` 目录下创建 `.env` 文件：
-
-```bash
-cd backend
-cp .env.example .env  # 如果存在示例文件
-```
-
-然后编辑 `.env` 文件，设置密钥：
-
-```
-DJANGO_SECRET_KEY=your_random_secret_key_here
-DJANGO_DEBUG=True
-```
-
-你可以使用以下命令生成随机密钥：
-
-```bash
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-```
+Django `SECRET_KEY` 由后端自动生成，并持久化到业务数据目录的 `database/.secret_key`。不要在 TOML 配置或前端页面中填写该密钥。
 
 ## 附录：项目结构
 

@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-import os
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import tomllib
+import tomlkit
+from tomlkit.exceptions import TOMLKitError
 
-APP_SUBDIRS = ("database", "media", "uploads", "exports", "logs", "static")
+APP_SUBDIRS = ("database", "media", "uploads", "exports", "logs", "static", "config")
 RESEARCH_SUBDIRS = (
     "vector",
     "raster",
@@ -18,10 +19,29 @@ RESEARCH_SUBDIRS = (
     "gene",
     "table",
 )
+CONFIG_ARG_NAMES = ("--config", "--app-config")
+CONFIG_POINTER = Path(".runtime/config-path")
+DEFAULT_CONFIG_CANDIDATES = (
+    Path("config/app.test.toml"),
+    Path("config/app.example.toml"),
+)
+INTERNAL_DEFAULT_SYMBOLIZER_SCRIPT = "scripts/raster_symbolizers/basic_gradient.py"
 
 
 class ConfigValidationError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class RuntimeConfig:
+    debug: bool
+    allowed_hosts: tuple[str, ...]
+    csrf_trusted_origins: tuple[str, ...]
+    gunicorn_bind: str
+    gunicorn_workers: int
+    http_port: int
+    disable_catalog_startup_scan: bool
+    disable_raster_startup_scan: bool
 
 
 @dataclass(frozen=True)
@@ -41,17 +61,19 @@ class LimitConfig:
 @dataclass(frozen=True)
 class RasterConfig:
     symbolizer_timeout_seconds: int
-    default_symbolizer_script: str
+    symbolizer_script: str = INTERNAL_DEFAULT_SYMBOLIZER_SCRIPT
 
 
 @dataclass(frozen=True)
 class ProjectConfig:
     config_path: Path
+    source_config_path: Path
+    runtime_config_path: Path
+    runtime: RuntimeConfig
     system_name: str
     allow_registration: bool
     app_data: Path
     research_data_root: Path
-    auto_create_directories: bool
     map: MapConfig
     limits: LimitConfig
     raster: RasterConfig
@@ -63,63 +85,117 @@ class ProjectConfig:
         return self.research_data_root.joinpath(*parts)
 
 
-def load_project_config(config_path: Path, program_root: Path) -> ProjectConfig:
-    config_path = config_path.expanduser().resolve()
+def persist_config_argument(argv: list[str], program_root: Path) -> Path | None:
+    config_path: str | None = None
+    index = 1
+    while index < len(argv):
+        arg = argv[index]
+        if arg in CONFIG_ARG_NAMES:
+            if index + 1 >= len(argv):
+                raise ConfigValidationError(f"{arg} 缺少配置文件路径")
+            config_path = argv[index + 1]
+            del argv[index : index + 2]
+            continue
+        matched_name = next(
+            (name for name in CONFIG_ARG_NAMES if arg.startswith(f"{name}=")), None
+        )
+        if matched_name:
+            config_path = arg.split("=", 1)[1]
+            del argv[index]
+            continue
+        index += 1
+
+    if not config_path:
+        return None
+
+    path = _resolve_user_path(config_path)
+    pointer_path = program_root.joinpath(CONFIG_POINTER)
+    pointer_path.parent.mkdir(parents=True, exist_ok=True)
+    pointer_path.write_text(str(path), encoding="utf-8")
+    return path
+
+
+def resolve_config_path(program_root: Path) -> Path:
     program_root = program_root.expanduser().resolve()
-    if not config_path.exists():
-        raise ConfigValidationError(f"TOML 配置文件不存在：{config_path}")
+    pointer_path = program_root.joinpath(CONFIG_POINTER)
+    if pointer_path.exists():
+        configured_path = pointer_path.read_text(encoding="utf-8").strip()
+        if configured_path:
+            return _resolve_user_path(configured_path)
 
-    try:
-        with config_path.open("rb") as config_file:
-            raw = tomllib.load(config_file)
-    except tomllib.TOMLDecodeError as exc:
-        raise ConfigValidationError(f"TOML 配置格式错误：{exc}") from exc
+    for candidate in DEFAULT_CONFIG_CANDIDATES:
+        path = program_root / candidate
+        if path.exists():
+            return path.resolve()
 
-    system = _table(raw, "system")
-    storage = _table(raw, "storage")
-    map_config = _table(raw, "map")
-    limits = _table(raw, "limits")
-    raster = _table(raw, "raster")
+    raise ConfigValidationError(
+        "未提供 TOML 配置文件。请通过 --config /path/to/app.toml 指定配置文件。"
+    )
 
-    app_root = _absolute_path(storage.get("app_data"), "storage.app_data")
+
+def load_project_config(config_path: Path, program_root: Path) -> ProjectConfig:
+    source_path = config_path.expanduser().resolve()
+    program_root = program_root.expanduser().resolve()
+    source_raw = _load_toml_document(source_path)
+    runtime_path = _runtime_config_path(source_raw)
+
+    if runtime_path.exists() and runtime_path.resolve() != source_path:
+        active_path = runtime_path.resolve()
+        raw = _load_toml_document(active_path)
+    else:
+        active_path = source_path
+        raw = source_raw
+
+    runtime = _runtime_config(_table(raw, "runtime"))
+    application = _table(raw, "application")
+    system = _table(application, "system")
+    storage = _table(application, "storage")
+    map_config = _table(application, "map")
+    limits = _table(application, "limits")
+    raster = _table(application, "raster")
+
+    app_root = _absolute_path(storage.get("app_data"), "application.storage.app_data")
     research_root = _absolute_path(
-        storage.get("research_data_root"), "storage.research_data_root"
+        storage.get("research_data_root"),
+        "application.storage.research_data_root",
     )
     _validate_separate_roots(program_root, app_root, research_root)
 
     project_config = ProjectConfig(
-        config_path=config_path,
-        system_name=_string(system.get("name"), "system.name"),
+        config_path=active_path,
+        source_config_path=source_path,
+        runtime_config_path=runtime_path,
+        runtime=runtime,
+        system_name=_string(system.get("name"), "application.system.name"),
         allow_registration=bool(system.get("allow_registration", False)),
         app_data=app_root,
         research_data_root=research_root,
-        auto_create_directories=bool(storage.get("auto_create_directories", False)),
         map=MapConfig(
             default_center=_center(map_config.get("default_center")),
             default_zoom=float(map_config.get("default_zoom", 4.5)),
             default_basemap=_string(
-                map_config.get("default_basemap"), "map.default_basemap"
+                map_config.get("default_basemap"),
+                "application.map.default_basemap",
             ),
-            mapbox_access_token=_string(
-                map_config.get("mapbox_access_token"), "map.mapbox_access_token"
+            mapbox_access_token=_optional_string(
+                map_config.get("mapbox_access_token", ""),
+                "application.map.mapbox_access_token",
             ),
         ),
         limits=LimitConfig(
             upload_max_mb=_positive_int(
-                limits.get("upload_max_mb"), "limits.upload_max_mb"
+                limits.get("upload_max_mb"),
+                "application.limits.upload_max_mb",
             ),
             query_result_limit=_positive_int(
-                limits.get("query_result_limit"), "limits.query_result_limit"
+                limits.get("query_result_limit"),
+                "application.limits.query_result_limit",
             ),
         ),
         raster=RasterConfig(
             symbolizer_timeout_seconds=_positive_int(
                 raster.get("symbolizer_timeout_seconds"),
-                "raster.symbolizer_timeout_seconds",
-            ),
-            default_symbolizer_script=_string(
-                raster.get("default_symbolizer_script"),
-                "raster.default_symbolizer_script",
+                "application.raster.symbolizer_timeout_seconds",
             ),
         ),
     )
@@ -127,10 +203,90 @@ def load_project_config(config_path: Path, program_root: Path) -> ProjectConfig:
     return project_config
 
 
+def ensure_runtime_config_file(config: ProjectConfig) -> bool:
+    runtime_path = config.runtime_config_path
+    if runtime_path.exists():
+        return False
+    runtime_path.parent.mkdir(parents=True, exist_ok=True)
+    source_path = config.source_config_path
+    if not source_path.exists():
+        raise ConfigValidationError(f"源 TOML 配置文件不存在：{source_path}")
+    shutil.copyfile(source_path, runtime_path)
+    return True
+
+
+def load_runtime_config_document(config: ProjectConfig) -> dict[str, Any]:
+    ensure_runtime_config_file(config)
+    return _load_toml_document(config.runtime_config_path)
+
+
+def write_runtime_config_document(config: ProjectConfig, raw: dict[str, Any]) -> None:
+    ensure_runtime_config_file(config)
+    config.runtime_config_path.write_text(tomlkit.dumps(raw), encoding="utf-8")
+
+
+def update_runtime_application_config(
+    config: ProjectConfig,
+    patch: dict[str, Any],
+) -> dict[str, Any]:
+    raw = load_runtime_config_document(config)
+    application = _table(raw, "application")
+    _deep_update(application, patch)
+    write_runtime_config_document(config, raw)
+    return raw
+
+
+def _load_toml_document(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise ConfigValidationError(f"TOML 配置文件不存在：{path}")
+
+    try:
+        raw = tomlkit.parse(path.read_text(encoding="utf-8"))
+    except TOMLKitError as exc:
+        raise ConfigValidationError(f"TOML 配置格式错误：{exc}") from exc
+
+    if not _is_toml_table(raw):
+        raise ConfigValidationError("TOML 配置文件根节点必须是对象")
+    return raw
+
+
+def _runtime_config_path(raw: dict[str, Any]) -> Path:
+    application = _table(raw, "application")
+    storage = _table(application, "storage")
+    app_root = _absolute_path(storage.get("app_data"), "application.storage.app_data")
+    return app_root.joinpath("config", "app.toml")
+
+
+def _runtime_config(raw: dict[str, Any]) -> RuntimeConfig:
+    return RuntimeConfig(
+        debug=bool(raw.get("debug", False)),
+        allowed_hosts=_string_tuple(
+            raw.get("allowed_hosts", ["*"]), "runtime.allowed_hosts"
+        ),
+        csrf_trusted_origins=_string_tuple(
+            raw.get("csrf_trusted_origins", []),
+            "runtime.csrf_trusted_origins",
+        ),
+        gunicorn_bind=_string(
+            raw.get("gunicorn_bind", "0.0.0.0:8000"),
+            "runtime.gunicorn_bind",
+        ),
+        gunicorn_workers=_positive_int(
+            raw.get("gunicorn_workers", 1),
+            "runtime.gunicorn_workers",
+        ),
+        http_port=_positive_int(raw.get("http_port", 80), "runtime.http_port"),
+        disable_catalog_startup_scan=bool(
+            raw.get("disable_catalog_startup_scan", False)
+        ),
+        disable_raster_startup_scan=bool(raw.get("disable_raster_startup_scan", False)),
+    )
+
+
 def _table(raw: dict[str, Any], key: str) -> dict[str, Any]:
     value = raw.get(key)
-    if not isinstance(value, dict):
-        raise ConfigValidationError(f"缺少 TOML 配置段：[{key}]")
+    if not _is_toml_table(value):
+        raise ConfigValidationError(f"缺少 TOML 配置段：{key}")
     return value
 
 
@@ -138,6 +294,20 @@ def _string(value: Any, key: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ConfigValidationError(f"配置项 {key} 必须是非空字符串")
     return value.strip()
+
+
+def _optional_string(value: Any, key: str) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ConfigValidationError(f"配置项 {key} 必须是字符串")
+    return value.strip()
+
+
+def _string_tuple(value: Any, key: str) -> tuple[str, ...]:
+    if not _is_toml_array(value):
+        raise ConfigValidationError(f"配置项 {key} 必须是字符串数组")
+    return tuple(_string(item, f"{key}[]") for item in value)
 
 
 def _positive_int(value: Any, key: str) -> int:
@@ -155,12 +325,16 @@ def _absolute_path(value: Any, key: str) -> Path:
 
 
 def _center(value: Any) -> tuple[float, float]:
-    if not isinstance(value, list | tuple) or len(value) != 2:
-        raise ConfigValidationError("配置项 map.default_center 必须是 [经度, 纬度]")
+    if not _is_toml_array(value) or len(value) != 2:
+        raise ConfigValidationError(
+            "配置项 application.map.default_center 必须是 [经度, 纬度]"
+        )
     lon = float(value[0])
     lat = float(value[1])
     if not -180 <= lon <= 180 or not -90 <= lat <= 90:
-        raise ConfigValidationError("配置项 map.default_center 超出经纬度范围")
+        raise ConfigValidationError(
+            "配置项 application.map.default_center 超出经纬度范围"
+        )
     return lon, lat
 
 
@@ -191,12 +365,16 @@ def _prepare_fixed_directories(config: ProjectConfig) -> None:
         *(config.research_path(subdir) for subdir in RESEARCH_SUBDIRS),
     ]
     for directory in required_paths:
-        if config.auto_create_directories:
-            directory.mkdir(parents=True, exist_ok=True)
+        directory.mkdir(parents=True, exist_ok=True)
         if not directory.exists() or not directory.is_dir():
             raise ConfigValidationError(f"固定子目录不存在：{directory}")
-        if not os.access(directory, os.R_OK | os.W_OK):
-            raise ConfigValidationError(f"固定子目录缺少读写权限：{directory}")
+
+
+def _resolve_user_path(path_text: str) -> Path:
+    path = Path(path_text).expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    return path.resolve()
 
 
 def _is_relative_to(path: Path, parent: Path) -> bool:
@@ -205,3 +383,29 @@ def _is_relative_to(path: Path, parent: Path) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _deep_update(target: dict[str, Any], patch: dict[str, Any]) -> None:
+    for key, value in patch.items():
+        if isinstance(value, dict) and _is_toml_table(target.get(key)):
+            _deep_update(target[key], value)
+        else:
+            target[key] = value
+
+
+def _is_toml_table(value: Any) -> bool:
+    return (
+        hasattr(value, "get")
+        and hasattr(value, "items")
+        and hasattr(value, "__setitem__")
+        and not isinstance(value, (str, bytes, list, tuple))
+    )
+
+
+def _is_toml_array(value: Any) -> bool:
+    return (
+        hasattr(value, "__iter__")
+        and hasattr(value, "__len__")
+        and not _is_toml_table(value)
+        and not isinstance(value, (str, bytes))
+    )

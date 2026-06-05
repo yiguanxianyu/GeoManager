@@ -61,7 +61,7 @@ backend/apps/
 - 使用 Django 内置 auth、admin、session、permission；平台后台是登录后的功能入口，通过平台功能权限决定是否显示和访问。
 - 新版管理后台使用前端 `/admin/` SPA 路由承载；旧版 Django Admin 保留在 `/admin2/`，并在新版后台顶部提供“旧版管理后台”入口。直接访问后端原 `/admin/` 路径会重定向到 `/admin2/`。
 - 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。全新生产环境不使用演示初始化脚本，首个注册用户自动成为系统管理员，后续注册用户为普通账号。
-- 本地前后端分离开发时，Vite dev server 运行在 `5173` 并代理 `/api` 到 Django；`DEBUG=True` 且未显式设置 `DJANGO_CSRF_TRUSTED_ORIGINS` 时，后端默认信任 `http://127.0.0.1:5173` 和 `http://localhost:5173`，确保首次注册和登录的 CSRF Origin 校验通过。
+- 本地前后端分离开发时，Vite dev server 运行在 `5173` 并代理 `/api` 到 Django；`[runtime].debug = true` 且未显式设置 `csrf_trusted_origins` 时，后端默认信任 `http://127.0.0.1:5173` 和 `http://localhost:5173`，确保首次注册和登录的 CSRF Origin 校验通过。
 - 运行日志统一写入业务数据根目录的 `logs/`：Django 应用日志、Django 框架日志、安全日志、Gunicorn 访问/错误日志、Nginx 访问/错误日志都落在该目录。
 - Docker 启动入口必须先创建固定业务/地理/非地理数据子目录，再执行 `python manage.py migrate --noinput` 和 `collectstatic`，确保空 appdata 首次启动可以直接注册首个管理员。
 - SQLite 数据库放在业务数据根目录的 `database/` 下。
@@ -74,7 +74,7 @@ backend/apps/
 - 栅格数据统一放在地理数据根目录的 `raster/` 总目录下：源文件放在 `raster/original/`，导入后预处理 COG 放在 `raster/preprocessed/`，两份 `gdalinfo -json` 元数据放在 `raster/metadata/source/` 和 `raster/metadata/preprocessed/`。
 - 非地理数据统一放在非地理数据根目录下：基因数据放在 `gene/`，表格数据放在 `table/`。后端目录扫描会登记 `gene` 和 `table` 类型的 `DataResource`，不创建地图图层。
 - 栅格导入预处理固定使用 `gdalwarp -t_srs EPSG:3857 -r nearest -co COMPRESS=DEFLATE -of COG "$in" "$out"`，导入记录保存源文件、预处理文件、两份 GDAL 元数据、导入时间、处理日志、错误信息、默认符号化规则、范围和关联数据资源/地图图层。
-- 后端启动 `runserver` 或 WSGI/ASGI 进程时会异步扫描 `vector/vector.gpkg`、非地理数据 `gene/`、`table/` 和 `raster/original/` 下已有数据；矢量图层会登记为 `DataResource/MapLayer`，非地理文件登记为 `DataResource`，栅格源文件会完成预处理并登记目录。迁移、测试等管理命令不触发扫描。可用 `APP_DISABLE_CATALOG_STARTUP_SCAN=1` 或 `APP_DISABLE_RASTER_STARTUP_SCAN=1` 显式关闭。
+- 后端启动 `runserver` 或 WSGI/ASGI 进程时会异步扫描 `vector/vector.gpkg`、非地理数据 `gene/`、`table/` 和 `raster/original/` 下已有数据；矢量图层会登记为 `DataResource/MapLayer`，非地理文件登记为 `DataResource`，栅格源文件会完成预处理并登记目录。迁移、测试等管理命令不触发扫描。可在 TOML 的 `[runtime]` 段设置 `disable_catalog_startup_scan` 或 `disable_raster_startup_scan` 关闭启动扫描。
 
 ## 统一功能权限
 
@@ -142,7 +142,7 @@ frontend/src/
 - 登录后进入可视化入口页，分为地理可视化和非地理可视化两个入口；地理可视化进入地图工作台，非地理可视化当前保留空白承载页。
 - 后台入口只在上级入口页呈现；地图工作台不展示后台管理按钮。
 - 前端仅做矢量样式表达和 XYZ 瓦片叠加，不实现栅格符号化。
-- Mapbox 公共 token 优先从环境变量 `MAPBOX_ACCESS_TOKEN` 读取，也可在 TOML 的 `map.mapbox_access_token` 中配置；经后端 bootstrap 下发，前端不硬编码默认 token。
+- Mapbox 公共 token 从 TOML 的 `[application.map].mapbox_access_token` 读取，经后端 bootstrap 下发，前端不硬编码默认 token。
 - Mapbox 底图标注语言使用 `zh-Hans`，并在样式加载后优先读取中文名称字段。
 
 ## 数据管理与图层管理

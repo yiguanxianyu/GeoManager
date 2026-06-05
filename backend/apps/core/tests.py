@@ -2,13 +2,19 @@ import json
 import tempfile
 from pathlib import Path
 
+import tomlkit
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.test import SimpleTestCase, TestCase
 from data_sharing_platform.settings import _default_csrf_trusted_origins
 
+from apps.audit.models import OperationLog
 from apps.core.admin import FeatureGroupForm
-from apps.core.config import load_project_config
+from apps.core.config import (
+    ensure_runtime_config_file,
+    load_project_config,
+    update_runtime_application_config,
+)
 from apps.core.models import SystemSetting
 from apps.core.storage import (
     StoragePathError,
@@ -141,6 +147,129 @@ class FeaturePermissionTests(TestCase):
         self.assertTrue(group.permissions.filter(id=add_user.id).exists())
         self.assertTrue(group.permissions.filter(id=browse_data.id).exists())
 
+    def test_user_can_disable_only_granted_feature_permissions(self):
+        user = get_user_model().objects.create_user(
+            username="toggle-user", password="pass12345"
+        )
+        grant(user, ("core", "browse_data"))
+        self.client.force_login(user)
+
+        response = self.client.patch(
+            "/api/admin/profile/permissions/",
+            data=json.dumps({"disabledPermissions": ["core.browse_data"]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()["user"]["permissions"]["canBrowseData"])
+
+        response = self.client.patch(
+            "/api/admin/profile/permissions/",
+            data=json.dumps({"disabledPermissions": ["core.query_data"]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("不能关闭未授予的权限", response.json()["detail"])
+
+    def test_group_delete_requires_empty_group(self):
+        manager = get_user_model().objects.create_user(
+            username="group-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_feature_permissions"))
+        group = Group.objects.create(name="待删除用户组")
+        user = get_user_model().objects.create_user(
+            username="group-member", password="pass12345"
+        )
+        user.groups.add(group)
+        self.client.force_login(manager)
+
+        response = self.client.delete(f"/api/admin/groups/{group.id}/")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "用户组仍有关联用户，不能删除")
+
+    def test_admin_can_create_user_when_registration_is_closed(self):
+        SystemSetting.objects.update_or_create(
+            pk=1, defaults={"allow_registration": False}
+        )
+        manager = get_user_model().objects.create_user(
+            username="user-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_feature_permissions"))
+        group = Group.objects.create(name="科研用户")
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            "/api/admin/users/",
+            data=json.dumps(
+                {
+                    "username": "created-by-admin",
+                    "password": "StrongPass12345",
+                    "displayName": "后台创建用户",
+                    "email": "created@example.local",
+                    "department": "生态监测组",
+                    "groupIds": [group.id],
+                    "isActive": True,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        user = get_user_model().objects.get(username="created-by-admin")
+        self.assertEqual(user.email, "created@example.local")
+        self.assertEqual(user.profile.department, "生态监测组")
+        self.assertTrue(user.groups.filter(id=group.id).exists())
+
+    def test_group_list_returns_available_feature_permissions(self):
+        manager = get_user_model().objects.create_user(
+            username="permission-list-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_feature_permissions"))
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/admin/groups/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        permission_ids = {
+            permission["id"] for permission in payload["availablePermissions"]
+        }
+        self.assertIn("core.access_admin", permission_ids)
+        self.assertIn("core.manage_feature_permissions", permission_ids)
+
+    def test_admin_operation_logs_query_uses_real_audit_logs(self):
+        manager = get_user_model().objects.create_user(
+            username="log-manager", password="pass12345"
+        )
+        grant(manager, ("core", "access_admin"))
+        OperationLog.objects.create(
+            user=manager,
+            module="系统设置",
+            action="保存配置",
+            status="success",
+            message="写入运行配置",
+        )
+        OperationLog.objects.create(
+            user=manager,
+            module="认证授权",
+            action="创建用户",
+            status="failed",
+            message="用户名重复",
+        )
+        self.client.force_login(manager)
+
+        response = self.client.get(
+            "/api/admin/operation-logs/",
+            {"module": "系统设置", "result": "success"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["total"], 1)
+        self.assertEqual(payload["items"][0]["action"], "保存配置")
+
 
 class StoragePathTests(SimpleTestCase):
     def test_research_path_rejects_parent_traversal(self):
@@ -182,28 +311,36 @@ class ConfigLoaderTests(SimpleTestCase):
             research_root = root / "research"
             config_path.write_text(
                 f"""
-[system]
+[runtime]
+debug = true
+allowed_hosts = ["*"]
+csrf_trusted_origins = []
+gunicorn_bind = "127.0.0.1:8000"
+gunicorn_workers = 1
+http_port = 8000
+disable_catalog_startup_scan = true
+disable_raster_startup_scan = true
+
+[application.system]
 name = "测试系统"
 allow_registration = true
 
-[storage]
+[application.storage]
 app_data = "{business_root}"
 research_data_root = "{research_root}"
-auto_create_directories = true
 
-[map]
+[application.map]
 default_center = [80.0, 41.5]
 default_zoom = 4.5
 default_basemap = "osm"
 mapbox_access_token = "pk.test-token"
 
-[limits]
+[application.limits]
 upload_max_mb = 512
 query_result_limit = 30000
 
-[raster]
+[application.raster]
 symbolizer_timeout_seconds = 120
-default_symbolizer_script = "scripts/raster_symbolizers/basic_gradient.py"
 """,
                 encoding="utf-8",
             )
@@ -225,6 +362,126 @@ default_symbolizer_script = "scripts/raster_symbolizers/basic_gradient.py"
             )
             self.assertTrue(config.research_path("gene").is_dir())
             self.assertTrue(config.research_path("table").is_dir())
+
+    def test_migration_helper_copies_source_config_to_appdata_runtime_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "app.toml"
+            business_root = root / "app"
+            research_root = root / "research"
+            config_path.write_text(
+                f"""
+[runtime]
+debug = true
+allowed_hosts = ["*"]
+csrf_trusted_origins = []
+gunicorn_bind = "127.0.0.1:8000"
+gunicorn_workers = 1
+http_port = 8000
+disable_catalog_startup_scan = true
+disable_raster_startup_scan = true
+
+[application.system]
+name = "测试系统"
+allow_registration = true
+
+[application.storage]
+app_data = "{business_root}"
+research_data_root = "{research_root}"
+
+[application.map]
+default_center = [80.0, 41.5]
+default_zoom = 4.5
+default_basemap = "osm"
+mapbox_access_token = ""
+
+[application.limits]
+upload_max_mb = 512
+query_result_limit = 30000
+
+[application.raster]
+symbolizer_timeout_seconds = 120
+""",
+                encoding="utf-8",
+            )
+
+            config = load_project_config(
+                config_path, program_root=Path("/opt/data-sharing-platform")
+            )
+            copied = ensure_runtime_config_file(config)
+
+            self.assertTrue(copied)
+            self.assertEqual(
+                config.runtime_config_path.read_text(), config_path.read_text()
+            )
+
+    def test_runtime_config_updates_are_written_with_tomlkit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "app.toml"
+            business_root = root / "app"
+            research_root = root / "research"
+            config_path.write_text(
+                f"""
+[runtime]
+debug = true
+allowed_hosts = ["*"]
+csrf_trusted_origins = []
+gunicorn_bind = "127.0.0.1:8000"
+gunicorn_workers = 1
+http_port = 8000
+disable_catalog_startup_scan = true
+disable_raster_startup_scan = true
+
+[application.system]
+name = "测试系统"
+allow_registration = true
+
+[application.storage]
+app_data = "{business_root}"
+research_data_root = "{research_root}"
+
+[application.map]
+default_center = [80.0, 41.5]
+default_zoom = 4.5
+default_basemap = "osm"
+mapbox_access_token = ""
+
+[application.limits]
+upload_max_mb = 512
+query_result_limit = 30000
+
+[application.raster]
+symbolizer_timeout_seconds = 120
+""",
+                encoding="utf-8",
+            )
+
+            config = load_project_config(
+                config_path, program_root=Path("/opt/data-sharing-platform")
+            )
+            update_runtime_application_config(
+                config,
+                {
+                    "system": {"name": "更新后的系统"},
+                    "map": {"default_center": [82.0, 42.0]},
+                },
+            )
+
+            runtime_document = tomlkit.parse(
+                config.runtime_config_path.read_text(encoding="utf-8")
+            )
+            source_document = tomlkit.parse(config_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                runtime_document["application"]["system"]["name"], "更新后的系统"
+            )
+            self.assertEqual(
+                list(runtime_document["application"]["map"]["default_center"]),
+                [82.0, 42.0],
+            )
+            self.assertEqual(
+                source_document["application"]["system"]["name"], "测试系统"
+            )
 
 
 def grant(user, *specs):

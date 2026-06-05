@@ -1,10 +1,9 @@
-import os
-
 from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.http import require_GET
 
 from apps.core.config import APP_SUBDIRS, RESEARCH_SUBDIRS
+from apps.core.config import load_runtime_config_document
 from apps.core.models import SystemSetting
 
 
@@ -20,19 +19,21 @@ def registration_allowed() -> bool:
 @require_GET
 def bootstrap(request):
     config = settings.PROJECT_CONFIG
+    runtime_document = load_runtime_config_document(config)
+    application = runtime_document["application"]
     return JsonResponse(
         {
-            "systemName": config.system_name,
+            "systemName": application["system"]["name"],
             "allowRegistration": registration_allowed(),
             "map": {
-                "defaultCenter": config.map.default_center,
-                "defaultZoom": config.map.default_zoom,
-                "defaultBasemap": config.map.default_basemap,
-                "mapboxAccessToken": config.map.mapbox_access_token,
+                "defaultCenter": application["map"]["default_center"],
+                "defaultZoom": application["map"]["default_zoom"],
+                "defaultBasemap": application["map"]["default_basemap"],
+                "mapboxAccessToken": application["map"].get("mapbox_access_token", ""),
             },
             "limits": {
-                "uploadMaxMb": config.limits.upload_max_mb,
-                "queryResultLimit": config.limits.query_result_limit,
+                "uploadMaxMb": application["limits"]["upload_max_mb"],
+                "queryResultLimit": application["limits"]["query_result_limit"],
             },
         }
     )
@@ -44,6 +45,7 @@ def health(request):
         {
             "status": "ok",
             "configLoaded": True,
+            "configFormat": "toml",
             "appSubdirs": list(APP_SUBDIRS),
             "researchSubdirs": list(RESEARCH_SUBDIRS),
         }

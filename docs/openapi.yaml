@@ -47,6 +47,8 @@ tags:
     description: 栅格数据管理接口
   - name: 异步任务
     description: 异步任务状态查询接口
+  - name: 新版管理后台
+    description: Ant Design Pro 管理后台用户、用户组、权限偏好和用户可配置设置接口
 
 paths:
   /api/bootstrap/:
@@ -176,6 +178,390 @@ paths:
                   authenticated:
                     type: boolean
                     example: false
+
+  /api/admin/profile/:
+    get:
+      tags: [新版管理后台]
+      summary: 获取当前用户后台资料
+      description: 返回当前登录用户的个人资料、已授予权限、主动关闭权限和有效权限。
+      operationId: getAdminProfile
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/admin/profile/update/:
+    patch:
+      tags: [新版管理后台]
+      summary: 更新当前用户后台资料
+      description: 更新当前用户的用户名、展示名称、邮箱、头像和部门。
+      operationId: updateAdminProfile
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProfileUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/admin/profile/permissions/:
+    patch:
+      tags: [新版管理后台]
+      summary: 更新当前用户主动关闭的权限
+      description: 用户只能关闭或重新开启已经由上级授予的功能权限，不能写入未授予权限。
+      operationId: updateAdminProfilePermissions
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminProfilePermissionsRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/admin/operation-logs/:
+    get:
+      tags: [新版管理后台]
+      summary: 查询操作日志
+      description: 基于真实操作日志表返回可分页、可筛选的后台操作日志。
+      operationId: listAdminOperationLogs
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: current
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: 当前页码
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 20
+          description: 每页数量
+        - name: operator
+          in: query
+          schema:
+            type: string
+          description: 按操作用户名或显示名称模糊筛选
+        - name: module
+          in: query
+          schema:
+            type: string
+          description: 按模块名称模糊筛选
+        - name: action
+          in: query
+          schema:
+            type: string
+          description: 按操作动作模糊筛选
+        - name: result
+          in: query
+          schema:
+            type: string
+            enum: [success, warning, failed]
+          description: 按操作结果筛选
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: 跨用户、模块、动作和摘要的关键词筛选
+        - name: startTime
+          in: query
+          schema:
+            type: string
+          description: 操作时间起点，支持日期或日期时间字符串
+        - name: endTime
+          in: query
+          schema:
+            type: string
+          description: 操作时间终点，支持日期或日期时间字符串
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminOperationLogListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/users/:
+    get:
+      tags: [新版管理后台]
+      summary: 获取后台用户列表
+      description: 返回管理员可配置用户及其用户组归属。
+      operationId: listAdminUsers
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [新版管理后台]
+      summary: 创建后台用户
+      description: 管理员创建用户账号。该接口不受自助注册开关影响。
+      operationId: createAdminUser
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserCreateRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserInfo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/users/{userId}/groups/:
+    patch:
+      tags: [新版管理后台]
+      summary: 更新用户所属用户组
+      description: 管理员为指定用户设置所属用户组。
+      operationId: updateAdminUserGroups
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 用户 ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserGroupUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserInfo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/groups/:
+    get:
+      tags: [新版管理后台]
+      summary: 获取用户组列表
+      description: 返回全部 Django 用户组及其功能权限配置。
+      operationId: listAdminGroups
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminGroupListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [新版管理后台]
+      summary: 创建用户组
+      description: 新增一个用户组并可同步设置功能权限。
+      operationId: createAdminGroup
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminGroupCreateRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/groups/{groupId}/:
+    patch:
+      tags: [新版管理后台]
+      summary: 更新用户组
+      description: 更新用户组名称和功能权限。
+      operationId: updateAdminGroup
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 用户组 ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminGroupUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminGroup'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [新版管理后台]
+      summary: 删除空用户组
+      description: 仅当用户组没有任何关联用户时允许删除。
+      operationId: deleteAdminGroup
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: groupId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 用户组 ID
+      responses:
+        '200':
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/admin/settings/:
+    get:
+      tags: [新版管理后台]
+      summary: 获取用户可配置设置
+      description: 返回后台允许展示和修改的 application 配置，不返回 runtime 内部变量。
+      operationId: getAdminSettings
+      security:
+        - sessionAuth: []
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSettingsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    patch:
+      tags: [新版管理后台]
+      summary: 更新用户可配置设置
+      description: 将后台设置直接写入 appdata 下的运行 TOML 配置副本。
+      operationId: updateAdminSettings
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminSettingsUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminSettingsResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /api/catalog/directories/:
     get:
@@ -1069,7 +1455,7 @@ components:
 
     HealthResponse:
       type: object
-      required: [status, configLoaded, appSubdirs, researchSubdirs]
+      required: [status, configLoaded, configFormat, appSubdirs, researchSubdirs]
       properties:
         status:
           type: string
@@ -1079,6 +1465,11 @@ components:
           type: boolean
           description: TOML 配置是否已加载
           example: true
+        configFormat:
+          type: string
+          enum: [toml]
+          description: 当前应用配置文件格式
+          example: toml
         appSubdirs:
           type: array
           description: 业务数据根目录下固定子目录
@@ -1157,7 +1548,18 @@ components:
     UserInfo:
       type: object
       required:
-        [id, username, displayName, email, isStaff, isSuperuser, roles, permissions]
+        [
+          id,
+          username,
+          displayName,
+          email,
+          avatarUrl,
+          department,
+          isStaff,
+          isSuperuser,
+          roles,
+          permissions,
+        ]
       properties:
         id:
           type: integer
@@ -1171,6 +1573,12 @@ components:
         email:
           type: string
           description: 用户邮箱
+        avatarUrl:
+          type: string
+          description: 用户头像 URL，为空字符串表示未设置
+        department:
+          type: string
+          description: 用户所在部门，为空字符串表示未设置
         isStaff:
           type: boolean
           description: 是否具备 Django staff 标记
@@ -1229,6 +1637,308 @@ components:
         canManageRasterData:
           type: boolean
           description: 是否可管理栅格数据集
+
+    AdminPermissionItem:
+      type: object
+      required: [id, label, group]
+      properties:
+        id:
+          type: string
+          description: 权限完整标识，格式为 app_label.codename
+          example: core.access_admin
+        label:
+          type: string
+          description: 权限中文名称
+          example: 进入后台管理
+        group:
+          type: string
+          description: 权限在管理界面中的分组名称
+          example: 系统管理
+
+    AdminProfileResponse:
+      type: object
+      required:
+        [
+          user,
+          avatarUrl,
+          department,
+          grantedPermissions,
+          disabledPermissions,
+          effectivePermissions,
+          availablePermissions,
+        ]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserInfo'
+        avatarUrl:
+          type: string
+          description: 当前用户头像 URL
+        department:
+          type: string
+          description: 当前用户部门
+        grantedPermissions:
+          type: array
+          description: 上级授予当前用户的功能权限列表
+          items:
+            type: string
+        disabledPermissions:
+          type: array
+          description: 当前用户主动关闭的已授予权限列表
+          items:
+            type: string
+        effectivePermissions:
+          type: array
+          description: 授予权限扣除主动关闭权限后的实际生效权限列表
+          items:
+            type: string
+        availablePermissions:
+          type: array
+          description: 管理后台可展示的功能权限元数据
+          items:
+            $ref: '#/components/schemas/AdminPermissionItem'
+
+    AdminProfileUpdateRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: 新用户名
+        displayName:
+          type: string
+          description: 新展示名称
+        email:
+          type: string
+          format: email
+          description: 新邮箱
+        avatarUrl:
+          type: string
+          description: 新头像 URL
+        department:
+          type: string
+          description: 新部门
+
+    AdminProfilePermissionsRequest:
+      type: object
+      required: [disabledPermissions]
+      properties:
+        disabledPermissions:
+          type: array
+          description: 用户主动关闭的权限列表，必须全部属于 grantedPermissions
+          items:
+            type: string
+
+    AdminOperationLog:
+      type: object
+      required:
+        [id, occurredAt, operator, module, action, result, ipAddress, summary]
+      properties:
+        id:
+          type: integer
+          description: 操作日志 ID
+        occurredAt:
+          type: string
+          description: 本地时区格式化后的操作时间
+          example: '2026-06-05 09:31:42'
+        operator:
+          type: string
+          description: 操作用户显示名称，系统操作显示为“系统”
+        module:
+          type: string
+          description: 操作所属模块
+        action:
+          type: string
+          description: 操作动作
+        result:
+          type: string
+          enum: [success, warning, failed]
+          description: 操作结果
+        ipAddress:
+          type: string
+          description: 客户端 IP 地址，为空字符串表示未记录
+        summary:
+          type: string
+          description: 操作摘要
+
+    AdminOperationLogListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          description: 当前页操作日志
+          items:
+            $ref: '#/components/schemas/AdminOperationLog'
+        total:
+          type: integer
+          description: 符合筛选条件的总记录数
+
+    AdminUserInfo:
+      allOf:
+        - $ref: '#/components/schemas/UserInfo'
+        - type: object
+          required: [groupIds, isActive]
+          properties:
+            groupIds:
+              type: array
+              description: 用户所属用户组 ID 列表
+              items:
+                type: integer
+            isActive:
+              type: boolean
+              description: 用户账号是否启用
+
+    AdminUserCreateRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: 登录用户名
+        password:
+          type: string
+          format: password
+          description: 初始密码
+        displayName:
+          type: string
+          description: 显示名称
+        email:
+          type: string
+          format: email
+          description: 用户邮箱
+        department:
+          type: string
+          description: 用户所在部门
+        groupIds:
+          type: array
+          description: 初始所属用户组 ID 列表
+          items:
+            type: integer
+        isActive:
+          type: boolean
+          description: 是否启用账号，默认 true
+
+    AdminUserListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: 后台用户列表
+          items:
+            $ref: '#/components/schemas/AdminUserInfo'
+
+    AdminUserGroupUpdateRequest:
+      type: object
+      required: [groupIds]
+      properties:
+        groupIds:
+          type: array
+          description: 用户新的用户组 ID 列表
+          items:
+            type: integer
+
+    AdminGroup:
+      type: object
+      required: [id, name, userCount, permissions]
+      properties:
+        id:
+          type: integer
+          description: 用户组 ID
+        name:
+          type: string
+          description: 用户组名称
+        userCount:
+          type: integer
+          description: 当前属于该用户组的用户数量
+        permissions:
+          type: array
+          description: 用户组授予的平台功能权限列表
+          items:
+            type: string
+
+    AdminGroupListResponse:
+      type: object
+      required: [items, availablePermissions]
+      properties:
+        items:
+          type: array
+          description: 用户组列表
+          items:
+            $ref: '#/components/schemas/AdminGroup'
+        availablePermissions:
+          type: array
+          description: 可配置的平台功能权限元数据
+          items:
+            $ref: '#/components/schemas/AdminPermissionItem'
+
+    AdminGroupCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: 新用户组名称
+        permissions:
+          type: array
+          description: 新用户组授予的平台功能权限列表
+          items:
+            type: string
+
+    AdminGroupUpdateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: 更新后的用户组名称
+        permissions:
+          type: array
+          description: 更新后的平台功能权限列表
+          items:
+            type: string
+
+    AdminRasterSettings:
+      type: object
+      required: [symbolizerTimeoutSeconds]
+      properties:
+        symbolizerTimeoutSeconds:
+          type: integer
+          description: 栅格符号化后端任务超时时间，单位秒
+
+    AdminSettingsResponse:
+      type: object
+      required: [systemName, allowRegistration, map, limits, raster, editable]
+      properties:
+        systemName:
+          type: string
+          description: 系统显示名称
+        allowRegistration:
+          type: boolean
+          description: 是否开放自助注册
+        map:
+          $ref: '#/components/schemas/MapConfig'
+        limits:
+          $ref: '#/components/schemas/SystemLimits'
+        raster:
+          $ref: '#/components/schemas/AdminRasterSettings'
+        editable:
+          type: boolean
+          description: 当前用户是否可修改这些用户可配置设置
+
+    AdminSettingsUpdateRequest:
+      type: object
+      properties:
+        systemName:
+          type: string
+          description: 更新后的系统显示名称
+        allowRegistration:
+          type: boolean
+          description: 是否开放自助注册
+        map:
+          $ref: '#/components/schemas/MapConfig'
+        limits:
+          $ref: '#/components/schemas/SystemLimits'
+        raster:
+          $ref: '#/components/schemas/AdminRasterSettings'
 
     DictionaryItem:
       type: object

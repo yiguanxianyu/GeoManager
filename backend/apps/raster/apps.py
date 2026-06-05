@@ -18,7 +18,9 @@ class RasterConfig(AppConfig):
         import sys
         import threading
 
-        if os.environ.get("APP_DISABLE_RASTER_STARTUP_SCAN") == "1":
+        from django.conf import settings
+
+        if settings.PROJECT_CONFIG.runtime.disable_raster_startup_scan:
             return
         if len(sys.argv) > 1 and sys.argv[1] not in {"runserver"}:
             return

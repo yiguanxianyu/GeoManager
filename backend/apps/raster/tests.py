@@ -87,27 +87,36 @@ class RasterScanPathTests(TestCase):
         research_root = root / "research"
         config_path.write_text(
             f"""
-[system]
+[runtime]
+debug = true
+allowed_hosts = ["*"]
+csrf_trusted_origins = []
+gunicorn_bind = "127.0.0.1:8000"
+gunicorn_workers = 1
+http_port = 8000
+disable_catalog_startup_scan = true
+disable_raster_startup_scan = true
+
+[application.system]
 name = "测试系统"
 allow_registration = true
 
-[storage]
+[application.storage]
 app_data = "{business_root}"
 research_data_root = "{research_root}"
-auto_create_directories = true
 
-[map]
+[application.map]
 default_center = [80.0, 41.5]
 default_zoom = 4.5
 default_basemap = "osm"
+mapbox_access_token = ""
 
-[limits]
+[application.limits]
 upload_max_mb = 512
 query_result_limit = 30000
 
-[raster]
+[application.raster]
 symbolizer_timeout_seconds = 120
-default_symbolizer_script = "scripts/raster_symbolizers/basic_gradient.py"
 """,
             encoding="utf-8",
         )

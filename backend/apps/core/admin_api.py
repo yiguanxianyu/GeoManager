@@ -1,0 +1,652 @@
+from __future__ import annotations
+
+import json
+from datetime import datetime, time
+from functools import wraps
+from typing import Any
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import IntegrityError, transaction
+from django.db.models import Q
+from django.http import JsonResponse
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
+from django.views.decorators.http import require_GET, require_http_methods
+
+from apps.audit.models import OperationLog
+from apps.audit.service import log_operation
+from apps.core.auth_views import serialize_user
+from apps.core.config import (
+    load_runtime_config_document,
+    update_runtime_application_config,
+)
+from apps.core.models import SystemSetting, UserProfile
+from apps.core.permissions import (
+    FEATURE_PERMISSION_NAMES,
+    FEATURE_PERMISSIONS,
+    disabled_feature_permissions,
+    effective_feature_permissions,
+    feature_permission_queryset,
+    granted_feature_permissions,
+    has_feature_perm,
+)
+
+
+def api_login_required(view_func):
+    @wraps(view_func)
+    def wrapped(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({"detail": "请先登录"}, status=401)
+        return view_func(request, *args, **kwargs)
+
+    return wrapped
+
+
+def api_permission_required(perm_name: str):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return JsonResponse({"detail": "请先登录"}, status=401)
+            if not has_feature_perm(request.user, perm_name):
+                return JsonResponse({"detail": "当前用户无后台管理权限"}, status=403)
+            return view_func(request, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
+@require_GET
+@api_login_required
+def admin_profile(request):
+    return JsonResponse(_serialize_profile(request.user))
+
+
+@require_http_methods(["PATCH"])
+@api_login_required
+def update_admin_profile(request):
+    payload = _json_payload(request)
+    if isinstance(payload, JsonResponse):
+        return payload
+
+    user = request.user
+    profile = _ensure_profile(user)
+    username = payload.get("username")
+    display_name = payload.get("displayName")
+    email = payload.get("email")
+    avatar_url = payload.get("avatarUrl")
+    department = payload.get("department")
+
+    if username is not None:
+        username = _required_string(username, "username")
+        if isinstance(username, JsonResponse):
+            return username
+        user.username = username
+    if display_name is not None:
+        user.first_name = str(display_name).strip()
+        user.last_name = ""
+    if email is not None:
+        user.email = str(email).strip()
+    if avatar_url is not None:
+        profile.avatar_url = str(avatar_url).strip()
+    if department is not None:
+        profile.department = str(department).strip()
+
+    try:
+        with transaction.atomic():
+            user.save()
+            profile.save()
+    except IntegrityError:
+        return JsonResponse({"detail": "用户名已存在"}, status=400)
+
+    return JsonResponse(_serialize_profile(user))
+
+
+@require_http_methods(["PATCH"])
+@api_login_required
+def update_admin_profile_permissions(request):
+    payload = _json_payload(request)
+    if isinstance(payload, JsonResponse):
+        return payload
+
+    disabled = payload.get("disabledPermissions")
+    if not isinstance(disabled, list):
+        return JsonResponse({"detail": "disabledPermissions 必须是数组"}, status=400)
+    disabled_set = {str(permission) for permission in disabled}
+    granted = granted_feature_permissions(request.user)
+    invalid = sorted(disabled_set - granted)
+    if invalid:
+        return JsonResponse(
+            {"detail": f"不能关闭未授予的权限：{', '.join(invalid)}"},
+            status=400,
+        )
+
+    profile = _ensure_profile(request.user)
+    profile.disabled_permissions = sorted(disabled_set)
+    profile.save(update_fields=["disabled_permissions", "updated_at"])
+    return JsonResponse(_serialize_profile(request.user))
+
+
+@require_http_methods(["GET", "POST"])
+@api_permission_required("core.manage_feature_permissions")
+def admin_groups(request):
+    if request.method == "GET":
+        return JsonResponse(
+            {
+                "items": [_serialize_group(group) for group in _groups()],
+                "availablePermissions": _available_permissions(),
+            }
+        )
+
+    payload = _json_payload(request)
+    if isinstance(payload, JsonResponse):
+        return payload
+    name = _required_string(payload.get("name"), "name")
+    if isinstance(name, JsonResponse):
+        return name
+    permissions = _permission_names(payload.get("permissions", []))
+    if isinstance(permissions, JsonResponse):
+        return permissions
+
+    try:
+        group = Group.objects.create(name=name)
+        _set_group_feature_permissions(group, permissions)
+    except IntegrityError:
+        return JsonResponse({"detail": "用户组名称已存在"}, status=400)
+
+    log_operation(
+        request.user, "认证授权", "创建用户组", "success", group.name, request
+    )
+    return JsonResponse(_serialize_group(group), status=201)
+
+
+@require_http_methods(["PATCH", "DELETE"])
+@api_permission_required("core.manage_feature_permissions")
+def admin_group_detail(request, group_id: int):
+    try:
+        group = Group.objects.get(pk=group_id)
+    except Group.DoesNotExist:
+        return JsonResponse({"detail": "用户组不存在"}, status=404)
+
+    if request.method == "DELETE":
+        if group.user_set.exists():
+            return JsonResponse({"detail": "用户组仍有关联用户，不能删除"}, status=400)
+        group_name = group.name
+        group.delete()
+        log_operation(
+            request.user, "认证授权", "删除用户组", "success", group_name, request
+        )
+        return JsonResponse({"detail": "用户组已删除"})
+
+    payload = _json_payload(request)
+    if isinstance(payload, JsonResponse):
+        return payload
+    if "name" in payload:
+        name = _required_string(payload.get("name"), "name")
+        if isinstance(name, JsonResponse):
+            return name
+        group.name = name
+    if "permissions" in payload:
+        permissions = _permission_names(payload.get("permissions"))
+        if isinstance(permissions, JsonResponse):
+            return permissions
+        _set_group_feature_permissions(group, permissions)
+    try:
+        group.save()
+    except IntegrityError:
+        return JsonResponse({"detail": "用户组名称已存在"}, status=400)
+    log_operation(
+        request.user, "认证授权", "更新用户组", "success", group.name, request
+    )
+    return JsonResponse(_serialize_group(group))
+
+
+@require_http_methods(["GET", "POST"])
+@api_permission_required("core.manage_feature_permissions")
+def admin_users(request):
+    User = get_user_model()
+    if request.method == "POST":
+        payload = _json_payload(request)
+        if isinstance(payload, JsonResponse):
+            return payload
+        created = _create_admin_user(User, payload)
+        if isinstance(created, JsonResponse):
+            return created
+        log_operation(
+            request.user,
+            "认证授权",
+            "创建用户",
+            "success",
+            created.get_username(),
+            request,
+        )
+        return JsonResponse(_serialize_admin_user(created), status=201)
+
+    users = User.objects.prefetch_related("groups").order_by("id")
+    return JsonResponse({"items": [_serialize_admin_user(user) for user in users]})
+
+
+@require_http_methods(["PATCH"])
+@api_permission_required("core.manage_feature_permissions")
+def update_admin_user_groups(request, user_id: int):
+    payload = _json_payload(request)
+    if isinstance(payload, JsonResponse):
+        return payload
+    group_ids = payload.get("groupIds")
+    if not isinstance(group_ids, list):
+        return JsonResponse({"detail": "groupIds 必须是数组"}, status=400)
+
+    User = get_user_model()
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({"detail": "用户不存在"}, status=404)
+
+    try:
+        normalized_group_ids = {int(group_id) for group_id in group_ids}
+    except (TypeError, ValueError):
+        return JsonResponse({"detail": "groupIds 必须是整数数组"}, status=400)
+
+    groups = list(Group.objects.filter(id__in=normalized_group_ids))
+    if len(groups) != len(normalized_group_ids):
+        return JsonResponse({"detail": "包含不存在的用户组"}, status=400)
+    user.groups.set(groups)
+    log_operation(
+        request.user,
+        "认证授权",
+        "设置用户组",
+        "success",
+        user.get_username(),
+        request,
+    )
+    return JsonResponse(_serialize_admin_user(user))
+
+
+@require_http_methods(["GET", "PATCH"])
+@api_permission_required("core.access_admin")
+def admin_settings(request):
+    if request.method == "GET":
+        return JsonResponse(_serialize_application_settings(request.user))
+
+    payload = _json_payload(request)
+    if isinstance(payload, JsonResponse):
+        return payload
+
+    patch: dict[str, Any] = {}
+    if "systemName" in payload:
+        system_name = _required_string(payload["systemName"], "systemName")
+        if isinstance(system_name, JsonResponse):
+            return system_name
+        patch.setdefault("system", {})["name"] = system_name
+    if "allowRegistration" in payload:
+        patch.setdefault("system", {})["allow_registration"] = bool(
+            payload["allowRegistration"]
+        )
+    if "map" in payload:
+        map_patch = _map_patch(payload["map"])
+        if isinstance(map_patch, JsonResponse):
+            return map_patch
+        patch["map"] = map_patch
+    if "limits" in payload:
+        limits_patch = _limits_patch(payload["limits"])
+        if isinstance(limits_patch, JsonResponse):
+            return limits_patch
+        patch["limits"] = limits_patch
+    if "raster" in payload:
+        raster_patch = _raster_patch(payload["raster"])
+        if isinstance(raster_patch, JsonResponse):
+            return raster_patch
+        patch["raster"] = raster_patch
+
+    if patch:
+        update_runtime_application_config(settings.PROJECT_CONFIG, patch)
+        if "system" in patch and "allow_registration" in patch["system"]:
+            SystemSetting.objects.update_or_create(
+                pk=1,
+                defaults={"allow_registration": patch["system"]["allow_registration"]},
+            )
+        log_operation(request.user, "系统设置", "保存配置", "success", "", request)
+
+    return JsonResponse(_serialize_application_settings(request.user))
+
+
+@require_GET
+@api_permission_required("core.access_admin")
+def admin_operation_logs(request):
+    logs = OperationLog.objects.select_related("user").order_by("-created_at")
+    logs = _filter_operation_logs(logs, request.GET)
+    total = logs.count()
+    current = _positive_query_int(request.GET.get("current"), default=1)
+    page_size = _positive_query_int(request.GET.get("pageSize"), default=20)
+    if isinstance(current, JsonResponse):
+        return current
+    if isinstance(page_size, JsonResponse):
+        return page_size
+    start = (current - 1) * page_size
+    end = start + page_size
+    return JsonResponse(
+        {
+            "items": [_serialize_operation_log(log) for log in logs[start:end]],
+            "total": total,
+        }
+    )
+
+
+def _serialize_profile(user) -> dict[str, Any]:
+    profile = _ensure_profile(user)
+    granted = granted_feature_permissions(user)
+    disabled = disabled_feature_permissions(user)
+    effective = effective_feature_permissions(user)
+    return {
+        "user": serialize_user(user),
+        "avatarUrl": profile.avatar_url,
+        "department": profile.department,
+        "grantedPermissions": sorted(granted),
+        "disabledPermissions": sorted(disabled),
+        "effectivePermissions": sorted(effective),
+        "availablePermissions": [
+            _serialize_permission(item) for item in FEATURE_PERMISSIONS
+        ],
+    }
+
+
+def _serialize_admin_user(user) -> dict[str, Any]:
+    serialized = serialize_user(user)
+    serialized["groupIds"] = list(user.groups.values_list("id", flat=True))
+    serialized["isActive"] = user.is_active
+    return serialized
+
+
+def _serialize_group(group: Group) -> dict[str, Any]:
+    permissions = {
+        f"{permission.content_type.app_label}.{permission.codename}"
+        for permission in group.permissions.select_related("content_type").all()
+    }
+    return {
+        "id": group.id,
+        "name": group.name,
+        "userCount": group.user_set.count(),
+        "permissions": sorted(permissions & set(FEATURE_PERMISSION_NAMES)),
+    }
+
+
+def _available_permissions() -> list[dict[str, str]]:
+    return [_serialize_permission(item) for item in FEATURE_PERMISSIONS]
+
+
+def _serialize_permission(permission) -> dict[str, str]:
+    return {
+        "id": permission.perm_name,
+        "label": permission.name,
+        "group": permission.group,
+    }
+
+
+def _serialize_application_settings(user) -> dict[str, Any]:
+    raw = load_runtime_config_document(settings.PROJECT_CONFIG)
+    application = raw["application"]
+    return {
+        "systemName": application["system"]["name"],
+        "allowRegistration": application["system"]["allow_registration"],
+        "map": {
+            "defaultCenter": application["map"]["default_center"],
+            "defaultZoom": application["map"]["default_zoom"],
+            "defaultBasemap": application["map"]["default_basemap"],
+            "mapboxAccessToken": application["map"].get("mapbox_access_token", ""),
+        },
+        "limits": {
+            "uploadMaxMb": application["limits"]["upload_max_mb"],
+            "queryResultLimit": application["limits"]["query_result_limit"],
+        },
+        "raster": {
+            "symbolizerTimeoutSeconds": application["raster"][
+                "symbolizer_timeout_seconds"
+            ],
+        },
+        "editable": has_feature_perm(user, "core.access_admin"),
+    }
+
+
+def _serialize_operation_log(log: OperationLog) -> dict[str, Any]:
+    operator = "系统"
+    if log.user_id and log.user:
+        operator = log.user.get_full_name() or log.user.get_username()
+    return {
+        "id": log.id,
+        "occurredAt": timezone.localtime(log.created_at).strftime("%Y-%m-%d %H:%M:%S"),
+        "operator": operator,
+        "module": log.module,
+        "action": log.action,
+        "result": log.status,
+        "ipAddress": log.ip_address or "",
+        "summary": log.message,
+    }
+
+
+def _filter_operation_logs(queryset, params):
+    operator = str(params.get("operator", "")).strip()
+    module = str(params.get("module", "")).strip()
+    action = str(params.get("action", "")).strip()
+    result = str(params.get("result", "")).strip()
+    keyword = str(params.get("keyword", "")).strip()
+    start_time = _parse_query_datetime(params.get("startTime"), end_of_day=False)
+    end_time = _parse_query_datetime(params.get("endTime"), end_of_day=True)
+
+    if operator:
+        queryset = queryset.filter(
+            Q(user__username__icontains=operator)
+            | Q(user__first_name__icontains=operator)
+            | Q(user__last_name__icontains=operator)
+        )
+    if module:
+        queryset = queryset.filter(module__icontains=module)
+    if action:
+        queryset = queryset.filter(action__icontains=action)
+    if result:
+        queryset = queryset.filter(status=result)
+    if keyword:
+        queryset = queryset.filter(
+            Q(user__username__icontains=keyword)
+            | Q(user__first_name__icontains=keyword)
+            | Q(user__last_name__icontains=keyword)
+            | Q(module__icontains=keyword)
+            | Q(action__icontains=keyword)
+            | Q(message__icontains=keyword)
+        )
+    if start_time:
+        queryset = queryset.filter(created_at__gte=start_time)
+    if end_time:
+        queryset = queryset.filter(created_at__lte=end_time)
+    return queryset
+
+
+def _parse_query_datetime(value: Any, *, end_of_day: bool):
+    if not value:
+        return None
+    raw_value = str(value)
+    parsed = parse_datetime(raw_value)
+    if parsed is None:
+        parsed_date = parse_date(raw_value)
+        if parsed_date is None:
+            return None
+        time_value = time.max if end_of_day else time.min
+        parsed = datetime.combine(parsed_date, time_value)
+    if timezone.is_naive(parsed):
+        parsed = timezone.make_aware(parsed, timezone.get_current_timezone())
+    return parsed
+
+
+def _positive_query_int(value: Any, *, default: int) -> int | JsonResponse:
+    if value in (None, ""):
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return JsonResponse({"detail": "分页参数必须是正整数"}, status=400)
+    if parsed <= 0:
+        return JsonResponse({"detail": "分页参数必须是正整数"}, status=400)
+    return parsed
+
+
+def _create_admin_user(User, payload: dict[str, Any]):
+    username = _required_string(payload.get("username"), "username")
+    if isinstance(username, JsonResponse):
+        return username
+    password = _required_string(payload.get("password"), "password")
+    if isinstance(password, JsonResponse):
+        return password
+    email = str(payload.get("email", "")).strip()
+    display_name = str(payload.get("displayName", "")).strip()
+    department = str(payload.get("department", "")).strip()
+    is_active = bool(payload.get("isActive", True))
+    group_ids = payload.get("groupIds", [])
+    if not isinstance(group_ids, list):
+        return JsonResponse({"detail": "groupIds 必须是数组"}, status=400)
+    try:
+        normalized_group_ids = {int(group_id) for group_id in group_ids}
+    except (TypeError, ValueError):
+        return JsonResponse({"detail": "groupIds 必须是整数数组"}, status=400)
+
+    groups = list(Group.objects.filter(id__in=normalized_group_ids))
+    if len(groups) != len(normalized_group_ids):
+        return JsonResponse({"detail": "包含不存在的用户组"}, status=400)
+
+    try:
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=username,
+                email=email,
+                password=password,
+                first_name=display_name,
+                is_active=is_active,
+            )
+            user.groups.set(groups)
+            profile = _ensure_profile(user)
+            profile.department = department
+            profile.save(update_fields=["department", "updated_at"])
+    except IntegrityError:
+        return JsonResponse({"detail": "用户名已存在"}, status=400)
+    return user
+
+
+def _groups():
+    return Group.objects.prefetch_related("permissions", "user_set").order_by("name")
+
+
+def _ensure_profile(user):
+    try:
+        return user.profile
+    except ObjectDoesNotExist:
+        return UserProfile.objects.create(user=user)
+
+
+def _json_payload(request) -> dict[str, Any] | JsonResponse:
+    try:
+        payload = json.loads(request.body.decode("utf-8") or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
+    if not isinstance(payload, dict):
+        return JsonResponse({"detail": "请求体必须是 JSON 对象"}, status=400)
+    return payload
+
+
+def _required_string(value: Any, key: str) -> str | JsonResponse:
+    if not isinstance(value, str) or not value.strip():
+        return JsonResponse({"detail": f"{key} 必须是非空字符串"}, status=400)
+    return value.strip()
+
+
+def _permission_names(value: Any) -> list[str] | JsonResponse:
+    if not isinstance(value, list):
+        return JsonResponse({"detail": "permissions 必须是数组"}, status=400)
+    names = [str(item) for item in value]
+    invalid = sorted(set(names) - set(FEATURE_PERMISSION_NAMES))
+    if invalid:
+        return JsonResponse({"detail": f"权限不存在：{', '.join(invalid)}"}, status=400)
+    return names
+
+
+def _set_group_feature_permissions(group: Group, permission_names: list[str]) -> None:
+    permissions = feature_permission_queryset()
+    feature_ids = set(permissions.values_list("id", flat=True))
+    permissions_by_name = {
+        f"{permission.content_type.app_label}.{permission.codename}": permission.id
+        for permission in permissions
+    }
+    selected_ids = {
+        permissions_by_name[permission]
+        for permission in permission_names
+        if permission in permissions_by_name
+    }
+    non_feature_ids = set(
+        group.permissions.exclude(id__in=feature_ids).values_list("id", flat=True)
+    )
+    group.permissions.set([*non_feature_ids, *selected_ids])
+
+
+def _map_patch(value: Any) -> dict[str, Any] | JsonResponse:
+    if not isinstance(value, dict):
+        return JsonResponse({"detail": "map 必须是对象"}, status=400)
+    patch: dict[str, Any] = {}
+    if "defaultCenter" in value:
+        center = value["defaultCenter"]
+        if not isinstance(center, list | tuple) or len(center) != 2:
+            return JsonResponse(
+                {"detail": "defaultCenter 必须是 [经度, 纬度]"}, status=400
+            )
+        patch["default_center"] = [float(center[0]), float(center[1])]
+    if "defaultZoom" in value:
+        patch["default_zoom"] = float(value["defaultZoom"])
+    if "defaultBasemap" in value:
+        default_basemap = _required_string(value["defaultBasemap"], "defaultBasemap")
+        if isinstance(default_basemap, JsonResponse):
+            return default_basemap
+        patch["default_basemap"] = default_basemap
+    if "mapboxAccessToken" in value:
+        patch["mapbox_access_token"] = str(value["mapboxAccessToken"]).strip()
+    return patch
+
+
+def _limits_patch(value: Any) -> dict[str, Any] | JsonResponse:
+    if not isinstance(value, dict):
+        return JsonResponse({"detail": "limits 必须是对象"}, status=400)
+    patch: dict[str, Any] = {}
+    if "uploadMaxMb" in value:
+        upload_max_mb = _positive_int(value["uploadMaxMb"], "uploadMaxMb")
+        if isinstance(upload_max_mb, JsonResponse):
+            return upload_max_mb
+        patch["upload_max_mb"] = upload_max_mb
+    if "queryResultLimit" in value:
+        query_result_limit = _positive_int(
+            value["queryResultLimit"],
+            "queryResultLimit",
+        )
+        if isinstance(query_result_limit, JsonResponse):
+            return query_result_limit
+        patch["query_result_limit"] = query_result_limit
+    return patch
+
+
+def _raster_patch(value: Any) -> dict[str, Any] | JsonResponse:
+    if not isinstance(value, dict):
+        return JsonResponse({"detail": "raster 必须是对象"}, status=400)
+    patch: dict[str, Any] = {}
+    if "symbolizerTimeoutSeconds" in value:
+        symbolizer_timeout_seconds = _positive_int(
+            value["symbolizerTimeoutSeconds"],
+            "symbolizerTimeoutSeconds",
+        )
+        if isinstance(symbolizer_timeout_seconds, JsonResponse):
+            return symbolizer_timeout_seconds
+        patch["symbolizer_timeout_seconds"] = symbolizer_timeout_seconds
+    return patch
+
+
+def _positive_int(value: Any, key: str) -> int | JsonResponse:
+    if not isinstance(value, int) or value <= 0:
+        return JsonResponse({"detail": f"{key} 必须是正整数"}, status=400)
+    return value

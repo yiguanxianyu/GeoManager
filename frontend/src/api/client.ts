@@ -1,5 +1,19 @@
 import type {
   Achievement,
+  AdminGroup,
+  AdminGroupCreate,
+  AdminGroupListResponse,
+  AdminGroupUpdate,
+  AdminOperationLog,
+  AdminOperationLogQuery,
+  AdminProfile,
+  AdminProfilePermissionsUpdate,
+  AdminProfileUpdate,
+  AdminSettings,
+  AdminSettingsUpdate,
+  AdminUser,
+  AdminUserCreate,
+  AdminUserGroupUpdate,
   Bootstrap,
   DataCatalog,
   DataResourceProfile,
@@ -24,6 +38,10 @@ import { isDataResource } from "../utils/resources";
 
 interface ListResponse<T> {
   items: T[];
+}
+
+interface PaginatedListResponse<T> extends ListResponse<T> {
+  total: number;
 }
 
 interface MeResponse {
@@ -142,6 +160,53 @@ export const api = {
       method: "POST",
       body: JSON.stringify({}),
     }),
+  adminProfile: () => request<AdminProfile>("/api/admin/profile/"),
+  updateAdminProfile: (payload: AdminProfileUpdate) =>
+    request<AdminProfile>("/api/admin/profile/update/", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  updateAdminProfilePermissions: (payload: AdminProfilePermissionsUpdate) =>
+    request<AdminProfile>("/api/admin/profile/permissions/", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  adminOperationLogs: (filters: AdminOperationLogQuery = {}) =>
+    request<PaginatedListResponse<AdminOperationLog>>(
+      `/api/admin/operation-logs/?${toQueryString(filters)}`,
+    ),
+  adminUsers: () => request<ListResponse<AdminUser>>("/api/admin/users/"),
+  createAdminUser: (payload: AdminUserCreate) =>
+    request<AdminUser>("/api/admin/users/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateAdminUserGroups: (userId: number, payload: AdminUserGroupUpdate) =>
+    request<AdminUser>(`/api/admin/users/${userId}/groups/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  adminGroups: () => request<AdminGroupListResponse>("/api/admin/groups/"),
+  createAdminGroup: (payload: AdminGroupCreate) =>
+    request<AdminGroup>("/api/admin/groups/", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateAdminGroup: (groupId: number, payload: AdminGroupUpdate) =>
+    request<AdminGroup>(`/api/admin/groups/${groupId}/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteAdminGroup: (groupId: number) =>
+    request<{ detail: string }>(`/api/admin/groups/${groupId}/`, {
+      method: "DELETE",
+    }),
+  adminSettings: () => request<AdminSettings>("/api/admin/settings/"),
+  updateAdminSettings: (payload: AdminSettingsUpdate) =>
+    request<AdminSettings>("/api/admin/settings/", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   catalogs: () =>
     request<ListResponse<DataCatalog>>("/api/catalog/directories/"),
   resources: (filters: ResourceFilters = {}) =>
@@ -237,12 +302,19 @@ export const api = {
     }),
 };
 
-function toQueryString(filters: ResourceFilters) {
+function toQueryString<T extends object>(filters: T) {
   const params = new URLSearchParams();
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value) {
-      params.set(key, value);
+  Object.entries(filters as Record<string, unknown>).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") {
+      return;
     }
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        params.append(key, String(item));
+      });
+      return;
+    }
+    params.set(key, String(value));
   });
   return params.toString();
 }

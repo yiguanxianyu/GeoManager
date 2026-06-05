@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from django.contrib.auth.models import Permission
+from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
 
 
@@ -41,9 +42,51 @@ FEATURE_PERMISSION_NAMES = tuple(item.perm_name for item in FEATURE_PERMISSIONS)
 
 
 def has_feature_perm(user, perm_name: str) -> bool:
-    return bool(
-        user.is_authenticated and (user.is_superuser or user.has_perm(perm_name))
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return perm_name not in disabled_feature_permissions(user)
+    return user.has_perm(perm_name) and perm_name not in disabled_feature_permissions(
+        user
     )
+
+
+def granted_feature_permissions(user) -> set[str]:
+    if not user.is_authenticated:
+        return set()
+    if user.is_superuser:
+        return set(FEATURE_PERMISSION_NAMES)
+    return {
+        permission
+        for permission in FEATURE_PERMISSION_NAMES
+        if user.has_perm(permission)
+    }
+
+
+def disabled_feature_permissions(user) -> set[str]:
+    if not user.is_authenticated:
+        return set()
+    profile = _user_profile(user)
+    if profile is None:
+        return set()
+    return {
+        permission
+        for permission in profile.disabled_permissions
+        if permission in FEATURE_PERMISSION_NAMES
+    }
+
+
+def effective_feature_permissions(user) -> set[str]:
+    if user.is_superuser:
+        return set(FEATURE_PERMISSION_NAMES)
+    return granted_feature_permissions(user) - disabled_feature_permissions(user)
+
+
+def _user_profile(user):
+    try:
+        return user.profile
+    except ObjectDoesNotExist:
+        return None
 
 
 def group_names(user) -> str:

@@ -3,23 +3,15 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-if [[ -f "${PROJECT_ROOT}/.env" ]]; then
-  set -a
-  source "${PROJECT_ROOT}/.env"
-  set +a
-fi
-
 COMPOSE_FILE="${COMPOSE_FILE:-${PROJECT_ROOT}/docker-compose.yml}"
-SOURCE_CONFIG_FILE="${APP_CONFIG:-${1:-}}"
-RUNTIME_DIR="${APP_RUNTIME_DIR:-${PROJECT_ROOT}/.deploy}"
-APP_HTTP_PORT="${APP_HTTP_PORT:-80}"
-APP_DOCKER_BUILD_MODE="${APP_DOCKER_BUILD_MODE:-serial}"
+SOURCE_CONFIG_FILE="${1:-}"
+RUNTIME_DIR="${PROJECT_ROOT}/.deploy"
+APP_DOCKER_BUILD_MODE="${2:-serial}"
 
 if [[ -z "${SOURCE_CONFIG_FILE}" ]]; then
   cat >&2 <<EOF
 缺少配置文件参数。
-用法：在 .env 中设置 APP_CONFIG=/path/to/app.toml
-或：scripts/deploy.sh /path/to/app.toml
+用法：scripts/deploy.sh /path/to/app.toml [serial|parallel]
 EOF
   exit 1
 fi
@@ -37,12 +29,11 @@ CONFIG_VALUES="$(
 
 while IFS='=' read -r key value; do
   case "${key}" in
-    APP_CONFIG)
+    APP_HTTP_PORT|RUNTIME_CONFIG)
       export "${key}=${value}"
       ;;
   esac
 done <<< "${CONFIG_VALUES}"
-export APP_HTTP_PORT
 
 cd "${PROJECT_ROOT}"
 

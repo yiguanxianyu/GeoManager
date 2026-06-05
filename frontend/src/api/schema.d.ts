@@ -133,6 +133,202 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/profile/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取当前用户后台资料
+         * @description 返回当前登录用户的个人资料、已授予权限、主动关闭权限和有效权限。
+         */
+        get: operations["getAdminProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/profile/update/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 更新当前用户后台资料
+         * @description 更新当前用户的用户名、展示名称、邮箱、头像和部门。
+         */
+        patch: operations["updateAdminProfile"];
+        trace?: never;
+    };
+    "/api/admin/profile/permissions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 更新当前用户主动关闭的权限
+         * @description 用户只能关闭或重新开启已经由上级授予的功能权限，不能写入未授予权限。
+         */
+        patch: operations["updateAdminProfilePermissions"];
+        trace?: never;
+    };
+    "/api/admin/operation-logs/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询操作日志
+         * @description 基于真实操作日志表返回可分页、可筛选的后台操作日志。
+         */
+        get: operations["listAdminOperationLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取后台用户列表
+         * @description 返回管理员可配置用户及其用户组归属。
+         */
+        get: operations["listAdminUsers"];
+        put?: never;
+        /**
+         * 创建后台用户
+         * @description 管理员创建用户账号。该接口不受自助注册开关影响。
+         */
+        post: operations["createAdminUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/users/{userId}/groups/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 更新用户所属用户组
+         * @description 管理员为指定用户设置所属用户组。
+         */
+        patch: operations["updateAdminUserGroups"];
+        trace?: never;
+    };
+    "/api/admin/groups/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取用户组列表
+         * @description 返回全部 Django 用户组及其功能权限配置。
+         */
+        get: operations["listAdminGroups"];
+        put?: never;
+        /**
+         * 创建用户组
+         * @description 新增一个用户组并可同步设置功能权限。
+         */
+        post: operations["createAdminGroup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/groups/{groupId}/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 删除空用户组
+         * @description 仅当用户组没有任何关联用户时允许删除。
+         */
+        delete: operations["deleteAdminGroup"];
+        options?: never;
+        head?: never;
+        /**
+         * 更新用户组
+         * @description 更新用户组名称和功能权限。
+         */
+        patch: operations["updateAdminGroup"];
+        trace?: never;
+    };
+    "/api/admin/settings/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取用户可配置设置
+         * @description 返回后台允许展示和修改的 application 配置，不返回 runtime 内部变量。
+         */
+        get: operations["getAdminSettings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 更新用户可配置设置
+         * @description 将后台设置直接写入 appdata 下的运行 TOML 配置副本。
+         */
+        patch: operations["updateAdminSettings"];
+        trace?: never;
+    };
     "/api/catalog/directories/": {
         parameters: {
             query?: never;
@@ -692,6 +888,12 @@ export interface components {
              * @example true
              */
             configLoaded: boolean;
+            /**
+             * @description 当前应用配置文件格式
+             * @example toml
+             * @enum {string}
+             */
+            configFormat: "toml";
             /** @description 业务数据根目录下固定子目录 */
             appSubdirs: string[];
             /** @description 科研数据根目录下固定子目录 */
@@ -755,6 +957,10 @@ export interface components {
             displayName: string;
             /** @description 用户邮箱 */
             email: string;
+            /** @description 用户头像 URL，为空字符串表示未设置 */
+            avatarUrl: string;
+            /** @description 用户所在部门，为空字符串表示未设置 */
+            department: string;
             /** @description 是否具备 Django staff 标记 */
             isStaff: boolean;
             /** @description 是否为超级管理员 */
@@ -784,6 +990,175 @@ export interface components {
             canMaintainData: boolean;
             /** @description 是否可管理栅格数据集 */
             canManageRasterData: boolean;
+        };
+        AdminPermissionItem: {
+            /**
+             * @description 权限完整标识，格式为 app_label.codename
+             * @example core.access_admin
+             */
+            id: string;
+            /**
+             * @description 权限中文名称
+             * @example 进入后台管理
+             */
+            label: string;
+            /**
+             * @description 权限在管理界面中的分组名称
+             * @example 系统管理
+             */
+            group: string;
+        };
+        AdminProfileResponse: {
+            user: components["schemas"]["UserInfo"];
+            /** @description 当前用户头像 URL */
+            avatarUrl: string;
+            /** @description 当前用户部门 */
+            department: string;
+            /** @description 上级授予当前用户的功能权限列表 */
+            grantedPermissions: string[];
+            /** @description 当前用户主动关闭的已授予权限列表 */
+            disabledPermissions: string[];
+            /** @description 授予权限扣除主动关闭权限后的实际生效权限列表 */
+            effectivePermissions: string[];
+            /** @description 管理后台可展示的功能权限元数据 */
+            availablePermissions: components["schemas"]["AdminPermissionItem"][];
+        };
+        AdminProfileUpdateRequest: {
+            /** @description 新用户名 */
+            username?: string;
+            /** @description 新展示名称 */
+            displayName?: string;
+            /**
+             * Format: email
+             * @description 新邮箱
+             */
+            email?: string;
+            /** @description 新头像 URL */
+            avatarUrl?: string;
+            /** @description 新部门 */
+            department?: string;
+        };
+        AdminProfilePermissionsRequest: {
+            /** @description 用户主动关闭的权限列表，必须全部属于 grantedPermissions */
+            disabledPermissions: string[];
+        };
+        AdminOperationLog: {
+            /** @description 操作日志 ID */
+            id: number;
+            /**
+             * @description 本地时区格式化后的操作时间
+             * @example 2026-06-05 09:31:42
+             */
+            occurredAt: string;
+            /** @description 操作用户显示名称，系统操作显示为“系统” */
+            operator: string;
+            /** @description 操作所属模块 */
+            module: string;
+            /** @description 操作动作 */
+            action: string;
+            /**
+             * @description 操作结果
+             * @enum {string}
+             */
+            result: "success" | "warning" | "failed";
+            /** @description 客户端 IP 地址，为空字符串表示未记录 */
+            ipAddress: string;
+            /** @description 操作摘要 */
+            summary: string;
+        };
+        AdminOperationLogListResponse: {
+            /** @description 当前页操作日志 */
+            items: components["schemas"]["AdminOperationLog"][];
+            /** @description 符合筛选条件的总记录数 */
+            total: number;
+        };
+        AdminUserInfo: components["schemas"]["UserInfo"] & {
+            /** @description 用户所属用户组 ID 列表 */
+            groupIds: number[];
+            /** @description 用户账号是否启用 */
+            isActive: boolean;
+        };
+        AdminUserCreateRequest: {
+            /** @description 登录用户名 */
+            username: string;
+            /**
+             * Format: password
+             * @description 初始密码
+             */
+            password: string;
+            /** @description 显示名称 */
+            displayName?: string;
+            /**
+             * Format: email
+             * @description 用户邮箱
+             */
+            email?: string;
+            /** @description 用户所在部门 */
+            department?: string;
+            /** @description 初始所属用户组 ID 列表 */
+            groupIds?: number[];
+            /** @description 是否启用账号，默认 true */
+            isActive?: boolean;
+        };
+        AdminUserListResponse: {
+            /** @description 后台用户列表 */
+            items: components["schemas"]["AdminUserInfo"][];
+        };
+        AdminUserGroupUpdateRequest: {
+            /** @description 用户新的用户组 ID 列表 */
+            groupIds: number[];
+        };
+        AdminGroup: {
+            /** @description 用户组 ID */
+            id: number;
+            /** @description 用户组名称 */
+            name: string;
+            /** @description 当前属于该用户组的用户数量 */
+            userCount: number;
+            /** @description 用户组授予的平台功能权限列表 */
+            permissions: string[];
+        };
+        AdminGroupListResponse: {
+            /** @description 用户组列表 */
+            items: components["schemas"]["AdminGroup"][];
+            /** @description 可配置的平台功能权限元数据 */
+            availablePermissions: components["schemas"]["AdminPermissionItem"][];
+        };
+        AdminGroupCreateRequest: {
+            /** @description 新用户组名称 */
+            name: string;
+            /** @description 新用户组授予的平台功能权限列表 */
+            permissions?: string[];
+        };
+        AdminGroupUpdateRequest: {
+            /** @description 更新后的用户组名称 */
+            name?: string;
+            /** @description 更新后的平台功能权限列表 */
+            permissions?: string[];
+        };
+        AdminRasterSettings: {
+            /** @description 栅格符号化后端任务超时时间，单位秒 */
+            symbolizerTimeoutSeconds: number;
+        };
+        AdminSettingsResponse: {
+            /** @description 系统显示名称 */
+            systemName: string;
+            /** @description 是否开放自助注册 */
+            allowRegistration: boolean;
+            map: components["schemas"]["MapConfig"];
+            limits: components["schemas"]["SystemLimits"];
+            raster: components["schemas"]["AdminRasterSettings"];
+            /** @description 当前用户是否可修改这些用户可配置设置 */
+            editable: boolean;
+        };
+        AdminSettingsUpdateRequest: {
+            /** @description 更新后的系统显示名称 */
+            systemName?: string;
+            /** @description 是否开放自助注册 */
+            allowRegistration?: boolean;
+            map?: components["schemas"]["MapConfig"];
+            limits?: components["schemas"]["SystemLimits"];
+            raster?: components["schemas"]["AdminRasterSettings"];
         };
         DictionaryItem: {
             /** @description 字典项 ID */
@@ -1738,6 +2113,357 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    getAdminProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProfileResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateAdminProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminProfileUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProfileResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateAdminProfilePermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminProfilePermissionsRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminProfileResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    listAdminOperationLogs: {
+        parameters: {
+            query?: {
+                /** @description 当前页码 */
+                current?: number;
+                /** @description 每页数量 */
+                pageSize?: number;
+                /** @description 按操作用户名或显示名称模糊筛选 */
+                operator?: string;
+                /** @description 按模块名称模糊筛选 */
+                module?: string;
+                /** @description 按操作动作模糊筛选 */
+                action?: string;
+                /** @description 按操作结果筛选 */
+                result?: "success" | "warning" | "failed";
+                /** @description 跨用户、模块、动作和摘要的关键词筛选 */
+                keyword?: string;
+                /** @description 操作时间起点，支持日期或日期时间字符串 */
+                startTime?: string;
+                /** @description 操作时间终点，支持日期或日期时间字符串 */
+                endTime?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOperationLogListResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    listAdminUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUserCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 创建成功 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserInfo"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateAdminUserGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 用户 ID */
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminUserGroupUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminUserInfo"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    listAdminGroups: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGroupListResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    createAdminGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminGroupCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description 创建成功 */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    deleteAdminGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 用户组 ID */
+                groupId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 删除成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateAdminGroup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 用户组 ID */
+                groupId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminGroupUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminGroup"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    getAdminSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSettingsResponse"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+        };
+    };
+    updateAdminSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminSettingsUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminSettingsResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getDirectories: {

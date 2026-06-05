@@ -5,6 +5,7 @@ from django.db import models
 class OperationLog(models.Model):
     class Status(models.TextChoices):
         SUCCESS = "success", "成功"
+        WARNING = "warning", "告警"
         FAILED = "failed", "失败"
 
     user = models.ForeignKey(
