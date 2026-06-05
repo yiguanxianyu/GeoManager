@@ -8,3 +8,8 @@ export function downloadBlob(blob: Blob, filename: string) {
   link.remove();
   URL.revokeObjectURL(url);
 }
+
+export function downloadTextFile(content: string, filename: string) {
+  const blob = new Blob([content], { type: "text/csv;charset=utf-8" });
+  downloadBlob(blob, filename);
+}

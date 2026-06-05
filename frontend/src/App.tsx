@@ -1,6 +1,10 @@
 import { App as AntApp, Spin } from "antd";
 import { useEffect, useState } from "react";
-import { Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import AdminAuthPage from "./admin/AdminAuthPage";
+import AdminLayout from "./admin/AdminLayout";
+import AdminOperationLogsPage from "./admin/AdminOperationLogsPage";
+import AdminSystemSettingsPage from "./admin/AdminSystemSettingsPage";
 import { ApiError, api } from "./api/client";
 import { AppContext } from "./contexts/AppContext";
 import HomePage from "./pages/HomePage";
@@ -8,7 +12,7 @@ import ImportPage from "./pages/ImportPage";
 import LoginPage from "./pages/LoginPage";
 import MapPage from "./pages/MapPage";
 import NonGeoPage from "./pages/NonGeoPage";
-import { RedirectIfAuth, RequireAuth } from "./router";
+import { RedirectIfAuth, RequireAdmin, RequireAuth } from "./router";
 import type { Bootstrap, User } from "./types";
 
 /** 为路由页面添加淡入过渡效果的包装组件 */
@@ -122,6 +126,14 @@ export default function App() {
               </RouteTransition>
             }
           />
+          <Route element={<RequireAdmin />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="logs" replace />} />
+              <Route path="logs" element={<AdminOperationLogsPage />} />
+              <Route path="settings" element={<AdminSystemSettingsPage />} />
+              <Route path="auth" element={<AdminAuthPage />} />
+            </Route>
+          </Route>
         </Route>
       </Routes>
     </AppContext.Provider>

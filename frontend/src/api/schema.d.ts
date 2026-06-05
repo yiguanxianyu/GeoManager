@@ -755,7 +755,7 @@ export interface components {
             displayName: string;
             /** @description 用户邮箱 */
             email: string;
-            /** @description 是否可进入 Django admin */
+            /** @description 是否具备 Django staff 标记 */
             isStaff: boolean;
             /** @description 是否为超级管理员 */
             isSuperuser: boolean;
@@ -764,7 +764,7 @@ export interface components {
             permissions: components["schemas"]["UserPermissions"];
         };
         UserPermissions: {
-            /** @description 是否可访问后台入口 */
+            /** @description 是否可访问新版管理后台及旧版 Django 管理后台入口 */
             canAccessAdmin: boolean;
             /** @description 是否可配置功能权限 */
             canManageFeaturePermissions: boolean;

@@ -1173,7 +1173,7 @@ components:
           description: 用户邮箱
         isStaff:
           type: boolean
-          description: 是否可进入 Django admin
+          description: 是否具备 Django staff 标记
         isSuperuser:
           type: boolean
           description: 是否为超级管理员
@@ -1201,7 +1201,7 @@ components:
       properties:
         canAccessAdmin:
           type: boolean
-          description: 是否可访问后台入口
+          description: 是否可访问新版管理后台及旧版 Django 管理后台入口
         canManageFeaturePermissions:
           type: boolean
           description: 是否可配置功能权限

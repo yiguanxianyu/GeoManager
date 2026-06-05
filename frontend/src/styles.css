@@ -270,6 +270,143 @@ body {
   box-shadow: 0 16px 48px rgba(22, 48, 43, 0.14);
 }
 
+.admin-pro-layout {
+  min-height: 100vh;
+  background: #f3f6f4;
+}
+
+.admin-pro-layout .ant-pro-layout-container {
+  min-width: 0;
+}
+
+.admin-avatar-block {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-avatar-block .ant-tag {
+  margin-inline-end: 0;
+}
+
+.admin-menu-footer {
+  margin: 12px 16px;
+  padding: 10px 12px;
+  color: #5f6f69;
+  line-height: 1.5;
+  background: rgba(47, 125, 98, 0.08);
+  border: 1px solid rgba(47, 125, 98, 0.12);
+  border-radius: 6px;
+}
+
+.admin-page-container {
+  min-width: 0;
+}
+
+.admin-page-stack {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-section-card.ant-pro-card {
+  border-radius: 8px;
+}
+
+.admin-table {
+  min-width: 0;
+}
+
+.admin-table .ant-pro-card-body,
+.admin-table .ant-table-wrapper,
+.admin-table .ant-table-container {
+  min-width: 0;
+}
+
+.admin-table .ant-table-wrapper {
+  overflow-x: auto;
+}
+
+.admin-auth-tabs {
+  min-width: 0;
+}
+
+.admin-auth-tabs .ant-tabs-content-holder,
+.admin-auth-tabs .ant-tabs-content,
+.admin-auth-tabs .ant-tabs-tabpane {
+  min-width: 0;
+}
+
+.admin-stat-row {
+  min-width: 0;
+}
+
+.admin-stat-row .ant-pro-card {
+  min-width: 0;
+}
+
+.admin-stat-row h2.ant-typography {
+  margin: 0;
+  color: #173f39;
+}
+
+.admin-role-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-permission-list {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-permission-list .ant-checkbox-wrapper {
+  width: 100%;
+  align-items: flex-start;
+  margin-inline-start: 0;
+  padding: 10px;
+  border: 1px solid rgba(23, 63, 57, 0.1);
+  border-radius: 6px;
+  background: #fbfdfb;
+}
+
+.admin-permission-option {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.admin-user-drawer {
+  display: grid;
+  gap: 16px;
+}
+
+.admin-user-drawer dl {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px 16px;
+  margin: 0;
+}
+
+.admin-user-drawer dt {
+  color: #64736e;
+}
+
+.admin-user-drawer dd {
+  min-width: 0;
+  margin: 0;
+  word-break: break-word;
+}
+
 .nongeo-stage {
   min-height: calc(100vh - 66px);
   background: rgba(250, 252, 249, 0.34);

@@ -1,8 +1,15 @@
+/// <reference types="vitest/config" />
+
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: {
+      "@ant-design/pro-components": "@ant-design/pro-components/es",
+    },
+  },
   server: {
     port: 5173,
     proxy: {
@@ -10,7 +17,7 @@ export default defineConfig({
         target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
-      "/admin": {
+      "/admin2": {
         target: "http://127.0.0.1:8000",
         changeOrigin: true,
       },
@@ -57,6 +64,27 @@ export default defineConfig({
   // 优化依赖预构建
   optimizeDeps: {
     // 预构建这些大型依赖，避免开发时重复编译
-    include: ["mapbox-gl", "antd", "@ant-design/icons"],
+    include: [
+      "mapbox-gl",
+      "antd",
+      "@ant-design/icons",
+      "@ant-design/pro-components",
+    ],
+  },
+  test: {
+    environment: "happy-dom",
+    setupFiles: ["./src/test/setup.ts"],
+    server: {
+      deps: {
+        inline: [/@ant-design\/pro-components/],
+      },
+    },
+    deps: {
+      optimizer: {
+        web: {
+          include: ["@ant-design/pro-components"],
+        },
+      },
+    },
   },
 });

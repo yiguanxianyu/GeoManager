@@ -3,7 +3,7 @@
 本文档说明如何用 Docker Compose 部署“中亚胡杨林生态系统保护数据共享平台”。部署方式为两个容器：
 
 - `django`：Django 后端，启动时执行数据库迁移和 `collectstatic`，由 Gunicorn 提供 WSGI 服务。
-- `nginx`：服务 Docker 构建阶段生成的前端静态文件，并把 `/api/`、`/admin/` 反向代理到 `django:8000`。
+- `nginx`：服务 Docker 构建阶段生成的前端静态文件，并把 `/api/`、`/admin2/` 反向代理到 `django:8000`；新版 `/admin/` 由前端 SPA 承载。
 
 前端构建在 Docker 多阶段构建中完成。Node.js、pnpm 和 `node_modules` 只存在于临时构建阶段，最终 Nginx 镜像只保留 `frontend/dist` 产物。
 
@@ -120,7 +120,7 @@ APP_CONFIG_FILE=/srv/data-platform/app.toml scripts/deploy.sh
 
 ## 6. 初始化管理员
 
-首次部署默认开放自助注册。后端容器启动时会先创建固定数据目录，并在 `collectstatic` 和 Gunicorn 启动前执行数据库迁移。第一个通过登录页注册的用户会自动成为系统管理员，之后可通过登录后的后台入口或 `http://服务器IP/admin/` 访问 Django admin，并在“系统设置”中关闭自助注册。
+首次部署默认开放自助注册。后端容器启动时会先创建固定数据目录，并在 `collectstatic` 和 Gunicorn 启动前执行数据库迁移。第一个通过登录页注册的用户会自动成为系统管理员，之后可通过登录后的后台入口或 `http://服务器IP/admin/` 访问新版管理后台；旧版 Django admin 位于 `http://服务器IP/admin2/`，也可从新版管理后台顶部入口打开，并在“系统设置”中关闭自助注册。
 
 ## 7. 数据目录约定
 

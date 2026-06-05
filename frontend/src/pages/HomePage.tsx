@@ -135,7 +135,7 @@ export default function HomePage() {
             <Button
               size="large"
               icon={<SettingOutlined style={{ fontSize: 18 }} />}
-              onClick={() => window.location.assign("/admin/")}
+              onClick={() => navigate("/admin")}
             >
               管理后台
             </Button>

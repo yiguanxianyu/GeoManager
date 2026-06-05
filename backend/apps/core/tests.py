@@ -98,7 +98,7 @@ class FeaturePermissionTests(TestCase):
         user.groups.add(group)
         self.client.force_login(user)
 
-        response = self.client.get("/admin/")
+        response = self.client.get("/admin2/")
 
         self.assertEqual(response.status_code, 403)
         self.assertIn("当前用户组“普通用户”无权限", response.content.decode("utf-8"))
@@ -110,9 +110,15 @@ class FeaturePermissionTests(TestCase):
         grant(user, ("core", "access_admin"))
         self.client.force_login(user)
 
-        response = self.client.get("/admin/")
+        response = self.client.get("/admin2/")
 
         self.assertEqual(response.status_code, 200)
+
+    def test_old_admin_path_redirects_to_admin2(self):
+        response = self.client.get("/admin/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response["Location"], "/admin2/")
 
     def test_feature_group_form_preserves_non_feature_permissions(self):
         group = Group.objects.create(name="科研用户")
@@ -189,6 +195,7 @@ auto_create_directories = true
 default_center = [80.0, 41.5]
 default_zoom = 4.5
 default_basemap = "osm"
+mapbox_access_token = "pk.test-token"
 
 [limits]
 upload_max_mb = 512
