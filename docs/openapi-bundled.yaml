@@ -23,13 +23,11 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-
 servers:
   - url: http://localhost:8000
     description: 开发环境
   - url: https://api.huyang.example.com
     description: 生产环境
-
 tags:
   - name: 公共接口
     description: 无需认证的公共接口
@@ -49,11 +47,11 @@ tags:
     description: 异步任务状态查询接口
   - name: 新版管理后台
     description: Ant Design Pro 管理后台用户、用户组、权限偏好和用户可配置设置接口
-
 paths:
   /api/bootstrap/:
     get:
-      tags: [公共接口]
+      tags:
+        - 公共接口
       summary: 获取系统启动配置
       description: 获取前端应用初始化所需的全局配置信息
       operationId: getBootstrap
@@ -65,10 +63,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BootstrapResponse'
-
   /api/health/:
     get:
-      tags: [公共接口]
+      tags:
+        - 公共接口
       summary: 健康检查
       operationId: getHealth
       security: []
@@ -79,10 +77,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
-
   /api/auth/csrf/:
     get:
-      tags: [认证接口]
+      tags:
+        - 认证接口
       summary: 获取 CSRF Cookie
       description: 设置 csrftoken Cookie，后续所有非 GET 请求需读取此 Cookie 值
       operationId: getCsrfCookie
@@ -94,10 +92,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DetailResponse'
-
   /api/auth/login/:
     post:
-      tags: [认证接口]
+      tags:
+        - 认证接口
       summary: 用户登录
       operationId: login
       security: []
@@ -116,10 +114,10 @@ paths:
                 $ref: '#/components/schemas/LoginResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
-
   /api/auth/register/:
     post:
-      tags: [认证接口]
+      tags:
+        - 认证接口
       summary: 用户注册
       description: |
         注册新用户。系统首次初始化会自动创建用户名为 `admin` 的完整功能账号和超级管理员用户组，注册用户保持普通账号。
@@ -143,10 +141,10 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/auth/logout/:
     post:
-      tags: [认证接口]
+      tags:
+        - 认证接口
       summary: 用户登出
       operationId: logout
       security:
@@ -160,10 +158,10 @@ paths:
                 $ref: '#/components/schemas/DetailResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
   /api/auth/me/:
     get:
-      tags: [认证接口]
+      tags:
+        - 认证接口
       summary: 获取当前用户信息
       operationId: getCurrentUser
       security: []
@@ -184,10 +182,10 @@ paths:
                   authenticated:
                     type: boolean
                     example: false
-
   /api/admin/profile/:
     get:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 获取当前用户后台资料
       description: 返回当前登录用户的个人资料、已授予权限、主动关闭权限和有效权限。
       operationId: getAdminProfile
@@ -202,10 +200,10 @@ paths:
                 $ref: '#/components/schemas/AdminProfileResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
   /api/admin/profile/update/:
     patch:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 更新当前用户后台资料
       description: 更新当前用户的用户名、展示名称、邮箱、头像和部门。
       operationId: updateAdminProfile
@@ -228,10 +226,10 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
   /api/admin/profile/permissions/:
     patch:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 更新当前用户主动关闭的权限
       description: 用户只能关闭或重新开启已经由上级授予的功能权限，不能写入未授予权限。
       operationId: updateAdminProfilePermissions
@@ -254,10 +252,10 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
   /api/admin/profile/password/:
     patch:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 修改当前用户密码
       description: 校验当前密码、新密码至少 6 位和确认密码后更新密码，并记录操作日志。
       operationId: updateAdminProfilePassword
@@ -280,10 +278,10 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-
   /api/admin/operation-logs/:
     get:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 查询操作日志
       description: 基于真实操作日志表返回可分页、可筛选的后台操作日志。
       operationId: listAdminOperationLogs
@@ -323,7 +321,10 @@ paths:
           in: query
           schema:
             type: string
-            enum: [success, warning, failed]
+            enum:
+              - success
+              - warning
+              - failed
           description: 按操作结果筛选
         - name: keyword
           in: query
@@ -353,10 +354,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/admin/users/:
     get:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 获取后台用户列表
       description: 返回管理员可配置用户及其用户组归属。需要 `core.manage_feature_permissions` 或 `core.create_user`。
       operationId: listAdminUsers
@@ -374,7 +375,8 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 创建后台用户
       description: 具备 `core.create_user` 权限的管理员创建用户账号。该接口不受自助注册开关影响。
       operationId: createAdminUser
@@ -399,10 +401,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/admin/users/{userId}/groups/:
     patch:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 更新用户所属用户组
       description: 管理员为指定用户设置所属用户组。
       operationId: updateAdminUserGroups
@@ -436,10 +438,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/admin/groups/:
     get:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 获取用户组列表
       description: 返回全部 Django 用户组及其功能权限配置。需要 `core.manage_feature_permissions` 或 `core.create_user`。
       operationId: listAdminGroups
@@ -457,7 +459,8 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 创建用户组
       description: 新增一个用户组并可同步设置功能权限。
       operationId: createAdminGroup
@@ -482,10 +485,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/admin/groups/{groupId}/:
     patch:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 更新用户组
       description: 更新用户组名称和功能权限。
       operationId: updateAdminGroup
@@ -520,7 +523,8 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 删除空用户组
       description: 仅当用户组没有任何关联用户时允许删除。
       operationId: deleteAdminGroup
@@ -548,10 +552,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/admin/settings/:
     get:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 获取用户可配置设置
       description: 返回后台允许展示和修改的 application 配置，不返回 runtime 内部变量。
       operationId: getAdminSettings
@@ -569,7 +573,8 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     patch:
-      tags: [新版管理后台]
+      tags:
+        - 新版管理后台
       summary: 更新用户可配置设置
       description: 将后台设置直接写入 appdata 下的运行 TOML 配置副本。
       operationId: updateAdminSettings
@@ -594,10 +599,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/catalog/directories/:
     get:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 获取数据目录树
       description: 返回所有已激活的数据目录及其关联的数据资源
       operationId: getDirectories
@@ -614,10 +619,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/catalog/resources/:
     get:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 获取数据资源列表
       description: 支持多条件筛选的数据资源分页列表
       operationId: getResources
@@ -633,7 +638,13 @@ paths:
           in: query
           schema:
             type: string
-            enum: [vector, raster, gene, table, document, image]
+            enum:
+              - vector
+              - raster
+              - gene
+              - table
+              - document
+              - image
           description: 数据类型筛选
         - name: category
           in: query
@@ -673,10 +684,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/catalog/scan/:
     post:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 扫描数据源
       description: 触发一次数据目录源扫描，发现并同步新的数据资源
       operationId: scanCatalogSources
@@ -693,10 +704,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/catalog/import/preview/:
     post:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 导入数据预检
       description: |
         解析上传的 Excel/CSV 第一张表，按文本读取字段，自动推测经纬度列，
@@ -710,7 +721,8 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [file]
+              required:
+                - file
               properties:
                 file:
                   type: string
@@ -729,10 +741,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/catalog/import/validate/:
     post:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 上传数据校验
       description: 按当前表单选择的导入类型和经纬度列校验上传文件，不写入数据
       operationId: importValidate
@@ -744,7 +756,9 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [file, payload]
+              required:
+                - file
+                - payload
               properties:
                 file:
                   type: string
@@ -766,10 +780,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/catalog/import/commit/:
     post:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 提交数据导入
       description: |
         将预检后的 Excel/CSV 导入统一存储。选择地理数据时写入 GeoPackage，
@@ -783,7 +797,9 @@ paths:
           multipart/form-data:
             schema:
               type: object
-              required: [file, payload]
+              required:
+                - file
+                - payload
               properties:
                 file:
                   type: string
@@ -808,10 +824,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/catalog/resources/{id}/profile/:
     get:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 获取数据资源详情
       description: 获取指定数据资源的元数据、字段信息及空间范围
       operationId: getResourceProfile
@@ -834,10 +850,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/catalog/resources/{id}/query/:
     post:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 查询矢量数据
       description: 对矢量数据资源执行属性 + 空间联合查询，返回 GeoJSON FeatureCollection
       operationId: queryResource
@@ -866,10 +882,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/catalog/export/:
     post:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 同步导出图层
       description: 将指定图层数据导出为 ZIP 文件（含 Shapefile 或 GeoTIFF）
       operationId: exportLayers
@@ -895,10 +911,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/catalog/export/async/:
     post:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 异步导出图层
       description: 与同步导出参数相同，但以异步任务方式执行
       operationId: exportLayersAsync
@@ -921,10 +937,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/catalog/export/jobs/{job_id}/download/:
     get:
-      tags: [数据目录]
+      tags:
+        - 数据目录
       summary: 下载导出文件
       operationId: downloadExport
       security:
@@ -951,10 +967,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DetailResponse'
-
   /api/layers/:
     get:
-      tags: [图层]
+      tags:
+        - 图层
       summary: 获取图层列表
       operationId: getLayers
       security:
@@ -970,10 +986,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/layers/{layer_name}/features/:
     get:
-      tags: [图层]
+      tags:
+        - 图层
       summary: 获取图层 GeoJSON 要素
       description: |
         获取矢量图层的全部要素（GeoJSON FeatureCollection 格式）。
@@ -1003,10 +1019,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/layers/{layer_name}/profile/:
     get:
-      tags: [图层]
+      tags:
+        - 图层
       summary: 获取统一 GeoPackage 矢量图层详情
       description: 获取未登记为 DataResource 的 GeoPackage 图层元数据、字段信息及空间范围
       operationId: getLayerProfile
@@ -1029,10 +1045,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/layers/{layer_name}/query/:
     post:
-      tags: [图层]
+      tags:
+        - 图层
       summary: 查询统一 GeoPackage 矢量图层
       description: 对未登记为 DataResource 的 GeoPackage 图层执行属性 + 空间联合查询
       operationId: queryLayer
@@ -1061,10 +1077,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/achievements/:
     get:
-      tags: [成果]
+      tags:
+        - 成果
       summary: 获取成果列表
       operationId: getAchievements
       security:
@@ -1080,10 +1096,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/search/:
     get:
-      tags: [搜索]
+      tags:
+        - 搜索
       summary: 全局搜索
       description: 同时搜索数据资源和研究成果。`q` 为空时返回空结果。
       operationId: search
@@ -1108,10 +1124,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/raster/datasets/:
     get:
-      tags: [栅格数据]
+      tags:
+        - 栅格数据
       summary: 获取栅格数据集列表
       operationId: getRasterDatasets
       security:
@@ -1127,10 +1143,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/raster/import/:
     post:
-      tags: [栅格数据]
+      tags:
+        - 栅格数据
       summary: 导入栅格文件
       operationId: importRaster
       security:
@@ -1160,10 +1176,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/raster/scan/:
     post:
-      tags: [栅格数据]
+      tags:
+        - 栅格数据
       summary: 扫描栅格源目录
       description: 扫描研究数据目录中的未处理栅格文件，自动创建数据集
       operationId: scanRasterSources
@@ -1180,10 +1196,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/raster/render/:
     post:
-      tags: [栅格数据]
+      tags:
+        - 栅格数据
       summary: 注册栅格渲染样式（同步）
       description: 为栅格图层注册瓦片样式并返回 XYZ 瓦片 URL
       operationId: renderRaster
@@ -1210,10 +1226,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/raster/render/async/:
     post:
-      tags: [栅格数据]
+      tags:
+        - 栅格数据
       summary: 异步注册栅格渲染样式
       operationId: renderRasterAsync
       security:
@@ -1237,10 +1253,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-
   /api/raster/unique-values/:
     post:
-      tags: [栅格数据]
+      tags:
+        - 栅格数据
       summary: 获取栅格唯一值分类
       description: 获取指定栅格数据集某一波段的唯一值列表，用于唯一值符号化
       operationId: getUniqueValues
@@ -1267,10 +1283,10 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/raster/jobs/{job_id}/:
     get:
-      tags: [异步任务]
+      tags:
+        - 异步任务
       summary: 查询异步任务状态
       description: 所有异步操作（栅格导入、扫描、渲染、导出）均返回统一的任务对象
       operationId: getJobStatus
@@ -1289,10 +1305,10 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-
   /api/raster/tiles/{dataset_id}/{style_hash}/{z}/{x}/{y}.png:
     get:
-      tags: [栅格数据]
+      tags:
+        - 栅格数据
       summary: 获取 XYZ 瓦片
       description: 获取渲染后的栅格 PNG 瓦片，供 Mapbox GL JS 消费
       operationId: getTile
@@ -1323,7 +1339,7 @@ paths:
           schema:
             type: integer
           description: 瓦片列号
-        - name: y
+        - name: 'y'
           in: path
           required: true
           schema:
@@ -1343,7 +1359,6 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
-
 components:
   securitySchemes:
     sessionAuth:
@@ -1351,7 +1366,6 @@ components:
       in: cookie
       name: sessionid
       description: Django Session Cookie
-
   parameters:
     ResourceId:
       name: id
@@ -1360,7 +1374,6 @@ components:
       schema:
         type: integer
       description: 资源 ID
-
     JobId:
       name: job_id
       in: path
@@ -1368,7 +1381,6 @@ components:
       schema:
         type: string
       description: 异步任务 ID
-
     LayerName:
       name: layer_name
       in: path
@@ -1376,7 +1388,6 @@ components:
       schema:
         type: string
       description: 统一 GeoPackage 中的矢量图层名称
-
   responses:
     BadRequest:
       description: 请求错误
@@ -1386,7 +1397,6 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             detail: 请求参数错误
-
     Unauthorized:
       description: 未认证
       content:
@@ -1395,7 +1405,6 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             detail: 认证凭据未提供
-
     Forbidden:
       description: 权限不足
       content:
@@ -1404,7 +1413,6 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             detail: 当前用户组无权限
-
     NotFound:
       description: 资源不存在
       content:
@@ -1413,27 +1421,30 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             detail: 未找到请求的资源
-
   schemas:
     ErrorResponse:
       type: object
-      required: [detail]
+      required:
+        - detail
       properties:
         detail:
           type: string
           description: 错误描述信息
-
     DetailResponse:
       type: object
-      required: [detail]
+      required:
+        - detail
       properties:
         detail:
           type: string
           description: 操作结果说明
-
     BootstrapResponse:
       type: object
-      required: [systemName, allowRegistration, map, limits]
+      required:
+        - systemName
+        - allowRegistration
+        - map
+        - limits
       properties:
         systemName:
           type: string
@@ -1447,10 +1458,13 @@ components:
           $ref: '#/components/schemas/MapConfig'
         limits:
           $ref: '#/components/schemas/SystemLimits'
-
     MapConfig:
       type: object
-      required: [defaultCenter, defaultZoom, defaultBasemap, mapboxAccessToken]
+      required:
+        - defaultCenter
+        - defaultZoom
+        - defaultBasemap
+        - mapboxAccessToken
       properties:
         defaultCenter:
           type: array
@@ -1459,7 +1473,9 @@ components:
           maxItems: 2
           items:
             type: number
-          example: [87.6, 41.7]
+          example:
+            - 87.6
+            - 41.7
         defaultZoom:
           type: number
           description: 默认地图缩放级别
@@ -1471,10 +1487,11 @@ components:
         mapboxAccessToken:
           type: string
           description: 前端加载 Mapbox 服务所需 token
-
     SystemLimits:
       type: object
-      required: [uploadMaxMb, queryResultLimit]
+      required:
+        - uploadMaxMb
+        - queryResultLimit
       properties:
         uploadMaxMb:
           type: integer
@@ -1484,10 +1501,14 @@ components:
           type: integer
           description: 单次查询返回结果上限
           example: 30000
-
     HealthResponse:
       type: object
-      required: [status, configLoaded, configFormat, appSubdirs, researchSubdirs]
+      required:
+        - status
+        - configLoaded
+        - configFormat
+        - appSubdirs
+        - researchSubdirs
       properties:
         status:
           type: string
@@ -1499,7 +1520,8 @@ components:
           example: true
         configFormat:
           type: string
-          enum: [toml]
+          enum:
+            - toml
           description: 当前应用配置文件格式
           example: toml
         appSubdirs:
@@ -1512,10 +1534,11 @@ components:
           description: 科研数据根目录下固定子目录
           items:
             type: string
-
     LoginRequest:
       type: object
-      required: [username, password]
+      required:
+        - username
+        - password
       properties:
         username:
           type: string
@@ -1528,17 +1551,19 @@ components:
           type: boolean
           default: false
           description: 是否使用持久会话
-
     LoginResponse:
       type: object
-      required: [user]
+      required:
+        - user
       properties:
         user:
           $ref: '#/components/schemas/UserInfo'
-
     RegisterRequest:
       type: object
-      required: [username, password, passwordConfirm]
+      required:
+        - username
+        - password
+        - passwordConfirm
       properties:
         username:
           type: string
@@ -1555,20 +1580,22 @@ components:
           type: string
           format: password
           description: 确认密码
-
     RegisterResponse:
       type: object
-      required: [user, detail]
+      required:
+        - user
+        - detail
       properties:
         user:
           $ref: '#/components/schemas/UserInfo'
         detail:
           type: string
           description: 注册结果说明
-
     UserInfoResponse:
       type: object
-      required: [authenticated, user]
+      required:
+        - authenticated
+        - user
       properties:
         authenticated:
           type: boolean
@@ -1576,22 +1603,19 @@ components:
           example: true
         user:
           $ref: '#/components/schemas/UserInfo'
-
     UserInfo:
       type: object
       required:
-        [
-          id,
-          username,
-          displayName,
-          email,
-          avatarUrl,
-          department,
-          isStaff,
-          isSuperuser,
-          roles,
-          permissions,
-        ]
+        - id
+        - username
+        - displayName
+        - email
+        - avatarUrl
+        - department
+        - isStaff
+        - isSuperuser
+        - roles
+        - permissions
       properties:
         id:
           type: integer
@@ -1624,7 +1648,6 @@ components:
             type: string
         permissions:
           $ref: '#/components/schemas/UserPermissions'
-
     UserPermissions:
       type: object
       required:
@@ -1673,10 +1696,12 @@ components:
         canManageRasterData:
           type: boolean
           description: 是否可管理栅格数据集
-
     AdminPermissionItem:
       type: object
-      required: [id, label, group]
+      required:
+        - id
+        - label
+        - group
       properties:
         id:
           type: string
@@ -1690,19 +1715,16 @@ components:
           type: string
           description: 权限在管理界面中的分组名称
           example: 系统管理
-
     AdminProfileResponse:
       type: object
       required:
-        [
-          user,
-          avatarUrl,
-          department,
-          grantedPermissions,
-          disabledPermissions,
-          effectivePermissions,
-          availablePermissions,
-        ]
+        - user
+        - avatarUrl
+        - department
+        - grantedPermissions
+        - disabledPermissions
+        - effectivePermissions
+        - availablePermissions
       properties:
         user:
           $ref: '#/components/schemas/UserInfo'
@@ -1732,7 +1754,6 @@ components:
           description: 管理后台可展示的功能权限元数据
           items:
             $ref: '#/components/schemas/AdminPermissionItem'
-
     AdminProfileUpdateRequest:
       type: object
       properties:
@@ -1752,20 +1773,22 @@ components:
         department:
           type: string
           description: 新部门
-
     AdminProfilePermissionsRequest:
       type: object
-      required: [disabledPermissions]
+      required:
+        - disabledPermissions
       properties:
         disabledPermissions:
           type: array
           description: 用户主动关闭的权限列表，必须全部属于 grantedPermissions
           items:
             type: string
-
     AdminProfilePasswordRequest:
       type: object
-      required: [currentPassword, newPassword, passwordConfirm]
+      required:
+        - currentPassword
+        - newPassword
+        - passwordConfirm
       properties:
         currentPassword:
           type: string
@@ -1779,11 +1802,17 @@ components:
           type: string
           format: password
           description: 新密码确认值，必须与 newPassword 一致
-
     AdminOperationLog:
       type: object
       required:
-        [id, occurredAt, operator, module, action, result, ipAddress, summary]
+        - id
+        - occurredAt
+        - operator
+        - module
+        - action
+        - result
+        - ipAddress
+        - summary
       properties:
         id:
           type: integer
@@ -1803,7 +1832,10 @@ components:
           description: 操作动作
         result:
           type: string
-          enum: [success, warning, failed]
+          enum:
+            - success
+            - warning
+            - failed
           description: 操作结果
         ipAddress:
           type: string
@@ -1811,10 +1843,11 @@ components:
         summary:
           type: string
           description: 操作摘要
-
     AdminOperationLogListResponse:
       type: object
-      required: [items, total]
+      required:
+        - items
+        - total
       properties:
         items:
           type: array
@@ -1824,12 +1857,13 @@ components:
         total:
           type: integer
           description: 符合筛选条件的总记录数
-
     AdminUserInfo:
       allOf:
         - $ref: '#/components/schemas/UserInfo'
         - type: object
-          required: [groupIds, isActive]
+          required:
+            - groupIds
+            - isActive
           properties:
             groupIds:
               type: array
@@ -1839,10 +1873,11 @@ components:
             isActive:
               type: boolean
               description: 用户账号是否启用
-
     AdminUserCreateRequest:
       type: object
-      required: [username, password]
+      required:
+        - username
+        - password
       properties:
         username:
           type: string
@@ -1869,30 +1904,35 @@ components:
         isActive:
           type: boolean
           description: 是否启用账号，默认 true
-
     AdminUserListResponse:
       type: object
-      required: [items]
+      required:
+        - items
       properties:
         items:
           type: array
           description: 后台用户列表
           items:
             $ref: '#/components/schemas/AdminUserInfo'
-
     AdminUserGroupUpdateRequest:
       type: object
-      required: [groupIds]
+      required:
+        - groupIds
       properties:
         groupIds:
           type: array
           description: 用户新的用户组 ID 列表
           items:
             type: integer
-
     AdminGroup:
       type: object
-      required: [id, name, userCount, permissions, isProtected, lockedPermissions]
+      required:
+        - id
+        - name
+        - userCount
+        - permissions
+        - isProtected
+        - lockedPermissions
       properties:
         id:
           type: integer
@@ -1916,10 +1956,11 @@ components:
           description: 受保护用户组中不可关闭的平台功能权限列表
           items:
             type: string
-
     AdminGroupListResponse:
       type: object
-      required: [items, availablePermissions]
+      required:
+        - items
+        - availablePermissions
       properties:
         items:
           type: array
@@ -1931,10 +1972,10 @@ components:
           description: 可配置的平台功能权限元数据
           items:
             $ref: '#/components/schemas/AdminPermissionItem'
-
     AdminGroupCreateRequest:
       type: object
-      required: [name]
+      required:
+        - name
       properties:
         name:
           type: string
@@ -1944,7 +1985,6 @@ components:
           description: 新用户组授予的平台功能权限列表
           items:
             type: string
-
     AdminGroupUpdateRequest:
       type: object
       properties:
@@ -1956,18 +1996,23 @@ components:
           description: 更新后的平台功能权限列表
           items:
             type: string
-
     AdminRasterSettings:
       type: object
-      required: [symbolizerTimeoutSeconds]
+      required:
+        - symbolizerTimeoutSeconds
       properties:
         symbolizerTimeoutSeconds:
           type: integer
           description: 栅格符号化后端任务超时时间，单位秒
-
     AdminSettingsResponse:
       type: object
-      required: [systemName, allowRegistration, map, limits, raster, editable]
+      required:
+        - systemName
+        - allowRegistration
+        - map
+        - limits
+        - raster
+        - editable
       properties:
         systemName:
           type: string
@@ -1984,7 +2029,6 @@ components:
         editable:
           type: boolean
           description: 当前用户是否可修改这些用户可配置设置
-
     AdminSettingsUpdateRequest:
       type: object
       properties:
@@ -2000,10 +2044,13 @@ components:
           $ref: '#/components/schemas/SystemLimits'
         raster:
           $ref: '#/components/schemas/AdminRasterSettings'
-
     DictionaryItem:
       type: object
-      required: [id, type, code, name]
+      required:
+        - id
+        - type
+        - code
+        - name
       properties:
         id:
           type: integer
@@ -2017,7 +2064,6 @@ components:
         name:
           type: string
           description: 字典显示名称
-
     DataResource:
       type: object
       required:
@@ -2050,12 +2096,18 @@ components:
           description: 数据资源编码
         dataType:
           type: string
-          enum: [vector, raster, gene, table, document, image]
+          enum:
+            - vector
+            - raster
+            - gene
+            - table
+            - document
+            - image
           description: 数据资源类型
         category:
           oneOf:
             - $ref: '#/components/schemas/DictionaryItem'
-            - type: "null"
+            - type: 'null'
           description: 数据分类，未分类时为 null
         source:
           type: string
@@ -2064,7 +2116,9 @@ components:
           type: string
           description: 数据提供单位
         dataDate:
-          type: [string, "null"]
+          type:
+            - string
+            - 'null'
           format: date
           description: 数据日期
         spatialExtent:
@@ -2084,7 +2138,9 @@ components:
           description: 数据质量说明
         status:
           type: string
-          enum: [active, inactive]
+          enum:
+            - active
+            - inactive
           description: 数据资源状态
         isQueryable:
           type: boolean
@@ -2096,7 +2152,6 @@ components:
           type: string
           format: date-time
           description: 最后更新时间
-
     VectorLayerResource:
       type: object
       required:
@@ -2125,11 +2180,13 @@ components:
           description: 由 GeoPackage 图层名称生成的临时资源编码
         dataType:
           type: string
-          enum: [vector]
+          enum:
+            - vector
           description: 数据类型，统一 GeoPackage 图层固定为 vector
         layerType:
           type: string
-          enum: [vector]
+          enum:
+            - vector
           description: 图层类型，统一 GeoPackage 图层固定为 vector
         geometryType:
           type: string
@@ -2143,7 +2200,9 @@ components:
           type: string
           description: 坐标系统描述
         featureCount:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 要素数量
         source:
           type: string
@@ -2156,14 +2215,13 @@ components:
           description: 是否支持栅格渲染
         status:
           type: string
-          enum: [active]
+          enum:
+            - active
           description: 临时矢量资源状态
-
     ResourceListItem:
       oneOf:
         - $ref: '#/components/schemas/DataResource'
         - $ref: '#/components/schemas/VectorLayerResource'
-
     MapLayer:
       type: object
       required:
@@ -2195,19 +2253,27 @@ components:
           description: 图层编码
         layerType:
           type: string
-          enum: [vector, raster]
+          enum:
+            - vector
+            - raster
           description: 图层类型
         geometryType:
           type: string
-          enum: [point, line, polygon, mixed]
+          enum:
+            - point
+            - line
+            - polygon
+            - mixed
           description: 几何类型
         category:
           oneOf:
             - $ref: '#/components/schemas/DictionaryItem'
-            - type: "null"
+            - type: 'null'
           description: 图层分类，未分类时为 null
         dataResourceId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 关联数据资源 ID
         sortOrder:
           type: integer
@@ -2245,7 +2311,6 @@ components:
           type: string
           format: date-time
           description: 最后更新时间
-
     Achievement:
       type: object
       required:
@@ -2272,7 +2337,7 @@ components:
         category:
           oneOf:
             - $ref: '#/components/schemas/DictionaryItem'
-            - type: "null"
+            - type: 'null'
           description: 成果分类，未分类时为 null
         summary:
           type: string
@@ -2281,20 +2346,24 @@ components:
           type: string
           description: 成果来源
         relatedLayerId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 关联图层 ID
         displayOrder:
           type: integer
           description: 展示排序值
         status:
           type: string
-          enum: [draft, published, archived]
+          enum:
+            - draft
+            - published
+            - archived
           description: 成果发布状态
         updatedAt:
           type: string
           format: date-time
           description: 最后更新时间
-
     RasterDataset:
       type: object
       required:
@@ -2332,7 +2401,11 @@ components:
           description: 数据集编码
         status:
           type: string
-          enum: [pending, processing, ready, failed]
+          enum:
+            - pending
+            - processing
+            - ready
+            - failed
           description: 预处理状态
         sourcePath:
           type: string
@@ -2347,10 +2420,14 @@ components:
           type: string
           description: 预处理文件元数据相对路径
         dataResourceId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 关联数据资源 ID
         mapLayerId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 关联地图图层 ID
         bandCount:
           type: integer
@@ -2389,19 +2466,26 @@ components:
           type: string
           description: 失败原因
         importedAt:
-          type: [string, "null"]
+          type:
+            - string
+            - 'null'
           format: date-time
           description: 导入完成时间
         processedAt:
-          type: [string, "null"]
+          type:
+            - string
+            - 'null'
           format: date-time
           description: 预处理完成时间
         metadata:
           $ref: '#/components/schemas/RasterMetadata'
-
     RasterMetadata:
       type: object
-      required: [size, driver, coordinateSystem, bands]
+      required:
+        - size
+        - driver
+        - coordinateSystem
+        - bands
       properties:
         size:
           type: array
@@ -2421,10 +2505,16 @@ components:
           description: 波段元数据
           items:
             $ref: '#/components/schemas/RasterBandInfo'
-
     RasterBandInfo:
       type: object
-      required: [band, type, description, colorInterpretation, min, max, isInteger]
+      required:
+        - band
+        - type
+        - description
+        - colorInterpretation
+        - min
+        - max
+        - isInteger
       properties:
         band:
           type: integer
@@ -2447,27 +2537,41 @@ components:
         isInteger:
           type: boolean
           description: 是否为整型波段
-
     RasterSymbolizationRules:
       type: object
       additionalProperties: true
       description: 栅格符号化规则对象，具体结构由后端符号化规则引擎校验
-
     AsyncJobResponse:
       type: object
       required:
-        [id, kind, status, progressPercent, messages, result, error, startedAt, finishedAt]
+        - id
+        - kind
+        - status
+        - progressPercent
+        - messages
+        - result
+        - error
+        - startedAt
+        - finishedAt
       properties:
         id:
           type: string
           description: 异步任务 ID
         kind:
           type: string
-          enum: [import, scan, render, export]
+          enum:
+            - import
+            - scan
+            - render
+            - export
           description: 任务类型
         status:
           type: string
-          enum: [queued, running, ready, failed]
+          enum:
+            - queued
+            - running
+            - ready
+            - failed
           description: 任务状态
         progressPercent:
           type: integer
@@ -2485,7 +2589,7 @@ components:
             - $ref: '#/components/schemas/RasterDataset'
             - $ref: '#/components/schemas/RasterDatasetScanResult'
             - $ref: '#/components/schemas/ExportJobResult'
-            - type: "null"
+            - type: 'null'
           description: 任务完成后的结果；未完成或失败时为 null
         error:
           type: string
@@ -2495,13 +2599,16 @@ components:
           format: double
           description: 任务创建时间戳
         finishedAt:
-          type: [number, "null"]
+          type:
+            - number
+            - 'null'
           format: double
           description: 任务结束时间戳
-
     RasterDatasetScanResult:
       type: object
-      required: [items, count]
+      required:
+        - items
+        - count
       properties:
         items:
           type: array
@@ -2511,10 +2618,11 @@ components:
         count:
           type: integer
           description: 数据集数量
-
     ExportJobResult:
       type: object
-      required: [filename, downloadUrl]
+      required:
+        - filename
+        - downloadUrl
       properties:
         filename:
           type: string
@@ -2522,20 +2630,26 @@ components:
         downloadUrl:
           type: string
           description: 导出文件下载路径
-
     DirectoryTreeResponse:
       type: object
-      required: [items]
+      required:
+        - items
       properties:
         items:
           type: array
           description: 数据目录列表
           items:
             $ref: '#/components/schemas/Directory'
-
     Directory:
       type: object
-      required: [id, name, code, parentId, description, sortOrder, resources]
+      required:
+        - id
+        - name
+        - code
+        - parentId
+        - description
+        - sortOrder
+        - resources
       properties:
         id:
           type: integer
@@ -2547,7 +2661,9 @@ components:
           type: string
           description: 目录编码
         parentId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 父目录 ID
         description:
           type: string
@@ -2560,20 +2676,21 @@ components:
           description: 目录下的数据资源
           items:
             $ref: '#/components/schemas/DataResource'
-
     ResourceListResponse:
       type: object
-      required: [items]
+      required:
+        - items
       properties:
         items:
           type: array
           description: 数据资源列表，可能包含统一 GeoPackage 中的临时矢量资源
           items:
             $ref: '#/components/schemas/ResourceListItem'
-
     ScanResponse:
       type: object
-      required: [items, count]
+      required:
+        - items
+        - count
       properties:
         items:
           type: array
@@ -2583,11 +2700,16 @@ components:
         count:
           type: integer
           description: 资源数量
-
     ImportPreviewResponse:
       type: object
       required:
-        [columns, rows, rowCount, suggestedTableName, suggestedName, detected, limitations]
+        - columns
+        - rows
+        - rowCount
+        - suggestedTableName
+        - suggestedName
+        - detected
+        - limitations
       properties:
         columns:
           type: array
@@ -2617,50 +2739,61 @@ components:
           description: 导入限制提示
           items:
             type: string
-
     ImportDetectedInfo:
       type: object
       required:
-        [isGeographic, longitudeColumn, latitudeColumn, coordinateStats, validationIssues]
+        - isGeographic
+        - longitudeColumn
+        - latitudeColumn
+        - coordinateStats
+        - validationIssues
       properties:
         isGeographic:
           type: boolean
           description: 是否自动识别为地理表
         longitudeColumn:
-          type: [string, "null"]
+          type:
+            - string
+            - 'null'
           description: 自动识别的经度列
         latitudeColumn:
-          type: [string, "null"]
+          type:
+            - string
+            - 'null'
           description: 自动识别的纬度列
         coordinateStats:
           oneOf:
             - $ref: '#/components/schemas/CoordinateStats'
-            - type: "null"
+            - type: 'null'
           description: 坐标统计，预览阶段为 null
         validationIssues:
           type: array
           description: 坐标校验问题，预览阶段为空数组
           items:
             $ref: '#/components/schemas/ValidationIssue'
-
     ImportValidateResponse:
       type: object
-      required: [coordinateStats, validationIssues]
+      required:
+        - coordinateStats
+        - validationIssues
       properties:
         coordinateStats:
           oneOf:
             - $ref: '#/components/schemas/CoordinateStats'
-            - type: "null"
+            - type: 'null'
           description: 坐标统计；非地理导入时为 null
         validationIssues:
           type: array
           description: 坐标校验问题
           items:
             $ref: '#/components/schemas/ValidationIssue'
-
     CoordinateStats:
       type: object
-      required: [totalRows, validRows, missingRows, quantizationErrorMeters]
+      required:
+        - totalRows
+        - validRows
+        - missingRows
+        - quantizationErrorMeters
       properties:
         totalRows:
           type: integer
@@ -2673,29 +2806,43 @@ components:
           description: 缺少或无效坐标行数
         quantizationErrorMeters:
           type: object
-          required: [min, max]
+          required:
+            - min
+            - max
           description: 坐标文本小数位引入的位置误差范围，单位米
           properties:
             min:
-              type: [number, "null"]
+              type:
+                - number
+                - 'null'
               description: 最小估算误差
             max:
-              type: [number, "null"]
+              type:
+                - number
+                - 'null'
               description: 最大估算误差
-
     ImportCommitResponse:
       oneOf:
         - $ref: '#/components/schemas/GeographicImportCommitResponse'
         - $ref: '#/components/schemas/TableImportCommitResponse'
-
     GeographicImportCommitResponse:
       type: object
       required:
-        [mode, resourceId, resourceName, layerName, tableName, importedRows, skippedRows, bounds, coordinateStats, validationIssues]
+        - mode
+        - resourceId
+        - resourceName
+        - layerName
+        - tableName
+        - importedRows
+        - skippedRows
+        - bounds
+        - coordinateStats
+        - validationIssues
       properties:
         mode:
           type: string
-          enum: [geographic]
+          enum:
+            - geographic
           description: 地理表导入模式
         resourceId:
           type: integer
@@ -2727,15 +2874,23 @@ components:
           description: 导入时发现的坐标校验问题
           items:
             $ref: '#/components/schemas/ValidationIssue'
-
     TableImportCommitResponse:
       type: object
       required:
-        [mode, resourceId, resourceName, layerId, tableName, importedRows, skippedRows, coordinateStats, validationIssues]
+        - mode
+        - resourceId
+        - resourceName
+        - layerId
+        - tableName
+        - importedRows
+        - skippedRows
+        - coordinateStats
+        - validationIssues
       properties:
         mode:
           type: string
-          enum: [table]
+          enum:
+            - table
           description: 非地理表导入模式
         resourceId:
           type: integer
@@ -2744,7 +2899,9 @@ components:
           type: string
           description: 创建或更新的数据资源名称
         layerId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 非地理表不创建地图图层，固定为 null
         tableName:
           type: string
@@ -2758,17 +2915,17 @@ components:
         coordinateStats:
           oneOf:
             - $ref: '#/components/schemas/CoordinateStats'
-            - type: "null"
+            - type: 'null'
           description: 非地理导入固定为 null
         validationIssues:
           type: array
           description: 非地理导入固定为空数组
           items:
             $ref: '#/components/schemas/ValidationIssue'
-
     ImportErrorResponse:
       type: object
-      required: [detail]
+      required:
+        - detail
       properties:
         detail:
           type: string
@@ -2778,10 +2935,12 @@ components:
           description: 导入校验问题
           items:
             $ref: '#/components/schemas/ValidationIssue'
-
     ValidationIssue:
       type: object
-      required: [code, message, blocking]
+      required:
+        - code
+        - message
+        - blocking
       properties:
         code:
           type: string
@@ -2804,10 +2963,14 @@ components:
         ratio:
           type: number
           description: 坐标不确定性误差倍率
-
     ResourceProfileResponse:
       type: object
-      required: [resource, fields, featureCount, geometryType, bounds]
+      required:
+        - resource
+        - fields
+        - featureCount
+        - geometryType
+        - bounds
       properties:
         resource:
           $ref: '#/components/schemas/ResourceListItem'
@@ -2817,7 +2980,9 @@ components:
           items:
             $ref: '#/components/schemas/FieldInfo'
         featureCount:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 矢量要素数量；栅格和非空间资源为 null
         geometryType:
           type: string
@@ -2830,12 +2995,16 @@ components:
         raster:
           oneOf:
             - $ref: '#/components/schemas/RasterDataset'
-            - type: "null"
+            - type: 'null'
           description: 栅格资源详情；非栅格资源可能省略或为 null
-
     FieldInfo:
       type: object
-      required: [name, type, nullable, sampleValues, description]
+      required:
+        - name
+        - type
+        - nullable
+        - sampleValues
+        - description
       properties:
         name:
           type: string
@@ -2858,10 +3027,12 @@ components:
         description:
           type: string
           description: 字段描述
-
     QueryRequest:
       type: object
-      required: [attributeFilters, spatialFilter, limit]
+      required:
+        - attributeFilters
+        - spatialFilter
+        - limit
       properties:
         attributeFilters:
           type: array
@@ -2871,23 +3042,33 @@ components:
         spatialFilter:
           oneOf:
             - $ref: '#/components/schemas/SpatialFilter'
-            - type: "null"
+            - type: 'null'
           description: 空间过滤条件；不启用空间过滤时为 null
         limit:
           type: integer
           default: 30000
           description: 返回结果上限
-
     AttributeFilter:
       type: object
-      required: [field, operator, value]
+      required:
+        - field
+        - operator
+        - value
       properties:
         field:
           type: string
           description: 字段名
         operator:
           type: string
-          enum: [contains, eq, ne, gt, gte, lt, lte, between]
+          enum:
+            - contains
+            - eq
+            - ne
+            - gt
+            - gte
+            - lt
+            - lte
+            - between
           description: 过滤操作符
         value:
           type: string
@@ -2895,22 +3076,33 @@ components:
         valueTo:
           type: string
           description: between 操作符时使用的结束值
-
     SpatialFilter:
       type: object
-      required: [mode, geometry]
+      required:
+        - mode
+        - geometry
       properties:
         mode:
           type: string
-          enum: [rectangle, circle, ellipse, polygon]
+          enum:
+            - rectangle
+            - circle
+            - ellipse
+            - polygon
           description: 空间过滤绘制模式
         geometry:
           $ref: '#/components/schemas/GeoJSONGeometry'
-
     QueryResponse:
       type: object
       required:
-        [resourceId, resourceName, totalCount, returnedCount, limit, fields, geojson, warnings]
+        - resourceId
+        - resourceName
+        - totalCount
+        - returnedCount
+        - limit
+        - fields
+        - geojson
+        - warnings
       properties:
         resourceId:
           oneOf:
@@ -2941,13 +3133,17 @@ components:
           description: 地理坐标校验警告
           items:
             $ref: '#/components/schemas/ValidationWarning'
-
     ExportRequest:
       type: object
-      required: [reproject, clip, items]
+      required:
+        - reproject
+        - clip
+        - items
       properties:
         epsg:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           default: 4326
           description: 目标 EPSG，reproject 为 true 时使用
         reproject:
@@ -2961,46 +3157,53 @@ components:
         clipGeometry:
           oneOf:
             - $ref: '#/components/schemas/GeoJSONGeometry'
-            - type: "null"
+            - type: 'null'
           description: 裁切 GeoJSON 几何
         items:
           type: array
           description: 待导出图层
           items:
             $ref: '#/components/schemas/ExportItem'
-
     ExportItem:
       type: object
-      required: [layerType, name]
+      required:
+        - layerType
+        - name
       properties:
         layerType:
           type: string
-          enum: [vector, raster]
+          enum:
+            - vector
+            - raster
           description: 图层类型
         name:
           type: string
           description: 导出图层名称
         resourceId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 数据资源 ID；临时 GeoPackage 查询结果没有业务资源 ID，可省略或传 null
         geojson:
           oneOf:
             - $ref: '#/components/schemas/GeoJSONFeatureCollection'
-            - type: "null"
+            - type: 'null'
           description: 前端临时矢量查询结果
         datasetId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 栅格数据集 ID
         sourceCrs:
           oneOf:
             - type: string
             - type: integer
-            - type: "null"
+            - type: 'null'
           description: 源坐标系统
-
     LayerListResponse:
       type: object
-      required: [items]
+      required:
+        - items
       properties:
         items:
           type: array
@@ -3009,20 +3212,21 @@ components:
             oneOf:
               - $ref: '#/components/schemas/VectorLayerResource'
               - $ref: '#/components/schemas/MapLayer'
-
     AchievementListResponse:
       type: object
-      required: [items]
+      required:
+        - items
       properties:
         items:
           type: array
           description: 已发布成果列表
           items:
             $ref: '#/components/schemas/Achievement'
-
     SearchResponse:
       type: object
-      required: [resources, achievements]
+      required:
+        - resources
+        - achievements
       properties:
         resources:
           type: array
@@ -3034,20 +3238,20 @@ components:
           description: 匹配的研究成果
           items:
             $ref: '#/components/schemas/Achievement'
-
     RasterDatasetListResponse:
       type: object
-      required: [items]
+      required:
+        - items
       properties:
         items:
           type: array
           description: 栅格数据集列表
           items:
             $ref: '#/components/schemas/RasterDataset'
-
     RasterImportRequest:
       type: object
-      required: [sourcePath]
+      required:
+        - sourcePath
       properties:
         sourcePath:
           type: string
@@ -3059,59 +3263,77 @@ components:
           type: boolean
           default: true
           description: 是否异步执行
-
     RasterRenderRequest:
       type: object
-      required: [layerId]
+      required:
+        - layerId
       properties:
         layerId:
           type: integer
           description: 栅格图层 ID
         rulesMode:
           type: string
-          enum: [default, custom]
+          enum:
+            - default
+            - custom
           default: default
           description: 符号化规则模式
         rules:
           oneOf:
             - $ref: '#/components/schemas/RasterSymbolizationRules'
-            - type: "null"
+            - type: 'null'
           description: 自定义符号化规则
-
     RasterRenderAsyncRequest:
       type: object
       properties:
         layerId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 栅格图层 ID
         datasetId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 栅格数据集 ID
         rulesMode:
           type: string
-          enum: [default, custom]
+          enum:
+            - default
+            - custom
           default: default
           description: 符号化规则模式
         rules:
           oneOf:
             - $ref: '#/components/schemas/RasterSymbolizationRules'
-            - type: "null"
+            - type: 'null'
           description: 自定义符号化规则
-
     RasterRenderResult:
       type: object
       required:
-        [delivery, datasetId, layerId, styleHash, tileUrl, status, bounds3857, bounds4326, imageCoordinates, rules]
+        - delivery
+        - datasetId
+        - layerId
+        - styleHash
+        - tileUrl
+        - status
+        - bounds3857
+        - bounds4326
+        - imageCoordinates
+        - rules
       properties:
         delivery:
           type: string
-          enum: [xyz]
+          enum:
+            - xyz
           description: 栅格交付方式
         datasetId:
           type: integer
           description: 栅格数据集 ID
         layerId:
-          type: [integer, "null"]
+          type:
+            - integer
+            - 'null'
           description: 关联图层 ID
         styleHash:
           type: string
@@ -3121,7 +3343,8 @@ components:
           description: XYZ 瓦片 URL 模板
         status:
           type: string
-          enum: [ready]
+          enum:
+            - ready
           description: 渲染结果状态
         bounds3857:
           type: array
@@ -3144,10 +3367,10 @@ components:
               type: number
         rules:
           $ref: '#/components/schemas/RasterSymbolizationRules'
-
     UniqueValuesRequest:
       type: object
-      required: [datasetId]
+      required:
+        - datasetId
       properties:
         datasetId:
           type: integer
@@ -3156,10 +3379,11 @@ components:
           type: integer
           default: 1
           description: 1-based 波段编号
-
     UniqueValuesResponse:
       type: object
-      required: [band, items]
+      required:
+        - band
+        - items
       properties:
         band:
           type: integer
@@ -3169,7 +3393,10 @@ components:
           description: 唯一值分类项
           items:
             type: object
-            required: [value, color, label]
+            required:
+              - value
+              - color
+              - label
             properties:
               value:
                 type: number
@@ -3180,34 +3407,42 @@ components:
               label:
                 type: string
                 description: 分类标签
-
     GeoJSONGeometry:
       type: object
-      required: [type, coordinates]
+      required:
+        - type
+        - coordinates
       properties:
         type:
           type: string
-          enum: [Point, LineString, Polygon, MultiPoint, MultiLineString, MultiPolygon]
+          enum:
+            - Point
+            - LineString
+            - Polygon
+            - MultiPoint
+            - MultiLineString
+            - MultiPolygon
           description: GeoJSON 几何类型
         coordinates:
           description: GeoJSON 坐标数组
-
     LayerFeaturesResponse:
       description: 矢量图层要素响应，包含 GeoJSON FeatureCollection 和校验警告
       allOf:
         - $ref: '#/components/schemas/GeoJSONFeatureCollection'
         - type: object
-          required: [warnings]
+          required:
+            - warnings
           properties:
             warnings:
               type: array
               description: 地理坐标校验警告
               items:
                 $ref: '#/components/schemas/ValidationWarning'
-
     ValidationWarning:
       type: object
-      required: [code, message]
+      required:
+        - code
+        - message
       properties:
         code:
           type: string
@@ -3227,24 +3462,28 @@ components:
         ratio:
           type: number
           description: 坐标不确定性误差倍率
-
     GeoJSONFeatureCollection:
       type: object
-      required: [type, features]
+      required:
+        - type
+        - features
       properties:
         type:
           type: string
-          enum: [FeatureCollection]
+          enum:
+            - FeatureCollection
           description: GeoJSON FeatureCollection 类型
         features:
           type: array
           description: GeoJSON 要素列表
           items:
             $ref: '#/components/schemas/GeoJSONFeature'
-
     GeoJSONFeature:
       type: object
-      required: [type, geometry, properties]
+      required:
+        - type
+        - geometry
+        - properties
       properties:
         id:
           oneOf:
@@ -3253,7 +3492,8 @@ components:
           description: GeoJSON 要素 ID
         type:
           type: string
-          enum: [Feature]
+          enum:
+            - Feature
           description: GeoJSON Feature 类型
         geometry:
           $ref: '#/components/schemas/GeoJSONGeometry'

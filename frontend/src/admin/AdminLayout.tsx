@@ -7,38 +7,52 @@ import {
   TeamOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import type { MenuDataItem, ProLayoutProps } from "@ant-design/pro-components";
+import type { MenuDataItem } from "@ant-design/pro-components";
 import { PageContainer, ProLayout } from "@ant-design/pro-components";
 import { Button, Tag } from "antd";
+import { useMemo } from "react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
+import type { User } from "../types";
 
-const adminRoute: ProLayoutProps["route"] = {
-  path: "/admin",
-  routes: [
-    {
-      path: "/admin/profile",
-      name: "用户设置",
-      icon: <UserOutlined />,
-    },
-    {
-      path: "/admin/logs",
-      name: "操作日志",
-      icon: <AuditOutlined />,
-    },
-    {
-      path: "/admin/settings",
-      name: "系统设置",
-      icon: <SettingOutlined />,
-    },
-    {
-      path: "/admin/auth",
-      name: "认证授权",
-      icon: <TeamOutlined />,
-    },
-  ],
+const baseAdminRoutes: MenuDataItem[] = [
+  {
+    path: "/admin/profile",
+    name: "用户设置",
+    icon: <UserOutlined />,
+  },
+  {
+    path: "/admin/logs",
+    name: "操作日志",
+    icon: <AuditOutlined />,
+  },
+  {
+    path: "/admin/settings",
+    name: "系统设置",
+    icon: <SettingOutlined />,
+  },
+];
+
+const authRoute: MenuDataItem = {
+  path: "/admin/auth",
+  name: "认证授权",
+  icon: <TeamOutlined />,
 };
+
+function adminRouteFor(user: User | null) {
+  const routes = [...baseAdminRoutes];
+  if (
+    user?.permissions.canManageFeaturePermissions ||
+    user?.permissions.canCreateUser
+  ) {
+    routes.push(authRoute);
+  }
+  return {
+    path: "/admin",
+    routes,
+  };
+}
 
 const defaultPageMeta = {
   title: "用户设置",
@@ -66,6 +80,7 @@ export default function AdminLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const meta = pageMeta[location.pathname] ?? defaultPageMeta;
+  const adminRoute = useMemo(() => adminRouteFor(user), [user]);
 
   async function handleLogout() {
     try {

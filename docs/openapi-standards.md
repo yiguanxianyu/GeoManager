@@ -122,7 +122,7 @@ securitySchemes:
 ```
 
 #### 权限声明
-- 公共接口：不设置 `security`
+- 公共接口：显式设置 `security: []`
 - 需认证接口：设置 `security: [{ sessionAuth: [] }]`
 
 #### CSRF 保护
@@ -151,8 +151,21 @@ securitySchemes:
 | dict | object | - |
 
 ### 3.3 可空字段
+
+OpenAPI 3.1.0 使用 JSON Schema 2020-12 语义，不使用 `nullable: true`。
+
 ```yaml
-nullable: true
+# 基础类型可空
+dataResourceId:
+  type: [integer, "null"]
+  description: 关联数据资源 ID
+
+# 引用对象可空
+category:
+  oneOf:
+    - $ref: '#/components/schemas/DictionaryItem'
+    - type: "null"
+  description: 分类，未分类时为 null
 ```
 
 ### 3.4 枚举值
@@ -195,23 +208,34 @@ dataType:
 
 | 用途 | 工具 |
 |------|------|
-| 文档生成 | Swagger UI、Redoc、Stoplight |
-| 代码生成 | OpenAPI Generator |
-| 规范验证 | Spectral、swagger-cli |
+| 规范验证与 lint | `@redocly/cli` |
+| HTML 文档生成 | `@redocly/cli` build-docs |
+| 前端类型生成 | `openapi-typescript` |
+| 前端 API 请求 | `openapi-fetch` |
 | API 测试 | Postman、Insomnia |
 
-### 5.2 验证命令
+### 5.2 验证与生成命令
 
 ```bash
-# 安装 swagger-cli
-npm install -g @apidevtools/swagger-cli
+cd frontend
 
-# 验证 OpenAPI 文档
-swagger-cli validate docs/openapi.yaml
+# Redocly lint，使用仓库根目录 redocly.yaml
+pnpm run api:lint
 
-# 生成 HTML 文档
-swagger-cli bundle docs/openapi.yaml -o docs/openapi-bundled.yaml -t yaml
+# 生成前端 OpenAPI 类型
+pnpm run generate:api
+
+# 检查 OpenAPI 类型是否与 docs/openapi.yaml 同步
+pnpm run check:api
+
+# 生成 Redoc HTML 文档
+pnpm run api:docs
+
+# 生成单文件 bundle 供外部工具导入
+pnpm run api:bundle
 ```
+
+`pnpm run build:verify` 已包含 `pnpm run check:api`，用于在发布构建前验证 OpenAPI lint 和前端类型漂移。
 
 ---
 
@@ -225,7 +249,7 @@ swagger-cli bundle docs/openapi.yaml -o docs/openapi-bundled.yaml -t yaml
 - [ ] 请求体 Schema 定义完整（类型、必填、枚举）
 - [ ] 响应状态码正确（200/201/202）
 - [ ] 错误响应包含 detail 字段
-- [ ] 安全设置正确（公共接口无 security，需认证接口有 security）
+- [ ] 安全设置正确（公共接口 `security: []`，需认证接口 `security: [{ sessionAuth: [] }]`）
 - [ ] 标签分类正确
 
 ### 6.2 修改接口检查项

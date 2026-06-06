@@ -17,6 +17,7 @@ import {
   Input,
   Modal,
   Popconfirm,
+  Result,
   Select,
   Space,
   Spin,
@@ -27,10 +28,16 @@ import {
 } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { useAppContext } from "../contexts/AppContext";
 import type { AdminGroup, AdminPermissionItem, AdminUser } from "../types";
 
 export default function AdminAuthPage() {
   const { message } = App.useApp();
+  const { user } = useAppContext();
+  const canCreateUser = Boolean(user?.permissions.canCreateUser);
+  const canManagePermissions = Boolean(
+    user?.permissions.canManageFeaturePermissions,
+  );
   const [createGroupForm] = Form.useForm<{ name: string }>();
   const [createUserForm] = Form.useForm<{
     username: string;
@@ -55,6 +62,10 @@ export default function AdminAuthPage() {
   const [groupDrafts, setGroupDrafts] = useState<Record<number, string[]>>({});
 
   const loadAuthData = useCallback(async () => {
+    if (!canCreateUser && !canManagePermissions) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const [userData, groupData] = await Promise.all([
@@ -76,7 +87,7 @@ export default function AdminAuthPage() {
     } finally {
       setLoading(false);
     }
-  }, [message]);
+  }, [canCreateUser, canManagePermissions, message]);
 
   useEffect(() => {
     loadAuthData();
@@ -84,6 +95,15 @@ export default function AdminAuthPage() {
 
   const groupNameById = useMemo(
     () => new Map(groups.map((group) => [group.id, group.name])),
+    [groups],
+  );
+  const groupOptions = useMemo(
+    () =>
+      groups.map((group) => ({
+        label: group.name,
+        value: group.id,
+        disabled: group.isProtected,
+      })),
     [groups],
   );
 
@@ -169,6 +189,7 @@ export default function AdminAuthPage() {
           key="groups"
           type="link"
           icon={<TeamOutlined />}
+          disabled={!canManagePermissions}
           onClick={() => {
             setGroupUser(record);
             setSelectedGroupIds(record.groupIds);
@@ -190,39 +211,50 @@ export default function AdminAuthPage() {
   );
 
   async function handleCreateGroup() {
-    const values = await createGroupForm.validateFields();
-    const group = await api.createAdminGroup({
-      name: values.name,
-      permissions: [],
-    });
-    setGroups((current) => [...current, group]);
-    setGroupDrafts((current) => ({
-      ...current,
-      [group.id]: group.permissions,
-    }));
-    createGroupForm.resetFields();
-    setCreateGroupOpen(false);
-    message.success("用户组已创建");
+    if (!canManagePermissions) return;
+    try {
+      const values = await createGroupForm.validateFields();
+      const group = await api.createAdminGroup({
+        name: values.name,
+        permissions: [],
+      });
+      setGroups((current) => [...current, group]);
+      setGroupDrafts((current) => ({
+        ...current,
+        [group.id]: group.permissions,
+      }));
+      createGroupForm.resetFields();
+      setCreateGroupOpen(false);
+      message.success("用户组已创建");
+    } catch (error) {
+      message.error(formOrApiError(error, "用户组创建失败"));
+    }
   }
 
   async function handleCreateUser() {
-    const values = await createUserForm.validateFields();
-    await api.createAdminUser({
-      username: values.username,
-      password: values.password,
-      displayName: values.displayName ?? "",
-      email: values.email ?? "",
-      department: values.department ?? "",
-      groupIds: values.groupIds ?? [],
-      isActive: values.isActive ?? true,
-    });
-    createUserForm.resetFields();
-    setCreateUserOpen(false);
-    message.success("用户已创建");
-    await loadAuthData();
+    if (!canCreateUser) return;
+    try {
+      const values = await createUserForm.validateFields();
+      await api.createAdminUser({
+        username: values.username,
+        password: values.password,
+        displayName: values.displayName ?? "",
+        email: values.email ?? "",
+        department: values.department ?? "",
+        groupIds: values.groupIds ?? [],
+        isActive: values.isActive ?? true,
+      });
+      createUserForm.resetFields();
+      setCreateUserOpen(false);
+      message.success("用户已创建");
+      await loadAuthData();
+    } catch (error) {
+      message.error(formOrApiError(error, "用户创建失败"));
+    }
   }
 
   async function handleSaveGroup(group: AdminGroup) {
+    if (!canManagePermissions || group.isProtected) return;
     const updated = await api.updateAdminGroup(group.id, {
       permissions: groupDrafts[group.id] ?? [],
     });
@@ -237,6 +269,7 @@ export default function AdminAuthPage() {
   }
 
   async function handleDeleteGroup(group: AdminGroup) {
+    if (!canManagePermissions || group.isProtected) return;
     await api.deleteAdminGroup(group.id);
     setGroups((current) => current.filter((item) => item.id !== group.id));
     setGroupDrafts((current) => {
@@ -248,7 +281,7 @@ export default function AdminAuthPage() {
   }
 
   async function handleSaveUserGroups() {
-    if (!groupUser) return;
+    if (!groupUser || !canManagePermissions) return;
     const updated = await api.updateAdminUserGroups(groupUser.id, {
       groupIds: selectedGroupIds,
     });
@@ -260,62 +293,66 @@ export default function AdminAuthPage() {
     await loadAuthData();
   }
 
-  return (
-    <div className="admin-page-stack">
-      <Tabs
-        className="admin-auth-tabs"
-        items={[
-          {
-            key: "users",
-            label: "用户管理",
-            children: (
-              <Spin spinning={loading}>
-                <div className="admin-page-stack">
-                  <ProCard.Group gutter={16} className="admin-stat-row">
-                    <ProCard title="启用账号">
-                      <Typography.Title level={2}>
-                        {userStats.active}
-                      </Typography.Title>
-                    </ProCard>
-                    <ProCard title="停用账号">
-                      <Typography.Title level={2}>
-                        {userStats.disabled}
-                      </Typography.Title>
-                    </ProCard>
-                    <ProCard title="用户组数量">
-                      <Typography.Title level={2}>
-                        {userStats.groups}
-                      </Typography.Title>
-                    </ProCard>
-                  </ProCard.Group>
-                  <div className="admin-toolbar">
-                    <Button
-                      type="primary"
-                      icon={<PlusOutlined />}
-                      onClick={() => {
-                        createUserForm.setFieldsValue({ isActive: true });
-                        setCreateUserOpen(true);
-                      }}
-                    >
-                      新建用户
-                    </Button>
-                  </div>
-                  <ProTable<AdminUser>
-                    className="admin-table"
-                    rowKey="id"
-                    headerTitle="用户列表"
-                    columns={userColumns}
-                    dataSource={users}
-                    cardBordered
-                    options={false}
-                    pagination={false}
-                    scroll={{ x: 1320 }}
-                    search={false}
-                  />
-                </div>
-              </Spin>
-            ),
-          },
+  if (!canCreateUser && !canManagePermissions) {
+    return <Result status="403" title="无权限访问认证授权" />;
+  }
+
+  const tabs = [
+    {
+      key: "users",
+      label: "用户管理",
+      children: (
+        <Spin spinning={loading}>
+          <div className="admin-page-stack">
+            <ProCard.Group gutter={16} className="admin-stat-row">
+              <ProCard title="启用账号">
+                <Typography.Title level={2}>
+                  {userStats.active}
+                </Typography.Title>
+              </ProCard>
+              <ProCard title="停用账号">
+                <Typography.Title level={2}>
+                  {userStats.disabled}
+                </Typography.Title>
+              </ProCard>
+              <ProCard title="用户组数量">
+                <Typography.Title level={2}>
+                  {userStats.groups}
+                </Typography.Title>
+              </ProCard>
+            </ProCard.Group>
+            {canCreateUser ? (
+              <div className="admin-toolbar">
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={() => {
+                    createUserForm.setFieldsValue({ isActive: true });
+                    setCreateUserOpen(true);
+                  }}
+                >
+                  新建用户
+                </Button>
+              </div>
+            ) : null}
+            <ProTable<AdminUser>
+              className="admin-table"
+              rowKey="id"
+              headerTitle="用户列表"
+              columns={userColumns}
+              dataSource={users}
+              cardBordered
+              options={false}
+              pagination={false}
+              scroll={{ x: 1320 }}
+              search={false}
+            />
+          </div>
+        </Spin>
+      ),
+    },
+    ...(canManagePermissions
+      ? [
           {
             key: "groups",
             label: "用户组权限",
@@ -336,7 +373,14 @@ export default function AdminAuthPage() {
                       <ProCard
                         key={group.id}
                         title={group.name}
-                        extra={<Tag color="blue">{group.userCount} 人</Tag>}
+                        extra={
+                          <Space>
+                            {group.isProtected ? (
+                              <Tag color="gold">受保护</Tag>
+                            ) : null}
+                            <Tag color="blue">{group.userCount} 人</Tag>
+                          </Space>
+                        }
                       >
                         <Checkbox.Group
                           className="admin-permission-list"
@@ -353,6 +397,7 @@ export default function AdminAuthPage() {
                               </span>
                             ),
                             value: permission.id,
+                            disabled: group.isProtected,
                           }))}
                           onChange={(values) => {
                             setGroupDrafts((current) => ({
@@ -368,11 +413,12 @@ export default function AdminAuthPage() {
                           <Space>
                             <Button
                               icon={<SaveOutlined />}
+                              disabled={group.isProtected}
                               onClick={() => handleSaveGroup(group)}
                             >
                               保存权限
                             </Button>
-                            {group.userCount === 0 ? (
+                            {group.userCount === 0 && !group.isProtected ? (
                               <Popconfirm
                                 title="确认删除空用户组？"
                                 description="删除前请确认该用户组没有关联用户。"
@@ -396,8 +442,13 @@ export default function AdminAuthPage() {
               </Spin>
             ),
           },
-        ]}
-      />
+        ]
+      : []),
+  ];
+
+  return (
+    <div className="admin-page-stack">
+      <Tabs className="admin-auth-tabs" items={tabs} />
 
       <Drawer
         title="用户详情"
@@ -466,6 +517,8 @@ export default function AdminAuthPage() {
               options={groups.map((group) => ({
                 label: group.name,
                 value: group.id,
+                disabled:
+                  group.isProtected && !groupUser.groupIds.includes(group.id),
               }))}
               onChange={setSelectedGroupIds}
               style={{ width: "100%" }}
@@ -514,7 +567,10 @@ export default function AdminAuthPage() {
           <Form.Item
             name="password"
             label="初始密码"
-            rules={[{ required: true, message: "请输入初始密码" }]}
+            rules={[
+              { required: true, message: "请输入初始密码" },
+              { min: 6, message: "密码长度至少 6 位" },
+            ]}
           >
             <Input.Password autoComplete="new-password" />
           </Form.Item>
@@ -532,13 +588,7 @@ export default function AdminAuthPage() {
             <Input />
           </Form.Item>
           <Form.Item name="groupIds" label="用户组">
-            <Select
-              mode="multiple"
-              options={groups.map((group) => ({
-                label: group.name,
-                value: group.id,
-              }))}
-            />
+            <Select mode="multiple" options={groupOptions} />
           </Form.Item>
           <Form.Item name="isActive" label="启用账号" valuePropName="checked">
             <Switch />
@@ -547,4 +597,19 @@ export default function AdminAuthPage() {
       </Modal>
     </div>
   );
+}
+
+type FormValidationError = {
+  errorFields?: { errors: string[] }[];
+};
+
+function formOrApiError(error: unknown, fallback: string) {
+  if (isFormValidationError(error)) {
+    return error.errorFields?.[0]?.errors[0] ?? fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
+function isFormValidationError(error: unknown): error is FormValidationError {
+  return typeof error === "object" && error !== null && "errorFields" in error;
 }

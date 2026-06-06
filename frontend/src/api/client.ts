@@ -1,3 +1,4 @@
+import createClient, { type Middleware } from "openapi-fetch";
 import type {
   Achievement,
   AdminGroup,
@@ -7,6 +8,7 @@ import type {
   AdminOperationLog,
   AdminOperationLogQuery,
   AdminProfile,
+  AdminProfilePasswordUpdate,
   AdminProfilePermissionsUpdate,
   AdminProfileUpdate,
   AdminSettings,
@@ -35,6 +37,7 @@ import type {
   User,
 } from "../types";
 import { isDataResource } from "../utils/resources";
+import type { paths } from "./schema";
 
 interface ListResponse<T> {
   items: T[];
@@ -60,73 +63,106 @@ class ApiError extends Error {
   }
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const method = (options.method ?? "GET").toUpperCase();
-  const headers = new Headers(options.headers);
-  if (options.body && !headers.has("Content-Type")) {
-    if (!(options.body instanceof FormData)) {
-      headers.set("Content-Type", "application/json");
+const client = createClient<paths>({
+  credentials: "include",
+  fetch: (request) => fetch(request),
+});
+
+const csrfMiddleware: Middleware = {
+  onRequest({ request }) {
+    if (request.method !== "GET") {
+      request.headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
     }
-  }
-  if (method !== "GET") {
-    headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
-  }
+    return request;
+  },
+};
 
-  const response = await fetch(path, {
-    ...options,
-    method,
-    headers,
-    credentials: "include",
-  });
+client.use(csrfMiddleware);
 
-  const contentType = response.headers.get("Content-Type") ?? "";
-  const data = contentType.includes("application/json")
-    ? await response.json()
-    : null;
-  if (!response.ok) {
+interface OpenApiResponse<T> {
+  data?: T;
+  error?: unknown;
+  response: Response;
+}
+
+async function unwrap<T>(
+  request: Promise<OpenApiResponse<unknown>>,
+): Promise<T> {
+  const { data, error, response } = await request;
+  if (error !== undefined) {
     throw new ApiError(
-      data?.detail ?? `请求失败：${response.status}`,
+      errorMessage(error, response.status),
       response.status,
-      data,
+      error,
     );
   }
   return data as T;
 }
 
-async function requestBlob(
-  path: string,
-  options: RequestInit = {},
+async function unwrapBlob(
+  request: Promise<OpenApiResponse<unknown>>,
 ): Promise<{ blob: Blob; filename: string }> {
-  const method = (options.method ?? "GET").toUpperCase();
-  const headers = new Headers(options.headers);
-  if (options.body && !headers.has("Content-Type")) {
-    headers.set("Content-Type", "application/json");
-  }
-  if (method !== "GET") {
-    headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
-  }
-
-  const response = await fetch(path, {
-    ...options,
-    method,
-    headers,
-    credentials: "include",
-  });
-
-  if (!response.ok) {
-    const contentType = response.headers.get("Content-Type") ?? "";
-    const data = contentType.includes("application/json")
-      ? await response.json()
-      : null;
+  const { data, error, response } = await request;
+  if (error !== undefined) {
     throw new ApiError(
-      data?.detail ?? `请求失败：${response.status}`,
+      errorMessage(error, response.status),
       response.status,
+      error,
     );
   }
+  if (!(data instanceof Blob)) {
+    throw new ApiError("导出响应内容为空", response.status, data);
+  }
+  return {
+    blob: data,
+    filename: filenameFromResponse(response),
+  };
+}
+
+function errorMessage(error: unknown, status: number) {
+  if (typeof error === "string" && error) {
+    return error;
+  }
+  if (isRecord(error) && typeof error.detail === "string") {
+    return error.detail;
+  }
+  return `请求失败：${status}`;
+}
+
+function filenameFromResponse(response: Response) {
   const disposition = response.headers.get("Content-Disposition") ?? "";
-  const filename =
-    disposition.match(/filename="([^"]+)"/)?.[1] ?? "layers-export.zip";
-  return { blob: await response.blob(), filename };
+  return disposition.match(/filename="([^"]+)"/)?.[1] ?? "layers-export.zip";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function importFileBody(file: File) {
+  return {
+    body: { file: file.name },
+    bodySerializer: () => {
+      const body = new FormData();
+      body.append("file", file);
+      return body;
+    },
+  };
+}
+
+function importFilePayloadBody(
+  file: File,
+  payload: ImportCommitPayload | ImportValidatePayload,
+) {
+  const serializedPayload = JSON.stringify(payload);
+  return {
+    body: { file: file.name, payload: serializedPayload },
+    bodySerializer: () => {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("payload", serializedPayload);
+      return body;
+    },
+  };
 }
 
 function getCookie(name: string): string | null {
@@ -137,196 +173,223 @@ function getCookie(name: string): string | null {
 }
 
 export const api = {
-  bootstrap: () => request<Bootstrap>("/api/bootstrap/"),
-  csrf: () => request<{ detail: string }>("/api/auth/csrf/"),
-  me: () => request<MeResponse>("/api/auth/me/"),
+  bootstrap: () => unwrap<Bootstrap>(client.GET("/api/bootstrap/")),
+  csrf: () => unwrap<{ detail: string }>(client.GET("/api/auth/csrf/")),
+  me: () => unwrap<MeResponse>(client.GET("/api/auth/me/")),
   login: (username: string, password: string, remember: boolean) =>
-    request<{ user: User }>("/api/auth/login/", {
-      method: "POST",
-      body: JSON.stringify({ username, password, remember }),
-    }),
+    unwrap<{ user: User }>(
+      client.POST("/api/auth/login/", {
+        body: { username, password, remember },
+      }),
+    ),
   register: (
     username: string,
     email: string,
     password: string,
     passwordConfirm: string,
   ) =>
-    request<{ user: User; detail: string }>("/api/auth/register/", {
-      method: "POST",
-      body: JSON.stringify({ username, email, password, passwordConfirm }),
-    }),
-  logout: () =>
-    request<{ detail: string }>("/api/auth/logout/", {
-      method: "POST",
-      body: JSON.stringify({}),
-    }),
-  adminProfile: () => request<AdminProfile>("/api/admin/profile/"),
-  updateAdminProfile: (payload: AdminProfileUpdate) =>
-    request<AdminProfile>("/api/admin/profile/update/", {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    }),
-  updateAdminProfilePermissions: (payload: AdminProfilePermissionsUpdate) =>
-    request<AdminProfile>("/api/admin/profile/permissions/", {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    }),
-  adminOperationLogs: (filters: AdminOperationLogQuery = {}) =>
-    request<PaginatedListResponse<AdminOperationLog>>(
-      `/api/admin/operation-logs/?${toQueryString(filters)}`,
+    unwrap<{ user: User; detail: string }>(
+      client.POST("/api/auth/register/", {
+        body: { username, email, password, passwordConfirm },
+      }),
     ),
-  adminUsers: () => request<ListResponse<AdminUser>>("/api/admin/users/"),
+  logout: () => unwrap<{ detail: string }>(client.POST("/api/auth/logout/")),
+  adminProfile: () => unwrap<AdminProfile>(client.GET("/api/admin/profile/")),
+  updateAdminProfile: (payload: AdminProfileUpdate) =>
+    unwrap<AdminProfile>(
+      client.PATCH("/api/admin/profile/update/", {
+        body: payload,
+      }),
+    ),
+  updateAdminProfilePermissions: (payload: AdminProfilePermissionsUpdate) =>
+    unwrap<AdminProfile>(
+      client.PATCH("/api/admin/profile/permissions/", {
+        body: payload,
+      }),
+    ),
+  updateAdminProfilePassword: (payload: AdminProfilePasswordUpdate) =>
+    unwrap<{ detail: string }>(
+      client.PATCH("/api/admin/profile/password/", {
+        body: payload,
+      }),
+    ),
+  adminOperationLogs: (filters: AdminOperationLogQuery = {}) =>
+    unwrap<PaginatedListResponse<AdminOperationLog>>(
+      client.GET("/api/admin/operation-logs/", {
+        params: { query: filters },
+      }),
+    ),
+  adminUsers: () =>
+    unwrap<ListResponse<AdminUser>>(client.GET("/api/admin/users/")),
   createAdminUser: (payload: AdminUserCreate) =>
-    request<AdminUser>("/api/admin/users/", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+    unwrap<AdminUser>(
+      client.POST("/api/admin/users/", {
+        body: payload,
+      }),
+    ),
   updateAdminUserGroups: (userId: number, payload: AdminUserGroupUpdate) =>
-    request<AdminUser>(`/api/admin/users/${userId}/groups/`, {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    }),
-  adminGroups: () => request<AdminGroupListResponse>("/api/admin/groups/"),
+    unwrap<AdminUser>(
+      client.PATCH("/api/admin/users/{userId}/groups/", {
+        params: { path: { userId } },
+        body: payload,
+      }),
+    ),
+  adminGroups: () =>
+    unwrap<AdminGroupListResponse>(client.GET("/api/admin/groups/")),
   createAdminGroup: (payload: AdminGroupCreate) =>
-    request<AdminGroup>("/api/admin/groups/", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+    unwrap<AdminGroup>(
+      client.POST("/api/admin/groups/", {
+        body: payload,
+      }),
+    ),
   updateAdminGroup: (groupId: number, payload: AdminGroupUpdate) =>
-    request<AdminGroup>(`/api/admin/groups/${groupId}/`, {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    }),
+    unwrap<AdminGroup>(
+      client.PATCH("/api/admin/groups/{groupId}/", {
+        params: { path: { groupId } },
+        body: payload,
+      }),
+    ),
   deleteAdminGroup: (groupId: number) =>
-    request<{ detail: string }>(`/api/admin/groups/${groupId}/`, {
-      method: "DELETE",
-    }),
-  adminSettings: () => request<AdminSettings>("/api/admin/settings/"),
+    unwrap<{ detail: string }>(
+      client.DELETE("/api/admin/groups/{groupId}/", {
+        params: { path: { groupId } },
+      }),
+    ),
+  adminSettings: () =>
+    unwrap<AdminSettings>(client.GET("/api/admin/settings/")),
   updateAdminSettings: (payload: AdminSettingsUpdate) =>
-    request<AdminSettings>("/api/admin/settings/", {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    }),
+    unwrap<AdminSettings>(
+      client.PATCH("/api/admin/settings/", {
+        body: payload,
+      }),
+    ),
   catalogs: () =>
-    request<ListResponse<DataCatalog>>("/api/catalog/directories/"),
+    unwrap<ListResponse<DataCatalog>>(client.GET("/api/catalog/directories/")),
   resources: (filters: ResourceFilters = {}) =>
-    request<ListResponse<ResourceListItem>>(
-      `/api/catalog/resources/?${toQueryString(filters)}`,
+    unwrap<ListResponse<ResourceListItem>>(
+      client.GET("/api/catalog/resources/", {
+        params: { query: filters },
+      }),
     ),
   scanCatalogSources: () =>
-    request<ListResponse<ResourceListItem> & { count: number }>(
-      "/api/catalog/scan/",
-      {
-        method: "POST",
-        body: JSON.stringify({}),
-      },
+    unwrap<ListResponse<ResourceListItem> & { count: number }>(
+      client.POST("/api/catalog/scan/"),
     ),
-  importPreview: (file: File) => {
-    const body = new FormData();
-    body.append("file", file);
-    return request<ImportPreview>("/api/catalog/import/preview/", {
-      method: "POST",
-      body,
-    });
+  importPreview: (file: File) =>
+    unwrap<ImportPreview>(
+      client.POST("/api/catalog/import/preview/", importFileBody(file)),
+    ),
+  importCommit: (file: File, payload: ImportCommitPayload) =>
+    unwrap<ImportCommitResult>(
+      client.POST(
+        "/api/catalog/import/commit/",
+        importFilePayloadBody(file, payload),
+      ),
+    ),
+  importValidate: (file: File, payload: ImportValidatePayload) =>
+    unwrap<ImportValidateResult>(
+      client.POST(
+        "/api/catalog/import/validate/",
+        importFilePayloadBody(file, payload),
+      ),
+    ),
+  resourceProfile: (resource: ResourceListItem) => {
+    if (isDataResource(resource)) {
+      return unwrap<DataResourceProfile>(
+        client.GET("/api/catalog/resources/{id}/profile/", {
+          params: { path: { id: resource.id } },
+        }),
+      );
+    }
+    return unwrap<DataResourceProfile>(
+      client.GET("/api/layers/{layer_name}/profile/", {
+        params: { path: { layer_name: resource.name } },
+      }),
+    );
   },
-  importCommit: (file: File, payload: ImportCommitPayload) => {
-    const body = new FormData();
-    body.append("file", file);
-    body.append("payload", JSON.stringify(payload));
-    return request<ImportCommitResult>("/api/catalog/import/commit/", {
-      method: "POST",
-      body,
-    });
+  queryResource: (
+    resource: ResourceListItem,
+    payload: ResourceQueryPayload,
+  ) => {
+    if (isDataResource(resource)) {
+      return unwrap<ResourceQueryResult>(
+        client.POST("/api/catalog/resources/{id}/query/", {
+          params: { path: { id: resource.id } },
+          body: payload,
+        }),
+      );
+    }
+    return unwrap<ResourceQueryResult>(
+      client.POST("/api/layers/{layer_name}/query/", {
+        params: { path: { layer_name: resource.name } },
+        body: payload,
+      }),
+    );
   },
-  importValidate: (file: File, payload: ImportValidatePayload) => {
-    const body = new FormData();
-    body.append("file", file);
-    body.append("payload", JSON.stringify(payload));
-    return request<ImportValidateResult>("/api/catalog/import/validate/", {
-      method: "POST",
-      body,
-    });
-  },
-  resourceProfile: (resource: ResourceListItem) =>
-    request<DataResourceProfile>(resourceEndpoint(resource, "profile")),
-  queryResource: (resource: ResourceListItem, payload: ResourceQueryPayload) =>
-    request<ResourceQueryResult>(resourceEndpoint(resource, "query"), {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
   exportLayers: (payload: ExportLayersPayload) =>
-    requestBlob("/api/catalog/export/", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+    unwrapBlob(
+      client.POST("/api/catalog/export/", {
+        body: payload,
+        parseAs: "blob",
+      }),
+    ),
   exportLayersAsync: (payload: ExportLayersPayload) =>
-    request<RasterJob>("/api/catalog/export/async/", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
-  downloadExport: (path: string) => requestBlob(path),
-  layers: () => request<ListResponse<MapLayerListItem>>("/api/layers/"),
-  achievements: () => request<ListResponse<Achievement>>("/api/achievements/"),
+    unwrap<RasterJob>(
+      client.POST("/api/catalog/export/async/", {
+        body: payload,
+      }),
+    ),
+  downloadExport: (jobId: string) =>
+    unwrapBlob(
+      client.GET("/api/catalog/export/jobs/{job_id}/download/", {
+        params: { path: { job_id: jobId } },
+        parseAs: "blob",
+      }),
+    ),
+  layers: () =>
+    unwrap<ListResponse<MapLayerListItem>>(client.GET("/api/layers/")),
+  achievements: () =>
+    unwrap<ListResponse<Achievement>>(client.GET("/api/achievements/")),
   search: (query: string) =>
-    request<SearchResult>(`/api/search/?q=${encodeURIComponent(query)}`),
+    unwrap<SearchResult>(
+      client.GET("/api/search/", {
+        params: { query: { q: query } },
+      }),
+    ),
   renderRaster: (
     layerId: number,
     rulesMode: "default" | "custom" = "default",
     rules?: Record<string, unknown>,
   ) =>
-    request<RasterRenderResult>("/api/raster/render/", {
-      method: "POST",
-      body: JSON.stringify({ layerId, rulesMode, rules }),
-    }),
+    unwrap<RasterRenderResult>(
+      client.POST("/api/raster/render/", {
+        body: { layerId, rulesMode, rules },
+      }),
+    ),
   renderRasterAsync: (payload: {
     layerId?: number | null;
     datasetId?: number | null;
     rules?: Record<string, unknown>;
     rulesMode?: "default" | "custom";
   }) =>
-    request<RasterJob>("/api/raster/render/async/", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
+    unwrap<RasterJob>(
+      client.POST("/api/raster/render/async/", {
+        body: payload,
+      }),
+    ),
   rasterJob: (jobId: string) =>
-    request<RasterJob>(`/api/raster/jobs/${jobId}/`),
+    unwrap<RasterJob>(
+      client.GET("/api/raster/jobs/{job_id}/", {
+        params: { path: { job_id: jobId } },
+      }),
+    ),
   classifyRasterUniqueValues: (datasetId: number, band: number) =>
-    request<RasterUniqueValuesResult>("/api/raster/unique-values/", {
-      method: "POST",
-      body: JSON.stringify({ datasetId, band }),
-    }),
-  scanRasterSources: () =>
-    request<RasterJob>("/api/raster/scan/", {
-      method: "POST",
-      body: JSON.stringify({}),
-    }),
+    unwrap<RasterUniqueValuesResult>(
+      client.POST("/api/raster/unique-values/", {
+        body: { datasetId, band },
+      }),
+    ),
+  scanRasterSources: () => unwrap<RasterJob>(client.POST("/api/raster/scan/")),
 };
-
-function toQueryString<T extends object>(filters: T) {
-  const params = new URLSearchParams();
-  Object.entries(filters as Record<string, unknown>).forEach(([key, value]) => {
-    if (value === undefined || value === null || value === "") {
-      return;
-    }
-    if (Array.isArray(value)) {
-      value.forEach((item) => {
-        params.append(key, String(item));
-      });
-      return;
-    }
-    params.set(key, String(value));
-  });
-  return params.toString();
-}
-
-function resourceEndpoint(
-  resource: ResourceListItem,
-  action: "profile" | "query",
-) {
-  if (isDataResource(resource)) {
-    return `/api/catalog/resources/${resource.id}/${action}/`;
-  }
-  return `/api/layers/${encodeURIComponent(resource.name)}/${action}/`;
-}
 
 export { ApiError };

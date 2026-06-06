@@ -13,6 +13,15 @@ function setTestCookie(value: string) {
   document.cookie = value;
 }
 
+function capturedRequest(fetchMock: ReturnType<typeof vi.fn>, index = 0) {
+  return fetchMock.mock.calls[index]?.[0] as Request;
+}
+
+function requestPath(request: Request) {
+  const url = new URL(request.url);
+  return `${url.pathname}${url.search}`;
+}
+
 describe("api client", () => {
   const fetchMock = vi.fn();
 
@@ -32,14 +41,14 @@ describe("api client", () => {
 
     await api.login("tester", "pass12345", true);
 
-    const [path, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const headers = init.headers as Headers;
-    expect(path).toBe("/api/auth/login/");
-    expect(init.method).toBe("POST");
-    expect(init.credentials).toBe("include");
+    const request = capturedRequest(fetchMock);
+    const headers = request.headers;
+    expect(requestPath(request)).toBe("/api/auth/login/");
+    expect(request.method).toBe("POST");
+    expect(request.credentials).toBe("include");
     expect(headers.get("X-CSRFToken")).toBe("secure token");
     expect(headers.get("Content-Type")).toBe("application/json");
-    expect(JSON.parse(init.body as string)).toEqual({
+    expect(JSON.parse(await request.clone().text())).toEqual({
       username: "tester",
       password: "pass12345",
       remember: true,
@@ -70,11 +79,15 @@ describe("api client", () => {
       new File(["name\nA\n"], "survey.csv", { type: "text/csv" }),
     );
 
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    const headers = init.headers as Headers;
-    expect(init.body).toBeInstanceOf(FormData);
+    const request = capturedRequest(fetchMock);
+    const headers = request.headers;
+    const body = await request.clone().formData();
+    const contentType = headers.get("Content-Type");
+    expect(body.get("file")).toBeInstanceOf(File);
     expect(headers.get("X-CSRFToken")).toBe("form-token");
-    expect(headers.get("Content-Type")).toBeNull();
+    expect(
+      contentType === null || contentType.startsWith("multipart/form-data"),
+    ).toBe(true);
   });
 
   it("throws ApiError with server detail for JSON errors", async () => {
@@ -107,7 +120,7 @@ describe("api client", () => {
 
     await api.resourceProfile(resource);
 
-    expect(fetchMock.mock.calls[0][0]).toBe(
+    expect(requestPath(capturedRequest(fetchMock))).toBe(
       "/api/catalog/resources/7/profile/",
     );
   });
@@ -126,7 +139,7 @@ describe("api client", () => {
       limit: 10,
     });
 
-    expect(fetchMock.mock.calls[0][0]).toBe(
+    expect(requestPath(capturedRequest(fetchMock))).toBe(
       "/api/layers/sample%20layer%2F%E4%B8%80/query/",
     );
   });

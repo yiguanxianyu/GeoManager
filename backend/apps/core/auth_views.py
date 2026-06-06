@@ -9,6 +9,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.audit.service import log_operation
+from apps.core.initialization import ensure_superadmin_defaults
+from apps.core.passwords import password_validation_errors
 from apps.core.permissions import has_feature_perm
 from apps.core.views import registration_allowed
 
@@ -59,26 +61,22 @@ def register_view(request):
         return JsonResponse({"detail": "请输入账号"}, status=400)
     if password != password_confirm:
         return JsonResponse({"detail": "两次输入的密码不一致"}, status=400)
+    password_errors = password_validation_errors(password)
+    if password_errors:
+        return JsonResponse({"detail": "；".join(password_errors)}, status=400)
 
+    ensure_superadmin_defaults()
     User = get_user_model()
-    if len(password) < 6:
-        return JsonResponse({"detail": "密码至少 6 位"}, status=400)
     user = User(username=username, email=email)
     try:
         with transaction.atomic():
-            is_first_user = not User.objects.select_for_update().exists()
-            user.is_staff = is_first_user
-            user.is_superuser = is_first_user
             user.set_password(password)
             user.save()
     except IntegrityError:
         return JsonResponse({"detail": "账号已存在"}, status=400)
 
     login(request, user)
-    if user.is_superuser:
-        message = "首个注册用户已创建为系统管理员"
-    else:
-        message = "用户注册成功"
+    message = "用户注册成功"
     log_operation(user, "auth", "register", "success", message, request)
     return JsonResponse({"user": serialize_user(user), "detail": message})
 
@@ -107,6 +105,7 @@ def serialize_user(user):
         "canManageFeaturePermissions": has_feature_perm(
             user, "core.manage_feature_permissions"
         ),
+        "canCreateUser": has_feature_perm(user, "core.create_user"),
         "canBrowseData": has_feature_perm(user, "core.browse_data"),
         "canQueryData": has_feature_perm(user, "core.query_data"),
         "canLoadVectorLayer": has_feature_perm(user, "core.load_vector_layer"),

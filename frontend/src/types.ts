@@ -13,6 +13,7 @@ export type AdminProfile = Schemas["AdminProfileResponse"];
 export type AdminProfileUpdate = Schemas["AdminProfileUpdateRequest"];
 export type AdminProfilePermissionsUpdate =
   Schemas["AdminProfilePermissionsRequest"];
+export type AdminProfilePasswordUpdate = Schemas["AdminProfilePasswordRequest"];
 export type AdminPermissionItem = Schemas["AdminPermissionItem"];
 export type AdminOperationLog = Schemas["AdminOperationLog"];
 export type AdminOperationLogQuery = NonNullable<

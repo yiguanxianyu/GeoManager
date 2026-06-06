@@ -19,7 +19,7 @@
 
 后端集成测试通过 Django test client 覆盖 API 权限、请求/响应和存储边界：
 
-- 登录、注册、bootstrap、后台权限入口。
+- 登录、注册、bootstrap、后台权限入口、超级管理员初始化、用户组权限继承、个人权限偏好和密码修改。
 - 数据目录、图层列表、资源 profile/query、空间和属性查询。
 - Excel/CSV 导入预览、校验、提交，包含非法坐标、字段选择和元数据写入。
 - 数据导出权限、GeoJSON ZIP 输出。
@@ -63,6 +63,7 @@ ruff format .
 
 ```bash
 cd frontend
+pnpm run check:api
 pnpm test
 pnpm check
 pnpm typecheck
@@ -77,6 +78,7 @@ python manage.py test
 ruff format .
 
 cd ../frontend
+pnpm run check:api
 pnpm test
 pnpm check
 pnpm typecheck
@@ -89,5 +91,5 @@ pnpm typecheck
 - 测试不得依赖真实业务数据目录或研究数据目录中的已有文件；需要文件时使用临时目录或测试内创建的小样本。
 - 栅格导入、GDAL 命令、异步任务线程和网络请求应使用 mock 或小样本隔离，避免 CI 超时和非确定性失败。
 - 前端测试不要访问真实 `/api` 服务；API 行为通过 mock 或 `fetch` stub 覆盖。
-- 新增或修改后端 API 时，必须同步更新 `docs/openapi.yaml` 和 `docs/developer-guide.md`，并补充对应 API 测试。
-- 提交前至少运行后端 `python manage.py test` 和前端 `pnpm test`。涉及 TypeScript 类型、格式或 lint 规则时，同时运行 `pnpm check` 和 `pnpm typecheck`。
+- 新增或修改后端 API 时，必须同步更新 `docs/openapi.yaml` 和 `docs/developer-guide.md`，运行 `pnpm run generate:api` 更新前端类型，并补充对应 API 测试。
+- 提交前至少运行后端 `python manage.py test` 和前端 `pnpm run check:api`、`pnpm test`。涉及 TypeScript 类型、格式或 lint 规则时，同时运行 `pnpm check` 和 `pnpm typecheck`。

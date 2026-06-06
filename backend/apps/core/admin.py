@@ -3,6 +3,12 @@ from django.contrib import admin
 from django.contrib.auth.admin import GroupAdmin as DjangoGroupAdmin
 from django.contrib.auth.models import Group, Permission
 
+from apps.core.initialization import (
+    is_superadmin_group,
+    is_superadmin_user,
+    protected_group_permissions,
+    superadmin_group_locked_permissions,
+)
 from apps.core.models import SystemSetting, UserProfile
 from apps.core.permissions import (
     feature_permission_ids_for,
@@ -37,9 +43,7 @@ class FeatureGroupForm(forms.ModelForm):
     def save(self, commit=True):
         group = super().save(commit=commit)
         if commit:
-            selected = set(
-                self.cleaned_data["feature_permissions"].values_list("id", flat=True)
-            )
+            selected = _selected_feature_permission_ids(group, self.cleaned_data)
             feature_ids = set(
                 feature_permission_queryset().values_list("id", flat=True)
             )
@@ -79,6 +83,8 @@ class FeatureGroupAdmin(DjangoGroupAdmin):
         return has_feature_perm(request.user, "core.manage_feature_permissions")
 
     def has_delete_permission(self, request, obj=None):
+        if obj and is_superadmin_group(obj):
+            return False
         return has_feature_perm(request.user, "core.manage_feature_permissions")
 
 
@@ -131,3 +137,25 @@ class UserProfileAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return has_feature_perm(request.user, "core.access_admin")
+
+    def save_model(self, request, obj, form, change):
+        if is_superadmin_user(obj.user):
+            disabled = set(obj.disabled_permissions)
+            obj.disabled_permissions = sorted(
+                disabled - superadmin_group_locked_permissions()
+            )
+        super().save_model(request, obj, form, change)
+
+
+def _selected_feature_permission_ids(group: Group, cleaned_data) -> set[int]:
+    if not is_superadmin_group(group):
+        return set(cleaned_data["feature_permissions"].values_list("id", flat=True))
+
+    permission_names = protected_group_permissions()
+    app_labels = {name.split(".", 1)[0] for name in permission_names}
+    codenames = {name.split(".", 1)[1] for name in permission_names}
+    return set(
+        feature_permission_queryset()
+        .filter(content_type__app_label__in=app_labels, codename__in=codenames)
+        .values_list("id", flat=True)
+    )

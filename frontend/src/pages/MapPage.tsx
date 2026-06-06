@@ -60,6 +60,7 @@ type DrawPurpose = "query";
 const emptyPermissions = {
   canAccessAdmin: false,
   canManageFeaturePermissions: false,
+  canCreateUser: false,
   canBrowseData: false,
   canQueryData: false,
   canLoadVectorLayer: false,
@@ -507,7 +508,6 @@ export default function MapPage() {
           percent: job.progressPercent,
           messages: job.messages,
         });
-        let downloadUrl = "";
         while (true) {
           await new Promise((resolve) => window.setTimeout(resolve, 900));
           const next = await api.rasterJob(job.id);
@@ -517,19 +517,13 @@ export default function MapPage() {
             messages: next.messages,
           });
           if (next.status === "ready") {
-            downloadUrl =
-              (next.result as { downloadUrl?: string } | null)?.downloadUrl ??
-              "";
             break;
           }
           if (next.status === "failed") {
             throw new Error(next.error || "导出失败");
           }
         }
-        if (!downloadUrl) {
-          throw new Error("导出文件下载地址缺失");
-        }
-        const { blob, filename } = await api.downloadExport(downloadUrl);
+        const { blob, filename } = await api.downloadExport(job.id);
         downloadBlob(blob, filename);
         message.success("导出任务已完成");
       } catch (error) {

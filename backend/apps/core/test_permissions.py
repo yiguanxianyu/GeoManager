@@ -1,7 +1,14 @@
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.test import TestCase
 
+from apps.core.initialization import (
+    SUPERADMIN_GROUP_NAME,
+    ensure_superadmin_defaults,
+    is_superadmin_user,
+    protected_group_permissions,
+)
+from apps.core.models import UserProfile
 from apps.core.permissions import (
     FEATURE_PERMISSIONS,
     FEATURE_PERMISSION_NAMES,
@@ -35,6 +42,15 @@ class FeaturePermissionDefTests(TestCase):
         for name in FEATURE_PERMISSION_NAMES:
             self.assertIn(".", name)
 
+    def test_create_user_permission_is_registered(self):
+        self.assertIn("core.create_user", FEATURE_PERMISSION_NAMES)
+        self.assertTrue(
+            Permission.objects.filter(
+                content_type__app_label="core",
+                codename="create_user",
+            ).exists()
+        )
+
 
 class HasFeaturePermTests(TestCase):
     def test_returns_false_for_anonymous_user(self):
@@ -53,7 +69,6 @@ class HasFeaturePermTests(TestCase):
         user = get_user_model().objects.create_user(
             username="perm-user", password="pass12345"
         )
-        from django.contrib.auth.models import Permission
 
         perm = Permission.objects.get(
             content_type__app_label="core", codename="access_admin"
@@ -66,6 +81,67 @@ class HasFeaturePermTests(TestCase):
             username="no-perm", password="pass12345"
         )
         self.assertFalse(has_feature_perm(user, "core.access_admin"))
+
+    def test_returns_true_for_group_inherited_permission(self):
+        user = get_user_model().objects.create_user(
+            username="group-perm-user", password="pass12345"
+        )
+        group = Group.objects.create(name="后台用户")
+        perm = Permission.objects.get(
+            content_type__app_label="core", codename="access_admin"
+        )
+        group.permissions.add(perm)
+        user.groups.add(group)
+
+        self.assertTrue(has_feature_perm(user, "core.access_admin"))
+
+    def test_user_disabled_permission_overrides_group_grant(self):
+        user = get_user_model().objects.create_user(
+            username="disabled-group-perm-user", password="pass12345"
+        )
+        group = Group.objects.create(name="可关闭后台用户")
+        perm = Permission.objects.get(
+            content_type__app_label="core", codename="access_admin"
+        )
+        group.permissions.add(perm)
+        user.groups.add(group)
+        UserProfile.objects.create(
+            user=user,
+            disabled_permissions=["core.access_admin"],
+        )
+
+        self.assertFalse(has_feature_perm(user, "core.access_admin"))
+
+
+class SuperadminInitializationTests(TestCase):
+    def test_ensure_superadmin_defaults_creates_group_and_grants_all_permissions(self):
+        get_user_model().objects.all().delete()
+        Group.objects.filter(name=SUPERADMIN_GROUP_NAME).delete()
+
+        user, group = ensure_superadmin_defaults()
+
+        self.assertEqual(group.name, SUPERADMIN_GROUP_NAME)
+        self.assertIsNotNone(user)
+        self.assertEqual(user.username, "admin")
+        self.assertFalse(user.is_superuser)
+        self.assertFalse(user.is_staff)
+        self.assertTrue(user.groups.filter(id=group.id).exists())
+        self.assertTrue(is_superadmin_user(user))
+        group_permissions = {
+            f"{permission.content_type.app_label}.{permission.codename}"
+            for permission in group.permissions.select_related("content_type")
+        }
+        self.assertEqual(group_permissions, set(protected_group_permissions()))
+
+    def test_existing_superuser_is_attached_to_superadmin_group(self):
+        user = get_user_model().objects.create_superuser(
+            username="manual-super",
+            password="StrongPass12345",
+        )
+
+        ensure_superadmin_defaults()
+
+        self.assertTrue(user.groups.filter(name=SUPERADMIN_GROUP_NAME).exists())
 
 
 class GroupNamesTests(TestCase):

@@ -34,6 +34,7 @@ class FeaturePermission(models.Model):
         permissions = [
             ("access_admin", "可进入后台管理"),
             ("manage_feature_permissions", "可配置功能权限"),
+            ("create_user", "可新建用户"),
             ("browse_data", "可浏览数据"),
             ("query_data", "可查询数据"),
             ("load_vector_layer", "可加载矢量图层"),

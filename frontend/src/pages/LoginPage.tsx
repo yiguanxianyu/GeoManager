@@ -140,6 +140,9 @@ export default function LoginPage() {
             className="login-form"
             layout="vertical"
             onFinish={handleRegister}
+            onFinishFailed={(errorInfo) => {
+              message.error(firstFormError(errorInfo, "请检查注册信息"));
+            }}
             requiredMark={false}
           >
             <Form.Item
@@ -163,7 +166,10 @@ export default function LoginPage() {
             <Form.Item
               name="password"
               label="密码"
-              rules={[{ required: true, message: "请输入密码" }]}
+              rules={[
+                { required: true, message: "请输入密码" },
+                { min: 6, message: "密码长度至少 6 位" },
+              ]}
             >
               <Input.Password
                 prefix={<LockOutlined style={{ fontSize: 16 }} />}
@@ -210,4 +216,13 @@ export default function LoginPage() {
       </Card>
     </main>
   );
+}
+
+type FormValidationError = {
+  errorFields: { errors: string[] }[];
+};
+
+function firstFormError(errorInfo: FormValidationError, fallback: string) {
+  const firstError = errorInfo.errorFields[0]?.errors[0];
+  return firstError || fallback;
 }

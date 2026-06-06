@@ -23,6 +23,7 @@ const mockApi = vi.hoisted(() => ({
   adminProfile: vi.fn(),
   updateAdminProfile: vi.fn(),
   updateAdminProfilePermissions: vi.fn(),
+  updateAdminProfilePassword: vi.fn(),
   adminOperationLogs: vi.fn(),
   adminUsers: vi.fn(),
   createAdminUser: vi.fn(),
@@ -61,12 +62,13 @@ const adminUser: User = {
   email: "admin@example.local",
   avatarUrl: "",
   department: "平台运维组",
-  isStaff: true,
-  isSuperuser: true,
+  isStaff: false,
+  isSuperuser: false,
   roles: ["系统管理员"],
   permissions: {
     canAccessAdmin: true,
     canManageFeaturePermissions: true,
+    canCreateUser: true,
     canBrowseData: true,
     canQueryData: true,
     canLoadVectorLayer: true,
@@ -85,6 +87,7 @@ const availablePermissions = [
     label: "配置功能权限",
     group: "系统管理",
   },
+  { id: "core.create_user", label: "新建用户", group: "系统管理" },
   { id: "core.browse_data", label: "浏览数据目录", group: "数据功能" },
   { id: "core.query_data", label: "查询数据", group: "数据功能" },
   {
@@ -103,6 +106,8 @@ const adminGroup = {
   name: "系统管理员",
   userCount: 1,
   permissions: grantedPermissions,
+  isProtected: true,
+  lockedPermissions: ["core.access_admin"],
 };
 
 const adminApiUser = {
@@ -190,6 +195,9 @@ describe("admin routes", () => {
         availablePermissions,
       }),
     );
+    mockApi.updateAdminProfilePassword.mockResolvedValue({
+      detail: "密码已更新",
+    });
     mockApi.adminUsers.mockResolvedValue({ items: [adminApiUser] });
     mockApi.adminOperationLogs.mockResolvedValue({ items: [], total: 0 });
     mockApi.adminGroups.mockResolvedValue({
@@ -204,7 +212,32 @@ describe("admin routes", () => {
     renderAdminRoute("/admin");
 
     expect(await screen.findByText("个人信息")).toBeInTheDocument();
+    expect(screen.getByText("修改密码")).toBeInTheDocument();
     expect(screen.getByText("我的权限")).toBeInTheDocument();
+  });
+
+  it("submits the password change form from user settings", async () => {
+    renderWithProviders(<AdminProfilePage />);
+
+    expect(await screen.findByText("修改密码")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("当前密码"), {
+      target: { value: "StrongPass12345" },
+    });
+    fireEvent.change(screen.getByLabelText("新密码"), {
+      target: { value: "NewStrongPass12345" },
+    });
+    fireEvent.change(screen.getByLabelText("确认新密码"), {
+      target: { value: "NewStrongPass12345" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /更新密码/ }));
+
+    await waitFor(() => {
+      expect(mockApi.updateAdminProfilePassword).toHaveBeenCalledWith({
+        currentPassword: "StrongPass12345",
+        newPassword: "NewStrongPass12345",
+        passwordConfirm: "NewStrongPass12345",
+      });
+    });
   });
 
   it("navigates from operation logs to system settings", async () => {

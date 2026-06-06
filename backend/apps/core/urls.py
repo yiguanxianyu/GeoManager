@@ -27,6 +27,11 @@ urlpatterns = [
         admin_api.update_admin_profile_permissions,
         name="admin-profile-permissions",
     ),
+    path(
+        "admin/profile/password/",
+        admin_api.update_admin_profile_password,
+        name="admin-profile-password",
+    ),
     path("admin/users/", admin_api.admin_users, name="admin-users"),
     path(
         "admin/users/<int:user_id>/groups/",

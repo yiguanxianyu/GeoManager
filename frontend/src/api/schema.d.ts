@@ -89,7 +89,7 @@ export interface paths {
         put?: never;
         /**
          * 用户注册
-         * @description 注册新用户。首个注册的用户将自动成为系统管理员。
+         * @description 注册新用户。系统首次初始化会自动创建用户名为 `admin` 的完整功能账号和超级管理员用户组，注册用户保持普通账号。
          *     注册功能受系统配置 `allowRegistration` 控制。
          */
         post: operations["register"];
@@ -193,6 +193,26 @@ export interface paths {
         patch: operations["updateAdminProfilePermissions"];
         trace?: never;
     };
+    "/api/admin/profile/password/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 修改当前用户密码
+         * @description 校验当前密码、新密码至少 6 位和确认密码后更新密码，并记录操作日志。
+         */
+        patch: operations["updateAdminProfilePassword"];
+        trace?: never;
+    };
     "/api/admin/operation-logs/": {
         parameters: {
             query?: never;
@@ -222,13 +242,13 @@ export interface paths {
         };
         /**
          * 获取后台用户列表
-         * @description 返回管理员可配置用户及其用户组归属。
+         * @description 返回管理员可配置用户及其用户组归属。需要 `core.manage_feature_permissions` 或 `core.create_user`。
          */
         get: operations["listAdminUsers"];
         put?: never;
         /**
          * 创建后台用户
-         * @description 管理员创建用户账号。该接口不受自助注册开关影响。
+         * @description 具备 `core.create_user` 权限的管理员创建用户账号。该接口不受自助注册开关影响。
          */
         post: operations["createAdminUser"];
         delete?: never;
@@ -266,7 +286,7 @@ export interface paths {
         };
         /**
          * 获取用户组列表
-         * @description 返回全部 Django 用户组及其功能权限配置。
+         * @description 返回全部 Django 用户组及其功能权限配置。需要 `core.manage_feature_permissions` 或 `core.create_user`。
          */
         get: operations["listAdminGroups"];
         put?: never;
@@ -904,7 +924,7 @@ export interface components {
             username: string;
             /**
              * Format: password
-             * @description 密码
+             * @description 密码，至少 6 位
              */
             password: string;
             /**
@@ -963,7 +983,7 @@ export interface components {
             department: string;
             /** @description 是否具备 Django staff 标记 */
             isStaff: boolean;
-            /** @description 是否为超级管理员 */
+            /** @description 是否带有 Django superuser 标记；初始化的 admin 完整功能账号通常为 false */
             isSuperuser: boolean;
             /** @description 用户所属 Django Group 名称列表 */
             roles: string[];
@@ -974,6 +994,8 @@ export interface components {
             canAccessAdmin: boolean;
             /** @description 是否可配置功能权限 */
             canManageFeaturePermissions: boolean;
+            /** @description 是否可在后台创建新用户 */
+            canCreateUser: boolean;
             /** @description 是否可浏览数据目录 */
             canBrowseData: boolean;
             /** @description 是否可查询数据 */
@@ -1042,6 +1064,23 @@ export interface components {
             /** @description 用户主动关闭的权限列表，必须全部属于 grantedPermissions */
             disabledPermissions: string[];
         };
+        AdminProfilePasswordRequest: {
+            /**
+             * Format: password
+             * @description 当前登录密码
+             */
+            currentPassword: string;
+            /**
+             * Format: password
+             * @description 新密码，至少 6 位
+             */
+            newPassword: string;
+            /**
+             * Format: password
+             * @description 新密码确认值，必须与 newPassword 一致
+             */
+            passwordConfirm: string;
+        };
         AdminOperationLog: {
             /** @description 操作日志 ID */
             id: number;
@@ -1083,7 +1122,7 @@ export interface components {
             username: string;
             /**
              * Format: password
-             * @description 初始密码
+             * @description 初始密码，至少 6 位
              */
             password: string;
             /** @description 显示名称 */
@@ -1117,6 +1156,10 @@ export interface components {
             userCount: number;
             /** @description 用户组授予的平台功能权限列表 */
             permissions: string[];
+            /** @description 是否为系统受保护用户组，受保护组不能删除且部分权限不可关闭 */
+            isProtected: boolean;
+            /** @description 受保护用户组中不可关闭的平台功能权限列表 */
+            lockedPermissions: string[];
         };
         AdminGroupListResponse: {
             /** @description 用户组列表 */
@@ -1432,7 +1475,7 @@ export interface components {
             /** @description 任务进度消息 */
             messages: string[];
             /** @description 任务完成后的结果；未完成或失败时为 null */
-            result: (components["schemas"]["RasterRenderResult"] | components["schemas"]["RasterDataset"] | components["schemas"]["RasterDatasetScanResult"] | components["schemas"]["ExportJobResult"]) | null;
+            result: components["schemas"]["RasterRenderResult"] | components["schemas"]["RasterDataset"] | components["schemas"]["RasterDatasetScanResult"] | components["schemas"]["ExportJobResult"] | null;
             /** @description 失败原因 */
             error: string;
             /**
@@ -1718,7 +1761,7 @@ export interface components {
             /** @description 栅格数据集 ID */
             datasetId?: number | null;
             /** @description 源坐标系统 */
-            sourceCrs?: (string | number) | null;
+            sourceCrs?: string | number | null;
         };
         LayerListResponse: {
             /** @description 可加载图层列表 */
@@ -2182,6 +2225,32 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AdminProfileResponse"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+        };
+    };
+    updateAdminProfilePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminProfilePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DetailResponse"];
                 };
             };
             400: components["responses"]["BadRequest"];

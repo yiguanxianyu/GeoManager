@@ -15,6 +15,7 @@ from apps.core.config import (
     load_project_config,
     update_runtime_application_config,
 )
+from apps.core.initialization import SUPERADMIN_GROUP_NAME, ensure_superadmin_defaults
 from apps.core.models import SystemSetting
 from apps.core.storage import (
     StoragePathError,
@@ -52,28 +53,35 @@ class CsrfSettingsTests(SimpleTestCase):
 
 
 class RegistrationApiTests(TestCase):
-    def test_first_registered_user_becomes_system_admin(self):
+    def test_registered_user_after_initialization_is_standard_user(self):
         SystemSetting.objects.update_or_create(
             pk=1, defaults={"allow_registration": True}
         )
+        ensure_superadmin_defaults()
 
         response = self.client.post(
             "/api/auth/register/",
             data=json.dumps(
                 {
-                    "username": "admin",
-                    "email": "admin@example.local",
-                    "password": "StrongPass12345",
-                    "passwordConfirm": "StrongPass12345",
+                    "username": "researcher",
+                    "email": "researcher@example.local",
+                    "password": "123456",
+                    "passwordConfirm": "123456",
                 }
             ),
             content_type="application/json",
         )
 
         self.assertEqual(response.status_code, 200)
-        user = get_user_model().objects.get(username="admin")
-        self.assertTrue(user.is_staff)
-        self.assertTrue(user.is_superuser)
+        user = get_user_model().objects.get(username="researcher")
+        self.assertFalse(user.is_staff)
+        self.assertFalse(user.is_superuser)
+        self.assertTrue(
+            Group.objects.filter(
+                name=SUPERADMIN_GROUP_NAME,
+                permissions__codename="access_admin",
+            ).exists()
+        )
 
     def test_registration_can_be_closed_by_system_setting(self):
         SystemSetting.objects.update_or_create(
@@ -189,14 +197,14 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "用户组仍有关联用户，不能删除")
 
-    def test_admin_can_create_user_when_registration_is_closed(self):
+    def test_create_user_permission_can_create_user_when_registration_is_closed(self):
         SystemSetting.objects.update_or_create(
             pk=1, defaults={"allow_registration": False}
         )
         manager = get_user_model().objects.create_user(
             username="user-manager", password="pass12345"
         )
-        grant(manager, ("core", "manage_feature_permissions"))
+        grant(manager, ("core", "create_user"))
         group = Group.objects.create(name="科研用户")
         self.client.force_login(manager)
 
@@ -222,6 +230,89 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(user.profile.department, "生态监测组")
         self.assertTrue(user.groups.filter(id=group.id).exists())
 
+    def test_manage_feature_permissions_without_create_user_cannot_create_user(self):
+        manager = get_user_model().objects.create_user(
+            username="permission-only-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_feature_permissions"))
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            "/api/admin/users/",
+            data=json.dumps(
+                {
+                    "username": "blocked-create",
+                    "password": "StrongPass12345",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "当前用户无新建用户权限")
+
+    def test_create_user_permission_can_list_groups_for_assignment(self):
+        manager = get_user_model().objects.create_user(
+            username="create-user-lister", password="pass12345"
+        )
+        grant(manager, ("core", "create_user"))
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/admin/groups/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("items", response.json())
+
+    def test_create_user_cannot_assign_superadmin_group(self):
+        manager = get_user_model().objects.create_user(
+            username="create-user-protected-group", password="pass12345"
+        )
+        grant(manager, ("core", "create_user"))
+        _, protected_group = ensure_superadmin_defaults(create_account=False)
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            "/api/admin/users/",
+            data=json.dumps(
+                {
+                    "username": "blocked-protected-group",
+                    "password": "StrongPass12345",
+                    "groupIds": [protected_group.id],
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["detail"],
+            "不能将普通用户加入超级管理员用户组",
+        )
+
+    def test_regular_user_cannot_be_assigned_to_superadmin_group(self):
+        manager = get_user_model().objects.create_user(
+            username="assign-protected-group-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_feature_permissions"))
+        target = get_user_model().objects.create_user(
+            username="regular-protected-target",
+            password="StrongPass12345",
+        )
+        _, protected_group = ensure_superadmin_defaults(create_account=False)
+        self.client.force_login(manager)
+
+        response = self.client.patch(
+            f"/api/admin/users/{target.id}/groups/",
+            data=json.dumps({"groupIds": [protected_group.id]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["detail"],
+            "不能将普通用户加入超级管理员用户组",
+        )
+
     def test_group_list_returns_available_feature_permissions(self):
         manager = get_user_model().objects.create_user(
             username="permission-list-manager", password="pass12345"
@@ -238,6 +329,157 @@ class FeaturePermissionTests(TestCase):
         }
         self.assertIn("core.access_admin", permission_ids)
         self.assertIn("core.manage_feature_permissions", permission_ids)
+        self.assertIn("core.create_user", permission_ids)
+        protected_items = [
+            item for item in payload["items"] if item["name"] == SUPERADMIN_GROUP_NAME
+        ]
+        self.assertEqual(protected_items[0]["isProtected"], True)
+        self.assertEqual(protected_items[0]["lockedPermissions"], ["core.access_admin"])
+
+    def test_superadmin_group_cannot_be_deleted_or_lose_admin_access(self):
+        manager = get_user_model().objects.create_user(
+            username="superadmin-guard-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_feature_permissions"))
+        _, group = ensure_superadmin_defaults(create_account=False)
+        self.client.force_login(manager)
+
+        delete_response = self.client.delete(f"/api/admin/groups/{group.id}/")
+        self.assertEqual(delete_response.status_code, 400)
+        self.assertEqual(
+            delete_response.json()["detail"],
+            "超级管理员用户组不能删除",
+        )
+
+        patch_response = self.client.patch(
+            f"/api/admin/groups/{group.id}/",
+            data=json.dumps({"permissions": ["core.browse_data"]}),
+            content_type="application/json",
+        )
+        self.assertEqual(patch_response.status_code, 400)
+        self.assertEqual(
+            patch_response.json()["detail"],
+            "超级管理员用户组必须保留后台访问权限",
+        )
+
+    def test_superadmin_user_keeps_superadmin_group_when_groups_are_updated(self):
+        manager = get_user_model().objects.create_user(
+            username="superadmin-user-group-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_feature_permissions"))
+        protected_user, protected_group = ensure_superadmin_defaults()
+        normal_group = Group.objects.create(name="普通后台组")
+        self.client.force_login(manager)
+
+        response = self.client.patch(
+            f"/api/admin/users/{protected_user.id}/groups/",
+            data=json.dumps({"groupIds": [normal_group.id]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(protected_group.id, response.json()["groupIds"])
+
+    def test_superadmin_cannot_disable_own_admin_access_permission(self):
+        superuser = get_user_model().objects.create_superuser(
+            username="protected-profile-superuser",
+            password="StrongPass12345",
+        )
+        ensure_superadmin_defaults(create_account=False)
+        self.client.force_login(superuser)
+
+        response = self.client.patch(
+            "/api/admin/profile/permissions/",
+            data=json.dumps({"disabledPermissions": ["core.access_admin"]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "超级管理员不能关闭后台访问权限")
+
+    def test_change_password_requires_current_password(self):
+        user = get_user_model().objects.create_user(
+            username="password-user",
+            password="StrongPass12345",
+        )
+        self.client.force_login(user)
+
+        response = self.client.patch(
+            "/api/admin/profile/password/",
+            data=json.dumps(
+                {
+                    "currentPassword": "wrong-password",
+                    "newPassword": "NewStrongPass12345",
+                    "passwordConfirm": "NewStrongPass12345",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "当前密码不正确")
+        self.assertTrue(
+            OperationLog.objects.filter(
+                user=user,
+                module="认证授权",
+                action="修改密码",
+                status="failed",
+            ).exists()
+        )
+
+    def test_change_password_rejects_weak_password(self):
+        user = get_user_model().objects.create_user(
+            username="weak-password-user",
+            password="StrongPass12345",
+        )
+        self.client.force_login(user)
+
+        response = self.client.patch(
+            "/api/admin/profile/password/",
+            data=json.dumps(
+                {
+                    "currentPassword": "StrongPass12345",
+                    "newPassword": "weak5",
+                    "passwordConfirm": "weak5",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("密码长度至少 6 位", response.json()["detail"])
+
+    def test_change_password_updates_password_and_logs_success(self):
+        user = get_user_model().objects.create_user(
+            username="change-password-user",
+            password="StrongPass12345",
+        )
+        self.client.force_login(user)
+
+        response = self.client.patch(
+            "/api/admin/profile/password/",
+            data=json.dumps(
+                {
+                    "currentPassword": "StrongPass12345",
+                    "newPassword": "NewStrongPass12345",
+                    "passwordConfirm": "NewStrongPass12345",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        user.refresh_from_db()
+        self.assertFalse(user.check_password("StrongPass12345"))
+        self.assertTrue(user.check_password("NewStrongPass12345"))
+        self.assertTrue(
+            OperationLog.objects.filter(
+                user=user,
+                module="认证授权",
+                action="修改密码",
+                status="success",
+            ).exists()
+        )
 
     def test_admin_operation_logs_query_uses_real_audit_logs(self):
         manager = get_user_model().objects.create_user(

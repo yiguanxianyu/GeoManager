@@ -24,6 +24,7 @@ FEATURE_PERMISSIONS: tuple[FeaturePermissionDef, ...] = (
     FeaturePermissionDef(
         "core", "manage_feature_permissions", "配置功能权限", "系统管理"
     ),
+    FeaturePermissionDef("core", "create_user", "新建用户", "系统管理"),
     FeaturePermissionDef("core", "browse_data", "浏览数据", "数据功能"),
     FeaturePermissionDef("core", "query_data", "查询数据", "数据功能"),
     FeaturePermissionDef("core", "load_vector_layer", "加载矢量图层", "图层功能"),
@@ -69,11 +70,19 @@ def disabled_feature_permissions(user) -> set[str]:
     profile = _user_profile(user)
     if profile is None:
         return set()
-    return {
+    disabled = {
         permission
         for permission in profile.disabled_permissions
         if permission in FEATURE_PERMISSION_NAMES
     }
+    from apps.core.initialization import (
+        is_superadmin_user,
+        superadmin_group_locked_permissions,
+    )
+
+    if is_superadmin_user(user):
+        disabled -= superadmin_group_locked_permissions()
+    return disabled
 
 
 def effective_feature_permissions(user) -> set[str]:

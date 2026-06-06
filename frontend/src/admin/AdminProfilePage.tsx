@@ -1,6 +1,7 @@
 import {
   CloseOutlined,
   EditOutlined,
+  LockOutlined,
   SaveOutlined,
   StopOutlined,
   UserOutlined,
@@ -12,6 +13,7 @@ import {
   Avatar,
   Button,
   Form,
+  Input,
   Skeleton,
   Space,
   Switch,
@@ -21,12 +23,17 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
-import type { AdminProfile, AdminProfileUpdate } from "../types";
+import type {
+  AdminProfile,
+  AdminProfilePasswordUpdate,
+  AdminProfileUpdate,
+} from "../types";
 
 export default function AdminProfilePage() {
   const { message } = App.useApp();
   const { setUser } = useAppContext();
   const [form] = Form.useForm<AdminProfileUpdate>();
+  const [passwordForm] = Form.useForm<AdminProfilePasswordUpdate>();
   const [profile, setProfile] = useState<AdminProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -98,6 +105,16 @@ export default function AdminProfilePage() {
     setProfile(updated);
     setUser(updated.user);
     message.success("权限偏好已更新");
+  }
+
+  async function handlePasswordSave(values: AdminProfilePasswordUpdate) {
+    try {
+      await api.updateAdminProfilePassword(values);
+      passwordForm.resetFields();
+      message.success("密码已更新");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "密码更新失败");
+    }
   }
 
   if (loading) {
@@ -199,6 +216,66 @@ export default function AdminProfilePage() {
         </div>
       </ProCard>
 
+      <ProCard title="修改密码" className="admin-section-card">
+        <Form
+          form={passwordForm}
+          layout="vertical"
+          className="admin-password-form"
+          onFinish={handlePasswordSave}
+          onFinishFailed={(errorInfo) => {
+            message.error(firstFormError(errorInfo, "请检查密码信息"));
+          }}
+        >
+          <Form.Item
+            name="currentPassword"
+            label="当前密码"
+            rules={[{ required: true, message: "请输入当前密码" }]}
+          >
+            <Input.Password autoComplete="current-password" />
+          </Form.Item>
+          <Form.Item
+            name="newPassword"
+            label="新密码"
+            rules={[
+              { required: true, message: "请输入新密码" },
+              {
+                validator: (_, value: string | undefined) => {
+                  const password = value ?? "";
+                  if (!password) return Promise.resolve();
+                  if (password.length < 6) {
+                    return Promise.reject(new Error("密码长度至少 6 位"));
+                  }
+                  return Promise.resolve();
+                },
+              },
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Form.Item
+            name="passwordConfirm"
+            label="确认新密码"
+            dependencies={["newPassword"]}
+            rules={[
+              { required: true, message: "请再次输入新密码" },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  if (!value || getFieldValue("newPassword") === value) {
+                    return Promise.resolve();
+                  }
+                  return Promise.reject(new Error("两次输入的新密码不一致"));
+                },
+              }),
+            ]}
+          >
+            <Input.Password autoComplete="new-password" />
+          </Form.Item>
+          <Button type="primary" htmlType="submit" icon={<LockOutlined />}>
+            更新密码
+          </Button>
+        </Form>
+      </ProCard>
+
       <ProCard title="我的权限" className="admin-section-card">
         <div className="admin-permission-groups">
           {permissionGroups.map(({ group, items }) => (
@@ -258,4 +335,13 @@ function setProfileFields(
     avatarUrl: profile.avatarUrl,
     department: profile.department,
   });
+}
+
+type FormValidationError = {
+  errorFields: { errors: string[] }[];
+};
+
+function firstFormError(errorInfo: FormValidationError, fallback: string) {
+  const firstError = errorInfo.errorFields[0]?.errors[0];
+  return firstError || fallback;
 }

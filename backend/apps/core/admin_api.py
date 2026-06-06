@@ -6,7 +6,7 @@ from functools import wraps
 from typing import Any
 
 from django.conf import settings
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.models import Group
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, transaction
@@ -23,7 +23,17 @@ from apps.core.config import (
     load_runtime_config_document,
     update_runtime_application_config,
 )
+from apps.core.initialization import (
+    SUPERADMIN_GROUP_NAME,
+    ensure_superadmin_defaults,
+    is_initial_superadmin_user,
+    is_superadmin_group,
+    is_superadmin_user,
+    protected_group_permissions,
+    superadmin_group_locked_permissions,
+)
 from apps.core.models import SystemSetting, UserProfile
+from apps.core.passwords import password_validation_errors
 from apps.core.permissions import (
     FEATURE_PERMISSION_NAMES,
     FEATURE_PERMISSIONS,
@@ -52,6 +62,21 @@ def api_permission_required(perm_name: str):
             if not request.user.is_authenticated:
                 return JsonResponse({"detail": "请先登录"}, status=401)
             if not has_feature_perm(request.user, perm_name):
+                return JsonResponse({"detail": "当前用户无后台管理权限"}, status=403)
+            return view_func(request, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
+def api_any_permission_required(*perm_names: str):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return JsonResponse({"detail": "请先登录"}, status=401)
+            if not any(has_feature_perm(request.user, perm) for perm in perm_names):
                 return JsonResponse({"detail": "当前用户无后台管理权限"}, status=403)
             return view_func(request, *args, **kwargs)
 
@@ -124,6 +149,12 @@ def update_admin_profile_permissions(request):
             {"detail": f"不能关闭未授予的权限：{', '.join(invalid)}"},
             status=400,
         )
+    locked_permissions = superadmin_group_locked_permissions()
+    if is_superadmin_user(request.user) and disabled_set & locked_permissions:
+        return JsonResponse(
+            {"detail": "超级管理员不能关闭后台访问权限"},
+            status=400,
+        )
 
     profile = _ensure_profile(request.user)
     profile.disabled_permissions = sorted(disabled_set)
@@ -131,16 +162,85 @@ def update_admin_profile_permissions(request):
     return JsonResponse(_serialize_profile(request.user))
 
 
+@require_http_methods(["PATCH"])
+@api_login_required
+def update_admin_profile_password(request):
+    payload = _json_payload(request)
+    if isinstance(payload, JsonResponse):
+        return payload
+
+    current_password = str(payload.get("currentPassword", ""))
+    new_password = str(payload.get("newPassword", ""))
+    password_confirm = str(payload.get("passwordConfirm", ""))
+    if not request.user.check_password(current_password):
+        log_operation(
+            request.user,
+            "认证授权",
+            "修改密码",
+            "failed",
+            "当前密码验证失败",
+            request,
+        )
+        return JsonResponse({"detail": "当前密码不正确"}, status=400)
+    if new_password != password_confirm:
+        log_operation(
+            request.user,
+            "认证授权",
+            "修改密码",
+            "failed",
+            "两次输入的新密码不一致",
+            request,
+        )
+        return JsonResponse({"detail": "两次输入的新密码不一致"}, status=400)
+    if current_password == new_password:
+        log_operation(
+            request.user,
+            "认证授权",
+            "修改密码",
+            "failed",
+            "新密码与当前密码相同",
+            request,
+        )
+        return JsonResponse({"detail": "新密码不能与当前密码相同"}, status=400)
+    password_errors = password_validation_errors(new_password, user=request.user)
+    if password_errors:
+        log_operation(
+            request.user,
+            "认证授权",
+            "修改密码",
+            "failed",
+            "新密码强度校验失败",
+            request,
+        )
+        return JsonResponse({"detail": "；".join(password_errors)}, status=400)
+
+    request.user.set_password(new_password)
+    request.user.save(update_fields=["password"])
+    update_session_auth_hash(request, request.user)
+    log_operation(
+        request.user,
+        "认证授权",
+        "修改密码",
+        "success",
+        "用户已修改密码",
+        request,
+    )
+    return JsonResponse({"detail": "密码已更新"})
+
+
 @require_http_methods(["GET", "POST"])
-@api_permission_required("core.manage_feature_permissions")
+@api_any_permission_required("core.manage_feature_permissions", "core.create_user")
 def admin_groups(request):
     if request.method == "GET":
+        ensure_superadmin_defaults(create_account=False)
         return JsonResponse(
             {
                 "items": [_serialize_group(group) for group in _groups()],
                 "availablePermissions": _available_permissions(),
             }
         )
+    if not has_feature_perm(request.user, "core.manage_feature_permissions"):
+        return JsonResponse({"detail": "当前用户无权限配置用户组"}, status=403)
 
     payload = _json_payload(request)
     if isinstance(payload, JsonResponse):
@@ -173,6 +273,8 @@ def admin_group_detail(request, group_id: int):
         return JsonResponse({"detail": "用户组不存在"}, status=404)
 
     if request.method == "DELETE":
+        if is_superadmin_group(group):
+            return JsonResponse({"detail": "超级管理员用户组不能删除"}, status=400)
         if group.user_set.exists():
             return JsonResponse({"detail": "用户组仍有关联用户，不能删除"}, status=400)
         group_name = group.name
@@ -189,11 +291,24 @@ def admin_group_detail(request, group_id: int):
         name = _required_string(payload.get("name"), "name")
         if isinstance(name, JsonResponse):
             return name
+        if is_superadmin_group(group) and name != SUPERADMIN_GROUP_NAME:
+            return JsonResponse(
+                {"detail": "超级管理员用户组名称不能修改"},
+                status=400,
+            )
         group.name = name
     if "permissions" in payload:
         permissions = _permission_names(payload.get("permissions"))
         if isinstance(permissions, JsonResponse):
             return permissions
+        if is_superadmin_group(group):
+            locked = superadmin_group_locked_permissions()
+            if locked - set(permissions):
+                return JsonResponse(
+                    {"detail": "超级管理员用户组必须保留后台访问权限"},
+                    status=400,
+                )
+            permissions = protected_group_permissions()
         _set_group_feature_permissions(group, permissions)
     try:
         group.save()
@@ -206,10 +321,12 @@ def admin_group_detail(request, group_id: int):
 
 
 @require_http_methods(["GET", "POST"])
-@api_permission_required("core.manage_feature_permissions")
+@api_any_permission_required("core.manage_feature_permissions", "core.create_user")
 def admin_users(request):
     User = get_user_model()
     if request.method == "POST":
+        if not has_feature_perm(request.user, "core.create_user"):
+            return JsonResponse({"detail": "当前用户无新建用户权限"}, status=403)
         payload = _json_payload(request)
         if isinstance(payload, JsonResponse):
             return payload
@@ -250,10 +367,19 @@ def update_admin_user_groups(request, user_id: int):
         normalized_group_ids = {int(group_id) for group_id in group_ids}
     except (TypeError, ValueError):
         return JsonResponse({"detail": "groupIds 必须是整数数组"}, status=400)
+    if is_initial_superadmin_user(user):
+        _, protected_group = ensure_superadmin_defaults(create_account=False)
+        normalized_group_ids.add(protected_group.id)
 
     groups = list(Group.objects.filter(id__in=normalized_group_ids))
     if len(groups) != len(normalized_group_ids):
         return JsonResponse({"detail": "包含不存在的用户组"}, status=400)
+    if not is_initial_superadmin_user(user) and any(
+        is_superadmin_group(group) for group in groups
+    ):
+        return JsonResponse(
+            {"detail": "不能将普通用户加入超级管理员用户组"}, status=400
+        )
     user.groups.set(groups)
     log_operation(
         request.user,
@@ -366,11 +492,16 @@ def _serialize_group(group: Group) -> dict[str, Any]:
         f"{permission.content_type.app_label}.{permission.codename}"
         for permission in group.permissions.select_related("content_type").all()
     }
+    is_protected = is_superadmin_group(group)
     return {
         "id": group.id,
         "name": group.name,
         "userCount": group.user_set.count(),
         "permissions": sorted(permissions & set(FEATURE_PERMISSION_NAMES)),
+        "isProtected": is_protected,
+        "lockedPermissions": sorted(
+            superadmin_group_locked_permissions() if is_protected else set()
+        ),
     }
 
 
@@ -499,6 +630,9 @@ def _create_admin_user(User, payload: dict[str, Any]):
     password = _required_string(payload.get("password"), "password")
     if isinstance(password, JsonResponse):
         return password
+    password_errors = password_validation_errors(password)
+    if password_errors:
+        return JsonResponse({"detail": "；".join(password_errors)}, status=400)
     email = str(payload.get("email", "")).strip()
     display_name = str(payload.get("displayName", "")).strip()
     department = str(payload.get("department", "")).strip()
@@ -514,6 +648,10 @@ def _create_admin_user(User, payload: dict[str, Any]):
     groups = list(Group.objects.filter(id__in=normalized_group_ids))
     if len(groups) != len(normalized_group_ids):
         return JsonResponse({"detail": "包含不存在的用户组"}, status=400)
+    if any(is_superadmin_group(group) for group in groups):
+        return JsonResponse(
+            {"detail": "不能将普通用户加入超级管理员用户组"}, status=400
+        )
 
     try:
         with transaction.atomic():

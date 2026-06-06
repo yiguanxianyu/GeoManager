@@ -332,6 +332,11 @@ body {
   min-width: 0;
 }
 
+.admin-password-form {
+  max-width: 520px;
+  min-width: 0;
+}
+
 .admin-permission-groups {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

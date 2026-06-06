@@ -97,7 +97,7 @@ frontend/src/
 ├── symbolization.ts            # 符号化类型、默认值、规则解析
 ├── styles.css                  # 全局样式
 ├── api/
-│   ├── client.ts               # fetch 封装、CSRF、API 端点
+│   ├── client.ts               # openapi-fetch 客户端、CSRF、API 端点
 │   └── schema.d.ts             # openapi-typescript 自动生成的 API 契约类型
 ├── pages/
 │   ├── LoginPage.tsx            # 登录页
@@ -134,7 +134,9 @@ frontend/src/
 - **Context 消除 props drilling**：`LayerContext` 提供图层组全部操作，`LayerPanel` 零 props 通过 `useLayerContext()` 消费。
 - **Discriminated union 类型安全**：`LoadedLayer = LoadedVectorLayer | LoadedRasterLayer`，通过 `layerType` 字段判别，编译期消除可选字段歧义。
 - **OpenAPI 契约驱动类型**：`frontend/src/api/schema.d.ts` 由 `docs/openapi.yaml` 通过 `openapi-typescript` 生成；`frontend/src/types.ts` 只保留前端运行态类型和少量 UI 扩展，后端 DTO 必须从生成 schema 派生。
-- **API 类型生成命令**：修改 `docs/openapi.yaml` 后运行 `pnpm run generate:api`，提交前运行 `pnpm run check:api` 确认生成文件未漂移。
+- **类型安全 API 请求**：`frontend/src/api/client.ts` 使用 `openapi-fetch` 的 `createClient<paths>()`，路径、路径参数、查询参数和 JSON 请求体必须来自 `docs/openapi.yaml`。表单上传和 ZIP 下载保留浏览器运行时处理，但仍通过 OpenAPI 路径和统一错误对象收敛。
+- **API 类型生成命令**：修改 `docs/openapi.yaml` 后运行 `pnpm run generate:api`，该命令先执行 Redocly lint 再生成 `schema.d.ts`；提交前运行 `pnpm run check:api` 确认 OpenAPI lint 通过且生成文件未漂移。
+- **API 文档生成命令**：运行 `pnpm run api:docs` 生成 Redoc HTML 文档，运行 `pnpm run api:bundle` 生成单文件 OpenAPI bundle，便于查阅和外部工具导入。
 
 ## 首批前端边界
 
@@ -203,9 +205,9 @@ frontend/src/
   - `geometry.test.ts` — 几何计算、边界合并、坐标提取、格式化工具
   - `layerFactory.test.ts` — 矢量/栅格图层组构建
 - 类型检查：`pnpm run typecheck`（`tsc --noEmit`）
-- API 类型生成检查：`pnpm run check:api`
+- API 契约检查：`pnpm run check:api`（Redocly lint + OpenAPI 类型漂移检查）
 - 快速生产构建：`pnpm run build`（仅执行 Vite 生产打包）
-- 发布/CI 构建验证：`pnpm run build:verify`（typecheck + vite build）
+- 发布/CI 构建验证：`pnpm run build:verify`（check:api + typecheck + vite build）
 
 ## 前端构建优化记录
 
@@ -248,10 +250,10 @@ huyang_system/
 ```json
 {
   "scripts": {
-    "version:patch": "npm version patch",
-    "version:minor": "npm version minor",
-    "version:major": "npm version major",
-    "version:prerelease": "npm version prerelease"
+    "version:patch": "pnpm version patch",
+    "version:minor": "pnpm version minor",
+    "version:major": "pnpm version major",
+    "version:prerelease": "pnpm version prerelease"
   }
 }
 ```
