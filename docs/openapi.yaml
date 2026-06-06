@@ -47,7 +47,7 @@ tags:
     description: 栅格数据管理接口
   - name: 异步任务
     description: 异步任务状态查询接口
-  - name: 新版管理后台
+  - name: 管理后台
     description: Ant Design Pro 管理后台用户、用户组、权限偏好和用户可配置设置接口
 
 paths:
@@ -187,7 +187,7 @@ paths:
 
   /api/admin/profile/:
     get:
-      tags: [新版管理后台]
+      tags: [管理后台]
       summary: 获取当前用户后台资料
       description: 返回当前登录用户的个人资料、已授予权限、主动关闭权限和有效权限。
       operationId: getAdminProfile
@@ -205,7 +205,7 @@ paths:
 
   /api/admin/profile/update/:
     patch:
-      tags: [新版管理后台]
+      tags: [管理后台]
       summary: 更新当前用户后台资料
       description: 更新当前用户的用户名、展示名称、邮箱、头像和部门。
       operationId: updateAdminProfile
@@ -231,7 +231,7 @@ paths:
 
   /api/admin/profile/permissions/:
     patch:
-      tags: [新版管理后台]
+      tags: [管理后台]
       summary: 更新当前用户主动关闭的权限
       description: 用户只能关闭或重新开启已经由上级授予的功能权限，不能写入未授予权限。
       operationId: updateAdminProfilePermissions
@@ -257,7 +257,7 @@ paths:
 
   /api/admin/profile/password/:
     patch:
-      tags: [新版管理后台]
+      tags: [管理后台]
       summary: 修改当前用户密码
       description: 校验当前密码、新密码至少 6 位和确认密码后更新密码，并记录操作日志。
       operationId: updateAdminProfilePassword
@@ -283,7 +283,7 @@ paths:
 
   /api/admin/operation-logs/:
     get:
-      tags: [新版管理后台]
+      tags: [管理后台]
       summary: 查询操作日志
       description: 基于真实操作日志表返回可分页、可筛选的后台操作日志。
       operationId: listAdminOperationLogs
@@ -551,7 +551,7 @@ paths:
 
   /api/admin/settings/:
     get:
-      tags: [新版管理后台]
+      tags: [管理后台]
       summary: 获取用户可配置设置
       description: 返回后台允许展示和修改的 application 配置，不返回 runtime 内部变量。
       operationId: getAdminSettings
@@ -569,7 +569,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
     patch:
-      tags: [新版管理后台]
+      tags: [管理后台]
       summary: 更新用户可配置设置
       description: 将后台设置直接写入 appdata 下的运行 TOML 配置副本。
       operationId: updateAdminSettings
@@ -1642,7 +1642,7 @@ components:
       properties:
         canAccessAdmin:
           type: boolean
-          description: 是否可访问新版管理后台及旧版 Django 管理后台入口
+          description: 是否可访问管理后台
         canManageFeaturePermissions:
           type: boolean
           description: 是否可配置功能权限

@@ -58,8 +58,8 @@ backend/apps/
 
 ## 首批后端边界
 
-- 使用 Django 内置 auth、admin、session、permission；平台后台是登录后的功能入口，通过平台功能权限决定是否显示和访问。
-- 新版管理后台使用前端 `/admin/` SPA 路由承载；旧版 Django Admin 保留在 `/admin2/`，并在新版后台顶部提供“旧版管理后台”入口。直接访问后端原 `/admin/` 路径会重定向到 `/admin2/`。
+- 使用 Django 内置 auth、session、permission；平台后台是登录后的功能入口，通过平台功能权限决定是否显示和访问。
+- 管理后台使用前端 `/admin/` SPA 路由承载；旧版 Django Admin 已移除，不再暴露 `/admin2/` 或后端 `/admin/` 重定向。
 - 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。全新生产环境不使用演示初始化脚本，首个注册用户自动成为系统管理员，后续注册用户为普通账号。
 - 本地前后端分离开发时，Vite dev server 运行在 `5173` 并代理 `/api` 到 Django；`[runtime].debug = true` 且未显式设置 `csrf_trusted_origins` 时，后端默认信任 `http://127.0.0.1:5173` 和 `http://localhost:5173`，确保首次注册和登录的 CSRF Origin 校验通过。
 - 运行日志统一写入业务数据根目录的 `logs/`：Django 应用日志、Django 框架日志、安全日志、Gunicorn 访问/错误日志、Nginx 访问/错误日志都落在该目录。

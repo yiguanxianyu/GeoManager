@@ -10,9 +10,10 @@ import zhCN from "antd/locale/zh_CN";
 import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppContext } from "../contexts/AppContext";
-import { RequireAdmin } from "../router";
+import { RequireAdmin, RequireDataMaintain } from "../router";
 import type { Bootstrap, User } from "../types";
 import AdminAuthPage from "./AdminAuthPage";
+import AdminDataImportPage from "./AdminDataImportPage";
 import AdminLayout from "./AdminLayout";
 import AdminOperationLogsPage from "./AdminOperationLogsPage";
 import AdminProfilePage from "./AdminProfilePage";
@@ -34,6 +35,9 @@ const mockApi = vi.hoisted(() => ({
   deleteAdminGroup: vi.fn(),
   adminSettings: vi.fn(),
   updateAdminSettings: vi.fn(),
+  importPreview: vi.fn(),
+  importValidate: vi.fn(),
+  importCommit: vi.fn(),
 }));
 
 vi.mock("../api/client", () => ({
@@ -142,6 +146,9 @@ function renderAdminRoute(initialEntry: string) {
               <Route path="logs" element={<AdminOperationLogsPage />} />
               <Route path="settings" element={<AdminSystemSettingsPage />} />
               <Route path="auth" element={<AdminAuthPage />} />
+              <Route element={<RequireDataMaintain />}>
+                <Route path="data/import" element={<AdminDataImportPage />} />
+              </Route>
             </Route>
           </Route>
         </Routes>
@@ -208,6 +215,40 @@ describe("admin routes", () => {
     });
     mockApi.adminSettings.mockResolvedValue(adminSettings);
     mockApi.updateAdminSettings.mockResolvedValue(adminSettings);
+    mockApi.importPreview.mockResolvedValue({
+      suggestedName: "样地调查点位",
+      suggestedTableName: "sample_points",
+      columns: ["plot_id", "longitude", "latitude", "height"],
+      rows: [
+        {
+          plot_id: "P001",
+          longitude: "87.6",
+          latitude: "41.7",
+          height: "3.2",
+        },
+      ],
+      limitations: ["Excel 只读取第一张表；所有字段按文本读取。"],
+      detected: {
+        isGeographic: true,
+        longitudeColumn: "longitude",
+        latitudeColumn: "latitude",
+      },
+    });
+    mockApi.importValidate.mockResolvedValue({
+      coordinateStats: {
+        totalRows: 1,
+        validRows: 1,
+        missingRows: 0,
+        quantizationErrorMeters: { min: 1.1, max: 1.1 },
+      },
+      validationIssues: [],
+    });
+    mockApi.importCommit.mockResolvedValue({
+      resourceId: 1,
+      resourceName: "样地调查点位",
+      importedRows: 1,
+      validationIssues: [],
+    });
   });
 
   it("redirects /admin to user settings", async () => {
@@ -265,5 +306,42 @@ describe("admin routes", () => {
     });
     const drawer = screen.getByRole("dialog", { name: "用户详情" });
     expect(within(drawer).getByText("平台运维组")).toBeInTheDocument();
+  }, 15000);
+
+  it("runs the admin data import step flow through preview and validation", async () => {
+    renderAdminRoute("/admin/data/import");
+
+    expect(
+      await screen.findByText("选择 Excel 或 CSV 文件"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("数据管理").length).toBeGreaterThan(0);
+    const input = document.querySelector(
+      "input[type='file']",
+    ) as HTMLInputElement;
+    const file = new File(["plot_id,longitude,latitude\nP001,87.6,41.7"], {
+      type: "text/csv",
+    });
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    expect(await screen.findByText("导入配置")).toBeInTheDocument();
+    expect(screen.getByLabelText("数据名称")).toHaveValue("样地调查点位");
+    fireEvent.click(screen.getByRole("button", { name: /数据校验并继续/ }));
+
+    await waitFor(() => {
+      expect(mockApi.importValidate).toHaveBeenCalledWith(file, {
+        importMode: "geographic",
+        longitudeColumn: "longitude",
+        latitudeColumn: "latitude",
+      });
+    });
+    const previewTitle = await screen.findByText("数据预览");
+    const metadataTitle = screen.getByText("字段元数据");
+    expect(previewTitle).toBeInTheDocument();
+    expect(metadataTitle).toBeInTheDocument();
+    expect(
+      previewTitle.compareDocumentPosition(metadataTitle) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   }, 15000);
 });

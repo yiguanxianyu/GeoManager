@@ -1,5 +1,6 @@
 import {
   AuditOutlined,
+  DatabaseOutlined,
   HomeOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
@@ -42,6 +43,19 @@ const authRoute: MenuDataItem = {
 
 function adminRouteFor(user: User | null) {
   const routes = [...baseAdminRoutes];
+  if (user?.permissions.canMaintainData) {
+    routes.push({
+      path: "/admin/data",
+      name: "数据管理",
+      icon: <DatabaseOutlined />,
+      children: [
+        {
+          path: "/admin/data/import",
+          name: "数据导入",
+        },
+      ],
+    });
+  }
   if (
     user?.permissions.canManageFeaturePermissions ||
     user?.permissions.canCreateUser
@@ -72,6 +86,10 @@ const pageMeta: Record<string, { title: string; subTitle: string }> = {
   "/admin/auth": {
     title: "认证授权",
     subTitle: "管理用户、角色和功能权限",
+  },
+  "/admin/data/import": {
+    title: "数据导入",
+    subTitle: "按文件选择、导入配置、数据预览三个步骤完成入库",
   },
 };
 
@@ -126,9 +144,6 @@ export default function AdminLayout() {
           onClick={() => navigate("/")}
         >
           业务入口
-        </Button>,
-        <Button key="legacy" href="/admin2/" target="_blank">
-          旧版管理后台
         </Button>,
         <Button key="logout" icon={<LogoutOutlined />} onClick={handleLogout}>
           退出

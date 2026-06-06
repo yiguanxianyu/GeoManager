@@ -990,7 +990,7 @@ export interface components {
             permissions: components["schemas"]["UserPermissions"];
         };
         UserPermissions: {
-            /** @description 是否可访问新版管理后台及旧版 Django 管理后台入口 */
+            /** @description 是否可访问管理后台 */
             canAccessAdmin: boolean;
             /** @description 是否可配置功能权限 */
             canManageFeaturePermissions: boolean;

@@ -4,10 +4,16 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { ApiError, api } from "./api/client";
 import { AppContext } from "./contexts/AppContext";
-import { RedirectIfAuth, RequireAdmin, RequireAuth } from "./router";
+import {
+  RedirectIfAuth,
+  RequireAdmin,
+  RequireAuth,
+  RequireDataMaintain,
+} from "./router";
 import type { Bootstrap, User } from "./types";
 
 const AdminAuthPage = lazy(() => import("./admin/AdminAuthPage"));
+const AdminDataImportPage = lazy(() => import("./admin/AdminDataImportPage"));
 const AdminLayout = lazy(() => import("./admin/AdminLayout"));
 const AdminOperationLogsPage = lazy(
   () => import("./admin/AdminOperationLogsPage"),
@@ -17,7 +23,6 @@ const AdminSystemSettingsPage = lazy(
   () => import("./admin/AdminSystemSettingsPage"),
 );
 const HomePage = lazy(() => import("./pages/HomePage"));
-const ImportPage = lazy(() => import("./pages/ImportPage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const MapPage = lazy(() => import("./pages/MapPage"));
 const NonGeoPage = lazy(() => import("./pages/NonGeoPage"));
@@ -134,14 +139,6 @@ export default function App() {
                 </RouteTransition>
               }
             />
-            <Route
-              path="/import"
-              element={
-                <RouteTransition>
-                  <ImportPage />
-                </RouteTransition>
-              }
-            />
             <Route element={<RequireAdmin />}>
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<Navigate to="profile" replace />} />
@@ -149,6 +146,9 @@ export default function App() {
                 <Route path="logs" element={<AdminOperationLogsPage />} />
                 <Route path="settings" element={<AdminSystemSettingsPage />} />
                 <Route path="auth" element={<AdminAuthPage />} />
+                <Route element={<RequireDataMaintain />}>
+                  <Route path="data/import" element={<AdminDataImportPage />} />
+                </Route>
               </Route>
             </Route>
           </Route>

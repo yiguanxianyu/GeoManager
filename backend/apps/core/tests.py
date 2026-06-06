@@ -9,7 +9,6 @@ from django.test import SimpleTestCase, TestCase
 from data_sharing_platform.settings import _default_csrf_trusted_origins
 
 from apps.audit.models import OperationLog
-from apps.core.admin import FeatureGroupForm
 from apps.core.config import (
     ensure_runtime_config_file,
     load_project_config,
@@ -104,56 +103,10 @@ class RegistrationApiTests(TestCase):
 
 
 class FeaturePermissionTests(TestCase):
-    def test_admin_requires_access_admin_permission_not_staff_flag(self):
-        user = get_user_model().objects.create_user(
-            username="staff-no-access", password="pass12345", is_staff=True
-        )
-        group = Group.objects.create(name="普通用户")
-        user.groups.add(group)
-        self.client.force_login(user)
-
+    def test_legacy_django_admin_route_is_removed(self):
         response = self.client.get("/admin2/")
 
-        self.assertEqual(response.status_code, 403)
-        self.assertIn("当前用户组“普通用户”无权限", response.content.decode("utf-8"))
-
-    def test_access_admin_permission_allows_non_staff_admin_entry(self):
-        user = get_user_model().objects.create_user(
-            username="admin-access", password="pass12345", is_staff=False
-        )
-        grant(user, ("core", "access_admin"))
-        self.client.force_login(user)
-
-        response = self.client.get("/admin2/")
-
-        self.assertEqual(response.status_code, 200)
-
-    def test_old_admin_path_redirects_to_admin2(self):
-        response = self.client.get("/admin/")
-
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response["Location"], "/admin2/")
-
-    def test_feature_group_form_preserves_non_feature_permissions(self):
-        group = Group.objects.create(name="科研用户")
-        add_user = Permission.objects.get(
-            content_type__app_label="auth", codename="add_user"
-        )
-        browse_data = Permission.objects.get(
-            content_type__app_label="core", codename="browse_data"
-        )
-        group.permissions.add(add_user)
-        form = FeatureGroupForm(
-            data={"name": group.name, "feature_permissions": [browse_data.id]},
-            instance=group,
-        )
-
-        self.assertTrue(form.is_valid(), form.errors)
-        form.save()
-
-        group.refresh_from_db()
-        self.assertTrue(group.permissions.filter(id=add_user.id).exists())
-        self.assertTrue(group.permissions.filter(id=browse_data.id).exists())
+        self.assertEqual(response.status_code, 404)
 
     def test_user_can_disable_only_granted_feature_permissions(self):
         user = get_user_model().objects.create_user(
@@ -192,7 +145,7 @@ class FeaturePermissionTests(TestCase):
         user.groups.add(group)
         self.client.force_login(manager)
 
-        response = self.client.delete(f"/api/admin/groups/{group.id}/")
+        response = self.client.delete(f"/api/groups/{group.id}/")
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "用户组仍有关联用户，不能删除")
@@ -209,7 +162,7 @@ class FeaturePermissionTests(TestCase):
         self.client.force_login(manager)
 
         response = self.client.post(
-            "/api/admin/users/",
+            "/api/users/",
             data=json.dumps(
                 {
                     "username": "created-by-admin",
@@ -238,7 +191,7 @@ class FeaturePermissionTests(TestCase):
         self.client.force_login(manager)
 
         response = self.client.post(
-            "/api/admin/users/",
+            "/api/users/",
             data=json.dumps(
                 {
                     "username": "blocked-create",
@@ -258,7 +211,7 @@ class FeaturePermissionTests(TestCase):
         grant(manager, ("core", "create_user"))
         self.client.force_login(manager)
 
-        response = self.client.get("/api/admin/groups/")
+        response = self.client.get("/api/groups/")
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("items", response.json())
@@ -272,7 +225,7 @@ class FeaturePermissionTests(TestCase):
         self.client.force_login(manager)
 
         response = self.client.post(
-            "/api/admin/users/",
+            "/api/users/",
             data=json.dumps(
                 {
                     "username": "blocked-protected-group",
@@ -302,7 +255,7 @@ class FeaturePermissionTests(TestCase):
         self.client.force_login(manager)
 
         response = self.client.patch(
-            f"/api/admin/users/{target.id}/groups/",
+            f"/api/users/{target.id}/groups/",
             data=json.dumps({"groupIds": [protected_group.id]}),
             content_type="application/json",
         )
@@ -320,7 +273,7 @@ class FeaturePermissionTests(TestCase):
         grant(manager, ("core", "manage_feature_permissions"))
         self.client.force_login(manager)
 
-        response = self.client.get("/api/admin/groups/")
+        response = self.client.get("/api/groups/")
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -344,7 +297,7 @@ class FeaturePermissionTests(TestCase):
         _, group = ensure_superadmin_defaults(create_account=False)
         self.client.force_login(manager)
 
-        delete_response = self.client.delete(f"/api/admin/groups/{group.id}/")
+        delete_response = self.client.delete(f"/api/groups/{group.id}/")
         self.assertEqual(delete_response.status_code, 400)
         self.assertEqual(
             delete_response.json()["detail"],
@@ -352,7 +305,7 @@ class FeaturePermissionTests(TestCase):
         )
 
         patch_response = self.client.patch(
-            f"/api/admin/groups/{group.id}/",
+            f"/api/groups/{group.id}/",
             data=json.dumps({"permissions": ["core.browse_data"]}),
             content_type="application/json",
         )
@@ -372,7 +325,7 @@ class FeaturePermissionTests(TestCase):
         self.client.force_login(manager)
 
         response = self.client.patch(
-            f"/api/admin/users/{protected_user.id}/groups/",
+            f"/api/users/{protected_user.id}/groups/",
             data=json.dumps({"groupIds": [normal_group.id]}),
             content_type="application/json",
         )
@@ -409,8 +362,8 @@ class FeaturePermissionTests(TestCase):
             data=json.dumps(
                 {
                     "currentPassword": "wrong-password",
-                    "newPassword": "NewStrongPass12345",
-                    "passwordConfirm": "NewStrongPass12345",
+                    "newPassword": "NewStrong12345",
+                    "passwordConfirm": "NewStrong12345",
                 }
             ),
             content_type="application/json",
@@ -461,8 +414,8 @@ class FeaturePermissionTests(TestCase):
             data=json.dumps(
                 {
                     "currentPassword": "StrongPass12345",
-                    "newPassword": "NewStrongPass12345",
-                    "passwordConfirm": "NewStrongPass12345",
+                    "newPassword": "NewStrong12345",
+                    "passwordConfirm": "NewStrong12345",
                 }
             ),
             content_type="application/json",
@@ -471,7 +424,7 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         user.refresh_from_db()
         self.assertFalse(user.check_password("StrongPass12345"))
-        self.assertTrue(user.check_password("NewStrongPass12345"))
+        self.assertTrue(user.check_password("NewStrong12345"))
         self.assertTrue(
             OperationLog.objects.filter(
                 user=user,

@@ -1,11 +1,11 @@
 import {
-  ArrowLeftOutlined,
   CheckCircleOutlined,
   CloudUploadOutlined,
-  FileExcelOutlined,
-  LogoutOutlined,
+  DatabaseOutlined,
   QuestionCircleOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
+import { ProCard } from "@ant-design/pro-components";
 import {
   Alert,
   App as AntApp,
@@ -14,11 +14,12 @@ import {
   Descriptions,
   Form,
   Input,
-  Layout,
   Modal,
   Radio,
+  Result,
   Select,
   Space,
+  Steps,
   Switch,
   Table,
   Tag,
@@ -27,9 +28,7 @@ import {
   Upload,
 } from "antd";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { ApiError, api } from "../api/client";
-import { useAppContext } from "../contexts/AppContext";
 import type {
   ImportCommitPayload,
   ImportCommitResult,
@@ -47,11 +46,12 @@ interface ImportFormValues {
   overwrite: boolean;
 }
 
-export default function ImportPage() {
-  const { bootstrap, user, setUser } = useAppContext();
+type IssueAction = "continue" | "import";
+
+export default function AdminDataImportPage() {
   const { message } = AntApp.useApp();
-  const navigate = useNavigate();
   const [form] = Form.useForm<ImportFormValues>();
+  const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [fieldMetadata, setFieldMetadata] = useState<Record<string, string>>(
@@ -69,6 +69,8 @@ export default function ImportPage() {
   const [validating, setValidating] = useState(false);
   const [hasValidated, setHasValidated] = useState(false);
   const [issuesOpen, setIssuesOpen] = useState(false);
+  const [pendingIssueAction, setPendingIssueAction] =
+    useState<IssueAction | null>(null);
   const [ignoreCoordinateUncertainty, setIgnoreCoordinateUncertainty] =
     useState(false);
 
@@ -102,25 +104,38 @@ export default function ImportPage() {
     [preview],
   );
 
-  async function handleLogout() {
-    try {
-      await api.logout();
-    } catch {
-      // 退出接口异常，本地会话已清空
-    }
-    setUser(null);
+  const stats = validationStats;
+  const hasBlockingIssues = validationIssues.some((issue) => issue.blocking);
+  const hasIgnorableUncertainty = validationIssues.some(
+    (issue) => issue.code === "coordinate_uncertainty",
+  );
+
+  function resetImportState() {
+    setFile(null);
+    setPreview(null);
+    setFieldMetadata({});
+    setIncludedColumns([]);
+    setValidationIssues([]);
+    setValidationStats(null);
+    setHasValidated(false);
+    setIgnoreCoordinateUncertainty(false);
+    setPendingIssueAction(null);
+    setIssuesOpen(false);
+    setResult(null);
+    setCurrentStep(0);
+    form.resetFields();
   }
 
-  async function handlePreview(selectedFile?: File) {
-    const targetFile = selectedFile ?? file;
-    if (!targetFile) {
-      message.warning("请先选择 Excel 或 CSV 文件");
-      return;
-    }
+  async function handlePreview(selectedFile: File) {
+    setFile(selectedFile);
     setPreviewing(true);
     setResult(null);
+    setValidationIssues([]);
+    setValidationStats(null);
+    setHasValidated(false);
+    setIgnoreCoordinateUncertainty(false);
     try {
-      const data = await api.importPreview(targetFile);
+      const data = await api.importPreview(selectedFile);
       setPreview(data);
       setFieldMetadata(
         Object.fromEntries(data.columns.map((column) => [column, ""])),
@@ -133,11 +148,8 @@ export default function ImportPage() {
         latitudeColumn: data.detected.latitudeColumn ?? undefined,
         overwrite: false,
       });
-      setValidationIssues([]);
-      setValidationStats(null);
-      setHasValidated(false);
-      setIgnoreCoordinateUncertainty(false);
-      message.success("预检完成");
+      setCurrentStep(1);
+      message.success("文件预检完成，请配置导入信息");
     } catch (error) {
       message.error(error instanceof Error ? error.message : "预检失败");
     } finally {
@@ -145,21 +157,13 @@ export default function ImportPage() {
     }
   }
 
-  async function handleImport() {
-    await submitImport(ignoreCoordinateUncertainty);
-  }
-
-  async function handleValidate() {
+  async function handleValidateAndContinue() {
     if (!file || !preview) {
-      message.warning("请先完成文件预检");
+      message.warning("请先选择并预检文件");
       return;
     }
     try {
-      const values = await form.validateFields([
-        "importMode",
-        "longitudeColumn",
-        "latitudeColumn",
-      ]);
+      const values = await form.validateFields();
       const payload: ImportValidatePayload = {
         importMode: values.importMode,
         longitudeColumn: values.longitudeColumn,
@@ -169,17 +173,20 @@ export default function ImportPage() {
       const validated = await api.importValidate(file, payload);
       setValidationStats(validated.coordinateStats);
       setValidationIssues(validated.validationIssues);
-      setIgnoreCoordinateUncertainty(false);
       setHasValidated(true);
+      setIgnoreCoordinateUncertainty(false);
       if (validated.validationIssues.length) {
+        setPendingIssueAction("continue");
         setIssuesOpen(true);
-      } else {
-        message.success("数据校验通过");
+        return;
       }
+      message.success("数据校验通过");
+      setCurrentStep(2);
     } catch (error) {
       const issues = importIssuesFromError(error);
       if (issues.length) {
         setValidationIssues(issues);
+        setPendingIssueAction("continue");
         setIssuesOpen(true);
       } else {
         message.error(error instanceof Error ? error.message : "数据校验失败");
@@ -189,17 +196,23 @@ export default function ImportPage() {
     }
   }
 
+  async function handleImport() {
+    await submitImport(ignoreCoordinateUncertainty);
+  }
+
   async function submitImport(ignoreUncertainty: boolean) {
     if (!file || !preview) {
-      message.warning("请先完成文件预检");
+      message.warning("请先选择并预检文件");
       return;
     }
     try {
-      if (form.getFieldValue("importMode") === "geographic" && !hasValidated) {
+      if (!hasValidated) {
         message.warning("请先进行数据校验");
+        setCurrentStep(1);
         return;
       }
       if (shouldBlockImport(validationIssues, ignoreUncertainty)) {
+        setPendingIssueAction("import");
         setIssuesOpen(true);
         return;
       }
@@ -224,6 +237,7 @@ export default function ImportPage() {
       const issues = importIssuesFromError(error);
       if (issues.length) {
         setValidationIssues(issues);
+        setPendingIssueAction("import");
         setIssuesOpen(true);
       } else {
         message.error(error instanceof Error ? error.message : "导入失败");
@@ -233,111 +247,85 @@ export default function ImportPage() {
     }
   }
 
-  const stats = validationStats;
-  const hasBlockingIssues = validationIssues.some((issue) => issue.blocking);
-  const hasIgnorableUncertainty = validationIssues.some(
-    (issue) => issue.code === "coordinate_uncertainty",
-  );
-
-  if (!user) {
-    return null;
+  function handleIssueConfirm() {
+    if (hasBlockingIssues || !hasIgnorableUncertainty) {
+      setIssuesOpen(false);
+      return;
+    }
+    setIgnoreCoordinateUncertainty(true);
+    setIssuesOpen(false);
+    if (pendingIssueAction === "continue") {
+      setCurrentStep(2);
+      return;
+    }
+    void submitImport(true);
   }
 
   return (
-    <Layout className="import-workspace">
-      <Layout.Header className="portal-header">
-        <div className="header-left">
-          <Button
-            icon={<ArrowLeftOutlined style={{ fontSize: 16 }} />}
-            onClick={() => navigate("/")}
-          >
-            返回入口
-          </Button>
-          <div className="brand-block">
-            <FileExcelOutlined style={{ fontSize: 22 }} />
-            <Typography.Title level={4}>
-              {bootstrap.systemName} / 数据导入
-            </Typography.Title>
-          </div>
-        </div>
-        <div className="header-account-actions">
-          <Button className="user-button">{user.displayName}</Button>
-          <Button
-            icon={<LogoutOutlined style={{ fontSize: 16 }} />}
-            onClick={handleLogout}
-          >
-            退出
-          </Button>
-        </div>
-      </Layout.Header>
-      <main className="import-stage">
-        <section className="import-main">
-          <div className="import-upload-panel">
-            <Upload.Dragger
-              accept=".csv,.xls,.xlsx"
-              disabled={previewing}
-              beforeUpload={(selectedFile) => {
-                setFile(selectedFile);
-                setPreview(null);
-                setResult(null);
-                setIncludedColumns([]);
-                setValidationIssues([]);
-                setValidationStats(null);
-                setHasValidated(false);
-                setIgnoreCoordinateUncertainty(false);
-                void handlePreview(selectedFile);
-                return false;
-              }}
-              maxCount={1}
-              showUploadList={false}
-              onRemove={() => {
-                setFile(null);
-                setPreview(null);
-                setResult(null);
-                setIncludedColumns([]);
-                setValidationIssues([]);
-                setValidationStats(null);
-                setHasValidated(false);
-                setIgnoreCoordinateUncertainty(false);
-              }}
-            >
-              <CloudUploadOutlined style={{ fontSize: 34 }} />
-              <Typography.Title level={4}>
-                选择 Excel 或 CSV 文件
-              </Typography.Title>
-              <Typography.Text type="secondary">
-                Excel 只读取第一张表；所有字段按文本读取。
-              </Typography.Text>
-              <div className="import-selected-file">
-                {previewing ? (
-                  <Tag color="processing">正在预检文件...</Tag>
-                ) : file ? (
-                  <Tag color="green">{file.name}</Tag>
-                ) : (
-                  <Tag>尚未选择文件</Tag>
-                )}
-              </div>
-            </Upload.Dragger>
-          </div>
+    <div className="admin-page-stack admin-import-page">
+      <ProCard className="admin-section-card">
+        <Steps
+          current={currentStep}
+          items={[
+            { title: "选择文件", icon: <CloudUploadOutlined /> },
+            { title: "导入配置", icon: <DatabaseOutlined /> },
+            { title: "预览提交", icon: <CheckCircleOutlined /> },
+          ]}
+        />
+      </ProCard>
 
-          {preview && (
-            <Form
-              form={form}
-              layout="vertical"
-              className="import-config-form"
-              onValuesChange={(changed) => {
-                if (
-                  "importMode" in changed ||
-                  "longitudeColumn" in changed ||
-                  "latitudeColumn" in changed
-                ) {
-                  setValidationIssues([]);
-                  setValidationStats(null);
-                  setHasValidated(false);
-                  setIgnoreCoordinateUncertainty(false);
-                }
-              }}
-            >
+      <ProCard className="admin-section-card">
+        <Form
+          form={form}
+          layout="vertical"
+          component={false}
+          onValuesChange={(changed) => {
+            if (
+              "importMode" in changed ||
+              "longitudeColumn" in changed ||
+              "latitudeColumn" in changed
+            ) {
+              setValidationIssues([]);
+              setValidationStats(null);
+              setHasValidated(false);
+              setIgnoreCoordinateUncertainty(false);
+            }
+          }}
+        >
+          {currentStep === 0 && (
+            <section className="import-step-pane">
+              <Upload.Dragger
+                accept=".csv,.xls,.xlsx"
+                disabled={previewing}
+                beforeUpload={(selectedFile) => {
+                  void handlePreview(selectedFile);
+                  return false;
+                }}
+                maxCount={1}
+                showUploadList={false}
+              >
+                <CloudUploadOutlined style={{ fontSize: 34 }} />
+                <Typography.Title level={4}>
+                  选择 Excel 或 CSV 文件
+                </Typography.Title>
+                <Typography.Text type="secondary">
+                  选择文件后自动预检，并进入导入配置步骤。
+                </Typography.Text>
+                <div className="import-selected-file">
+                  {previewing ? (
+                    <Tag color="processing">正在预检文件...</Tag>
+                  ) : file ? (
+                    <Tag color="green">{file.name}</Tag>
+                  ) : (
+                    <Tag>尚未选择文件</Tag>
+                  )}
+                </div>
+              </Upload.Dragger>
+            </section>
+          )}
+
+          {currentStep === 1 && preview && (
+            <div className="import-config-form">
               <Alert
                 type="info"
                 showIcon
@@ -350,6 +338,7 @@ export default function ImportPage() {
                   </ul>
                 }
               />
+
               <div className="import-config-grid">
                 <Form.Item
                   name="name"
@@ -361,7 +350,7 @@ export default function ImportPage() {
                 <Form.Item
                   name="importMode"
                   label="导入类型"
-                  rules={[{ required: true }]}
+                  rules={[{ required: true, message: "请选择导入类型" }]}
                 >
                   <Radio.Group
                     optionType="button"
@@ -412,15 +401,6 @@ export default function ImportPage() {
                         />
                       </Form.Item>
                       <Space className="import-validation-actions">
-                        <Button
-                          icon={
-                            <CheckCircleOutlined style={{ fontSize: 16 }} />
-                          }
-                          loading={validating}
-                          onClick={handleValidate}
-                        >
-                          数据校验
-                        </Button>
                         {hasValidated && validationIssues.length === 0 && (
                           <Tag color="green">校验通过</Tag>
                         )}
@@ -469,92 +449,125 @@ export default function ImportPage() {
                 />
               )}
 
-              <section className="import-section">
-                <Typography.Title level={5}>字段元数据</Typography.Title>
-                <Table
-                  size="small"
-                  rowKey="column"
-                  pagination={false}
-                  dataSource={preview.columns.map((column) => ({
-                    column,
-                    description: fieldMetadata[column] ?? "",
-                    included: includedColumns.includes(column),
-                  }))}
-                  columns={[
-                    {
-                      title: "上传",
-                      dataIndex: "included",
-                      width: 88,
-                      render: (_, record) => (
-                        <Checkbox
-                          checked={includedColumns.includes(record.column)}
-                          onChange={(event) => {
-                            setIncludedColumns((current) =>
-                              event.target.checked
-                                ? [...current, record.column]
-                                : current.filter(
-                                    (column) => column !== record.column,
-                                  ),
-                            );
-                          }}
-                        />
-                      ),
-                    },
-                    { title: "字段", dataIndex: "column", width: 220 },
-                    {
-                      title: "描述",
-                      dataIndex: "description",
-                      render: (_, record) => (
-                        <Input.TextArea
-                          autoSize={{ minRows: 1, maxRows: 4 }}
-                          placeholder="中文名称、单位、计算方式、数据来源等，可留空"
-                          value={fieldMetadata[record.column] ?? ""}
-                          onChange={(event) =>
-                            setFieldMetadata((current) => ({
-                              ...current,
-                              [record.column]: event.target.value,
-                            }))
-                          }
-                        />
-                      ),
-                    },
-                  ]}
-                />
-              </section>
-
-              <section className="import-section">
-                <Typography.Title level={5}>数据预览</Typography.Title>
-                <div className="import-preview-scroll">
-                  <Table
-                    size="small"
-                    rowKey="previewRowKey"
-                    pagination={false}
-                    scroll={{ x: "max-content" }}
-                    dataSource={previewRows}
-                    columns={previewColumns}
-                  />
-                </div>
-              </section>
-
               <Space className="import-actions">
+                <Button onClick={resetImportState}>重新选择文件</Button>
                 <Button
                   type="primary"
                   icon={<CheckCircleOutlined style={{ fontSize: 16 }} />}
-                  loading={importing}
-                  onClick={handleImport}
+                  loading={validating}
+                  onClick={handleValidateAndContinue}
                 >
-                  提交导入
+                  数据校验并继续
                 </Button>
-                {result && (
-                  <Tag color="green">
-                    已导入 {result.resourceName} · {result.importedRows} 行
-                  </Tag>
-                )}
               </Space>
-            </Form>
+            </div>
           )}
-        </section>
-      </main>
+
+          {currentStep === 2 && preview && (
+            <section className="import-step-pane">
+              {result ? (
+                <Result
+                  status="success"
+                  title="数据导入完成"
+                  subTitle={`已导入 ${result.resourceName}，共 ${result.importedRows} 行。`}
+                  extra={[
+                    <Button
+                      key="again"
+                      type="primary"
+                      icon={<ReloadOutlined />}
+                      onClick={resetImportState}
+                    >
+                      继续导入
+                    </Button>,
+                  ]}
+                />
+              ) : (
+                <>
+                  <section className="import-section">
+                    <Typography.Title level={5}>数据预览</Typography.Title>
+                    <div className="import-preview-scroll">
+                      <Table
+                        size="small"
+                        rowKey="previewRowKey"
+                        pagination={false}
+                        scroll={{ x: "max-content" }}
+                        dataSource={previewRows}
+                        columns={previewColumns}
+                      />
+                    </div>
+                  </section>
+
+                  <section className="import-section">
+                    <Typography.Title level={5}>字段元数据</Typography.Title>
+                    <Table
+                      size="small"
+                      rowKey="column"
+                      pagination={false}
+                      dataSource={preview.columns.map((column) => ({
+                        column,
+                        description: fieldMetadata[column] ?? "",
+                        included: includedColumns.includes(column),
+                      }))}
+                      columns={[
+                        {
+                          title: "上传",
+                          dataIndex: "included",
+                          width: 64,
+                          render: (_, record) => (
+                            <Checkbox
+                              checked={includedColumns.includes(record.column)}
+                              onChange={(event) => {
+                                setIncludedColumns((current) =>
+                                  event.target.checked
+                                    ? [...current, record.column]
+                                    : current.filter(
+                                        (column) => column !== record.column,
+                                      ),
+                                );
+                              }}
+                            />
+                          ),
+                        },
+                        { title: "字段", dataIndex: "column", width: 150 },
+                        {
+                          title: "描述",
+                          dataIndex: "description",
+                          render: (_, record) => (
+                            <Input.TextArea
+                              autoSize={{ minRows: 1, maxRows: 4 }}
+                              placeholder="中文名称、单位、计算方式、数据来源等，可留空"
+                              value={fieldMetadata[record.column] ?? ""}
+                              onChange={(event) =>
+                                setFieldMetadata((current) => ({
+                                  ...current,
+                                  [record.column]: event.target.value,
+                                }))
+                              }
+                            />
+                          ),
+                        },
+                      ]}
+                    />
+                  </section>
+
+                  <Space className="import-actions">
+                    <Button onClick={() => setCurrentStep(1)}>上一步</Button>
+                    <Button
+                      type="primary"
+                      icon={<CheckCircleOutlined style={{ fontSize: 16 }} />}
+                      loading={importing}
+                      onClick={handleImport}
+                    >
+                      提交导入
+                    </Button>
+                  </Space>
+                </>
+              )}
+            </section>
+          )}
+        </Form>
+      </ProCard>
+
       <Modal
         title="上传数据校验结果"
         open={issuesOpen}
@@ -564,7 +577,9 @@ export default function ImportPage() {
           hasBlockingIssues
             ? ""
             : hasIgnorableUncertainty
-              ? "忽略并继续导入"
+              ? pendingIssueAction === "continue"
+                ? "忽略并进入预览"
+                : "忽略并继续导入"
               : ""
         }
         confirmLoading={importing}
@@ -575,15 +590,7 @@ export default function ImportPage() {
               : undefined,
           disabled: hasIgnorableUncertainty && !ignoreCoordinateUncertainty,
         }}
-        onOk={() => {
-          if (hasBlockingIssues || !hasIgnorableUncertainty) {
-            setIssuesOpen(false);
-            return;
-          }
-          setIgnoreCoordinateUncertainty(true);
-          setIssuesOpen(false);
-          void submitImport(true);
-        }}
+        onOk={handleIssueConfirm}
       >
         <Alert
           type={hasBlockingIssues ? "error" : "warning"}
@@ -596,7 +603,7 @@ export default function ImportPage() {
           description={
             hasBlockingIssues
               ? "请修正以下问题后重新预检或提交。"
-              : "坐标不确定性差距可能影响空间分析精度，确认后可继续导入。"
+              : "坐标不确定性差距可能影响空间分析精度，确认后可继续。"
           }
         />
         <Table
@@ -641,11 +648,11 @@ export default function ImportPage() {
               setIgnoreCoordinateUncertainty(event.target.checked)
             }
           >
-            我已了解坐标不确定性差距，并继续导入
+            我已了解坐标不确定性差距，并继续
           </Checkbox>
         )}
       </Modal>
-    </Layout>
+    </div>
   );
 }
 

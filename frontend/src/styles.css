@@ -119,8 +119,7 @@ body {
 }
 
 .visualization-home,
-.nongeo-workspace,
-.import-workspace {
+.nongeo-workspace {
   min-height: 100vh;
   background:
     linear-gradient(
@@ -253,21 +252,6 @@ body {
 
 .choice-card-tags .ant-tag {
   margin-inline-end: 0;
-}
-
-.portal-admin-entry {
-  display: flex;
-  justify-content: center;
-  padding-bottom: 8px;
-}
-
-.portal-admin-entry .ant-btn {
-  min-width: min(360px, 100%);
-  height: 48px;
-  border-color: rgba(23, 63, 57, 0.2);
-  color: #173f39;
-  background: rgba(255, 255, 255, 0.84);
-  box-shadow: 0 16px 48px rgba(22, 48, 43, 0.14);
 }
 
 .admin-pro-layout {
@@ -511,35 +495,22 @@ body {
   background: rgba(250, 252, 249, 0.34);
 }
 
-.import-stage {
-  min-height: calc(100vh - 66px);
-  padding: 24px clamp(16px, 4vw, 48px);
-  background: rgba(250, 252, 249, 0.5);
-}
-
-.import-main {
-  width: min(1280px, 100%);
-  margin: 0 auto;
-  display: grid;
-  gap: 18px;
-}
-
-.import-upload-panel {
-  display: grid;
-  gap: 14px;
-  align-items: stretch;
-  padding: 18px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(23, 63, 57, 0.12);
-  border-radius: 8px;
-}
-
-.import-upload-panel .ant-upload-wrapper,
-.import-upload-panel .ant-upload-drag {
+.admin-import-page {
   min-width: 0;
 }
 
-.import-upload-panel .ant-upload-drag {
+.import-step-pane {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.import-step-pane .ant-upload-wrapper,
+.import-step-pane .ant-upload-drag {
+  min-width: 0;
+}
+
+.import-step-pane .ant-upload-drag {
   display: grid;
   place-items: center;
 }
@@ -553,10 +524,7 @@ body {
 .import-config-form {
   display: grid;
   gap: 16px;
-  padding: 18px;
-  background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(23, 63, 57, 0.12);
-  border-radius: 8px;
+  min-width: 0;
 }
 
 .import-limit-list {
@@ -1618,18 +1586,11 @@ body {
     flex-direction: column;
   }
 
-  .import-stage {
-    min-height: calc(100vh - 112px);
-    padding: 14px;
-  }
-
-  .import-upload-panel,
   .import-config-grid,
   .import-coordinate-grid {
     grid-template-columns: 1fr;
   }
 
-  .import-upload-panel > .ant-btn,
   .import-actions .ant-btn {
     width: 100%;
   }

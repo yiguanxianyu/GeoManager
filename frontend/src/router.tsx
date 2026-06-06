@@ -19,6 +19,15 @@ export function RequireAdmin() {
   return <Outlet />;
 }
 
+/** 需要数据维护权限才能访问的后台数据管理路由 */
+export function RequireDataMaintain() {
+  const { user } = useAppContext();
+  if (!user?.permissions.canMaintainData) {
+    return <Navigate to="/admin/profile" replace />;
+  }
+  return <Outlet />;
+}
+
 /** 已登录用户访问登录页时重定向到首页 */
 export function RedirectIfAuth() {
   const { user } = useAppContext();

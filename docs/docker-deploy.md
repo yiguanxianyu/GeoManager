@@ -1,6 +1,6 @@
 # Linux Docker 部署说明
 
-本文档说明如何用 Docker 部署“中亚胡杨林生态系统保护数据共享平台”。后端容器启动时执行数据库迁移和 `collectstatic`，由 Gunicorn 提供 WSGI 服务；新版管理后台由前端 `/admin/` SPA 承载，旧版 Django Admin 保留在 `/admin2/`。
+本文档说明如何用 Docker 部署“中亚胡杨林生态系统保护数据共享平台”。后端容器启动时执行数据库迁移和 `collectstatic`，由 Gunicorn 提供 WSGI 服务；管理后台由前端 `/admin/` SPA 承载。
 
 ## 容器路径
 
@@ -99,7 +99,7 @@ scripts/deploy.sh /srv/data-platform/app.toml
 
 ## 初始化管理员
 
-首次部署默认可开放自助注册。第一个通过登录页注册的用户会自动成为系统管理员。之后可通过 `/admin/` 访问新版管理后台，通过 `/admin2/` 访问旧版 Django Admin；新版后台顶部提供“旧版管理后台”入口。
+首次部署默认可开放自助注册。第一个通过登录页注册的用户会自动成为系统管理员。之后可通过 `/admin/` 访问管理后台。
 
 ## 数据目录约定
 

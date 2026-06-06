@@ -57,7 +57,6 @@ else:
     CSRF_TRUSTED_ORIGINS = _default_csrf_trusted_origins(ALLOWED_HOSTS, DEBUG)
 
 INSTALLED_APPS = [
-    "apps.core.admin_config.HuyangAdminConfig",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -75,7 +74,6 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "apps.core.middleware.AdminAccessPermissionMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

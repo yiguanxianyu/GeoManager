@@ -1,21 +1,20 @@
 from __future__ import annotations
 
-from django.contrib.auth import get_user_model
+import secrets
+
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
+PASSWORD_CHARS = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*"
+
 
 def generate_password(length: int = 8) -> str:
-    """使用 Django 内置方法生成随机密码"""
+    """生成符合平台长度限制的随机密码。"""
     if length < 6:
         length = 6
     if length > 16:
         length = 16
-    User = get_user_model()
-    return User.objects.make_random_password(
-        length=length,
-        allowed_chars="abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*",
-    )
+    return "".join(secrets.choice(PASSWORD_CHARS) for _ in range(length))
 
 
 def password_validation_errors(password: str, *, user=None) -> list[str]:

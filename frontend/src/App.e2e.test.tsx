@@ -161,13 +161,13 @@ describe("application critical flows", () => {
     expect(screen.queryByText("个人信息")).not.toBeInTheDocument();
   });
 
-  it("shows data import and admin entries only for privileged users", async () => {
+  it("shows the admin card only for privileged users", async () => {
     mockApi.me.mockResolvedValue({ authenticated: true, user: adminUser });
 
     renderApp("/");
 
     expect(await screen.findByText("地理可视化")).toBeInTheDocument();
-    expect(screen.getByText("数据导入")).toBeInTheDocument();
+    expect(screen.getByText("数据管理")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /管理后台/ }),
     ).toBeInTheDocument();

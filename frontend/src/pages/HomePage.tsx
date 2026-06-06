@@ -2,7 +2,6 @@ import {
   DatabaseOutlined,
   EnvironmentOutlined,
   ExperimentOutlined,
-  FileExcelOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
   SettingOutlined,
@@ -104,43 +103,32 @@ export default function HomePage() {
               <Tag color="gold">表格</Tag>
             </div>
           </Card>
-          {user.permissions.canMaintainData && (
+          {user.permissions.canAccessAdmin && (
             <Card
               hoverable
               className="visualization-choice-card import-choice-card"
               role="button"
               tabIndex={0}
-              onClick={() => navigate("/import")}
+              onClick={() => navigate("/admin")}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
-                  navigate("/import");
+                  navigate("/admin");
                 }
               }}
             >
               <div className="choice-card-icon">
-                <FileExcelOutlined style={{ fontSize: 36 }} />
-                <DatabaseOutlined style={{ fontSize: 30 }} />
+                <SettingOutlined style={{ fontSize: 36 }} />
+                <SafetyCertificateOutlined style={{ fontSize: 30 }} />
               </div>
-              <Typography.Title level={2}>数据导入</Typography.Title>
+              <Typography.Title level={2}>管理后台</Typography.Title>
               <div className="choice-card-tags">
-                <Tag color="blue">Excel/CSV</Tag>
-                <Tag color="green">GPKG</Tag>
-                <Tag color="gold">SQLite</Tag>
+                <Tag color="blue">用户设置</Tag>
+                <Tag color="green">数据管理</Tag>
+                <Tag color="gold">系统配置</Tag>
               </div>
             </Card>
           )}
         </section>
-        {user.permissions.canAccessAdmin && (
-          <section className="portal-admin-entry">
-            <Button
-              size="large"
-              icon={<SettingOutlined style={{ fontSize: 18 }} />}
-              onClick={() => navigate("/admin")}
-            >
-              管理后台
-            </Button>
-          </section>
-        )}
       </main>
     </Layout>
   );
