@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import os
-import secrets
 import sys
 from pathlib import Path
 from typing import Any
@@ -9,10 +8,10 @@ from typing import Any
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.db import OperationalError, ProgrammingError
-from django.db import transaction
+from django.db import OperationalError, ProgrammingError, transaction
 
 from apps.core.models import UserProfile
+from apps.core.passwords import generate_password
 from apps.core.permissions import (
     FEATURE_PERMISSION_NAMES,
     feature_permission_queryset,
@@ -170,7 +169,7 @@ def _initial_password() -> str:
     if path.exists():
         return path.read_text(encoding="utf-8").strip()
 
-    password = f"Huyang-{secrets.token_urlsafe(18)}-2026"
+    password = generate_password(length=8)
     if not _running_tests():
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(f"{password}\n", encoding="utf-8")
