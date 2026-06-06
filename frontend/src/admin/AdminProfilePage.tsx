@@ -1,14 +1,11 @@
 import {
-  CloseOutlined,
-  EditOutlined,
   LockOutlined,
-  SaveOutlined,
   StopOutlined,
   UploadOutlined,
   UserOutlined,
 } from "@ant-design/icons";
-import { ProCard, ProForm, ProFormText } from "@ant-design/pro-components";
-import type { FormInstance } from "antd";
+import type { ProDescriptionsItemProps } from "@ant-design/pro-components";
+import { ProCard, ProDescriptions } from "@ant-design/pro-components";
 import {
   App,
   Avatar,
@@ -22,6 +19,7 @@ import {
   Typography,
   Upload,
 } from "antd";
+import type { Key } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
@@ -30,6 +28,57 @@ import type {
   AdminProfilePasswordUpdate,
   AdminProfileUpdate,
 } from "../types";
+
+interface ProfileDescriptionItem {
+  username: string;
+  displayName: string;
+  roles: string[];
+  department: string;
+  email: string;
+}
+
+const profileDescriptionColumns: ProDescriptionsItemProps<ProfileDescriptionItem>[] =
+  [
+    {
+      title: "用户名",
+      dataIndex: "username",
+      tooltip: "用户名在创建时确定，不可修改",
+      editable: false,
+    },
+    {
+      title: "显示名称",
+      dataIndex: "displayName",
+    },
+    {
+      title: "用户组",
+      dataIndex: "roles",
+      editable: false,
+      render: (_, entity) =>
+        entity.roles && entity.roles.length > 0 ? (
+          <Space size={[8, 8]} wrap>
+            {entity.roles.map((role) => (
+              <Tag key={role} color="blue">
+                {role}
+              </Tag>
+            ))}
+          </Space>
+        ) : (
+          <Typography.Text type="secondary">未分配用户组</Typography.Text>
+        ),
+    },
+    {
+      title: "部门",
+      dataIndex: "department",
+    },
+    {
+      title: "邮箱",
+      dataIndex: "email",
+      copyable: true,
+      formItemProps: {
+        rules: [{ type: "email", message: "请输入有效邮箱" }],
+      },
+    },
+  ];
 
 function getCookie(name: string): string | null {
   const match = document.cookie
@@ -41,11 +90,9 @@ function getCookie(name: string): string | null {
 export default function AdminProfilePage() {
   const { message } = App.useApp();
   const { setUser } = useAppContext();
-  const [form] = Form.useForm<AdminProfileUpdate>();
   const [passwordForm] = Form.useForm<AdminProfilePasswordUpdate>();
   const [profile, setProfile] = useState<AdminProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
 
   useEffect(() => {
@@ -55,13 +102,6 @@ export default function AdminProfilePage() {
         const data = await api.adminProfile();
         if (!mounted) return;
         setProfile(data);
-        form.setFieldsValue({
-          username: data.user.username,
-          displayName: data.user.displayName,
-          email: data.user.email,
-          avatarUrl: data.avatarUrl,
-          department: data.department,
-        });
       } catch (error) {
         message.error(
           error instanceof Error ? error.message : "用户资料加载失败",
@@ -76,7 +116,7 @@ export default function AdminProfilePage() {
     return () => {
       mounted = false;
     };
-  }, [form, message]);
+  }, [message]);
 
   const permissionGroups = useMemo(() => {
     const groups = new Map<string, AdminProfile["availablePermissions"]>();
@@ -92,10 +132,18 @@ export default function AdminProfilePage() {
     const updated = await api.updateAdminProfile(values);
     setProfile(updated);
     setUser(updated.user);
-    setProfileFields(form, updated);
-    setEditing(false);
     message.success("个人信息已保存");
     return true;
+  }
+
+  async function handleProfileDescriptionSave(
+    _key: Key | Key[],
+    values: ProfileDescriptionItem,
+  ) {
+    await handleProfileSave({
+      ...values,
+      avatarUrl: profile?.avatarUrl ?? "",
+    });
   }
 
   async function handlePermissionChange(
@@ -173,37 +221,17 @@ export default function AdminProfilePage() {
 
   const grantedPermissions = new Set(profile?.grantedPermissions ?? []);
   const disabledPermissions = new Set(profile?.disabledPermissions ?? []);
+  const profileDescriptionData: ProfileDescriptionItem = {
+    username: profile?.user.username ?? "",
+    displayName: profile?.user.displayName ?? "",
+    roles: profile?.user.roles ?? [],
+    email: profile?.user.email ?? "",
+    department: profile?.department ?? "",
+  };
 
   return (
     <div className="admin-page-stack">
-      <ProCard
-        title="个人信息"
-        className="admin-section-card"
-        extra={
-          editing ? (
-            <Button
-              size="small"
-              icon={<CloseOutlined />}
-              onClick={() => {
-                if (profile) {
-                  setProfileFields(form, profile);
-                }
-                setEditing(false);
-              }}
-            >
-              取消
-            </Button>
-          ) : (
-            <Button
-              size="small"
-              icon={<EditOutlined />}
-              onClick={() => setEditing(true)}
-            >
-              编辑
-            </Button>
-          )
-        }
-      >
+      <ProCard title="个人信息" className="admin-section-card">
         <div className="admin-profile-shell">
           <Upload
             name="avatar"
@@ -217,87 +245,79 @@ export default function AdminProfilePage() {
               }
               const isLt2M = file.size / 1024 / 1024 < 2;
               if (!isLt2M) {
-                message.error("图片大小不能超过 2MB");
+                message.error("图片大小不能超过 2 MB");
               }
               return isJpgOrPng && isLt2M;
             }}
-            disabled={avatarUploading || !editing}
+            disabled={avatarUploading}
           >
-            <div
-              className={`admin-avatar-wrapper${editing ? " admin-avatar-editable" : ""}`}
-            >
+            <div className="admin-avatar-wrapper admin-avatar-editable">
               <Avatar
                 size={88}
                 src={profile?.avatarUrl || undefined}
                 icon={<UserOutlined />}
               />
-              {editing && (
-                <div className="admin-avatar-overlay">
-                  <UploadOutlined />
-                  <span>{avatarUploading ? "上传中..." : "更换头像"}</span>
-                </div>
-              )}
+              <div className="admin-avatar-overlay">
+                <UploadOutlined />
+                <span>{avatarUploading ? "上传中..." : "更换头像"}</span>
+              </div>
             </div>
           </Upload>
-          <ProForm<AdminProfileUpdate>
-            form={form}
-            layout="horizontal"
-            grid
-            className="admin-profile-form"
-            readonly={!editing}
-            onFinish={handleProfileSave}
-            submitter={
-              editing
-                ? {
-                    searchConfig: {
-                      submitText: "保存信息",
-                      resetText: false,
-                    },
-                    submitButtonProps: {
-                      icon: <SaveOutlined />,
-                    },
-                    resetButtonProps: {
-                      style: {
-                        display: "none",
-                      },
-                    },
-                  }
-                : false
-            }
-          >
-            <ProFormText
-              name="username"
-              label="用户名"
-              colProps={{ xs: 24, md: 12 }}
-              readonly
-              tooltip="用户名在创建时确定，不可修改"
-              fieldProps={{
-                style: { color: "rgba(0, 0, 0, 0.45)" },
-              }}
-            />
-            <ProFormText
-              name="displayName"
-              label="显示名称"
-              colProps={{ xs: 24, md: 12 }}
-            />
-            <ProFormText
-              name="email"
-              label="邮箱"
-              colProps={{ xs: 24, md: 12 }}
-              rules={[{ type: "email", message: "请输入有效邮箱" }]}
-            />
-            <ProFormText
-              name="department"
-              label="部门"
-              colProps={{ xs: 24, md: 12 }}
-            />
-            <ProFormText
-              name="avatarUrl"
-              label="头像 URL"
-              colProps={{ xs: 24 }}
-              hidden
-            />
-          </ProForm>
+          <ProDescriptions<ProfileDescriptionItem>
+            className="admin-profile-descriptions"
+            column={2}
+            columns={profileDescriptionColumns}
+            dataSource={profileDescriptionData}
+            editable={{
+              onSave: handleProfileDescriptionSave,
+            }}
+            emptyText="未填写"
+          />
+        </div>
+      </ProCard>
+
+      <ProCard title="我的权限" className="admin-section-card">
+        <div className="admin-permission-groups">
+          {permissionGroups.map(({ group, items }) => (
+            <section key={group} className="admin-permission-group">
+              <Typography.Title level={5}>{group}</Typography.Title>
+              <div className="admin-permission-switch-list">
+                {items.map((permission) => {
+                  const granted = grantedPermissions.has(permission.id);
+                  const enabled =
+                    granted && !disabledPermissions.has(permission.id);
+                  return (
+                    <div key={permission.id} className="admin-permission-row">
+                      <Space orientation="vertical" size={2}>
+                        <Typography.Text strong>
+                          {permission.label}
+                        </Typography.Text>
+                        <Typography.Text type="secondary">
+                          {permission.id}
+                        </Typography.Text>
+                      </Space>
+                      <Space>
+                        {granted ? (
+                          <Tag color={enabled ? "green" : "orange"}>
+                            {enabled ? "已开启" : "已关闭"}
+                          </Tag>
+                        ) : (
+                          <Tag icon={<StopOutlined />}>未授予</Tag>
+                        )}
+                        <Switch
+                          checked={enabled}
+                          disabled={!granted}
+                          onChange={(checked) =>
+                            handlePermissionChange(permission.id, checked)
+                          }
+                        />
+                      </Space>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          ))}
         </div>
       </ProCard>
 
@@ -363,82 +383,8 @@ export default function AdminProfilePage() {
           </Button>
         </Form>
       </ProCard>
-
-      <ProCard title="我的权限" className="admin-section-card">
-        <div className="admin-permission-groups">
-          {permissionGroups.map(({ group, items }) => (
-            <section key={group} className="admin-permission-group">
-              <Typography.Title level={5}>{group}</Typography.Title>
-              <div className="admin-permission-switch-list">
-                {items.map((permission) => {
-                  const granted = grantedPermissions.has(permission.id);
-                  const enabled =
-                    granted && !disabledPermissions.has(permission.id);
-                  return (
-                    <div key={permission.id} className="admin-permission-row">
-                      <Space orientation="vertical" size={2}>
-                        <Typography.Text strong>
-                          {permission.label}
-                        </Typography.Text>
-                        <Typography.Text type="secondary">
-                          {permission.id}
-                        </Typography.Text>
-                      </Space>
-                      <Space>
-                        {granted ? (
-                          <Tag color={enabled ? "green" : "orange"}>
-                            {enabled ? "已开启" : "已关闭"}
-                          </Tag>
-                        ) : (
-                          <Tag icon={<StopOutlined />}>未授予</Tag>
-                        )}
-                        <Switch
-                          checked={enabled}
-                          disabled={!granted}
-                          onChange={(checked) =>
-                            handlePermissionChange(permission.id, checked)
-                          }
-                        />
-                      </Space>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          ))}
-        </div>
-      </ProCard>
-
-      <ProCard title="我的用户组" className="admin-section-card">
-        <div className="admin-groups-info">
-          {profile?.user.roles && profile.user.roles.length > 0 ? (
-            <Space size={[8, 8]} wrap>
-              {profile.user.roles.map((role) => (
-                <Tag key={role} color="blue">
-                  {role}
-                </Tag>
-              ))}
-            </Space>
-          ) : (
-            <Typography.Text type="secondary">未分配用户组</Typography.Text>
-          )}
-        </div>
-      </ProCard>
     </div>
   );
-}
-
-function setProfileFields(
-  form: FormInstance<AdminProfileUpdate>,
-  profile: AdminProfile,
-) {
-  form.setFieldsValue({
-    username: profile.user.username,
-    displayName: profile.user.displayName,
-    email: profile.user.email,
-    avatarUrl: profile.avatarUrl,
-    department: profile.department,
-  });
 }
 
 type FormValidationError = {

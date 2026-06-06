@@ -25,15 +25,16 @@ FEATURE_PERMISSIONS: tuple[FeaturePermissionDef, ...] = (
         "core", "manage_feature_permissions", "配置功能权限", "系统管理"
     ),
     FeaturePermissionDef("core", "create_user", "新建用户", "系统管理"),
+    FeaturePermissionDef("core", "view_operation_logs", "查看操作日志", "系统管理"),
+    FeaturePermissionDef("core", "manage_system_settings", "修改系统设置", "系统管理"),
+    FeaturePermissionDef("core", "manage_auth", "修改认证授权", "系统管理"),
     FeaturePermissionDef("core", "browse_data", "浏览数据", "数据功能"),
     FeaturePermissionDef("core", "query_data", "查询数据", "数据功能"),
     FeaturePermissionDef("core", "load_vector_layer", "加载矢量图层", "图层功能"),
     FeaturePermissionDef("core", "load_raster_layer", "加载栅格图层", "图层功能"),
     FeaturePermissionDef("core", "custom_symbolization", "自定义符号化", "图层功能"),
     FeaturePermissionDef("catalog", "export_dataresource", "导出数据资源", "数据管理"),
-    FeaturePermissionDef(
-        "catalog", "maintain_dataresource", "维护数据资源", "数据管理"
-    ),
+    FeaturePermissionDef("catalog", "maintain_dataresource", "数据导入", "数据管理"),
     FeaturePermissionDef(
         "raster", "manage_raster_dataset", "管理栅格数据集", "栅格管理"
     ),

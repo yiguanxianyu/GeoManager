@@ -325,7 +325,7 @@ def update_admin_profile_password(request):
 
 
 @require_http_methods(["GET", "POST"])
-@api_any_permission_required("core.manage_feature_permissions", "core.create_user")
+@api_permission_required("core.manage_auth")
 def group_list(request):
     if request.method == "GET":
         ensure_superadmin_defaults(create_account=False)
@@ -361,7 +361,7 @@ def group_list(request):
 
 
 @require_http_methods(["PATCH", "DELETE"])
-@api_permission_required("core.manage_feature_permissions")
+@api_permission_required("core.manage_auth")
 def group_detail(request, group_id: int):
     try:
         group = Group.objects.get(pk=group_id)
@@ -417,7 +417,7 @@ def group_detail(request, group_id: int):
 
 
 @require_http_methods(["GET", "POST"])
-@api_any_permission_required("core.manage_feature_permissions", "core.create_user")
+@api_permission_required("core.manage_auth")
 def user_list(request):
     User = get_user_model()
     if request.method == "POST":
@@ -447,7 +447,7 @@ def user_list(request):
 
 
 @require_http_methods(["PATCH"])
-@api_permission_required("core.manage_feature_permissions")
+@api_permission_required("core.manage_auth")
 def update_user_groups(request, user_id: int):
     payload = _json_payload(request)
     if isinstance(payload, JsonResponse):
@@ -492,7 +492,7 @@ def update_user_groups(request, user_id: int):
 
 
 @require_http_methods(["GET", "PATCH"])
-@api_permission_required("core.access_admin")
+@api_permission_required("core.manage_system_settings")
 def admin_settings(request):
     if request.method == "GET":
         return JsonResponse(_serialize_application_settings(request.user))
@@ -540,7 +540,7 @@ def admin_settings(request):
 
 
 @require_GET
-@api_permission_required("core.access_admin")
+@api_permission_required("core.view_operation_logs")
 def admin_operation_logs(request):
     logs = OperationLog.objects.select_related("user").order_by("-created_at")
     logs = _filter_operation_logs(logs, request.GET)
@@ -643,7 +643,7 @@ def _serialize_application_settings(user) -> dict[str, Any]:
                 "symbolizer_timeout_seconds"
             ],
         },
-        "editable": has_feature_perm(user, "core.access_admin"),
+        "editable": has_feature_perm(user, "core.manage_system_settings"),
     }
 
 

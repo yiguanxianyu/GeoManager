@@ -28,6 +28,33 @@ export function RequireDataMaintain() {
   return <Outlet />;
 }
 
+/** 需要查看操作日志权限才能访问的路由 */
+export function RequireViewOperationLogs() {
+  const { user } = useAppContext();
+  if (!user?.permissions.canViewOperationLogs) {
+    return <Navigate to="/admin/profile" replace />;
+  }
+  return <Outlet />;
+}
+
+/** 需要修改系统设置权限才能访问的路由 */
+export function RequireManageSystemSettings() {
+  const { user } = useAppContext();
+  if (!user?.permissions.canManageSystemSettings) {
+    return <Navigate to="/admin/profile" replace />;
+  }
+  return <Outlet />;
+}
+
+/** 需要修改认证授权权限才能访问的路由 */
+export function RequireManageAuth() {
+  const { user } = useAppContext();
+  if (!user?.permissions.canManageAuth) {
+    return <Navigate to="/admin/profile" replace />;
+  }
+  return <Outlet />;
+}
+
 /** 已登录用户访问登录页时重定向到首页 */
 export function RedirectIfAuth() {
   const { user } = useAppContext();

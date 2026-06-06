@@ -34,6 +34,8 @@ const { MockApiError, mockApi } = vi.hoisted(() => {
 vi.mock("./api/client", () => ({
   ApiError: MockApiError,
   api: mockApi,
+  registerForbiddenHandler: vi.fn(),
+  unregisterForbiddenHandler: vi.fn(),
 }));
 
 const bootstrap: Bootstrap = {
@@ -55,6 +57,9 @@ const basePermissions = {
   canAccessAdmin: false,
   canManageFeaturePermissions: false,
   canCreateUser: false,
+  canViewOperationLogs: false,
+  canManageSystemSettings: false,
+  canManageAuth: false,
   canBrowseData: true,
   canQueryData: true,
   canLoadVectorLayer: true,

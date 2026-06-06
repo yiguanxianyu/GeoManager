@@ -23,16 +23,6 @@ const baseAdminRoutes: MenuDataItem[] = [
     name: "用户设置",
     icon: <UserOutlined />,
   },
-  {
-    path: "/admin/logs",
-    name: "操作日志",
-    icon: <AuditOutlined />,
-  },
-  {
-    path: "/admin/settings",
-    name: "系统设置",
-    icon: <SettingOutlined />,
-  },
 ];
 
 const authRoute: MenuDataItem = {
@@ -43,6 +33,20 @@ const authRoute: MenuDataItem = {
 
 function adminRouteFor(user: User | null) {
   const routes = [...baseAdminRoutes];
+  if (user?.permissions.canViewOperationLogs) {
+    routes.push({
+      path: "/admin/logs",
+      name: "操作日志",
+      icon: <AuditOutlined />,
+    });
+  }
+  if (user?.permissions.canManageSystemSettings) {
+    routes.push({
+      path: "/admin/settings",
+      name: "系统设置",
+      icon: <SettingOutlined />,
+    });
+  }
   if (user?.permissions.canMaintainData) {
     routes.push({
       path: "/admin/data",
@@ -56,10 +60,7 @@ function adminRouteFor(user: User | null) {
       ],
     });
   }
-  if (
-    user?.permissions.canManageFeaturePermissions ||
-    user?.permissions.canCreateUser
-  ) {
+  if (user?.permissions.canManageAuth) {
     routes.push(authRoute);
   }
   return {

@@ -17,7 +17,13 @@
 
 前端路由使用登录态和 `user.permissions.canAccessAdmin` 做后台入口保护。旧版 Django Admin 已移除，后台管理只通过前端 `/admin/` SPA 承载。
 
-数据导入路由额外要求 `user.permissions.canMaintainData`。后台菜单只在用户具备数据维护权限时显示“数据管理”分组；门户页以“管理后台”卡片作为统一后台入口，跳转到 `/admin`，数据导入从后台侧边菜单进入。
+各功能模块的权限要求：
+- 操作日志路由要求 `user.permissions.canViewOperationLogs`
+- 系统设置路由要求 `user.permissions.canManageSystemSettings`
+- 认证授权路由要求 `user.permissions.canManageAuth`
+- 数据导入路由要求 `user.permissions.canMaintainData`
+
+后台菜单根据用户权限动态显示对应功能模块。门户页以"管理后台"卡片作为统一后台入口，跳转到 `/admin`。
 
 用户可在“用户设置”中主动关闭或重新开启已经授予的权限；未授予权限不能被写入用户偏好。初始化的 `admin` 完整功能账号不能关闭后台访问权限。管理员通过“认证授权”配置每个用户所属用户组，用户组权限复用 Django `Group`/`Permission`。
 

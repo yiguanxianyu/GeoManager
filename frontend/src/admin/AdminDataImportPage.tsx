@@ -28,7 +28,9 @@ import {
   Upload,
 } from "antd";
 import { useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
 import { ApiError, api } from "../api/client";
+import { useAppContext } from "../contexts/AppContext";
 import type {
   ImportCommitPayload,
   ImportCommitResult,
@@ -50,6 +52,7 @@ type IssueAction = "continue" | "import";
 
 export default function AdminDataImportPage() {
   const { message } = AntApp.useApp();
+  const { user } = useAppContext();
   const [form] = Form.useForm<ImportFormValues>();
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
@@ -109,6 +112,10 @@ export default function AdminDataImportPage() {
   const hasIgnorableUncertainty = validationIssues.some(
     (issue) => issue.code === "coordinate_uncertainty",
   );
+
+  if (!user?.permissions.canMaintainData) {
+    return <Navigate to="/admin/profile" replace />;
+  }
 
   function resetImportState() {
     setFile(null);

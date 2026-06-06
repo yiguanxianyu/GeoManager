@@ -90,6 +90,9 @@ async function unwrap<T>(
 ): Promise<T> {
   const { data, error, response } = await request;
   if (error !== undefined) {
+    if (response.status === 403 && onForbiddenHandler) {
+      onForbiddenHandler();
+    }
     throw new ApiError(
       errorMessage(error, response.status),
       response.status,
@@ -104,6 +107,9 @@ async function unwrapBlob(
 ): Promise<{ blob: Blob; filename: string }> {
   const { data, error, response } = await request;
   if (error !== undefined) {
+    if (response.status === 403 && onForbiddenHandler) {
+      onForbiddenHandler();
+    }
     throw new ApiError(
       errorMessage(error, response.status),
       response.status,
@@ -170,6 +176,17 @@ function getCookie(name: string): string | null {
     .split("; ")
     .find((row) => row.startsWith(`${name}=`));
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
+}
+
+type ForbiddenHandler = () => void;
+let onForbiddenHandler: ForbiddenHandler | null = null;
+
+export function registerForbiddenHandler(handler: ForbiddenHandler) {
+  onForbiddenHandler = handler;
+}
+
+export function unregisterForbiddenHandler() {
+  onForbiddenHandler = null;
 }
 
 export const api = {

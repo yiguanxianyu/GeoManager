@@ -1631,6 +1631,9 @@ components:
         - canAccessAdmin
         - canManageFeaturePermissions
         - canCreateUser
+        - canViewOperationLogs
+        - canManageSystemSettings
+        - canManageAuth
         - canBrowseData
         - canQueryData
         - canLoadVectorLayer
@@ -1649,6 +1652,15 @@ components:
         canCreateUser:
           type: boolean
           description: 是否可在后台创建新用户
+        canViewOperationLogs:
+          type: boolean
+          description: 是否可查看操作日志
+        canManageSystemSettings:
+          type: boolean
+          description: 是否可修改系统设置
+        canManageAuth:
+          type: boolean
+          description: 是否可修改认证授权
         canBrowseData:
           type: boolean
           description: 是否可浏览数据目录

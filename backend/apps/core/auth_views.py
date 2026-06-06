@@ -107,6 +107,11 @@ def serialize_user(user):
             user, "core.manage_feature_permissions"
         ),
         "canCreateUser": has_feature_perm(user, "core.create_user"),
+        "canViewOperationLogs": has_feature_perm(user, "core.view_operation_logs"),
+        "canManageSystemSettings": has_feature_perm(
+            user, "core.manage_system_settings"
+        ),
+        "canManageAuth": has_feature_perm(user, "core.manage_auth"),
         "canBrowseData": has_feature_perm(user, "core.browse_data"),
         "canQueryData": has_feature_perm(user, "core.query_data"),
         "canLoadVectorLayer": has_feature_perm(user, "core.load_vector_layer"),

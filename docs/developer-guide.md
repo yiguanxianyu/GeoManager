@@ -262,13 +262,16 @@ else:
 | `core.access_admin` | 进入管理后台 |
 | `core.manage_feature_permissions` | 配置用户组和功能权限 |
 | `core.create_user` | 在后台新建用户账号 |
+| `core.view_operation_logs` | 查看操作日志 |
+| `core.manage_system_settings` | 修改系统设置 |
+| `core.manage_auth` | 修改认证授权 |
 | `core.browse_data` | 浏览数据目录和资源 |
 | `core.query_data` | 执行数据查询 |
 | `core.load_vector_layer` | 加载矢量图层 |
 | `core.load_raster_layer` | 加载栅格图层 |
 | `core.custom_symbolization` | 自定义符号化规则 |
 | `catalog.export_dataresource` | 导出数据资源 |
-| `catalog.maintain_dataresource` | 维护数据资源（导入等） |
+| `catalog.maintain_dataresource` | 数据导入 |
 | `raster.manage_raster_dataset` | 管理栅格数据集 |
 
 ### 最佳实践

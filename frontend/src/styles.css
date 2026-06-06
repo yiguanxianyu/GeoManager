@@ -356,6 +356,11 @@ body {
   min-width: 0;
 }
 
+.admin-token-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .admin-password-form {
   max-width: 520px;
   min-width: 0;

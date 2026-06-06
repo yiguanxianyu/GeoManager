@@ -1,14 +1,22 @@
 import { App as AntApp, Spin } from "antd";
 import type { ReactNode } from "react";
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
-import { ApiError, api } from "./api/client";
+import {
+  ApiError,
+  api,
+  registerForbiddenHandler,
+  unregisterForbiddenHandler,
+} from "./api/client";
 import { AppContext } from "./contexts/AppContext";
 import {
   RedirectIfAuth,
   RequireAdmin,
   RequireAuth,
   RequireDataMaintain,
+  RequireManageAuth,
+  RequireManageSystemSettings,
+  RequireViewOperationLogs,
 } from "./router";
 import type { Bootstrap, User } from "./types";
 
@@ -50,6 +58,22 @@ export default function App() {
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const handleForbidden = useCallback(async () => {
+    try {
+      const me = await api.me();
+      setUser(me.user);
+    } catch {
+      setUser(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    registerForbiddenHandler(handleForbidden);
+    return () => {
+      unregisterForbiddenHandler();
+    };
+  }, [handleForbidden]);
 
   useEffect(() => {
     let mounted = true;
@@ -143,9 +167,18 @@ export default function App() {
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<Navigate to="profile" replace />} />
                 <Route path="profile" element={<AdminProfilePage />} />
-                <Route path="logs" element={<AdminOperationLogsPage />} />
-                <Route path="settings" element={<AdminSystemSettingsPage />} />
-                <Route path="auth" element={<AdminAuthPage />} />
+                <Route element={<RequireViewOperationLogs />}>
+                  <Route path="logs" element={<AdminOperationLogsPage />} />
+                </Route>
+                <Route element={<RequireManageSystemSettings />}>
+                  <Route
+                    path="settings"
+                    element={<AdminSystemSettingsPage />}
+                  />
+                </Route>
+                <Route element={<RequireManageAuth />}>
+                  <Route path="auth" element={<AdminAuthPage />} />
+                </Route>
                 <Route element={<RequireDataMaintain />}>
                   <Route path="data/import" element={<AdminDataImportPage />} />
                 </Route>

@@ -996,6 +996,12 @@ export interface components {
             canManageFeaturePermissions: boolean;
             /** @description 是否可在后台创建新用户 */
             canCreateUser: boolean;
+            /** @description 是否可查看操作日志 */
+            canViewOperationLogs: boolean;
+            /** @description 是否可修改系统设置 */
+            canManageSystemSettings: boolean;
+            /** @description 是否可修改认证授权 */
+            canManageAuth: boolean;
             /** @description 是否可浏览数据目录 */
             canBrowseData: boolean;
             /** @description 是否可查询数据 */
