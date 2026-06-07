@@ -98,7 +98,7 @@ node --version
 pnpm dev
 ```
 
-前端服务将在 `http://127.0.0.1:5173` 启动（默认端口）。
+前端服务将在默认开发服务器地址启动（默认端口 5173）。
 
 ### 1.5 常用前端命令
 
@@ -271,7 +271,7 @@ mamba activate geomanager
 
 # 进入后端目录（如果尚未进入）
 cd backend
-
+```bash
 # 运行数据库迁移
 python manage.py migrate --config ../config/app.test.toml
 
@@ -279,10 +279,10 @@ python manage.py migrate --config ../config/app.test.toml
 python manage.py createsuperuser
 
 # 启动开发服务器
-python manage.py runserver 127.0.0.1:8000 --config ../config/app.test.toml
+python manage.py runserver --config ../config/app.test.toml
 ```
 
-后端服务将在 `http://127.0.0.1:8000` 启动。
+后端服务将在默认地址启动。
 
 ## 第三部分：环境验证
 
@@ -295,7 +295,7 @@ cd frontend
 # 运行开发服务器
 pnpm dev
 
-# 在浏览器中访问 http://127.0.0.1:5173
+# 在浏览器中访问前端开发服务器地址
 ```
 
 ### 3.2 验证后端环境
@@ -310,7 +310,7 @@ cd backend
 # 运行开发服务器
 python manage.py runserver --config ../config/app.test.toml
 
-# 在浏览器中访问 http://127.0.0.1:8000
+# 在浏览器中访问后端开发服务器地址
 ```
 
 ## 第四部分：常见问题解决

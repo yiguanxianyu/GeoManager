@@ -43,9 +43,9 @@ pnpm install
 pnpm dev
 ```
 
-默认开发配置使用 `config/app.test.toml`，业务数据目录为 `/Users/gx/Documents/Source/huyang_system_data/appdata`，科研数据目录为 `/Users/gx/Documents/Source/huyang_system_data/research_data`。所有矢量数据统一从 `research_data/vector/vector.gpkg` 读取，业务库中矢量资源和图层填写该 GeoPackage 内的图层名。栅格数据统一放在 `research_data/raster/` 下，后端扫描 `raster/original/`，预处理和元数据分别写入 `raster/preprocessed/` 和 `raster/metadata/`。基因和表格数据分别放在 `research_data/gene/` 和 `research_data/table/` 下。
+默认开发配置使用 `config/app.test.toml`。所有矢量数据统一从科研数据根目录下的 `vector/vector.gpkg` 读取，业务库中矢量资源和图层填写该 GeoPackage 内的图层名。栅格数据统一放在科研数据根目录的 `raster/` 下，后端扫描 `raster/original/`，预处理和元数据分别写入 `raster/preprocessed/` 和 `raster/metadata/`。基因和表格数据分别放在科研数据根目录的 `gene/` 和 `table/` 下。
 
-本地开发通过命令行参数提供 TOML 配置文件，例如 `python manage.py runserver --config ../config/app.test.toml`。生产部署同样通过启动参数传入配置文件路径，不再使用 `.env`/`APP_CONFIG` 传递应用配置。
+本地开发通过命令行参数提供 TOML 配置文件，例如 `python manage.py runserver --config ../config/app.test.toml`。生产部署同样通过启动参数传入配置文件路径。
 
 ## Docker 部署
 

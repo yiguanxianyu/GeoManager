@@ -14,7 +14,7 @@
 
 ## TOML 配置
 
-部署只使用一个 TOML 配置文件，不再使用 `.env` 文件传递应用配置。配置分两类：
+部署只使用一个 TOML 配置文件。配置分两类：
 
 - `[runtime]`：程序内部运行变量，例如 `debug`、`allowed_hosts`、Gunicorn 监听地址和 worker 数。
 - `[application.*]`：用户可配置变量，例如系统名、注册开关、数据目录、地图和查询限制。
@@ -56,7 +56,7 @@ query_result_limit = 30000
 symbolizer_timeout_seconds = 120
 ```
 
-`auto_create_directories` 已固定为开启，不再配置。`default_symbolizer_script` 为程序内部实现细节，不再暴露为配置项。
+`auto_create_directories` 为程序内部固定行为。`default_symbolizer_script` 为程序内部实现细节，不暴露为配置项。
 
 ## 运行配置副本
 

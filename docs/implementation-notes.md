@@ -6,8 +6,8 @@
 - 程序代码、业务数据、科研数据分离存放。两类数据根目录只从 TOML 配置读取。
 - 业务数据固定子目录：`database/`、`media/`、`uploads/`、`exports/`、`logs/`、`static/`。
 - 科研数据固定子目录：`vector/`、`raster/original/`、`raster/preprocessed/`、`raster/metadata/source/`、`raster/metadata/preprocessed/`、`gene/`、`table/`。
-- 当前本机业务数据根目录为 `/Users/gx/Documents/Source/huyang_system_data/appdata`，通过 TOML 的 `storage.app_data` 指定，不在程序中硬编码。
-- 当前本机科研数据根目录为 `/Users/gx/Documents/Source/huyang_system_data/research_data`，通过 TOML 的 `storage.research_data_root` 指定，不在程序中硬编码。
+- 业务数据根目录通过 TOML 的 `storage.app_data` 指定，不在程序中硬编码。
+- 科研数据根目录通过 TOML 的 `storage.research_data_root` 指定，不在程序中硬编码。
 
 ## 后端模块结构
 
@@ -59,9 +59,9 @@ backend/apps/
 ## 首批后端边界
 
 - 使用 Django 内置 auth、session、permission；平台后台是登录后的功能入口，通过平台功能权限决定是否显示和访问。
-- 管理后台使用前端 `/admin/` SPA 路由承载；旧版 Django Admin 已移除，不再暴露 `/admin2/` 或后端 `/admin/` 重定向。
-- 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。全新生产环境不使用演示初始化脚本，首个注册用户自动成为系统管理员，后续注册用户为普通账号。
-- 本地前后端分离开发时，Vite dev server 运行在 `5173` 并代理 `/api` 到 Django；`[runtime].debug = true` 且未显式设置 `csrf_trusted_origins` 时，后端默认信任 `http://127.0.0.1:5173` 和 `http://localhost:5173`，确保首次注册和登录的 CSRF Origin 校验通过。
+- 管理后台使用前端 `/admin/` SPA 路由承载。
+- 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。首个注册用户自动成为系统管理员，后续注册用户为普通账号。
+- 本地前后端分离开发时，Vite dev server 代理 `/api` 到 Django；`[runtime].debug = true` 且未显式设置 `csrf_trusted_origins` 时，后端默认信任本地开发服务器地址，确保首次注册和登录的 CSRF Origin 校验通过。
 - 运行日志统一写入业务数据根目录的 `logs/`：Django 应用日志、Django 框架日志、安全日志、Gunicorn 访问/错误日志、Nginx 访问/错误日志都落在该目录。
 - Docker 启动入口必须先创建固定业务/地理/非地理数据子目录，再执行 `python manage.py migrate --noinput` 和 `collectstatic`，确保空 appdata 首次启动可以直接注册首个管理员。
 - SQLite 数据库放在业务数据根目录的 `database/` 下。
@@ -73,7 +73,7 @@ backend/apps/
 - 坐标量化误差按经纬度文本小数位数估算：每个坐标分量取最后一位小数半个单位作为最大角度误差，纬度方向按 111320 m/deg 换算，经度方向乘以 `cos(latitude)`，再合成平面最大可能误差；该值只表示坐标记录精度引入的位置不确定性，不包含测量设备误差。
 - 栅格数据统一放在地理数据根目录的 `raster/` 总目录下：源文件放在 `raster/original/`，导入后预处理 COG 放在 `raster/preprocessed/`，两份 `gdalinfo -json` 元数据放在 `raster/metadata/source/` 和 `raster/metadata/preprocessed/`。
 - 非地理数据统一放在非地理数据根目录下：基因数据放在 `gene/`，表格数据放在 `table/`。后端目录扫描会登记 `gene` 和 `table` 类型的 `DataResource`，不创建地图图层。
-- 栅格导入预处理固定使用 `gdalwarp -t_srs EPSG:3857 -r nearest -co COMPRESS=DEFLATE -of COG "$in" "$out"`，导入记录保存源文件、预处理文件、两份 GDAL 元数据、导入时间、处理日志、错误信息、默认符号化规则、范围和关联数据资源/地图图层。
+- 栅格导入预处理固定使用 `gdalwarp` 将源文件转换为 EPSG:3857 的 COG 格式，导入记录保存源文件、预处理文件、两份 GDAL 元数据、导入时间、处理日志、错误信息、默认符号化规则、范围和关联数据资源/地图图层。
 - 后端启动 `runserver` 或 WSGI/ASGI 进程时会异步扫描 `vector/vector.gpkg`、非地理数据 `gene/`、`table/` 和 `raster/original/` 下已有数据；矢量图层会登记为 `DataResource/MapLayer`，非地理文件登记为 `DataResource`，栅格源文件会完成预处理并登记目录。迁移、测试等管理命令不触发扫描。可在 TOML 的 `[runtime]` 段设置 `disable_catalog_startup_scan` 或 `disable_raster_startup_scan` 关闭启动扫描。
 
 ## 统一功能权限
@@ -81,7 +81,7 @@ backend/apps/
 - 平台功能权限统一基于 Django `Permission + Group`，不引入独立角色表。用户通过所属用户组获得功能权限。
 - `apps.core.permissions.FEATURE_PERMISSIONS` 是统一注册表；后台用户组配置页只同步注册表内权限，保留用户组已有其他模型权限。
 - 功能权限元数据按 `后台权限`、`数据权限`、`人员权限` 三类返回，前端认证授权页按该分组展示和维护。
-- 迁移后初始化会先按注册表统一创建或更新 Django `Permission` 记录，再同步 `超级管理员` 用户组并补齐全部功能权限，同时创建 `游客` 用户组并授予浏览数据、加载矢量图层、加载栅格图层权限，覆盖旧库缺少新增权限或内置组的场景。
+- 迁移后初始化会先按注册表统一创建或更新 Django `Permission` 记录，再同步 `超级管理员` 用户组并补齐全部功能权限，同时创建 `游客` 用户组并授予浏览数据、加载矢量图层、加载栅格图层权限。
 - 管理员新建普通用户和修改普通用户组归属时必须保留至少一个用户组；自助注册用户默认加入 `游客` 用户组。
 - 数据资源和图层的 `access_groups` 继续控制“能看见哪些对象”；功能权限控制“能对可见对象做什么”。
 - 首批平台功能权限包括：后台入口、功能权限配置、数据浏览、数据查询、矢量加载、栅格加载、自定义符号化。
@@ -214,9 +214,9 @@ frontend/src/
 
 ## 前端构建优化记录
 
-- 路由页面使用 `React.lazy` 按需加载，登录、入口、地图、非地理、导入和后台页面不再全部由 `App.tsx` 首屏同步导入。
-- Vite 不再把所有 `node_modules` 合并到单个 `vendor` chunk；后台和地图等动态路由依赖由构建器按 `React.lazy` 的导入关系拆分，并过滤首屏 HTML 对后台/地图大包的预加载。
-- `mapbox-gl` 样式随地图组件加载，不再由全局入口首屏加载。
+- 路由页面使用 `React.lazy` 按需加载，登录、入口、地图、非地理、导入和后台页面由 `App.tsx` 按路由按需导入。
+- Vite 按 `React.lazy` 的导入关系拆分 chunk，并过滤首屏 HTML 对后台/地图大包的预加载。
+- `mapbox-gl` 样式随地图组件加载。
 - `pnpm run build` 定位为快速打包命令；需要类型检查的发布或 CI 流程使用 `pnpm run build:verify`。
 
 ## 前端依赖升级兼容记录

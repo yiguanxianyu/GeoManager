@@ -2,7 +2,7 @@
 
 ## 范围
 
-管理后台通过前端 `/admin/` 路由承载，使用 `@ant-design/pro-components` 的 `ProLayout`、`PageContainer`、`ProTable`、`ProForm` 和 `ProCard` 实现。数据维护类功能作为后台模块承载，不再提供独立的前台数据导入页面。
+管理后台通过前端 `/admin/` 路由承载，使用 `@ant-design/pro-components` 的 `ProLayout`、`PageContainer`、`ProTable`、`ProForm` 和 `ProCard` 实现。数据维护类功能作为后台模块承载。
 
 ## 路由
 
@@ -15,7 +15,7 @@
 
 ## 权限
 
-前端路由使用登录态和 `user.permissions.canAccessAdmin` 做后台入口保护。旧版 Django Admin 已移除，后台管理只通过前端 `/admin/` SPA 承载。
+前端路由使用登录态和 `user.permissions.canAccessAdmin` 做后台入口保护。后台管理只通过前端 `/admin/` SPA 承载。
 
 各功能模块的权限要求：
 - 操作日志路由要求 `user.permissions.canViewOperationLogs`
@@ -43,4 +43,4 @@
 
 ## 配置
 
-应用只使用 TOML 配置文件。后端通过 `--config /path/to/app.toml` 参数接收源配置；迁移时复制到业务数据目录的 `config/app.toml`，后台设置只写这份运行副本。`django_secret_key` 自动生成到 `database/.secret_key`，不在配置文件或前端页面中展示。
+应用只使用 TOML 配置文件。后端通过 `--config /path/to/app.toml` 参数接收源配置；迁移时复制到业务数据目录的运行配置副本，后台设置只修改该副本。`django_secret_key` 自动生成到业务数据目录，不在配置文件或前端页面中展示。
