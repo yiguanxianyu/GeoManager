@@ -13,6 +13,7 @@ from apps.core.permissions import (
     FEATURE_PERMISSIONS,
     FEATURE_PERMISSION_NAMES,
     FeaturePermissionDef,
+    ensure_feature_permissions,
     feature_denied_response,
     feature_permission_ids_for,
     feature_permission_queryset,
@@ -24,7 +25,9 @@ from apps.core.permissions import (
 
 class FeaturePermissionDefTests(TestCase):
     def test_perm_name_format(self):
-        perm = FeaturePermissionDef("core", "access_admin", "进入后台管理", "系统管理")
+        perm = FeaturePermissionDef(
+            "core", "FeaturePermission", "access_admin", "进入后台管理", "系统管理"
+        )
         self.assertEqual(perm.perm_name, "core.access_admin")
 
     def test_feature_permissions_not_empty(self):
@@ -33,6 +36,7 @@ class FeaturePermissionDefTests(TestCase):
     def test_all_permissions_have_required_fields(self):
         for perm in FEATURE_PERMISSIONS:
             self.assertTrue(perm.app_label)
+            self.assertTrue(perm.model_name)
             self.assertTrue(perm.codename)
             self.assertTrue(perm.name)
             self.assertTrue(perm.group)
@@ -48,6 +52,23 @@ class FeaturePermissionDefTests(TestCase):
             Permission.objects.filter(
                 content_type__app_label="core",
                 codename="create_user",
+            ).exists()
+        )
+
+    def test_ensure_feature_permissions_creates_registered_permissions(self):
+        Permission.objects.filter(
+            content_type__app_label="core",
+            content_type__model="featurepermission",
+            codename="view_operation_logs",
+        ).delete()
+
+        ensure_feature_permissions()
+
+        self.assertTrue(
+            Permission.objects.filter(
+                content_type__app_label="core",
+                content_type__model="featurepermission",
+                codename="view_operation_logs",
             ).exists()
         )
 

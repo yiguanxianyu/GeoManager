@@ -14,6 +14,7 @@ from apps.core.models import UserProfile
 from apps.core.passwords import generate_password
 from apps.core.permissions import (
     FEATURE_PERMISSION_NAMES,
+    ensure_feature_permissions,
     feature_permission_queryset,
 )
 
@@ -31,6 +32,7 @@ def ensure_superadmin_defaults(
     *, create_account: bool = True
 ) -> tuple[Any | None, Group]:
     with transaction.atomic():
+        ensure_feature_permissions()
         group, _ = Group.objects.get_or_create(name=SUPERADMIN_GROUP_NAME)
         _grant_all_feature_permissions(group)
         user = _ensure_initial_superadmin(group) if create_account else None

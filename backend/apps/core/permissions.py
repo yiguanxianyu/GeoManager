@@ -2,14 +2,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from django.apps import apps
+from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import Permission
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
+from django.db.models import Q
 
 
 @dataclass(frozen=True)
 class FeaturePermissionDef:
     app_label: str
+    model_name: str
     codename: str
     name: str
     group: str
@@ -20,23 +24,67 @@ class FeaturePermissionDef:
 
 
 FEATURE_PERMISSIONS: tuple[FeaturePermissionDef, ...] = (
-    FeaturePermissionDef("core", "access_admin", "进入后台管理", "系统管理"),
     FeaturePermissionDef(
-        "core", "manage_feature_permissions", "配置功能权限", "系统管理"
+        "core", "FeaturePermission", "access_admin", "进入后台管理", "系统管理"
     ),
-    FeaturePermissionDef("core", "create_user", "新建用户", "系统管理"),
-    FeaturePermissionDef("core", "view_operation_logs", "查看操作日志", "系统管理"),
-    FeaturePermissionDef("core", "manage_system_settings", "修改系统设置", "系统管理"),
-    FeaturePermissionDef("core", "manage_auth", "修改认证授权", "系统管理"),
-    FeaturePermissionDef("core", "browse_data", "浏览数据", "数据功能"),
-    FeaturePermissionDef("core", "query_data", "查询数据", "数据功能"),
-    FeaturePermissionDef("core", "load_vector_layer", "加载矢量图层", "图层功能"),
-    FeaturePermissionDef("core", "load_raster_layer", "加载栅格图层", "图层功能"),
-    FeaturePermissionDef("core", "custom_symbolization", "自定义符号化", "图层功能"),
-    FeaturePermissionDef("catalog", "export_dataresource", "导出数据资源", "数据管理"),
-    FeaturePermissionDef("catalog", "maintain_dataresource", "数据导入", "数据管理"),
     FeaturePermissionDef(
-        "raster", "manage_raster_dataset", "管理栅格数据集", "栅格管理"
+        "core",
+        "FeaturePermission",
+        "manage_feature_permissions",
+        "配置功能权限",
+        "系统管理",
+    ),
+    FeaturePermissionDef(
+        "core", "FeaturePermission", "create_user", "新建用户", "系统管理"
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "view_operation_logs",
+        "查看操作日志",
+        "系统管理",
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "manage_system_settings",
+        "修改系统设置",
+        "系统管理",
+    ),
+    FeaturePermissionDef(
+        "core", "FeaturePermission", "manage_auth", "修改认证授权", "系统管理"
+    ),
+    FeaturePermissionDef(
+        "core", "FeaturePermission", "browse_data", "浏览数据", "数据功能"
+    ),
+    FeaturePermissionDef(
+        "core", "FeaturePermission", "query_data", "查询数据", "数据功能"
+    ),
+    FeaturePermissionDef(
+        "core", "FeaturePermission", "load_vector_layer", "加载矢量图层", "图层功能"
+    ),
+    FeaturePermissionDef(
+        "core", "FeaturePermission", "load_raster_layer", "加载栅格图层", "图层功能"
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "custom_symbolization",
+        "自定义符号化",
+        "图层功能",
+    ),
+    FeaturePermissionDef(
+        "catalog", "DataResource", "export_dataresource", "导出数据资源", "数据管理"
+    ),
+    FeaturePermissionDef(
+        "catalog", "DataResource", "maintain_dataresource", "数据导入", "数据管理"
+    ),
+    FeaturePermissionDef(
+        "raster",
+        "RasterDataset",
+        "manage_raster_dataset",
+        "管理栅格数据集",
+        "栅格管理",
     ),
 )
 
@@ -117,12 +165,27 @@ def feature_denied_response(user) -> JsonResponse:
 
 
 def feature_permission_queryset():
-    app_labels = {item.app_label for item in FEATURE_PERMISSIONS}
-    codenames = {item.codename for item in FEATURE_PERMISSIONS}
-    return Permission.objects.select_related("content_type").filter(
-        content_type__app_label__in=app_labels,
-        codename__in=codenames,
-    )
+    query = Q()
+    for item in FEATURE_PERMISSIONS:
+        query |= Q(
+            content_type__app_label=item.app_label,
+            content_type__model=item.model_name.lower(),
+            codename=item.codename,
+        )
+    if not query:
+        return Permission.objects.none()
+    return Permission.objects.select_related("content_type").filter(query)
+
+
+def ensure_feature_permissions() -> None:
+    for item in FEATURE_PERMISSIONS:
+        model = apps.get_model(item.app_label, item.model_name)
+        content_type = ContentType.objects.get_for_model(model)
+        Permission.objects.update_or_create(
+            content_type=content_type,
+            codename=item.codename,
+            defaults={"name": item.name},
+        )
 
 
 def feature_permission_ids_for(group) -> set[int]:
