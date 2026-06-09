@@ -11,7 +11,7 @@ Central Asia Poplar Forest Ecosystem Protection Data Sharing Platform (中亚胡
 
 ## Key reference
 
-- **Design doc**: `./desgin-docs.md` — full functional spec, tech stack, data model, and acceptance criteria. Read it before writing any code.
+- **Design doc**: `./design-docs.md` — full functional spec, tech stack, data model, and acceptance criteria. Read it before writing any code.
 
 ## Planned tech stack (from design doc)
 

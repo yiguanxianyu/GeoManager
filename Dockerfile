@@ -28,7 +28,7 @@ WORKDIR /opt/app
 
 COPY backend ./backend
 COPY config ./config
-COPY docs/desgin-docs.md README.md AGENTS.md ./
+COPY docs/design-docs.md README.md AGENTS.md ./
 COPY docker/entrypoint.sh /usr/local/bin/app-entrypoint
 
 RUN chmod +x /usr/local/bin/app-entrypoint \
