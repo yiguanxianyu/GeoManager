@@ -20,7 +20,7 @@ from apps.core.initialization import (
     SUPERADMIN_GROUP_NAME,
     ensure_superadmin_defaults,
 )
-from apps.core.models import SystemSetting
+from apps.core.models import SystemSetting, UserProfile
 from apps.core.storage import (
     StoragePathError,
     gene_data_path,
@@ -58,6 +58,33 @@ class CsrfSettingsTests(SimpleTestCase):
 
 
 class RegistrationApiTests(TestCase):
+    def test_login_writes_dashboard_compatible_audit_log(self):
+        user = get_user_model().objects.create_user(
+            username="login-user", password="pass12345"
+        )
+
+        response = self.client.post(
+            "/api/auth/login/",
+            data=json.dumps(
+                {
+                    "username": "login-user",
+                    "password": "pass12345",
+                    "remember": True,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            OperationLog.objects.filter(
+                user=user,
+                module="认证授权",
+                action="用户登录",
+                status="success",
+            ).exists()
+        )
+
     def test_registered_user_after_initialization_is_standard_user(self):
         SystemSetting.objects.update_or_create(
             pk=1, defaults={"allow_registration": True}
@@ -510,6 +537,81 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "用户组为必选项")
 
+    def test_user_list_returns_direct_and_effective_permissions(self):
+        manager = get_user_model().objects.create_user(
+            username="user-permission-list-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_auth"), ("core", "manage_feature_permissions"))
+        group = Group.objects.create(name="科研用户")
+        permission = Permission.objects.get(
+            content_type__app_label="core", codename="browse_data"
+        )
+        group.permissions.add(permission)
+        target = get_user_model().objects.create_user(
+            username="direct-permission-target",
+            password="StrongPass12345",
+        )
+        target.groups.add(group)
+        grant(target, ("core", "query_data"))
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/users/")
+
+        self.assertEqual(response.status_code, 200)
+        target_payload = next(
+            item
+            for item in response.json()["items"]
+            if item["username"] == "direct-permission-target"
+        )
+        self.assertEqual(target_payload["directPermissions"], ["core.query_data"])
+        self.assertEqual(
+            set(target_payload["effectivePermissions"]),
+            {"core.browse_data", "core.query_data"},
+        )
+
+    def test_manage_feature_permissions_can_update_user_direct_permissions(self):
+        manager = get_user_model().objects.create_user(
+            username="user-permission-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_auth"), ("core", "manage_feature_permissions"))
+        target = get_user_model().objects.create_user(
+            username="direct-permission-update-target",
+            password="StrongPass12345",
+        )
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            f"/api/users/{target.id}/permissions/",
+            data=json.dumps({"directPermissions": ["core.query_data"]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["directPermissions"], ["core.query_data"])
+        self.assertTrue(target.has_perm("core.query_data"))
+
+    def test_manage_auth_without_feature_permission_cannot_update_user_permissions(
+        self,
+    ):
+        manager = get_user_model().objects.create_user(
+            username="user-permission-blocked-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_auth"))
+        target = get_user_model().objects.create_user(
+            username="direct-permission-blocked-target",
+            password="StrongPass12345",
+        )
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            f"/api/users/{target.id}/permissions/",
+            data=json.dumps({"directPermissions": ["core.query_data"]}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.json()["detail"], "当前用户无权限配置用户权限")
+
     def test_superadmin_cannot_disable_own_admin_access_permission(self):
         superuser = get_user_model().objects.create_superuser(
             username="protected-profile-superuser",
@@ -615,7 +717,11 @@ class FeaturePermissionTests(TestCase):
         manager = get_user_model().objects.create_user(
             username="log-manager", password="pass12345"
         )
-        grant(manager, ("core", "view_operation_logs"))
+        grant(
+            manager,
+            ("core", "view_operation_logs"),
+            ("core", "view_all_operation_logs"),
+        )
         OperationLog.objects.create(
             user=manager,
             module="系统设置",
@@ -652,7 +758,11 @@ class FeaturePermissionTests(TestCase):
         other = get_user_model().objects.create_user(
             username="log-user-id-other", password="pass12345"
         )
-        grant(manager, ("core", "view_operation_logs"))
+        grant(
+            manager,
+            ("core", "view_operation_logs"),
+            ("core", "view_all_operation_logs"),
+        )
         OperationLog.objects.create(
             user=target,
             module="认证授权",
@@ -676,6 +786,122 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(payload["total"], 1)
         self.assertEqual(payload["items"][0]["summary"], "目标用户日志")
 
+    def test_admin_operation_logs_own_scope_only_returns_current_user_logs(self):
+        manager = get_user_model().objects.create_user(
+            username="own-log-manager", password="pass12345"
+        )
+        other = get_user_model().objects.create_user(
+            username="own-log-other", password="pass12345"
+        )
+        grant(
+            manager,
+            ("core", "view_operation_logs"),
+            ("core", "view_own_operation_logs"),
+        )
+        OperationLog.objects.create(
+            user=manager,
+            module="系统设置",
+            action="保存配置",
+            status="success",
+            message="自己的日志",
+        )
+        OperationLog.objects.create(
+            user=other,
+            module="系统设置",
+            action="保存配置",
+            status="success",
+            message="其他用户日志",
+        )
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/admin/operation-logs/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["total"], 1)
+        self.assertEqual(payload["items"][0]["summary"], "自己的日志")
+
+        response = self.client.get("/api/admin/operation-logs/", {"userId": other.id})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["total"], 0)
+
+    def test_admin_operation_logs_group_scope_uses_configured_groups(self):
+        manager = get_user_model().objects.create_user(
+            username="group-log-manager", password="pass12345"
+        )
+        target = get_user_model().objects.create_user(
+            username="group-log-target", password="pass12345"
+        )
+        other = get_user_model().objects.create_user(
+            username="group-log-other", password="pass12345"
+        )
+        target_group = Group.objects.create(name="日志目标组")
+        other_group = Group.objects.create(name="其他日志组")
+        target.groups.add(target_group)
+        other.groups.add(other_group)
+        UserProfile.objects.update_or_create(
+            user=manager,
+            defaults={"operation_log_group_ids": [target_group.id]},
+        )
+        grant(
+            manager,
+            ("core", "view_operation_logs"),
+            ("core", "view_group_operation_logs"),
+        )
+        OperationLog.objects.create(
+            user=target,
+            module="数据管理",
+            action="导入数据",
+            status="success",
+            message="目标组日志",
+        )
+        OperationLog.objects.create(
+            user=other,
+            module="数据管理",
+            action="导入数据",
+            status="success",
+            message="其他组日志",
+        )
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/admin/operation-logs/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["total"], 1)
+        self.assertEqual(payload["items"][0]["summary"], "目标组日志")
+
+    def test_update_user_permissions_saves_operation_log_groups(self):
+        manager = get_user_model().objects.create_user(
+            username="log-scope-admin", password="pass12345"
+        )
+        target = get_user_model().objects.create_user(
+            username="log-scope-target", password="pass12345"
+        )
+        log_group = Group.objects.create(name="可见日志组")
+        grant(
+            manager,
+            ("core", "manage_auth"),
+            ("core", "manage_feature_permissions"),
+        )
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            f"/api/users/{target.id}/permissions/",
+            data=json.dumps(
+                {
+                    "directPermissions": ["core.view_group_operation_logs"],
+                    "operationLogGroupIds": [log_group.id],
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["operationLogGroupIds"], [log_group.id])
+        self.assertIn("core.view_group_operation_logs", payload["directPermissions"])
+
     def test_admin_dashboard_counts_data_and_daily_active_users(self):
         manager = get_user_model().objects.create_user(
             username="dashboard-manager", password="pass12345"
@@ -683,7 +909,15 @@ class FeaturePermissionTests(TestCase):
         active_user = get_user_model().objects.create_user(
             username="active-user", password="pass12345"
         )
-        grant(manager, ("core", "access_admin"))
+        grant(
+            manager,
+            ("core", "access_admin"),
+            ("core", "view_dashboard_resource_card"),
+            ("core", "view_dashboard_layer_card"),
+            ("core", "view_dashboard_raster_card"),
+            ("core", "view_dashboard_user_card"),
+            ("core", "view_dashboard_active_users_card"),
+        )
         raster_resource = DataResource.objects.create(
             name="胡杨林分布栅格",
             code="poplar-raster",
@@ -709,15 +943,15 @@ class FeaturePermissionTests(TestCase):
         )
         OperationLog.objects.create(
             user=active_user,
-            module="auth",
-            action="login",
+            module="认证授权",
+            action="用户登录",
             status="success",
             message="登录成功",
         )
         OperationLog.objects.create(
             user=active_user,
-            module="auth",
-            action="login",
+            module="认证授权",
+            action="用户登录",
             status="success",
             message="登录成功",
         )
@@ -727,21 +961,70 @@ class FeaturePermissionTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["dataCounts"]["resources"], 2)
-        self.assertEqual(payload["dataCounts"]["layers"], 1)
-        self.assertEqual(payload["dataCounts"]["rasterResources"], 1)
-        self.assertEqual(payload["dataCounts"]["rasterDatasets"], 1)
-        self.assertEqual(payload["activeUsers"]["period"], "day")
-        self.assertEqual(payload["activeUsers"]["count"], 1)
-        self.assertEqual(payload["activeUsers"]["loginCount"], 2)
+        self.assertEqual(payload["cards"]["resources"]["total"], 2)
+        self.assertEqual(payload["cards"]["layers"]["total"], 1)
+        self.assertEqual(payload["cards"]["rasters"]["resources"], 1)
+        self.assertEqual(payload["cards"]["rasters"]["datasets"], 1)
         self.assertEqual(
-            payload["activeUsers"]["ranking"][0]["username"], "active-user"
+            payload["cards"]["users"]["total"], get_user_model().objects.count()
         )
-        self.assertEqual(len(payload["activeUsers"]["series"]), 24)
+        self.assertEqual(payload["cards"]["activeUsers"]["period"], "day")
+        self.assertEqual(payload["cards"]["activeUsers"]["count"], 1)
+        self.assertEqual(payload["cards"]["activeUsers"]["loginCount"], 2)
+        self.assertEqual(
+            payload["cards"]["activeUsers"]["ranking"][0]["username"], "active-user"
+        )
+        self.assertEqual(len(payload["cards"]["activeUsers"]["series"]), 24)
+
+    def test_admin_dashboard_omits_unauthorized_cards(self):
+        manager = get_user_model().objects.create_user(
+            username="resource-card-manager", password="pass12345"
+        )
+        grant(
+            manager,
+            ("core", "access_admin"),
+            ("core", "view_dashboard_resource_card"),
+        )
+        DataResource.objects.create(
+            name="样地调查点位",
+            code="sample-points",
+            data_type=DataResource.DataType.VECTOR,
+        )
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/admin/dashboard/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["cards"]["resources"]["total"], 1)
+        self.assertNotIn("layers", payload["cards"])
+        self.assertNotIn("activeUsers", payload["cards"])
 
     def test_admin_dashboard_server_returns_monitor_snapshot(self):
         manager = get_user_model().objects.create_user(
             username="server-manager", password="pass12345"
+        )
+        grant(
+            manager,
+            ("core", "access_admin"),
+            ("core", "view_dashboard_system_card"),
+        )
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/admin/dashboard/server/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn("cpu", payload["cards"])
+        self.assertIn("memory", payload["cards"])
+        self.assertIn("disks", payload["cards"])
+        self.assertIn("usagePercent", payload["cards"]["cpu"])
+        self.assertIn("totalBytes", payload["cards"]["memory"])
+        self.assertIn("devices", payload["cards"]["disks"])
+
+    def test_admin_dashboard_server_omits_system_cards_without_permission(self):
+        manager = get_user_model().objects.create_user(
+            username="system-card-limited-manager", password="pass12345"
         )
         grant(manager, ("core", "access_admin"))
         self.client.force_login(manager)
@@ -750,12 +1033,7 @@ class FeaturePermissionTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertIn("cpu", payload)
-        self.assertIn("memory", payload)
-        self.assertIn("disks", payload)
-        self.assertIn("usagePercent", payload["cpu"])
-        self.assertIn("totalBytes", payload["memory"])
-        self.assertIn("devices", payload["disks"])
+        self.assertEqual(payload["cards"], {})
 
 
 class StoragePathTests(SimpleTestCase):

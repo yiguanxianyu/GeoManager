@@ -11,7 +11,7 @@ info:
     3. 后续请求携带 `sessionid` Cookie 和 `X-CSRFToken` 请求头
 
     ## 权限体系
-    - **功能权限**：14 项细粒度功能权限，通过用户组分配，按后台权限、数据权限、人员权限分组管理
+    - **功能权限**：25 项细粒度功能权限，通过用户组分配，按后台权限、日志权限、Dashboard 权限、数据权限、人员权限分组管理
     - **数据访问权限**：基于 `access_groups` 的数据隔离
 
     ## 错误处理
@@ -291,7 +291,7 @@ paths:
     get:
       tags: [管理后台]
       summary: 查询操作日志
-      description: 基于真实操作日志表返回可分页、可筛选的后台操作日志。可通过 `userId` 精确查看指定用户日志。
+      description: 基于真实操作日志表返回可分页、可筛选的后台操作日志。需要 `core.view_operation_logs`，实际返回范围由 `core.view_all_operation_logs`、`core.view_own_operation_logs`、`core.view_group_operation_logs` 和当前用户配置的 `operationLogGroupIds` 共同裁剪。可通过 `userId` 精确筛选授权范围内的指定用户日志。
       operationId: listAdminOperationLogs
       security:
         - sessionAuth: []
@@ -314,12 +314,12 @@ paths:
           in: query
           schema:
             type: string
-          description: 按操作用户名或显示名称模糊筛选
+          description: 在授权日志范围内按操作用户名或显示名称模糊筛选
         - name: userId
           in: query
           schema:
             type: integer
-          description: 按操作用户 ID 精确筛选
+          description: 在授权日志范围内按操作用户 ID 精确筛选
         - name: module
           in: query
           schema:
@@ -369,7 +369,7 @@ paths:
     get:
       tags: [管理后台]
       summary: 获取后台 Dashboard 统计
-      description: 返回后台 Dashboard 首屏统计数据与指定周期活跃用户。活跃用户定义为周期内存在成功登录操作日志的去重用户。需要 `core.access_admin`。
+      description: 返回后台 Dashboard 首屏统计数据与指定周期活跃用户。需要 `core.access_admin`；各展示卡片按 `core.view_dashboard_*_card` 权限独立返回，未授权卡片不会出现在响应中。活跃用户定义为周期内存在成功登录操作日志的去重用户。
       operationId: getAdminDashboard
       security:
         - sessionAuth: []
@@ -399,7 +399,7 @@ paths:
     get:
       tags: [管理后台]
       summary: 获取后台 Dashboard 服务器监控
-      description: 返回服务器 CPU、内存、硬盘型号、数量和使用情况等监控快照。需要 `core.access_admin`，前端每 5 秒刷新一次。
+      description: 返回服务器 CPU、内存、硬盘型号、数量和使用情况等监控快照。需要 `core.access_admin` 和 `core.view_dashboard_system_card`；没有系统信息权限时前端不展示服务器信息区域，前端每 5 秒刷新一次。
       operationId: getAdminDashboardServer
       security:
         - sessionAuth: []
@@ -482,6 +482,43 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UserGroupUpdateRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInfo'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/users/{userId}/permissions/:
+    post:
+      tags: [用户管理]
+      summary: 更新用户单独授予的功能权限
+      description: 为指定用户设置直接授予的功能权限。最终生效权限为用户组权限与用户直授权限合并后，再扣除用户主动关闭权限。需要 `core.manage_auth` 和 `core.manage_feature_permissions`。
+      operationId: updateUserPermissions
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 用户 ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserPermissionUpdateRequest'
       responses:
         '200':
           description: 更新成功
@@ -1952,8 +1989,17 @@ components:
         - canManageFeaturePermissions
         - canCreateUser
         - canViewOperationLogs
+        - canViewAllOperationLogs
+        - canViewOwnOperationLogs
+        - canViewGroupOperationLogs
         - canManageSystemSettings
         - canManageAuth
+        - canViewDashboardResourceCard
+        - canViewDashboardLayerCard
+        - canViewDashboardRasterCard
+        - canViewDashboardUserCard
+        - canViewDashboardActiveUsersCard
+        - canViewDashboardSystemCard
         - canBrowseData
         - canQueryData
         - canLoadVectorLayer
@@ -1975,12 +2021,39 @@ components:
         canViewOperationLogs:
           type: boolean
           description: 是否可查看操作日志
+        canViewAllOperationLogs:
+          type: boolean
+          description: 是否可查看所有用户日志
+        canViewOwnOperationLogs:
+          type: boolean
+          description: 是否可查看自己的日志
+        canViewGroupOperationLogs:
+          type: boolean
+          description: 是否可查看指定用户组日志
         canManageSystemSettings:
           type: boolean
           description: 是否可修改系统设置
         canManageAuth:
           type: boolean
           description: 是否可修改认证授权
+        canViewDashboardResourceCard:
+          type: boolean
+          description: 是否可查看 Dashboard 数据资源卡片
+        canViewDashboardLayerCard:
+          type: boolean
+          description: 是否可查看 Dashboard 图层数卡片
+        canViewDashboardRasterCard:
+          type: boolean
+          description: 是否可查看 Dashboard 栅格数量卡片
+        canViewDashboardUserCard:
+          type: boolean
+          description: 是否可查看 Dashboard 用户数量卡片
+        canViewDashboardActiveUsersCard:
+          type: boolean
+          description: 是否可查看 Dashboard 活跃用户卡片
+        canViewDashboardSystemCard:
+          type: boolean
+          description: 是否可查看 Dashboard 系统信息
         canBrowseData:
           type: boolean
           description: 是否可浏览数据目录
@@ -2159,63 +2232,79 @@ components:
 
     AdminDashboardResponse:
       type: object
-      required: [generatedAt, dataCounts, activeUsers]
+      required: [generatedAt, cards]
       properties:
         generatedAt:
           type: string
           format: date-time
           description: Dashboard 统计生成时间
-        dataCounts:
-          $ref: '#/components/schemas/AdminDashboardDataCounts'
+        cards:
+          $ref: '#/components/schemas/AdminDashboardCards'
+
+    AdminDashboardCards:
+      type: object
+      properties:
+        resources:
+          $ref: '#/components/schemas/AdminDashboardResourceCard'
+        layers:
+          $ref: '#/components/schemas/AdminDashboardLayerCard'
+        rasters:
+          $ref: '#/components/schemas/AdminDashboardRasterCard'
+        users:
+          $ref: '#/components/schemas/AdminDashboardUserCard'
         activeUsers:
           $ref: '#/components/schemas/AdminDashboardActiveUsers'
+      description: 按当前用户卡片权限返回的 Dashboard 卡片数据；未授权卡片字段会被省略。
 
-    AdminDashboardDataCounts:
+    AdminDashboardResourceCard:
       type: object
-      required:
-        [
-          resources,
-          activeResources,
-          layers,
-          activeLayers,
-          vectorResources,
-          rasterResources,
-          rasterDatasets,
-          rasterLayers,
-          tableResources,
-          users,
-        ]
+      required: [total, active]
+      properties:
+        total:
+          type: integer
+          description: 数据资源总数
+        active:
+          type: integer
+          description: 启用状态的数据资源数量
+
+    AdminDashboardLayerCard:
+      type: object
+      required: [total, active]
+      properties:
+        total:
+          type: integer
+          description: 图层总数
+        active:
+          type: integer
+          description: 启用状态的图层数量
+
+    AdminDashboardRasterCard:
+      type: object
+      required: [resources, datasets, layers]
       properties:
         resources:
           type: integer
-          description: 数据资源总数
-        activeResources:
+          description: 栅格数据资源数量
+        datasets:
           type: integer
-          description: 启用状态的数据资源数量
+          description: 栅格数据集数量
         layers:
           type: integer
-          description: 图层总数
-        activeLayers:
+          description: 栅格图层数量
+
+    AdminDashboardUserCard:
+      type: object
+      required: [total, vectorResources, tableResources]
+      properties:
+        total:
           type: integer
-          description: 启用状态的图层数量
+          description: 系统用户总数
         vectorResources:
           type: integer
           description: 矢量数据资源数量
-        rasterResources:
-          type: integer
-          description: 栅格数据资源数量
-        rasterDatasets:
-          type: integer
-          description: 栅格数据集数量
-        rasterLayers:
-          type: integer
-          description: 栅格图层数量
         tableResources:
           type: integer
           description: 表格数据资源数量
-        users:
-          type: integer
-          description: 系统用户总数
 
     AdminDashboardActiveUsers:
       type: object
@@ -2283,7 +2372,7 @@ components:
 
     AdminDashboardServerResponse:
       type: object
-      required: [generatedAt, hostname, platform, cpu, memory, disks]
+      required: [generatedAt, hostname, platform, cards]
       properties:
         generatedAt:
           type: string
@@ -2295,12 +2384,19 @@ components:
         platform:
           type: string
           description: 操作系统平台描述
+        cards:
+          $ref: '#/components/schemas/AdminDashboardServerCards'
+
+    AdminDashboardServerCards:
+      type: object
+      properties:
         cpu:
           $ref: '#/components/schemas/AdminDashboardCpuInfo'
         memory:
           $ref: '#/components/schemas/AdminDashboardMemoryInfo'
         disks:
           $ref: '#/components/schemas/AdminDashboardDiskInfo'
+      description: 按当前用户卡片权限返回的服务器监控卡片数据；未授权卡片字段会被省略。
 
     AdminDashboardCpuInfo:
       type: object
@@ -2423,7 +2519,14 @@ components:
       allOf:
         - $ref: '#/components/schemas/BaseUserInfo'
         - type: object
-          required: [groupIds, isActive]
+          required:
+            [
+              groupIds,
+              isActive,
+              directPermissions,
+              effectivePermissions,
+              operationLogGroupIds,
+            ]
           properties:
             groupIds:
               type: array
@@ -2433,6 +2536,21 @@ components:
             isActive:
               type: boolean
               description: 用户账号是否启用
+            directPermissions:
+              type: array
+              description: 单独授予该用户的平台功能权限列表，不包含用户组继承权限
+              items:
+                type: string
+            effectivePermissions:
+              type: array
+              description: 用户组权限与用户直授权限合并后，扣除用户主动关闭权限的实际生效功能权限列表
+              items:
+                type: string
+            operationLogGroupIds:
+              type: array
+              description: 该用户具备 `core.view_group_operation_logs` 时允许查看日志的目标用户组 ID 列表
+              items:
+                type: integer
 
     UserCreateRequest:
       type: object
@@ -2498,6 +2616,21 @@ components:
           type: array
           minItems: 1
           description: 用户新的用户组 ID 列表，普通用户至少保留一个用户组
+          items:
+            type: integer
+
+    UserPermissionUpdateRequest:
+      type: object
+      required: [directPermissions]
+      properties:
+        directPermissions:
+          type: array
+          description: 单独授予该用户的平台功能权限列表，必须全部来自 availablePermissions
+          items:
+            type: string
+        operationLogGroupIds:
+          type: array
+          description: 该用户具备 `core.view_group_operation_logs` 时允许查看日志的目标用户组 ID 列表；空数组表示未配置指定用户组
           items:
             type: integer
 

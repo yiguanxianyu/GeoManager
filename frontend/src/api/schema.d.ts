@@ -222,7 +222,7 @@ export interface paths {
         };
         /**
          * 查询操作日志
-         * @description 基于真实操作日志表返回可分页、可筛选的后台操作日志。可通过 `userId` 精确查看指定用户日志。
+         * @description 基于真实操作日志表返回可分页、可筛选的后台操作日志。需要 `core.view_operation_logs`，实际返回范围由 `core.view_all_operation_logs`、`core.view_own_operation_logs`、`core.view_group_operation_logs` 和当前用户配置的 `operationLogGroupIds` 共同裁剪。可通过 `userId` 精确筛选授权范围内的指定用户日志。
          */
         get: operations["listAdminOperationLogs"];
         put?: never;
@@ -242,7 +242,7 @@ export interface paths {
         };
         /**
          * 获取后台 Dashboard 统计
-         * @description 返回后台 Dashboard 首屏统计数据与指定周期活跃用户。活跃用户定义为周期内存在成功登录操作日志的去重用户。需要 `core.access_admin`。
+         * @description 返回后台 Dashboard 首屏统计数据与指定周期活跃用户。需要 `core.access_admin`；各展示卡片按 `core.view_dashboard_*_card` 权限独立返回，未授权卡片不会出现在响应中。活跃用户定义为周期内存在成功登录操作日志的去重用户。
          */
         get: operations["getAdminDashboard"];
         put?: never;
@@ -262,7 +262,7 @@ export interface paths {
         };
         /**
          * 获取后台 Dashboard 服务器监控
-         * @description 返回服务器 CPU、内存、硬盘型号、数量和使用情况等监控快照。需要 `core.access_admin`，前端每 5 秒刷新一次。
+         * @description 返回服务器 CPU、内存、硬盘型号、数量和使用情况等监控快照。需要 `core.access_admin` 和 `core.view_dashboard_system_card`；没有系统信息权限时前端不展示服务器信息区域，前端每 5 秒刷新一次。
          */
         get: operations["getAdminDashboardServer"];
         put?: never;
@@ -311,6 +311,26 @@ export interface paths {
          * @description 为指定用户设置所属用户组。普通用户必须保留至少一个用户组，不能加入超级管理员用户组；初始化 admin 用户会自动保留超级管理员用户组。需要 `core.manage_auth`。
          */
         post: operations["updateUserGroups"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/users/{userId}/permissions/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 更新用户单独授予的功能权限
+         * @description 为指定用户设置直接授予的功能权限。最终生效权限为用户组权限与用户直授权限合并后，再扣除用户主动关闭权限。需要 `core.manage_auth` 和 `core.manage_feature_permissions`。
+         */
+        post: operations["updateUserPermissions"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1142,10 +1162,28 @@ export interface components {
             canCreateUser: boolean;
             /** @description 是否可查看操作日志 */
             canViewOperationLogs: boolean;
+            /** @description 是否可查看所有用户日志 */
+            canViewAllOperationLogs: boolean;
+            /** @description 是否可查看自己的日志 */
+            canViewOwnOperationLogs: boolean;
+            /** @description 是否可查看指定用户组日志 */
+            canViewGroupOperationLogs: boolean;
             /** @description 是否可修改系统设置 */
             canManageSystemSettings: boolean;
             /** @description 是否可修改认证授权 */
             canManageAuth: boolean;
+            /** @description 是否可查看 Dashboard 数据资源卡片 */
+            canViewDashboardResourceCard: boolean;
+            /** @description 是否可查看 Dashboard 图层数卡片 */
+            canViewDashboardLayerCard: boolean;
+            /** @description 是否可查看 Dashboard 栅格数量卡片 */
+            canViewDashboardRasterCard: boolean;
+            /** @description 是否可查看 Dashboard 用户数量卡片 */
+            canViewDashboardUserCard: boolean;
+            /** @description 是否可查看 Dashboard 活跃用户卡片 */
+            canViewDashboardActiveUsersCard: boolean;
+            /** @description 是否可查看 Dashboard 系统信息 */
+            canViewDashboardSystemCard: boolean;
             /** @description 是否可浏览数据目录 */
             canBrowseData: boolean;
             /** @description 是否可查询数据 */
@@ -1267,30 +1305,43 @@ export interface components {
              * @description Dashboard 统计生成时间
              */
             generatedAt: string;
-            dataCounts: components["schemas"]["AdminDashboardDataCounts"];
-            activeUsers: components["schemas"]["AdminDashboardActiveUsers"];
+            cards: components["schemas"]["AdminDashboardCards"];
         };
-        AdminDashboardDataCounts: {
+        /** @description 按当前用户卡片权限返回的 Dashboard 卡片数据；未授权卡片字段会被省略。 */
+        AdminDashboardCards: {
+            resources?: components["schemas"]["AdminDashboardResourceCard"];
+            layers?: components["schemas"]["AdminDashboardLayerCard"];
+            rasters?: components["schemas"]["AdminDashboardRasterCard"];
+            users?: components["schemas"]["AdminDashboardUserCard"];
+            activeUsers?: components["schemas"]["AdminDashboardActiveUsers"];
+        };
+        AdminDashboardResourceCard: {
             /** @description 数据资源总数 */
-            resources: number;
+            total: number;
             /** @description 启用状态的数据资源数量 */
-            activeResources: number;
+            active: number;
+        };
+        AdminDashboardLayerCard: {
             /** @description 图层总数 */
-            layers: number;
+            total: number;
             /** @description 启用状态的图层数量 */
-            activeLayers: number;
+            active: number;
+        };
+        AdminDashboardRasterCard: {
+            /** @description 栅格数据资源数量 */
+            resources: number;
+            /** @description 栅格数据集数量 */
+            datasets: number;
+            /** @description 栅格图层数量 */
+            layers: number;
+        };
+        AdminDashboardUserCard: {
+            /** @description 系统用户总数 */
+            total: number;
             /** @description 矢量数据资源数量 */
             vectorResources: number;
-            /** @description 栅格数据资源数量 */
-            rasterResources: number;
-            /** @description 栅格数据集数量 */
-            rasterDatasets: number;
-            /** @description 栅格图层数量 */
-            rasterLayers: number;
             /** @description 表格数据资源数量 */
             tableResources: number;
-            /** @description 系统用户总数 */
-            users: number;
         };
         AdminDashboardActiveUsers: {
             /**
@@ -1345,9 +1396,13 @@ export interface components {
             hostname: string;
             /** @description 操作系统平台描述 */
             platform: string;
-            cpu: components["schemas"]["AdminDashboardCpuInfo"];
-            memory: components["schemas"]["AdminDashboardMemoryInfo"];
-            disks: components["schemas"]["AdminDashboardDiskInfo"];
+            cards: components["schemas"]["AdminDashboardServerCards"];
+        };
+        /** @description 按当前用户卡片权限返回的服务器监控卡片数据；未授权卡片字段会被省略。 */
+        AdminDashboardServerCards: {
+            cpu?: components["schemas"]["AdminDashboardCpuInfo"];
+            memory?: components["schemas"]["AdminDashboardMemoryInfo"];
+            disks?: components["schemas"]["AdminDashboardDiskInfo"];
         };
         AdminDashboardCpuInfo: {
             /** @description CPU 型号 */
@@ -1435,6 +1490,12 @@ export interface components {
             groupIds: number[];
             /** @description 用户账号是否启用 */
             isActive: boolean;
+            /** @description 单独授予该用户的平台功能权限列表，不包含用户组继承权限 */
+            directPermissions: string[];
+            /** @description 用户组权限与用户直授权限合并后，扣除用户主动关闭权限的实际生效功能权限列表 */
+            effectivePermissions: string[];
+            /** @description 该用户具备 `core.view_group_operation_logs` 时允许查看日志的目标用户组 ID 列表 */
+            operationLogGroupIds: number[];
         };
         UserCreateRequest: {
             /** @description 登录用户名 */
@@ -1474,6 +1535,12 @@ export interface components {
                 number,
                 ...number[]
             ];
+        };
+        UserPermissionUpdateRequest: {
+            /** @description 单独授予该用户的平台功能权限列表，必须全部来自 availablePermissions */
+            directPermissions: string[];
+            /** @description 该用户具备 `core.view_group_operation_logs` 时允许查看日志的目标用户组 ID 列表；空数组表示未配置指定用户组 */
+            operationLogGroupIds?: number[];
         };
         UserUpdateRequest: {
             /** @description 用户账号是否启用 */
@@ -2739,9 +2806,9 @@ export interface operations {
                 current?: number;
                 /** @description 每页数量 */
                 pageSize?: number;
-                /** @description 按操作用户名或显示名称模糊筛选 */
+                /** @description 在授权日志范围内按操作用户名或显示名称模糊筛选 */
                 operator?: string;
-                /** @description 按操作用户 ID 精确筛选 */
+                /** @description 在授权日志范围内按操作用户 ID 精确筛选 */
                 userId?: number;
                 /** @description 按模块名称模糊筛选 */
                 module?: string;
@@ -2886,6 +2953,37 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["UserGroupUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description 更新成功 */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserInfo"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    updateUserPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description 用户 ID */
+                userId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPermissionUpdateRequest"];
             };
         };
         responses: {

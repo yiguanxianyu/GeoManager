@@ -12,6 +12,7 @@ import {
   Button,
   Card,
   Col,
+  Empty,
   Progress,
   Row,
   Skeleton,
@@ -23,6 +24,7 @@ import {
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { useAppContext } from "../contexts/AppContext";
 import type { AdminDashboard, AdminDashboardServer } from "../types";
 
 const serverRefreshMs = 5000;
@@ -36,11 +38,15 @@ const periodLabels: Record<ActivePeriod, string> = {
 
 export default function AdminDashboardPage() {
   const { message } = App.useApp();
+  const { user } = useAppContext();
   const [period, setPeriod] = useState<ActivePeriod>("day");
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [server, setServer] = useState<AdminDashboardServer | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [serverLoading, setServerLoading] = useState(true);
+  const canViewServerCards = Boolean(
+    user?.permissions.canViewDashboardSystemCard,
+  );
 
   const loadDashboard = useCallback(async () => {
     setDashboardLoading(true);
@@ -56,6 +62,11 @@ export default function AdminDashboardPage() {
   }, [message, period]);
 
   const loadServer = useCallback(async () => {
+    if (!canViewServerCards) {
+      setServer(null);
+      setServerLoading(false);
+      return;
+    }
     try {
       setServer(await api.adminDashboardServer());
     } catch (error) {
@@ -65,7 +76,7 @@ export default function AdminDashboardPage() {
     } finally {
       setServerLoading(false);
     }
-  }, [message]);
+  }, [canViewServerCards, message]);
 
   useEffect(() => {
     loadDashboard();
@@ -78,11 +89,23 @@ export default function AdminDashboardPage() {
   }, [loadServer]);
 
   const activeChartData = useMemo(() => {
-    return (dashboard?.activeUsers.series ?? []).map((item) => ({
+    return (dashboard?.cards.activeUsers?.series ?? []).map((item) => ({
       label: item.label,
       count: item.count,
     }));
   }, [dashboard]);
+  const hasMetricCards = Boolean(
+    dashboard?.cards.resources ||
+      dashboard?.cards.layers ||
+      dashboard?.cards.rasters ||
+      dashboard?.cards.users,
+  );
+  const hasServerCards = Boolean(
+    server?.cards.cpu || server?.cards.memory || server?.cards.disks,
+  );
+  const hasDashboardCards =
+    hasMetricCards || Boolean(dashboard?.cards.activeUsers);
+  const hasAnyAuthorizedCard = hasDashboardCards || canViewServerCards;
 
   if (dashboardLoading || !dashboard) {
     return (
@@ -96,185 +119,218 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="admin-dashboard admin-page-stack">
-      <section className="admin-dashboard-section">
-        <Row gutter={[16, 16]}>
-          <MetricCard
-            title="数据资源"
-            value={dashboard.dataCounts.resources}
-            suffix="项"
-            icon={<DatabaseOutlined />}
-            description={`启用 ${dashboard.dataCounts.activeResources} 项`}
-          />
-          <MetricCard
-            title="图层数"
-            value={dashboard.dataCounts.layers}
-            suffix="个"
-            icon={<ClusterOutlined />}
-            description={`启用 ${dashboard.dataCounts.activeLayers} 个`}
-          />
-          <MetricCard
-            title="栅格数量"
-            value={dashboard.dataCounts.rasterResources}
-            suffix="项"
-            icon={<HddOutlined />}
-            description={`栅格数据集 ${dashboard.dataCounts.rasterDatasets} 个，栅格图层 ${dashboard.dataCounts.rasterLayers} 个`}
-          />
-          <MetricCard
-            title="用户数量"
-            value={dashboard.dataCounts.users}
-            suffix="人"
-            icon={<TeamOutlined />}
-            description={`矢量资源 ${dashboard.dataCounts.vectorResources} 项，表格资源 ${dashboard.dataCounts.tableResources} 项`}
-          />
-        </Row>
-      </section>
+      {!hasAnyAuthorizedCard && (
+        <ProCard className="admin-section-card">
+          <Empty description="当前账号暂无可查看的 Dashboard 卡片" />
+        </ProCard>
+      )}
 
-      <section className="admin-dashboard-section">
-        <Card
-          className="admin-active-card admin-dashboard-card"
-          variant="borderless"
-          styles={{ body: { padding: 0 } }}
-        >
-          <div className="admin-active-tabs">
-            <div className="admin-active-tab-current">活跃用户</div>
-            <div className="admin-active-actions">
-              {(["day", "week", "month"] as ActivePeriod[]).map((item) => (
-                <Button
-                  type="text"
-                  className={period === item ? "active" : ""}
-                  key={item}
-                  onClick={() => setPeriod(item)}
-                >
-                  {periodLabels[item]}
-                </Button>
-              ))}
-              <Tag color="green">
-                {dashboard.activeUsers.rangeStart} 至{" "}
-                {dashboard.activeUsers.rangeEnd}
-              </Tag>
-            </div>
-          </div>
-          <Row className="admin-active-body" gutter={[24, 16]} align="stretch">
-            <Col xs={24} xl={16}>
-              <div className="admin-active-chart-heading">
-                <Space size={18} wrap>
-                  <Statistic
-                    title={`${periodLabels[period]}活跃用户`}
-                    value={dashboard.activeUsers.count}
-                    suffix="人"
-                  />
-                  <Statistic
-                    title="登录次数"
-                    value={dashboard.activeUsers.loginCount}
-                    suffix="次"
-                  />
-                </Space>
-              </div>
-              <div className="admin-active-chart">
-                <Column
-                  height={300}
-                  data={activeChartData}
-                  xField="label"
-                  yField="count"
-                  paddingBottom={12}
-                  axis={{
-                    x: { title: false },
-                    y: {
-                      title: false,
-                      gridLineDash: null,
-                      gridStroke: "#e8ece9",
-                    },
-                  }}
-                  scale={{ x: { paddingInner: 0.35 } }}
-                  tooltip={{ name: "登录次数", channel: "y" }}
-                  style={{ fill: "#2f7d62" }}
-                />
-              </div>
-            </Col>
-            <Col xs={24} xl={8}>
-              <div className="admin-active-rank">
-                <Typography.Title level={4}>活跃用户排名</Typography.Title>
-                <ul>
-                  {dashboard.activeUsers.ranking.map((item, index) => (
-                    <li key={item.userId}>
-                      <span
-                        className={
-                          index < 3
-                            ? "admin-rank-number active"
-                            : "admin-rank-number"
-                        }
-                      >
-                        {index + 1}
-                      </span>
-                      <span className="admin-rank-title" title={item.username}>
-                        {item.displayName}
-                      </span>
-                      <span>{item.loginCount}</span>
-                    </li>
-                  ))}
-                </ul>
-                {dashboard.activeUsers.ranking.length === 0 && (
-                  <Typography.Text type="secondary">
-                    当前周期暂无登录记录
-                  </Typography.Text>
-                )}
-              </div>
-            </Col>
-          </Row>
-        </Card>
-      </section>
-
-      <section className="admin-dashboard-section">
-        <div className="admin-dashboard-section-heading">
-          <Typography.Title level={4}>服务器信息</Typography.Title>
-          <Typography.Text type="secondary">
-            每 5 秒自动刷新
-            {server ? ` · ${formatDateTime(server.generatedAt)}` : ""}
-          </Typography.Text>
-        </div>
-        {serverLoading || !server ? (
-          <ProCard className="admin-section-card">
-            <Skeleton active paragraph={{ rows: 5 }} />
-          </ProCard>
-        ) : (
+      {hasMetricCards && (
+        <section className="admin-dashboard-section">
           <Row gutter={[16, 16]}>
-            <ServerCard
-              title="CPU"
-              model={server.cpu.model}
-              usage={server.cpu.usagePercent}
-              lines={[
-                `物理核心 ${server.cpu.physicalCount}，逻辑核心 ${server.cpu.logicalCount}`,
-                `负载 ${server.cpu.loadAverage.join(" / ")}`,
-              ]}
-              icon={<BarChartOutlined />}
-            />
-            <ServerCard
-              title="内存"
-              model={server.memory.model}
-              usage={server.memory.usagePercent}
-              lines={[
-                `数量 ${server.memory.slotCount}`,
-                `${formatBytes(server.memory.usedBytes)} / ${formatBytes(
-                  server.memory.totalBytes,
-                )}`,
-              ]}
-              icon={<DatabaseOutlined />}
-            />
-            <ServerCard
-              title="硬盘"
-              model={diskModelText(server)}
-              usage={server.disks.usagePercent}
-              lines={[
-                `数量 ${server.disks.count}`,
-                `${formatBytes(server.disks.usedBytes)} / ${formatBytes(
-                  server.disks.totalBytes,
-                )}`,
-              ]}
-              icon={<HddOutlined />}
-            />
+            {dashboard.cards.resources && (
+              <MetricCard
+                title="数据资源"
+                value={dashboard.cards.resources.total}
+                suffix="项"
+                icon={<DatabaseOutlined />}
+                description={`启用 ${dashboard.cards.resources.active} 项`}
+              />
+            )}
+            {dashboard.cards.layers && (
+              <MetricCard
+                title="图层数"
+                value={dashboard.cards.layers.total}
+                suffix="个"
+                icon={<ClusterOutlined />}
+                description={`启用 ${dashboard.cards.layers.active} 个`}
+              />
+            )}
+            {dashboard.cards.rasters && (
+              <MetricCard
+                title="栅格数量"
+                value={dashboard.cards.rasters.resources}
+                suffix="项"
+                icon={<HddOutlined />}
+                description={`栅格数据集 ${dashboard.cards.rasters.datasets} 个，栅格图层 ${dashboard.cards.rasters.layers} 个`}
+              />
+            )}
+            {dashboard.cards.users && (
+              <MetricCard
+                title="用户数量"
+                value={dashboard.cards.users.total}
+                suffix="人"
+                icon={<TeamOutlined />}
+                description={`矢量资源 ${dashboard.cards.users.vectorResources} 项，表格资源 ${dashboard.cards.users.tableResources} 项`}
+              />
+            )}
           </Row>
-        )}
-      </section>
+        </section>
+      )}
+
+      {dashboard.cards.activeUsers && (
+        <section className="admin-dashboard-section">
+          <Card
+            className="admin-active-card admin-dashboard-card"
+            variant="borderless"
+            styles={{ body: { padding: 0 } }}
+          >
+            <div className="admin-active-tabs">
+              <div className="admin-active-tab-current">活跃用户</div>
+              <div className="admin-active-actions">
+                {(["day", "week", "month"] as ActivePeriod[]).map((item) => (
+                  <Button
+                    type="text"
+                    className={period === item ? "active" : ""}
+                    key={item}
+                    onClick={() => setPeriod(item)}
+                  >
+                    {periodLabels[item]}
+                  </Button>
+                ))}
+                <Tag color="green">
+                  {dashboard.cards.activeUsers.rangeStart} 至{" "}
+                  {dashboard.cards.activeUsers.rangeEnd}
+                </Tag>
+              </div>
+            </div>
+            <Row
+              className="admin-active-body"
+              gutter={[24, 16]}
+              align="stretch"
+            >
+              <Col xs={24} xl={16}>
+                <div className="admin-active-chart-heading">
+                  <Space size={18} wrap>
+                    <Statistic
+                      title={`${periodLabels[period]}活跃用户`}
+                      value={dashboard.cards.activeUsers.count}
+                      suffix="人"
+                    />
+                    <Statistic
+                      title="登录次数"
+                      value={dashboard.cards.activeUsers.loginCount}
+                      suffix="次"
+                    />
+                  </Space>
+                </div>
+                <div className="admin-active-chart">
+                  <Column
+                    height={300}
+                    data={activeChartData}
+                    xField="label"
+                    yField="count"
+                    paddingBottom={12}
+                    axis={{
+                      x: { title: false },
+                      y: {
+                        title: false,
+                        gridLineDash: null,
+                        gridStroke: "#e8ece9",
+                      },
+                    }}
+                    scale={{ x: { paddingInner: 0.35 } }}
+                    tooltip={{ name: "登录次数", channel: "y" }}
+                    style={{ fill: "#2f7d62" }}
+                  />
+                </div>
+              </Col>
+              <Col xs={24} xl={8}>
+                <div className="admin-active-rank">
+                  <Typography.Title level={4}>活跃用户排名</Typography.Title>
+                  <ul>
+                    {dashboard.cards.activeUsers.ranking.map((item, index) => (
+                      <li key={item.userId}>
+                        <span
+                          className={
+                            index < 3
+                              ? "admin-rank-number active"
+                              : "admin-rank-number"
+                          }
+                        >
+                          {index + 1}
+                        </span>
+                        <span
+                          className="admin-rank-title"
+                          title={item.username}
+                        >
+                          {item.displayName}
+                        </span>
+                        <span>{item.loginCount}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {dashboard.cards.activeUsers.ranking.length === 0 && (
+                    <Typography.Text type="secondary">
+                      当前周期暂无登录记录
+                    </Typography.Text>
+                  )}
+                </div>
+              </Col>
+            </Row>
+          </Card>
+        </section>
+      )}
+
+      {canViewServerCards && (serverLoading || !server || hasServerCards) && (
+        <section className="admin-dashboard-section">
+          <div className="admin-dashboard-section-heading">
+            <Typography.Title level={4}>服务器信息</Typography.Title>
+            <Typography.Text type="secondary">
+              每 5 秒自动刷新
+              {server ? ` · ${formatDateTime(server.generatedAt)}` : ""}
+            </Typography.Text>
+          </div>
+          {serverLoading || !server ? (
+            <ProCard className="admin-section-card">
+              <Skeleton active paragraph={{ rows: 5 }} />
+            </ProCard>
+          ) : (
+            <Row gutter={[16, 16]}>
+              {server.cards.cpu && (
+                <ServerCard
+                  title="CPU"
+                  model={server.cards.cpu.model}
+                  usage={server.cards.cpu.usagePercent}
+                  lines={[
+                    `物理核心 ${server.cards.cpu.physicalCount}，逻辑核心 ${server.cards.cpu.logicalCount}`,
+                    `负载 ${server.cards.cpu.loadAverage.join(" / ")}`,
+                  ]}
+                  icon={<BarChartOutlined />}
+                />
+              )}
+              {server.cards.memory && (
+                <ServerCard
+                  title="内存"
+                  model={server.cards.memory.model}
+                  usage={server.cards.memory.usagePercent}
+                  lines={[
+                    `数量 ${server.cards.memory.slotCount}`,
+                    `${formatBytes(server.cards.memory.usedBytes)} / ${formatBytes(
+                      server.cards.memory.totalBytes,
+                    )}`,
+                  ]}
+                  icon={<DatabaseOutlined />}
+                />
+              )}
+              {server.cards.disks && (
+                <ServerCard
+                  title="硬盘"
+                  model={diskModelText(server)}
+                  usage={server.cards.disks.usagePercent}
+                  lines={[
+                    `数量 ${server.cards.disks.count}`,
+                    `${formatBytes(server.cards.disks.usedBytes)} / ${formatBytes(
+                      server.cards.disks.totalBytes,
+                    )}`,
+                  ]}
+                  icon={<HddOutlined />}
+                />
+              )}
+            </Row>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -367,8 +423,12 @@ function formatDateTime(value: string) {
 }
 
 function diskModelText(server: AdminDashboardServer) {
-  const models = server.disks.devices
+  const disks = server.cards.disks;
+  if (!disks) {
+    return "";
+  }
+  const models = disks.devices
     .map((device) => device.model || device.name)
     .filter(Boolean);
-  return models.length > 0 ? models.join("、") : server.disks.mount;
+  return models.length > 0 ? models.join("、") : disks.mount;
 }

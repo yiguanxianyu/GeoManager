@@ -20,6 +20,11 @@ class UserProfile(models.Model):
         blank=True,
         verbose_name="用户主动关闭的权限",
     )
+    operation_log_group_ids = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="可查看日志用户组",
+    )
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
@@ -40,8 +45,17 @@ class FeaturePermission(models.Model):
             ("manage_feature_permissions", "可配置功能权限"),
             ("create_user", "可新建用户"),
             ("view_operation_logs", "可查看操作日志"),
+            ("view_all_operation_logs", "可查看所有用户日志"),
+            ("view_own_operation_logs", "可查看自己的日志"),
+            ("view_group_operation_logs", "可查看指定用户组日志"),
             ("manage_system_settings", "可修改系统设置"),
             ("manage_auth", "可修改认证授权"),
+            ("view_dashboard_resource_card", "可查看 Dashboard 数据资源卡片"),
+            ("view_dashboard_layer_card", "可查看 Dashboard 图层数卡片"),
+            ("view_dashboard_raster_card", "可查看 Dashboard 栅格数量卡片"),
+            ("view_dashboard_user_card", "可查看 Dashboard 用户数量卡片"),
+            ("view_dashboard_active_users_card", "可查看 Dashboard 活跃用户卡片"),
+            ("view_dashboard_system_card", "可查看 Dashboard 系统信息"),
             ("browse_data", "可浏览数据"),
             ("query_data", "可查询数据"),
             ("load_vector_layer", "可加载矢量图层"),

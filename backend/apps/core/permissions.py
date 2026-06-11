@@ -47,12 +47,75 @@ FEATURE_PERMISSIONS: tuple[FeaturePermissionDef, ...] = (
     FeaturePermissionDef(
         "core",
         "FeaturePermission",
+        "view_all_operation_logs",
+        "查看所有用户日志",
+        "日志权限",
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "view_own_operation_logs",
+        "查看自己的日志",
+        "日志权限",
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "view_group_operation_logs",
+        "查看指定用户组日志",
+        "日志权限",
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
         "manage_system_settings",
         "修改系统设置",
         "后台权限",
     ),
     FeaturePermissionDef(
         "core", "FeaturePermission", "manage_auth", "修改认证授权", "人员权限"
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "view_dashboard_resource_card",
+        "查看 Dashboard 数据资源卡片",
+        "Dashboard 权限",
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "view_dashboard_layer_card",
+        "查看 Dashboard 图层数卡片",
+        "Dashboard 权限",
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "view_dashboard_raster_card",
+        "查看 Dashboard 栅格数量卡片",
+        "Dashboard 权限",
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "view_dashboard_user_card",
+        "查看 Dashboard 用户数量卡片",
+        "Dashboard 权限",
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "view_dashboard_active_users_card",
+        "查看 Dashboard 活跃用户卡片",
+        "Dashboard 权限",
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
+        "view_dashboard_system_card",
+        "查看 Dashboard 系统信息",
+        "Dashboard 权限",
     ),
     FeaturePermissionDef(
         "core", "FeaturePermission", "browse_data", "浏览数据", "数据权限"

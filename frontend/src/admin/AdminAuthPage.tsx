@@ -4,6 +4,7 @@ import {
   EyeOutlined,
   KeyOutlined,
   PlusOutlined,
+  SafetyCertificateOutlined,
   StopOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
@@ -83,10 +84,17 @@ export default function AdminAuthPage() {
   const [activeUser, setActiveUser] = useState<User | null>(null);
   const [logUser, setLogUser] = useState<User | null>(null);
   const [groupUser, setGroupUser] = useState<User | null>(null);
+  const [permissionUser, setPermissionUser] = useState<User | null>(null);
   const [selectedGroupIds, setSelectedGroupIds] = useState<number[]>([]);
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [createUserOpen, setCreateUserOpen] = useState(false);
   const [groupDrafts, setGroupDrafts] = useState<Record<number, string[]>>({});
+  const [userPermissionDrafts, setUserPermissionDrafts] = useState<
+    Record<number, string[]>
+  >({});
+  const [userLogGroupDrafts, setUserLogGroupDrafts] = useState<
+    Record<number, number[]>
+  >({});
   const [permissionGroup, setPermissionGroup] = useState<Group | null>(null);
 
   const loadAuthData = useCallback(async () => {
@@ -106,6 +114,19 @@ export default function AdminAuthPage() {
       setGroupDrafts(
         Object.fromEntries(
           groupData.items.map((group) => [group.id, group.permissions]),
+        ),
+      );
+      setUserPermissionDrafts(
+        Object.fromEntries(
+          userData.items.map((item) => [item.id, item.directPermissions ?? []]),
+        ),
+      );
+      setUserLogGroupDrafts(
+        Object.fromEntries(
+          userData.items.map((item) => [
+            item.id,
+            item.operationLogGroupIds ?? [],
+          ]),
         ),
       );
     } catch (error) {
@@ -421,12 +442,32 @@ export default function AdminAuthPage() {
     setSelectedGroupIds(targetUser.groupIds);
   }
 
+  function openUserPermissionDrawer(targetUser: User) {
+    setUserPermissionDrafts((current) => ({
+      ...current,
+      [targetUser.id]:
+        current[targetUser.id] ?? targetUser.directPermissions ?? [],
+    }));
+    setUserLogGroupDrafts((current) => ({
+      ...current,
+      [targetUser.id]:
+        current[targetUser.id] ?? targetUser.operationLogGroupIds ?? [],
+    }));
+    setPermissionUser(targetUser);
+  }
+
   function userActionItems(record: User): MenuProps["items"] {
     return [
       {
         key: "groups",
         icon: <TeamOutlined />,
         label: "更改用户组",
+      },
+      {
+        key: "permissions",
+        icon: <SafetyCertificateOutlined />,
+        label: "更改权限",
+        disabled: !canManagePermissions,
       },
       {
         key: "status",
@@ -453,6 +494,10 @@ export default function AdminAuthPage() {
   function handleUserAction(key: string, targetUser: User) {
     if (key === "groups") {
       openUserGroupDrawer(targetUser);
+      return;
+    }
+    if (key === "permissions") {
+      openUserPermissionDrawer(targetUser);
       return;
     }
     if (key === "status") {
@@ -603,6 +648,27 @@ export default function AdminAuthPage() {
     await loadAuthData();
   }
 
+  async function handleSaveUserPermissions() {
+    if (!permissionUser || !canManagePermissions) return;
+    const updated = await api.updateAdminUserPermissions(permissionUser.id, {
+      directPermissions: userPermissionDrafts[permissionUser.id] ?? [],
+      operationLogGroupIds: userLogGroupDrafts[permissionUser.id] ?? [],
+    });
+    setUsers((current) =>
+      current.map((item) => (item.id === updated.id ? updated : item)),
+    );
+    setUserPermissionDrafts((current) => ({
+      ...current,
+      [updated.id]: updated.directPermissions ?? [],
+    }));
+    setUserLogGroupDrafts((current) => ({
+      ...current,
+      [updated.id]: updated.operationLogGroupIds ?? [],
+    }));
+    setPermissionUser(null);
+    message.success("用户权限已保存");
+  }
+
   if (!canManageAuth) {
     return <Result status="403" title="无权限访问认证授权" />;
   }
@@ -734,6 +800,34 @@ export default function AdminAuthPage() {
                   )}
                 </Space>
               </dd>
+              <dt>单独授予权限</dt>
+              <dd>
+                {(activeUser.directPermissions ?? []).length > 0 ? (
+                  <PermissionTags
+                    permissionIds={activeUser.directPermissions ?? []}
+                    permissionLabelById={permissionLabelById}
+                    maxVisible={8}
+                  />
+                ) : (
+                  <Tag>未单独授予</Tag>
+                )}
+              </dd>
+              <dt>实际生效权限</dt>
+              <dd>
+                <PermissionTags
+                  permissionIds={activeUser.effectivePermissions ?? []}
+                  permissionLabelById={permissionLabelById}
+                  maxVisible={10}
+                />
+              </dd>
+              <dt>可查看日志用户组</dt>
+              <dd>
+                <GroupTags
+                  groupIds={activeUser.operationLogGroupIds ?? []}
+                  groupNameById={groupNameById}
+                  emptyText="未配置"
+                />
+              </dd>
             </dl>
           </div>
         ) : (
@@ -808,6 +902,110 @@ export default function AdminAuthPage() {
               onChange={setSelectedGroupIds}
               style={{ width: "100%" }}
             />
+          </div>
+        ) : null}
+      </Drawer>
+
+      <Drawer
+        title="设置用户权限"
+        open={Boolean(permissionUser)}
+        onClose={() => setPermissionUser(null)}
+        size="large"
+        extra={
+          <Button type="primary" onClick={handleSaveUserPermissions}>
+            保存
+          </Button>
+        }
+      >
+        {permissionUser ? (
+          <div className="admin-page-stack">
+            <Space direction="vertical" size={2}>
+              <Typography.Text strong>
+                {permissionUser.displayName || permissionUser.username}
+              </Typography.Text>
+              <Typography.Text type="secondary">
+                仅配置单独授予该用户的权限，用户组权限保持不变。
+              </Typography.Text>
+            </Space>
+            <div className="admin-permission-effective">
+              <Typography.Text strong>可查看日志用户组</Typography.Text>
+              <Typography.Text type="secondary">
+                仅在该用户具备“查看指定用户组日志”权限时生效。
+              </Typography.Text>
+              <Select
+                mode="multiple"
+                value={
+                  userLogGroupDrafts[permissionUser.id] ??
+                  permissionUser.operationLogGroupIds ??
+                  []
+                }
+                options={groups.map((group) => ({
+                  label: group.name,
+                  value: group.id,
+                }))}
+                onChange={(values) => {
+                  setUserLogGroupDrafts((current) => ({
+                    ...current,
+                    [permissionUser.id]: values.map(Number),
+                  }));
+                }}
+                placeholder="选择允许查看日志的用户组"
+                style={{ width: "100%" }}
+              />
+            </div>
+            <Checkbox.Group
+              className="admin-permission-list"
+              value={
+                userPermissionDrafts[permissionUser.id] ??
+                permissionUser.directPermissions ??
+                []
+              }
+              onChange={(values) => {
+                setUserPermissionDrafts((current) => ({
+                  ...current,
+                  [permissionUser.id]: values.map(String),
+                }));
+              }}
+            >
+              {availablePermissionGroups.map((permissionGroupItem) => (
+                <div
+                  className="admin-permission-group"
+                  key={permissionGroupItem.group}
+                >
+                  <Typography.Text strong>
+                    {permissionGroupItem.group}
+                  </Typography.Text>
+                  <div className="admin-permission-group-options">
+                    {permissionGroupItem.items.map((permission) => (
+                      <Checkbox key={permission.id} value={permission.id}>
+                        <span className="admin-permission-option">
+                          <Typography.Text strong>
+                            {permission.label}
+                          </Typography.Text>
+                          <Typography.Text type="secondary">
+                            {permission.id}
+                          </Typography.Text>
+                        </span>
+                      </Checkbox>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </Checkbox.Group>
+            <div className="admin-permission-effective">
+              <Typography.Text strong>当前实际生效权限</Typography.Text>
+              {(permissionUser.effectivePermissions ?? []).length > 0 ? (
+                <PermissionTags
+                  permissionIds={permissionUser.effectivePermissions ?? []}
+                  permissionLabelById={permissionLabelById}
+                  maxVisible={14}
+                />
+              ) : (
+                <Typography.Text type="secondary">
+                  暂无实际生效功能权限
+                </Typography.Text>
+              )}
+            </div>
           </div>
         ) : null}
       </Drawer>
@@ -950,14 +1148,16 @@ type FormValidationError = {
 function GroupTags({
   groupIds,
   groupNameById,
-  maxVisible,
+  maxVisible = 6,
+  emptyText = "未分组",
 }: {
   groupIds: number[];
   groupNameById: Map<number, string>;
-  maxVisible: number;
+  maxVisible?: number;
+  emptyText?: string;
 }) {
   if (groupIds.length === 0) {
-    return <Tag>未分组</Tag>;
+    return <Tag>{emptyText}</Tag>;
   }
   const visibleIds = groupIds.slice(0, maxVisible);
   const hiddenCount = groupIds.length - visibleIds.length;

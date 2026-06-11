@@ -163,6 +163,7 @@ frontend/src/
 - 后台 `/admin/data/inventory` 是存量数据管理入口，使用 `/api/admin/data/resources/` 查询启用和禁用资源；常规业务目录 `/api/catalog/resources/`、搜索和资源 profile/query 仍只处理 `status=active` 的数据资源。
 - `DataResource.default_visualization` 保存默认可视化方案 JSON；空间资源保存方案时会创建或更新关联 `MapLayer`，同步默认图层名称、默认显隐、默认透明度、矢量符号化和栅格规则。栅格色带和 PNG/XYZ 生成仍由后端栅格服务处理。
 - 存量数据启停、默认可视化保存、访问用户组配置、删除和清单导出均写入 `OperationLog(module="数据管理")`。删除用户导入的矢量/表格资源时清理 GeoPackage 图层或 SQLite 表；栅格等可能复用的研究数据文件保留，仅删除资源登记和关联图层。
+- 操作日志中的模块、动作和说明统一使用中文。除认证、用户组、用户、系统配置和存量数据管理外，目录扫描、导入预览/校验/提交、数据查询、已加载图层导出、异步导出发起/下载、个人资料更新、个人权限开关更新、栅格渲染样式注册、栅格渲染任务发起、栅格唯一值统计、栅格导入和栅格扫描发起也写入 `OperationLog`。异步任务内部的执行进度仍保留在任务消息或 `RasterDataset.progress_log`，操作日志记录用户可归属的发起和下载动作。
 
 ## 当前图层树约定
 

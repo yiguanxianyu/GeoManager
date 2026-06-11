@@ -16,12 +16,18 @@ export function operationLogsToCsv(rows: AdminOperationLog[]) {
       row.operator,
       row.module,
       row.action,
-      row.result,
+      resultText(row.result),
       row.ipAddress,
       row.summary,
     ].map(escapeCsvCell),
   );
   return [headers, ...body].map((line) => line.join(",")).join("\n");
+}
+
+function resultText(result: AdminOperationLog["result"]) {
+  if (result === "success") return "成功";
+  if (result === "warning") return "告警";
+  return "失败";
 }
 
 function escapeCsvCell(value: string | number) {

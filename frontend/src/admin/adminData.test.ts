@@ -18,5 +18,6 @@ describe("operationLogsToCsv", () => {
 
     expect(csv).toContain("时间,操作用户,模块,动作,结果,IP 地址,摘要");
     expect(csv).toContain("更新角色权限");
+    expect(csv).toContain("成功");
   });
 });

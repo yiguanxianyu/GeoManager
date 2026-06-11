@@ -9,8 +9,8 @@ from apps.audit.service import _client_ip, log_operation
 
 class OperationLogModelTests(TestCase):
     def test_str_representation(self):
-        log = OperationLog(module="catalog", action="export", status="success")
-        self.assertEqual(str(log), "catalog.export success")
+        log = OperationLog(module="数据导出", action="导出数据", status="success")
+        self.assertEqual(str(log), "数据导出.导出数据 success")
 
     def test_status_choices(self):
         self.assertEqual(OperationLog.Status.SUCCESS, "success")
@@ -18,11 +18,15 @@ class OperationLogModelTests(TestCase):
         self.assertEqual(OperationLog.Status.FAILED, "failed")
 
     def test_ordering_by_created_at_desc(self):
-        OperationLog.objects.create(module="core", action="login", status="success")
-        OperationLog.objects.create(module="catalog", action="query", status="success")
+        OperationLog.objects.create(
+            module="认证授权", action="用户登录", status="success"
+        )
+        OperationLog.objects.create(
+            module="数据查询", action="查询数据", status="success"
+        )
         logs = list(OperationLog.objects.all())
-        self.assertEqual(logs[0].module, "catalog")
-        self.assertEqual(logs[1].module, "core")
+        self.assertEqual(logs[0].module, "数据查询")
+        self.assertEqual(logs[1].module, "认证授权")
 
 
 class LogOperationTests(TestCase):
@@ -31,13 +35,13 @@ class LogOperationTests(TestCase):
             username="logger-test", password="pass12345"
         )
 
-        log_operation(user, "catalog", "export", "success", "导出成功")
+        log_operation(user, "数据导出", "导出数据", "success", "导出成功")
 
         log = OperationLog.objects.first()
         self.assertIsNotNone(log)
         self.assertEqual(log.user, user)
-        self.assertEqual(log.module, "catalog")
-        self.assertEqual(log.action, "export")
+        self.assertEqual(log.module, "数据导出")
+        self.assertEqual(log.action, "导出数据")
         self.assertEqual(log.status, "success")
         self.assertEqual(log.message, "导出成功")
 
@@ -45,14 +49,14 @@ class LogOperationTests(TestCase):
         anonymous = MagicMock()
         anonymous.is_authenticated = False
 
-        log_operation(anonymous, "core", "login", "failed", "登录失败")
+        log_operation(anonymous, "认证授权", "用户登录", "failed", "登录失败")
 
         log = OperationLog.objects.first()
         self.assertIsNotNone(log)
         self.assertIsNone(log.user)
 
     def test_creates_log_with_null_user_for_none(self):
-        log_operation(None, "core", "login", "failed", "登录失败")
+        log_operation(None, "认证授权", "用户登录", "failed", "登录失败")
 
         log = OperationLog.objects.first()
         self.assertIsNotNone(log)
@@ -66,7 +70,7 @@ class LogOperationTests(TestCase):
         request = factory.get("/api/test/")
         request.META["REMOTE_ADDR"] = "192.168.1.100"
 
-        log_operation(user, "catalog", "query", "success", request=request)
+        log_operation(user, "数据查询", "查询数据", "success", request=request)
 
         log = OperationLog.objects.first()
         self.assertEqual(log.ip_address, "192.168.1.100")
@@ -79,7 +83,7 @@ class LogOperationTests(TestCase):
         request = factory.get("/api/test/")
         request.META["HTTP_X_FORWARDED_FOR"] = "10.0.0.1, 10.0.0.2"
 
-        log_operation(user, "catalog", "query", "success", request=request)
+        log_operation(user, "数据查询", "查询数据", "success", request=request)
 
         log = OperationLog.objects.first()
         self.assertEqual(log.ip_address, "10.0.0.1")
@@ -89,7 +93,7 @@ class LogOperationTests(TestCase):
             username="no-request-test", password="pass12345"
         )
 
-        log_operation(user, "core", "test", "success")
+        log_operation(user, "系统测试", "测试日志", "success")
 
         log = OperationLog.objects.first()
         self.assertIsNone(log.ip_address)

@@ -15,6 +15,8 @@ export type UserCreateResponse = Schemas["UserCreateResponse"];
 export type UserPasswordResetResponse = Schemas["UserPasswordResetResponse"];
 export type UserListResponse = Schemas["UserListResponse"];
 export type UserGroupUpdateRequest = Schemas["UserGroupUpdateRequest"];
+export type UserPermissionUpdateRequest =
+  Schemas["UserPermissionUpdateRequest"];
 export type UserUpdateRequest = Schemas["UserUpdateRequest"];
 export type Group = Schemas["Group"];
 export type GroupListResponse = Schemas["GroupListResponse"];

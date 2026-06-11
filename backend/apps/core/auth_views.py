@@ -33,13 +33,20 @@ def login_view(request):
     remember = bool(payload.get("remember", False))
     user = authenticate(request, username=username, password=password)
     if user is None or not user.is_active:
-        log_operation(None, "auth", "login", "failed", f"登录失败：{username}", request)
+        log_operation(
+            None,
+            "认证授权",
+            "用户登录",
+            "failed",
+            f"登录失败：{username}",
+            request,
+        )
         return JsonResponse({"detail": "账号或密码错误"}, status=400)
 
     login(request, user)
     if not remember:
         request.session.set_expiry(0)
-    log_operation(user, "auth", "login", "success", "登录成功", request)
+    log_operation(user, "认证授权", "用户登录", "success", "登录成功", request)
     return JsonResponse({"user": serialize_user(user)})
 
 
@@ -79,7 +86,7 @@ def register_view(request):
 
     login(request, user)
     message = "用户注册成功"
-    log_operation(user, "auth", "register", "success", message, request)
+    log_operation(user, "认证授权", "用户注册", "success", message, request)
     return JsonResponse({"user": serialize_user(user), "detail": message})
 
 
@@ -88,7 +95,7 @@ def register_view(request):
 def logout_view(request):
     user = request.user
     logout(request)
-    log_operation(user, "auth", "logout", "success", "退出登录", request)
+    log_operation(user, "认证授权", "用户退出", "success", "退出登录", request)
     return JsonResponse({"detail": "已退出"})
 
 
@@ -110,10 +117,37 @@ def serialize_user(user):
         ),
         "canCreateUser": has_feature_perm(user, "core.create_user"),
         "canViewOperationLogs": has_feature_perm(user, "core.view_operation_logs"),
+        "canViewAllOperationLogs": has_feature_perm(
+            user, "core.view_all_operation_logs"
+        ),
+        "canViewOwnOperationLogs": has_feature_perm(
+            user, "core.view_own_operation_logs"
+        ),
+        "canViewGroupOperationLogs": has_feature_perm(
+            user, "core.view_group_operation_logs"
+        ),
         "canManageSystemSettings": has_feature_perm(
             user, "core.manage_system_settings"
         ),
         "canManageAuth": has_feature_perm(user, "core.manage_auth"),
+        "canViewDashboardResourceCard": has_feature_perm(
+            user, "core.view_dashboard_resource_card"
+        ),
+        "canViewDashboardLayerCard": has_feature_perm(
+            user, "core.view_dashboard_layer_card"
+        ),
+        "canViewDashboardRasterCard": has_feature_perm(
+            user, "core.view_dashboard_raster_card"
+        ),
+        "canViewDashboardUserCard": has_feature_perm(
+            user, "core.view_dashboard_user_card"
+        ),
+        "canViewDashboardActiveUsersCard": has_feature_perm(
+            user, "core.view_dashboard_active_users_card"
+        ),
+        "canViewDashboardSystemCard": has_feature_perm(
+            user, "core.view_dashboard_system_card"
+        ),
         "canBrowseData": has_feature_perm(user, "core.browse_data"),
         "canQueryData": has_feature_perm(user, "core.query_data"),
         "canLoadVectorLayer": has_feature_perm(user, "core.load_vector_layer"),
@@ -137,6 +171,7 @@ def serialize_user(user):
         "isSuperuser": user.is_superuser,
         "roles": groups,
         "groupIds": group_ids,
+        "operationLogGroupIds": profile["operation_log_group_ids"],
         "permissions": permissions,
     }
 
@@ -145,8 +180,9 @@ def _profile_values(user):
     try:
         profile = user.profile
     except ObjectDoesNotExist:
-        return {"avatar_url": "", "department": ""}
+        return {"avatar_url": "", "department": "", "operation_log_group_ids": []}
     return {
         "avatar_url": profile.avatar_url,
         "department": profile.department,
+        "operation_log_group_ids": profile.operation_log_group_ids,
     }

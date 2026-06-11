@@ -43,6 +43,7 @@ import type {
   UserCreateResponse,
   UserGroupUpdateRequest,
   UserPasswordResetResponse,
+  UserPermissionUpdateRequest,
   UserUpdateRequest,
 } from "../types";
 import { isDataResource } from "../utils/resources";
@@ -285,6 +286,16 @@ export const api = {
   updateAdminUserGroups: (userId: number, payload: UserGroupUpdateRequest) =>
     unwrap<User>(
       client.POST("/api/users/{userId}/groups/", {
+        params: { path: { userId } },
+        body: payload,
+      }),
+    ),
+  updateAdminUserPermissions: (
+    userId: number,
+    payload: UserPermissionUpdateRequest,
+  ) =>
+    unwrap<User>(
+      client.POST("/api/users/{userId}/permissions/", {
         params: { path: { userId } },
         body: payload,
       }),

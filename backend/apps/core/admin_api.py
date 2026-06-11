@@ -141,8 +141,24 @@ def update_admin_profile(request):
             user.save()
             profile.save()
     except IntegrityError:
+        log_operation(
+            request.user,
+            "用户设置",
+            "更新个人资料",
+            "failed",
+            "个人资料保存失败",
+            request,
+        )
         return JsonResponse({"detail": "保存失败"}, status=400)
 
+    log_operation(
+        request.user,
+        "用户设置",
+        "更新个人资料",
+        "success",
+        "个人资料已更新",
+        request,
+    )
     return JsonResponse(_serialize_profile(user))
 
 
@@ -274,6 +290,14 @@ def update_admin_profile_permissions(request):
     profile = _ensure_profile(request.user)
     profile.disabled_permissions = sorted(disabled_set)
     profile.save(update_fields=["disabled_permissions", "updated_at"])
+    log_operation(
+        request.user,
+        "用户设置",
+        "更新个人权限开关",
+        "success",
+        f"关闭 {len(disabled_set)} 项权限",
+        request,
+    )
     return JsonResponse(_serialize_profile(request.user))
 
 
@@ -473,7 +497,12 @@ def user_list(request):
         response_data["generatedPassword"] = generated_password
         return JsonResponse(response_data, status=201)
 
-    users = User.objects.prefetch_related("groups").order_by("id")
+    users = User.objects.prefetch_related(
+        "groups",
+        "user_permissions__content_type",
+        "groups__permissions__content_type",
+        "profile",
+    ).order_by("id")
     return JsonResponse({"items": [_serialize_admin_user(user) for user in users]})
 
 
@@ -598,6 +627,45 @@ def update_user_groups(request, user_id: int):
         request.user,
         "认证授权",
         "设置用户组",
+        "success",
+        user.get_username(),
+        request,
+    )
+    return JsonResponse(_serialize_admin_user(user))
+
+
+@require_http_methods(["POST"])
+@api_permission_required("core.manage_auth")
+def update_user_permissions(request, user_id: int):
+    if not has_feature_perm(request.user, "core.manage_feature_permissions"):
+        return JsonResponse({"detail": "当前用户无权限配置用户权限"}, status=403)
+
+    payload = _json_payload(request)
+    if isinstance(payload, JsonResponse):
+        return payload
+    if "directPermissions" not in payload:
+        return JsonResponse({"detail": "directPermissions 必须是数组"}, status=400)
+    permissions = _permission_names(payload.get("directPermissions"))
+    if isinstance(permissions, JsonResponse):
+        return permissions
+    operation_log_group_ids = _operation_log_group_ids_payload(
+        payload.get("operationLogGroupIds", [])
+    )
+    if isinstance(operation_log_group_ids, JsonResponse):
+        return operation_log_group_ids
+
+    User = get_user_model()
+    try:
+        user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({"detail": "用户不存在"}, status=404)
+
+    _set_user_feature_permissions(user, permissions)
+    _set_operation_log_group_ids(user, operation_log_group_ids)
+    log_operation(
+        request.user,
+        "认证授权",
+        "设置用户权限",
         "success",
         user.get_username(),
         request,
@@ -800,6 +868,7 @@ def admin_data_resources_export(request):
 @api_permission_required("core.view_operation_logs")
 def admin_operation_logs(request):
     logs = OperationLog.objects.select_related("user").order_by("-created_at")
+    logs = _scope_operation_logs(logs, request.user)
     logs = _filter_operation_logs(logs, request.GET)
     total = logs.count()
     current = _positive_query_int(request.GET.get("current"), default=1)
@@ -824,57 +893,65 @@ def admin_dashboard(request):
     period = _active_period(request.GET.get("period"))
     if isinstance(period, JsonResponse):
         return period
-    period_start, period_end = _active_period_bounds(period)
-    login_logs = OperationLog.objects.filter(
-        module="auth",
-        action="login",
-        status=OperationLog.Status.SUCCESS,
-        created_at__gte=period_start,
-        created_at__lt=period_end,
-        user_id__isnull=False,
-    )
-    active_user_count = login_logs.values("user_id").distinct().count()
-    series = _active_user_series(login_logs, period, period_start)
-    ranking = _active_user_ranking(login_logs)
-
-    data_counts = {
-        "resources": DataResource.objects.count(),
-        "activeResources": DataResource.objects.filter(
-            status=DataResource.Status.ACTIVE
-        ).count(),
-        "layers": MapLayer.objects.count(),
-        "activeLayers": MapLayer.objects.filter(is_active=True).count(),
-        "vectorResources": DataResource.objects.filter(
-            data_type=DataResource.DataType.VECTOR
-        ).count(),
-        "rasterResources": DataResource.objects.filter(
-            data_type=DataResource.DataType.RASTER
-        ).count(),
-        "rasterDatasets": RasterDataset.objects.count(),
-        "rasterLayers": MapLayer.objects.filter(
-            layer_type=MapLayer.LayerType.RASTER
-        ).count(),
-        "tableResources": DataResource.objects.filter(
-            data_type=DataResource.DataType.TABLE
-        ).count(),
-        "users": get_user_model().objects.count(),
-    }
+    cards: dict[str, Any] = {}
+    if has_feature_perm(request.user, "core.view_dashboard_resource_card"):
+        cards["resources"] = {
+            "total": DataResource.objects.count(),
+            "active": DataResource.objects.filter(
+                status=DataResource.Status.ACTIVE
+            ).count(),
+        }
+    if has_feature_perm(request.user, "core.view_dashboard_layer_card"):
+        cards["layers"] = {
+            "total": MapLayer.objects.count(),
+            "active": MapLayer.objects.filter(is_active=True).count(),
+        }
+    if has_feature_perm(request.user, "core.view_dashboard_raster_card"):
+        cards["rasters"] = {
+            "resources": DataResource.objects.filter(
+                data_type=DataResource.DataType.RASTER
+            ).count(),
+            "datasets": RasterDataset.objects.count(),
+            "layers": MapLayer.objects.filter(
+                layer_type=MapLayer.LayerType.RASTER
+            ).count(),
+        }
+    if has_feature_perm(request.user, "core.view_dashboard_user_card"):
+        cards["users"] = {
+            "total": get_user_model().objects.count(),
+            "vectorResources": DataResource.objects.filter(
+                data_type=DataResource.DataType.VECTOR
+            ).count(),
+            "tableResources": DataResource.objects.filter(
+                data_type=DataResource.DataType.TABLE
+            ).count(),
+        }
+    if has_feature_perm(request.user, "core.view_dashboard_active_users_card"):
+        period_start, period_end = _active_period_bounds(period)
+        login_logs = OperationLog.objects.filter(
+            module="认证授权",
+            action="用户登录",
+            status=OperationLog.Status.SUCCESS,
+            created_at__gte=period_start,
+            created_at__lt=period_end,
+            user_id__isnull=False,
+        )
+        cards["activeUsers"] = {
+            "period": period,
+            "rangeStart": timezone.localtime(period_start).date().isoformat(),
+            "rangeEnd": (timezone.localtime(period_end) - timedelta(days=1))
+            .date()
+            .isoformat(),
+            "count": login_logs.values("user_id").distinct().count(),
+            "loginCount": login_logs.count(),
+            "series": _active_user_series(login_logs, period, period_start),
+            "ranking": _active_user_ranking(login_logs),
+        }
 
     return JsonResponse(
         {
             "generatedAt": timezone.localtime().isoformat(),
-            "dataCounts": data_counts,
-            "activeUsers": {
-                "period": period,
-                "rangeStart": timezone.localtime(period_start).date().isoformat(),
-                "rangeEnd": (timezone.localtime(period_end) - timedelta(days=1))
-                .date()
-                .isoformat(),
-                "count": active_user_count,
-                "loginCount": login_logs.count(),
-                "series": series,
-                "ranking": ranking,
-            },
+            "cards": cards,
         }
     )
 
@@ -882,7 +959,7 @@ def admin_dashboard(request):
 @require_GET
 @api_permission_required("core.access_admin")
 def admin_dashboard_server(request):
-    return JsonResponse(_server_snapshot())
+    return JsonResponse(_server_snapshot(request.user))
 
 
 def _active_period(value: Any) -> str | JsonResponse:
@@ -952,14 +1029,17 @@ def _active_user_ranking(login_logs) -> list[dict[str, Any]]:
     ]
 
 
-def _server_snapshot() -> dict[str, Any]:
+def _server_snapshot(user) -> dict[str, Any]:
+    cards: dict[str, Any] = {}
+    if has_feature_perm(user, "core.view_dashboard_system_card"):
+        cards["cpu"] = _cpu_snapshot()
+        cards["memory"] = _memory_snapshot()
+        cards["disks"] = _disk_snapshot()
     return {
         "generatedAt": timezone.localtime().isoformat(),
         "hostname": platform.node(),
         "platform": platform.platform(),
-        "cpu": _cpu_snapshot(),
-        "memory": _memory_snapshot(),
-        "disks": _disk_snapshot(),
+        "cards": cards,
     }
 
 
@@ -1638,6 +1718,9 @@ def _serialize_admin_user(user) -> dict[str, Any]:
     serialized = serialize_user(user)
     serialized["groupIds"] = list(user.groups.values_list("id", flat=True))
     serialized["isActive"] = user.is_active
+    serialized["directPermissions"] = sorted(_direct_feature_permissions(user))
+    serialized["effectivePermissions"] = sorted(effective_feature_permissions(user))
+    serialized["operationLogGroupIds"] = _operation_log_group_ids(user)
     return serialized
 
 
@@ -1754,6 +1837,65 @@ def _filter_operation_logs(queryset, params):
     if end_time:
         queryset = queryset.filter(created_at__lte=end_time)
     return queryset
+
+
+def _scope_operation_logs(queryset, user):
+    if has_feature_perm(user, "core.view_all_operation_logs"):
+        return queryset
+
+    scope = Q()
+    if has_feature_perm(user, "core.view_own_operation_logs"):
+        scope |= Q(user_id=user.id)
+    if has_feature_perm(user, "core.view_group_operation_logs"):
+        group_ids = _operation_log_group_ids(user)
+        if group_ids:
+            scope |= Q(user__groups__id__in=group_ids)
+    if not scope:
+        return queryset.none()
+    return queryset.filter(scope).distinct()
+
+
+def _operation_log_group_ids(user) -> list[int]:
+    try:
+        profile = user.profile
+    except ObjectDoesNotExist:
+        return []
+    group_ids = profile.operation_log_group_ids
+    if not isinstance(group_ids, list):
+        return []
+    normalized = []
+    for group_id in group_ids:
+        try:
+            normalized.append(int(group_id))
+        except (TypeError, ValueError):
+            continue
+    return normalized
+
+
+def _operation_log_group_ids_payload(value: Any) -> list[int] | JsonResponse:
+    if not isinstance(value, list):
+        return JsonResponse({"detail": "operationLogGroupIds 必须是数组"}, status=400)
+    try:
+        normalized_group_ids = sorted({int(group_id) for group_id in value})
+    except (TypeError, ValueError):
+        return JsonResponse(
+            {"detail": "operationLogGroupIds 必须是整数数组"}, status=400
+        )
+    if not normalized_group_ids:
+        return []
+    existing_ids = set(
+        Group.objects.filter(id__in=normalized_group_ids).values_list("id", flat=True)
+    )
+    missing_ids = set(normalized_group_ids) - existing_ids
+    if missing_ids:
+        return JsonResponse({"detail": "包含不存在的日志用户组"}, status=400)
+    return normalized_group_ids
+
+
+def _set_operation_log_group_ids(user, group_ids: list[int]) -> None:
+    profile = _ensure_profile(user)
+    profile.operation_log_group_ids = group_ids
+    profile.save(update_fields=["operation_log_group_ids", "updated_at"])
 
 
 def _parse_query_datetime(value: Any, *, end_of_day: bool):
@@ -1885,6 +2027,34 @@ def _set_group_feature_permissions(group: Group, permission_names: list[str]) ->
         group.permissions.exclude(id__in=feature_ids).values_list("id", flat=True)
     )
     group.permissions.set([*non_feature_ids, *selected_ids])
+
+
+def _direct_feature_permissions(user) -> set[str]:
+    feature_ids = set(feature_permission_queryset().values_list("id", flat=True))
+    return {
+        f"{permission.content_type.app_label}.{permission.codename}"
+        for permission in user.user_permissions.filter(id__in=feature_ids)
+        .select_related("content_type")
+        .all()
+    }
+
+
+def _set_user_feature_permissions(user, permission_names: list[str]) -> None:
+    permissions = feature_permission_queryset()
+    feature_ids = set(permissions.values_list("id", flat=True))
+    permissions_by_name = {
+        f"{permission.content_type.app_label}.{permission.codename}": permission.id
+        for permission in permissions
+    }
+    selected_ids = {
+        permissions_by_name[permission]
+        for permission in permission_names
+        if permission in permissions_by_name
+    }
+    non_feature_ids = set(
+        user.user_permissions.exclude(id__in=feature_ids).values_list("id", flat=True)
+    )
+    user.user_permissions.set([*non_feature_ids, *selected_ids])
 
 
 def _map_patch(value: Any) -> dict[str, Any] | JsonResponse:

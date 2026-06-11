@@ -86,13 +86,23 @@ const adminUser: User = {
   roles: ["系统管理员"],
   groupIds: [1],
   isActive: true,
+  operationLogGroupIds: [],
   permissions: {
     canAccessAdmin: true,
     canManageFeaturePermissions: true,
     canCreateUser: true,
     canViewOperationLogs: true,
+    canViewAllOperationLogs: true,
+    canViewOwnOperationLogs: true,
+    canViewGroupOperationLogs: true,
     canManageSystemSettings: true,
     canManageAuth: true,
+    canViewDashboardResourceCard: true,
+    canViewDashboardLayerCard: true,
+    canViewDashboardRasterCard: true,
+    canViewDashboardUserCard: true,
+    canViewDashboardActiveUsersCard: true,
+    canViewDashboardSystemCard: true,
     canBrowseData: true,
     canQueryData: true,
     canLoadVectorLayer: true,
@@ -114,11 +124,56 @@ const availablePermissions = [
   { id: "core.create_user", label: "新建用户", group: "人员权限" },
   { id: "core.view_operation_logs", label: "查看操作日志", group: "后台权限" },
   {
+    id: "core.view_all_operation_logs",
+    label: "查看所有用户日志",
+    group: "日志权限",
+  },
+  {
+    id: "core.view_own_operation_logs",
+    label: "查看自己的日志",
+    group: "日志权限",
+  },
+  {
+    id: "core.view_group_operation_logs",
+    label: "查看指定用户组日志",
+    group: "日志权限",
+  },
+  {
     id: "core.manage_system_settings",
     label: "修改系统设置",
     group: "后台权限",
   },
   { id: "core.manage_auth", label: "修改认证授权", group: "人员权限" },
+  {
+    id: "core.view_dashboard_resource_card",
+    label: "查看 Dashboard 数据资源卡片",
+    group: "Dashboard 权限",
+  },
+  {
+    id: "core.view_dashboard_layer_card",
+    label: "查看 Dashboard 图层数卡片",
+    group: "Dashboard 权限",
+  },
+  {
+    id: "core.view_dashboard_raster_card",
+    label: "查看 Dashboard 栅格数量卡片",
+    group: "Dashboard 权限",
+  },
+  {
+    id: "core.view_dashboard_user_card",
+    label: "查看 Dashboard 用户数量卡片",
+    group: "Dashboard 权限",
+  },
+  {
+    id: "core.view_dashboard_active_users_card",
+    label: "查看 Dashboard 活跃用户卡片",
+    group: "Dashboard 权限",
+  },
+  {
+    id: "core.view_dashboard_system_card",
+    label: "查看 Dashboard 系统信息",
+    group: "Dashboard 权限",
+  },
   { id: "core.browse_data", label: "浏览数据目录", group: "数据权限" },
   { id: "core.query_data", label: "查询数据", group: "数据权限" },
   {
@@ -145,6 +200,9 @@ const adminApiUser = {
   ...adminUser,
   groupIds: [adminGroup.id],
   isActive: true,
+  directPermissions: [],
+  effectivePermissions: grantedPermissions,
+  operationLogGroupIds: [],
 };
 
 const adminSettings = {
@@ -261,66 +319,62 @@ describe("admin routes", () => {
     mockApi.updateAdminSettings.mockResolvedValue(adminSettings);
     mockApi.adminDashboard.mockResolvedValue({
       generatedAt: "2026-06-07T20:00:00+08:00",
-      dataCounts: {
-        resources: 2,
-        activeResources: 2,
-        layers: 1,
-        activeLayers: 1,
-        vectorResources: 1,
-        rasterResources: 1,
-        rasterDatasets: 1,
-        rasterLayers: 1,
-        tableResources: 0,
-        users: 2,
-      },
-      activeUsers: {
-        period: "day",
-        rangeStart: "2026-06-07",
-        rangeEnd: "2026-06-07",
-        count: 1,
-        loginCount: 2,
-        series: Array.from({ length: 24 }, (_, hour) => ({
-          key: String(hour),
-          label: `${String(hour).padStart(2, "0")}:00`,
-          count: hour === 9 ? 2 : 0,
-        })),
-        ranking: [
-          {
-            userId: 2,
-            displayName: "活跃用户",
-            username: "active-user",
-            loginCount: 2,
-          },
-        ],
+      cards: {
+        resources: { total: 2, active: 2 },
+        layers: { total: 1, active: 1 },
+        rasters: { resources: 1, datasets: 1, layers: 1 },
+        users: { total: 2, vectorResources: 1, tableResources: 0 },
+        activeUsers: {
+          period: "day",
+          rangeStart: "2026-06-07",
+          rangeEnd: "2026-06-07",
+          count: 1,
+          loginCount: 2,
+          series: Array.from({ length: 24 }, (_, hour) => ({
+            key: String(hour),
+            label: `${String(hour).padStart(2, "0")}:00`,
+            count: hour === 9 ? 2 : 0,
+          })),
+          ranking: [
+            {
+              userId: 2,
+              displayName: "活跃用户",
+              username: "active-user",
+              loginCount: 2,
+            },
+          ],
+        },
       },
     });
     mockApi.adminDashboardServer.mockResolvedValue({
       generatedAt: "2026-06-07T20:00:00+08:00",
       hostname: "test-host",
       platform: "Darwin",
-      cpu: {
-        model: "Apple M",
-        physicalCount: 8,
-        logicalCount: 8,
-        usagePercent: 32,
-        loadAverage: [2.1, 1.8, 1.5],
-      },
-      memory: {
-        model: "系统内存",
-        slotCount: 1,
-        totalBytes: 17179869184,
-        usedBytes: 8589934592,
-        availableBytes: 8589934592,
-        usagePercent: 50,
-      },
-      disks: {
-        count: 1,
-        devices: [{ name: "disk0", model: "APPLE SSD", size: "512 GB" }],
-        mount: "/Users/gx/Documents/Source/huyang_system",
-        totalBytes: 512000000000,
-        usedBytes: 256000000000,
-        freeBytes: 256000000000,
-        usagePercent: 50,
+      cards: {
+        cpu: {
+          model: "Apple M",
+          physicalCount: 8,
+          logicalCount: 8,
+          usagePercent: 32,
+          loadAverage: [2.1, 1.8, 1.5],
+        },
+        memory: {
+          model: "系统内存",
+          slotCount: 1,
+          totalBytes: 17179869184,
+          usedBytes: 8589934592,
+          availableBytes: 8589934592,
+          usagePercent: 50,
+        },
+        disks: {
+          count: 1,
+          devices: [{ name: "disk0", model: "APPLE SSD", size: "512 GB" }],
+          mount: "/Users/gx/Documents/Source/huyang_system",
+          totalBytes: 512000000000,
+          usedBytes: 256000000000,
+          freeBytes: 256000000000,
+          usagePercent: 50,
+        },
       },
     });
     mockApi.importPreview.mockResolvedValue({

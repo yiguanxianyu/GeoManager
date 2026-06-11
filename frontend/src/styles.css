@@ -796,6 +796,15 @@ body {
   min-width: 0;
 }
 
+.admin-permission-effective {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgb(var(--c-primary-dark-rgb) / 0.1);
+  border-radius: 6px;
+  background: var(--c-bg-muted);
+}
+
 .admin-card-actions {
   display: flex;
   justify-content: flex-end;

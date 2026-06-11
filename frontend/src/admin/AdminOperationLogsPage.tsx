@@ -5,8 +5,8 @@ import type {
   ProFormInstance,
 } from "@ant-design/pro-components";
 import { ProTable } from "@ant-design/pro-components";
-import { App, Button, Space, Tag } from "antd";
-import { useRef, useState } from "react";
+import { App, AutoComplete, Button, Space, Tag } from "antd";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { AdminOperationLog, AdminOperationLogQuery } from "../types";
 import { downloadTextFile } from "../utils/download";
@@ -14,6 +14,11 @@ import { operationLogsToCsv } from "./data";
 
 interface OperationLogTableQuery extends AdminOperationLogQuery {
   occurredAt?: unknown[];
+}
+
+interface OperationLogHints {
+  operators: string[];
+  modules: string[];
 }
 
 const resultText: Record<string, string> = {
@@ -28,74 +33,36 @@ const resultColor: Record<string, string> = {
   failed: "error",
 };
 
-const columns: ProColumns<AdminOperationLog>[] = [
-  {
-    title: "操作时间",
-    dataIndex: "occurredAt",
-    valueType: "dateTimeRange",
-    width: 190,
-    sorter: (a, b) => a.occurredAt.localeCompare(b.occurredAt),
-    render: (_, record) => record.occurredAt,
-  },
-  {
-    title: "操作用户",
-    dataIndex: "operator",
-    width: 140,
-    ellipsis: true,
-  },
-  {
-    title: "模块",
-    dataIndex: "module",
-    width: 130,
-    ellipsis: true,
-  },
-  {
-    title: "动作",
-    dataIndex: "action",
-    width: 150,
-    ellipsis: true,
-  },
-  {
-    title: "结果",
-    dataIndex: "result",
-    width: 110,
-    valueType: "select",
-    valueEnum: {
-      success: { text: "成功", status: "Success" },
-      warning: { text: "告警", status: "Warning" },
-      failed: { text: "失败", status: "Error" },
-    },
-    render: (_, record) => (
-      <Tag color={resultColor[record.result] ?? "default"}>
-        {resultText[record.result] ?? record.result}
-      </Tag>
-    ),
-  },
-  {
-    title: "IP 地址",
-    dataIndex: "ipAddress",
-    width: 140,
-    search: false,
-  },
-  {
-    title: "关键词",
-    dataIndex: "keyword",
-    hideInTable: true,
-  },
-  {
-    title: "摘要",
-    dataIndex: "summary",
-    width: 360,
-    search: false,
-    ellipsis: true,
-  },
-];
-
 export default function AdminOperationLogsPage() {
   const actionRef = useRef<ActionType>(null);
   const formRef = useRef<ProFormInstance | undefined>(undefined);
   const { message } = App.useApp();
   const [exporting, setExporting] = useState(false);
+  const [hints, setHints] = useState<OperationLogHints>({
+    operators: [],
+    modules: [],
+  });
+  const columns = useMemo(() => buildColumns(hints), [hints]);
+
+  useEffect(() => {
+    let mounted = true;
+    api
+      .adminOperationLogs({ current: 1, pageSize: 500 })
+      .then((result) => {
+        if (!mounted) return;
+        setHints({
+          operators: uniqueValues(result.items.map((item) => item.operator)),
+          modules: uniqueValues(result.items.map((item) => item.module)),
+        });
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setHints({ operators: [], modules: [] });
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function exportLogs() {
     setExporting(true);
@@ -182,6 +149,93 @@ export default function AdminOperationLogsPage() {
   );
 }
 
+function buildColumns(
+  hints: OperationLogHints,
+): ProColumns<AdminOperationLog>[] {
+  return [
+    {
+      title: "操作时间",
+      dataIndex: "occurredAt",
+      valueType: "dateTimeRange",
+      width: 190,
+      sorter: (a, b) => a.occurredAt.localeCompare(b.occurredAt),
+      render: (_, record) => record.occurredAt,
+    },
+    {
+      title: "操作用户",
+      dataIndex: "operator",
+      width: 140,
+      ellipsis: true,
+      formItemRender: (_schema, config) => (
+        <AutoComplete
+          allowClear
+          value={config.value}
+          onChange={config.onChange}
+          options={toOptions(hints.operators)}
+          placeholder="输入或选择用户"
+          filterOption={filterOption}
+        />
+      ),
+    },
+    {
+      title: "模块",
+      dataIndex: "module",
+      width: 130,
+      ellipsis: true,
+      formItemRender: (_schema, config) => (
+        <AutoComplete
+          allowClear
+          value={config.value}
+          onChange={config.onChange}
+          options={toOptions(hints.modules)}
+          placeholder="输入或选择模块"
+          filterOption={filterOption}
+        />
+      ),
+    },
+    {
+      title: "动作",
+      dataIndex: "action",
+      width: 150,
+      ellipsis: true,
+    },
+    {
+      title: "结果",
+      dataIndex: "result",
+      width: 110,
+      valueType: "select",
+      valueEnum: {
+        success: { text: "成功", status: "Success" },
+        warning: { text: "告警", status: "Warning" },
+        failed: { text: "失败", status: "Error" },
+      },
+      render: (_, record) => (
+        <Tag color={resultColor[record.result] ?? "default"}>
+          {resultText[record.result] ?? record.result}
+        </Tag>
+      ),
+    },
+    {
+      title: "IP 地址",
+      dataIndex: "ipAddress",
+      width: 140,
+      search: false,
+    },
+    {
+      title: "关键词",
+      dataIndex: "keyword",
+      hideInTable: true,
+    },
+    {
+      title: "摘要",
+      dataIndex: "summary",
+      width: 360,
+      search: false,
+      ellipsis: true,
+    },
+  ];
+}
+
 function buildLogQuery(params: OperationLogTableQuery): AdminOperationLogQuery {
   const [startTime, endTime] = params.occurredAt ?? [];
   return {
@@ -207,4 +261,18 @@ function formatQueryDate(value: unknown): string | undefined {
     return value.format("YYYY-MM-DD HH:mm:ss");
   }
   return String(value);
+}
+
+function uniqueValues(values: string[]) {
+  return Array.from(
+    new Set(values.map((value) => value.trim()).filter(Boolean)),
+  ).sort((left, right) => left.localeCompare(right, "zh-Hans-CN"));
+}
+
+function toOptions(values: string[]) {
+  return values.map((value) => ({ value }));
+}
+
+function filterOption(inputValue: string, option?: { value?: string }) {
+  return (option?.value ?? "").toLowerCase().includes(inputValue.toLowerCase());
 }

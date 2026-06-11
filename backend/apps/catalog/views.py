@@ -7,6 +7,7 @@ from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
+from apps.audit.service import log_operation
 from apps.catalog.data_query import (
     DataQueryError,
     get_vector_resource_profile,
@@ -118,7 +119,18 @@ def resources(request):
 def scan_sources(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
-    vector_layers, nongeographic_resources = scan_catalog_sources()
+    try:
+        vector_layers, nongeographic_resources = scan_catalog_sources()
+    except Exception as exc:
+        log_operation(
+            request.user,
+            "数据管理",
+            "扫描数据目录",
+            "failed",
+            f"扫描失败：{exc}",
+            request,
+        )
+        raise
     registered_layers = _registered_vector_layer_names()
     items = [
         serialize_vector_layer(layer)
@@ -126,12 +138,15 @@ def scan_sources(request):
         if layer["name"] not in registered_layers
     ]
     items.extend(serialize_resource(item) for item in nongeographic_resources)
-    return JsonResponse(
-        {
-            "items": items,
-            "count": len(items),
-        }
+    log_operation(
+        request.user,
+        "数据管理",
+        "扫描数据目录",
+        "success",
+        f"发现 {len(items)} 项可用数据",
+        request,
     )
+    return JsonResponse({"items": items, "count": len(items)})
 
 
 @require_POST
@@ -141,11 +156,36 @@ def import_preview(request):
         return feature_denied_response(request.user)
     uploaded_file = request.FILES.get("file")
     if uploaded_file is None:
+        log_operation(
+            request.user,
+            "数据导入",
+            "预览导入文件",
+            "failed",
+            "未上传 Excel 或 CSV 文件",
+            request,
+        )
         return JsonResponse({"detail": "请上传 Excel 或 CSV 文件"}, status=400)
     try:
-        return JsonResponse(preview_uploaded_table(uploaded_file))
+        result = preview_uploaded_table(uploaded_file)
     except ImportDataError as exc:
+        log_operation(
+            request.user,
+            "数据导入",
+            "预览导入文件",
+            "failed",
+            str(exc),
+            request,
+        )
         return JsonResponse(_import_error_payload(exc), status=400)
+    log_operation(
+        request.user,
+        "数据导入",
+        "预览导入文件",
+        "success",
+        uploaded_file.name,
+        request,
+    )
+    return JsonResponse(result)
 
 
 @require_POST
@@ -155,15 +195,48 @@ def import_validate(request):
         return feature_denied_response(request.user)
     uploaded_file = request.FILES.get("file")
     if uploaded_file is None:
+        log_operation(
+            request.user,
+            "数据导入",
+            "校验导入文件",
+            "failed",
+            "未上传 Excel 或 CSV 文件",
+            request,
+        )
         return JsonResponse({"detail": "请上传 Excel 或 CSV 文件"}, status=400)
     try:
         payload = json.loads(request.POST.get("payload", "{}"))
     except json.JSONDecodeError:
+        log_operation(
+            request.user,
+            "数据导入",
+            "校验导入文件",
+            "failed",
+            "导入参数不是有效 JSON",
+            request,
+        )
         return JsonResponse({"detail": "导入参数不是有效 JSON"}, status=400)
     try:
-        return JsonResponse(validate_uploaded_table(uploaded_file, payload))
+        result = validate_uploaded_table(uploaded_file, payload)
     except ImportDataError as exc:
+        log_operation(
+            request.user,
+            "数据导入",
+            "校验导入文件",
+            "failed",
+            str(exc),
+            request,
+        )
         return JsonResponse(_import_error_payload(exc), status=400)
+    log_operation(
+        request.user,
+        "数据导入",
+        "校验导入文件",
+        "success",
+        uploaded_file.name,
+        request,
+    )
+    return JsonResponse(result)
 
 
 @require_POST
@@ -173,15 +246,47 @@ def import_commit(request):
         return feature_denied_response(request.user)
     uploaded_file = request.FILES.get("file")
     if uploaded_file is None:
+        log_operation(
+            request.user,
+            "数据导入",
+            "提交导入文件",
+            "failed",
+            "未上传 Excel 或 CSV 文件",
+            request,
+        )
         return JsonResponse({"detail": "请上传 Excel 或 CSV 文件"}, status=400)
     try:
         payload = json.loads(request.POST.get("payload", "{}"))
     except json.JSONDecodeError:
+        log_operation(
+            request.user,
+            "数据导入",
+            "提交导入文件",
+            "failed",
+            "导入参数不是有效 JSON",
+            request,
+        )
         return JsonResponse({"detail": "导入参数不是有效 JSON"}, status=400)
     try:
         result = import_uploaded_table(uploaded_file, payload, request.user)
     except ImportDataError as exc:
+        log_operation(
+            request.user,
+            "数据导入",
+            "提交导入文件",
+            "failed",
+            str(exc),
+            request,
+        )
         return JsonResponse(_import_error_payload(exc), status=400)
+    log_operation(
+        request.user,
+        "数据导入",
+        "提交导入文件",
+        "success",
+        f"{result.get('resourceName', uploaded_file.name)}：导入 {result.get('importedRows', 0)} 行",
+        request,
+    )
     return JsonResponse(result, status=201)
 
 
@@ -268,7 +373,23 @@ def resource_query(request, pk: int):
     try:
         result = query_vector_resource(resource, payload)
     except DataQueryError as exc:
+        log_operation(
+            request.user,
+            "数据查询",
+            "查询数据资源",
+            "failed",
+            f"{resource.name}：{exc}",
+            request,
+        )
         return JsonResponse({"detail": str(exc)}, status=400)
+    log_operation(
+        request.user,
+        "数据查询",
+        "查询数据资源",
+        "success",
+        f"{resource.name}：返回 {result.get('returnedCount', 0)} 条",
+        request,
+    )
     return JsonResponse(result)
 
 
@@ -291,7 +412,23 @@ def vector_layer_query(request, layer_name: str):
     try:
         result = query_vector_resource(layer_name=layer_name, payload=payload)
     except DataQueryError as exc:
+        log_operation(
+            request.user,
+            "数据查询",
+            "查询矢量图层",
+            "failed",
+            f"{layer_name}：{exc}",
+            request,
+        )
         return JsonResponse({"detail": str(exc)}, status=400)
+    log_operation(
+        request.user,
+        "数据查询",
+        "查询矢量图层",
+        "success",
+        f"{layer_name}：返回 {result.get('returnedCount', 0)} 条",
+        request,
+    )
     return JsonResponse(result)
 
 
@@ -330,11 +467,27 @@ def export_loaded_layers(request):
             clip_geometry=payload.get("clipGeometry") if payload.get("clip") else None,
         )
     except ExportError as exc:
+        log_operation(
+            request.user,
+            "数据导出",
+            "导出已加载图层",
+            "failed",
+            str(exc),
+            request,
+        )
         return JsonResponse({"detail": str(exc)}, status=400)
 
     filename = f"layers-export-{datetime.now().strftime('%Y%m%d%H%M%S')}.zip"
     response = HttpResponse(content, content_type="application/zip")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    log_operation(
+        request.user,
+        "数据导出",
+        "导出已加载图层",
+        "success",
+        f"{filename}：{len(items)} 个图层",
+        request,
+    )
     return response
 
 
@@ -375,7 +528,23 @@ def export_loaded_layers_async(request):
             items=items, epsg=epsg, reproject=reproject, clip_geometry=clip_geometry
         )
     except ExportError as exc:
+        log_operation(
+            request.user,
+            "数据导出",
+            "发起异步导出",
+            "failed",
+            str(exc),
+            request,
+        )
         return JsonResponse({"detail": str(exc)}, status=400)
+    log_operation(
+        request.user,
+        "数据导出",
+        "发起异步导出",
+        "success",
+        f"任务 {job.id}：{len(items)} 个图层",
+        request,
+    )
     return JsonResponse(job.as_dict(), status=202)
 
 
@@ -396,6 +565,14 @@ def export_job_download(request, job_id: str):
     filename = (job.result or {}).get(
         "filename"
     ) or f"layers-export-{datetime.now().strftime('%Y%m%d%H%M%S')}.zip"
+    log_operation(
+        request.user,
+        "数据导出",
+        "下载异步导出文件",
+        "success",
+        filename,
+        request,
+    )
     return FileResponse(
         path.open("rb"),
         as_attachment=True,

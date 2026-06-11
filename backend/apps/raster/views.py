@@ -6,6 +6,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
+from apps.audit.service import log_operation
 from apps.catalog.models import MapLayer
 from apps.catalog.permissions import user_can_access
 from apps.core.permissions import feature_denied_response, has_feature_perm
@@ -55,9 +56,26 @@ def render(request):
             return JsonResponse(
                 {"detail": "该图层没有已预处理的栅格数据集"}, status=400
             )
-        return JsonResponse(register_tile_style(dataset, rules or layer.raster_rules))
+        result = register_tile_style(dataset, rules or layer.raster_rules)
     except (ValueError, RasterRenderError) as exc:
+        log_operation(
+            request.user,
+            "栅格管理",
+            "注册栅格渲染样式",
+            "failed",
+            str(exc),
+            request,
+        )
         return JsonResponse({"detail": str(exc)}, status=400)
+    log_operation(
+        request.user,
+        "栅格管理",
+        "注册栅格渲染样式",
+        "success",
+        f"{dataset.name}：{result.get('styleHash', '')}",
+        request,
+    )
+    return JsonResponse(result)
 
 
 @require_POST
@@ -108,7 +126,23 @@ def render_async(request):
             rules=rules,
         )
     except (ValueError, RasterRenderError) as exc:
+        log_operation(
+            request.user,
+            "栅格管理",
+            "发起栅格渲染任务",
+            "failed",
+            str(exc),
+            request,
+        )
         return JsonResponse({"detail": str(exc)}, status=400)
+    log_operation(
+        request.user,
+        "栅格管理",
+        "发起栅格渲染任务",
+        "success",
+        f"任务 {job.id}",
+        request,
+    )
     return JsonResponse(job.as_dict(), status=202)
 
 
@@ -135,11 +169,27 @@ def unique_values(request):
         return JsonResponse({"detail": "无权访问该数据资源"}, status=403)
 
     try:
-        return JsonResponse(
-            classify_unique_values(dataset, int(payload.get("band", 1)))
-        )
+        band = int(payload.get("band", 1))
+        result = classify_unique_values(dataset, band)
     except (ValueError, RasterRenderError) as exc:
+        log_operation(
+            request.user,
+            "栅格管理",
+            "统计栅格唯一值",
+            "failed",
+            str(exc),
+            request,
+        )
         return JsonResponse({"detail": str(exc)}, status=400)
+    log_operation(
+        request.user,
+        "栅格管理",
+        "统计栅格唯一值",
+        "success",
+        f"{dataset.name}：第 {band} 波段",
+        request,
+    )
+    return JsonResponse(result)
 
 
 @require_POST
@@ -153,20 +203,48 @@ def import_raster(request):
         return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
     source_path = str(payload.get("sourcePath") or "").strip()
     if not source_path:
+        log_operation(
+            request.user,
+            "栅格管理",
+            "导入栅格文件",
+            "failed",
+            "缺少源文件路径",
+            request,
+        )
         return JsonResponse({"detail": "缺少 sourcePath"}, status=400)
     if payload.get("async", True):
-        return JsonResponse(
-            start_import_job(
-                source_path, name=str(payload.get("name") or "")
-            ).as_dict(),
-            status=202,
+        job = start_import_job(source_path, name=str(payload.get("name") or ""))
+        log_operation(
+            request.user,
+            "栅格管理",
+            "发起栅格导入任务",
+            "success",
+            f"任务 {job.id}：{source_path}",
+            request,
         )
+        return JsonResponse(job.as_dict(), status=202)
     try:
         dataset = import_raster_file(
             Path(source_path), name=str(payload.get("name") or "")
         )
     except (RasterImportError, OSError) as exc:
+        log_operation(
+            request.user,
+            "栅格管理",
+            "导入栅格文件",
+            "failed",
+            str(exc),
+            request,
+        )
         return JsonResponse({"detail": str(exc)}, status=400)
+    log_operation(
+        request.user,
+        "栅格管理",
+        "导入栅格文件",
+        "success",
+        dataset.name,
+        request,
+    )
     return JsonResponse(serialize_raster_dataset(dataset), status=201)
 
 
@@ -175,7 +253,16 @@ def import_raster(request):
 def scan_sources(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
-    return JsonResponse(start_scan_job().as_dict(), status=202)
+    job = start_scan_job()
+    log_operation(
+        request.user,
+        "栅格管理",
+        "发起栅格目录扫描",
+        "success",
+        f"任务 {job.id}",
+        request,
+    )
+    return JsonResponse(job.as_dict(), status=202)
 
 
 @require_GET

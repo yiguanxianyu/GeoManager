@@ -59,6 +59,11 @@ urlpatterns = [
         admin_api.update_user_groups,
         name="user-groups",
     ),
+    path(
+        "users/<int:user_id>/permissions/",
+        admin_api.update_user_permissions,
+        name="user-permissions",
+    ),
     path("groups/", admin_api.group_list, name="group-list"),
     path(
         "groups/<int:group_id>/",
