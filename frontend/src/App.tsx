@@ -34,7 +34,6 @@ const AdminProfilePage = lazy(() => import("./admin/AdminProfilePage"));
 const AdminSystemSettingsPage = lazy(
   () => import("./admin/AdminSystemSettingsPage"),
 );
-const HomePage = lazy(() => import("./pages/HomePage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
 const MapPage = lazy(() => import("./pages/MapPage"));
 const NonGeoPage = lazy(() => import("./pages/NonGeoPage"));
@@ -147,7 +146,7 @@ export default function App() {
               path="/"
               element={
                 <RouteTransition>
-                  <HomePage />
+                  <Navigate to="/map" replace />
                 </RouteTransition>
               }
             />

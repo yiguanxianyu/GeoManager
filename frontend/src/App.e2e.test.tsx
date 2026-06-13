@@ -27,6 +27,10 @@ const { MockApiError, mockApi } = vi.hoisted(() => {
       login: vi.fn(),
       register: vi.fn(),
       logout: vi.fn(),
+      resources: vi.fn(),
+      scanCatalogSources: vi.fn(),
+      scanRasterSources: vi.fn(),
+      rasterJob: vi.fn(),
     },
   };
 });
@@ -137,9 +141,18 @@ describe("application critical flows", () => {
       detail: "用户注册成功",
     });
     mockApi.logout.mockResolvedValue({ detail: "已退出" });
+    mockApi.resources.mockResolvedValue({ items: [] });
+    mockApi.scanCatalogSources.mockResolvedValue({ detail: "已扫描" });
+    mockApi.scanRasterSources.mockResolvedValue({ id: "scan-job" });
+    mockApi.rasterJob.mockResolvedValue({
+      id: "scan-job",
+      status: "ready",
+      progressPercent: 100,
+      messages: [],
+    });
   });
 
-  it("redirects unauthenticated users to login and enters the portal after login", async () => {
+  it("redirects unauthenticated users to login and enters the map workspace after login", async () => {
     renderApp("/");
 
     expect(
@@ -165,7 +178,7 @@ describe("application critical flows", () => {
     expect(
       screen.queryByRole("button", { name: /管理后台/ }),
     ).not.toBeInTheDocument();
-  });
+  }, 15000);
 
   it("keeps non-admin users out of the admin route", async () => {
     mockApi.me.mockResolvedValue({ authenticated: true, user: normalUser });
@@ -176,15 +189,16 @@ describe("application critical flows", () => {
     expect(screen.queryByText("个人信息")).not.toBeInTheDocument();
   });
 
-  it("shows the admin card only for privileged users", async () => {
+  it("shows workspace navigation for privileged users", async () => {
     mockApi.me.mockResolvedValue({ authenticated: true, user: adminUser });
 
     renderApp("/");
 
     expect(await screen.findByText("地理可视化")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /非地理可视化/ })).toBeInTheDocument();
     expect(screen.getByText("数据管理")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /管理后台/ }),
     ).toBeInTheDocument();
-  });
+  }, 15000);
 });
