@@ -7,8 +7,12 @@ import {
   ZoomOutOutlined,
 } from "@ant-design/icons";
 import { Button, Tooltip } from "antd";
-import type { Map as MapboxMap } from "mapbox-gl";
-import { useEffect, useRef } from "react";
+import mapboxgl, {
+  type Map as MapboxMap,
+  type StyleSpecification,
+} from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
 // mapboxgl 通过 CDN 加载，使用全局变量
 import { syncVectorInteractions } from "../map/featureInteraction";
 import { addRasterLayer } from "../map/rasterLayerSync";
@@ -38,7 +42,158 @@ import {
   sourceIdFor,
 } from "../utils/geometry";
 
-const mapStyle = "mapbox://styles/mapbox/satellite-streets-v12";
+const mapboxSatelliteStyle = "mapbox://styles/mapbox/satellite-streets-v12";
+const osmRasterStyle: StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm-raster",
+      type: "raster",
+      source: "osm",
+      minzoom: 0,
+      maxzoom: 22,
+    },
+  ],
+};
+const offlineLandGeoJson = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: { name: "Eurasia and Africa" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-17, 36],
+            [12, 72],
+            [72, 78],
+            [150, 62],
+            [153, 18],
+            [116, -7],
+            [58, 6],
+            [43, -34],
+            [18, -35],
+            [-18, 4],
+            [-17, 36],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "North America" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-168, 58],
+            [-132, 72],
+            [-58, 58],
+            [-54, 18],
+            [-84, 8],
+            [-124, 26],
+            [-168, 58],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "South America" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-82, 12],
+            [-48, 5],
+            [-35, -34],
+            [-67, -56],
+            [-79, -24],
+            [-82, 12],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Australia" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [112, -11],
+            [154, -18],
+            [146, -44],
+            [113, -36],
+            [112, -11],
+          ],
+        ],
+      },
+    },
+    {
+      type: "Feature",
+      properties: { name: "Greenland" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-54, 60],
+            [-24, 72],
+            [-40, 84],
+            [-72, 75],
+            [-54, 60],
+          ],
+        ],
+      },
+    },
+  ],
+} as const;
+const offlineGlobeStyle: StyleSpecification = {
+  version: 8,
+  sources: {
+    land: {
+      type: "geojson",
+      data: offlineLandGeoJson as never,
+    },
+  },
+  layers: [
+    {
+      id: "offline-ocean",
+      type: "background",
+      paint: {
+        "background-color": "#071923",
+      },
+    },
+    {
+      id: "offline-land-fill",
+      type: "fill",
+      source: "land",
+      paint: {
+        "fill-color": "#315f47",
+        "fill-opacity": 0.86,
+      },
+    },
+    {
+      id: "offline-land-line",
+      type: "line",
+      source: "land",
+      paint: {
+        "line-color": "#9dc9ad",
+        "line-opacity": 0.72,
+        "line-width": 1,
+      },
+    },
+  ],
+};
 const globeOverviewZoom = 2.4;
 const spatialFilterSourceId = "query-spatial-filter";
 const spatialFilterFillId = "query-spatial-filter-fill";
@@ -89,12 +244,15 @@ export default function MapCanvas({
   const mapRef = useRef<MapboxMap | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapboxToken = bootstrap.map.mapboxAccessToken;
+  const configuredBasemap = bootstrap.map.defaultBasemap;
+  const useOfflineGlobe = !mapboxToken.trim();
 
   useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+    if (useOfflineGlobe || !containerRef.current || mapRef.current) return;
+    mapboxgl.accessToken = mapboxToken;
     const map = new mapboxgl.Map({
       container: containerRef.current,
-      style: mapStyle,
+      style: mapStyleFor(configuredBasemap, mapboxToken),
       center: bootstrap.map.defaultCenter,
       zoom: Math.min(bootstrap.map.defaultZoom, globeOverviewZoom),
       pitch: 18,
@@ -133,9 +291,11 @@ export default function MapCanvas({
   }, [
     bootstrap.map.defaultCenter,
     bootstrap.map.defaultZoom,
+    configuredBasemap,
     mapboxToken,
     onMapDestroy,
     onMapReady,
+    useOfflineGlobe,
   ]);
 
   useEffect(() => {
@@ -210,6 +370,10 @@ export default function MapCanvas({
     });
   }
 
+  if (useOfflineGlobe) {
+    return <OfflineGlobe bootstrap={bootstrap} />;
+  }
+
   return (
     <div className="map-shell">
       <div ref={containerRef} className="map-container" />
@@ -258,6 +422,110 @@ export default function MapCanvas({
       </div>
     </div>
   );
+}
+
+function OfflineGlobe({ bootstrap }: { bootstrap: Bootstrap }) {
+  const [scale, setScale] = useState(1);
+  const [spin, setSpin] = useState(0);
+
+  function resetView() {
+    setScale(1);
+    setSpin(0);
+  }
+
+  return (
+    <div className="map-shell offline-globe-shell">
+      <div className="offline-globe-stage">
+        <div
+          className="offline-globe"
+          style={
+            {
+              "--globe-scale": scale,
+              "--globe-spin": `${spin}deg`,
+            } as CSSProperties
+          }
+        >
+          <span className="offline-continent offline-continent-eurasia" />
+          <span className="offline-continent offline-continent-africa" />
+          <span className="offline-continent offline-continent-americas" />
+          <span className="offline-continent offline-continent-australia" />
+          <span className="offline-marker offline-marker-central-asia" />
+          <span className="offline-marker offline-marker-amudarya" />
+          <span className="offline-marker offline-marker-ili" />
+        </div>
+      </div>
+      <div className="map-toolbar">
+        <Tooltip title="复位">
+          <Button
+            icon={<HomeOutlined style={{ fontSize: 16 }} />}
+            onClick={resetView}
+          />
+        </Tooltip>
+        <Tooltip title="放大">
+          <Button
+            icon={<ZoomInOutlined style={{ fontSize: 16 }} />}
+            onClick={() => setScale((value) => Math.min(value + 0.12, 1.5))}
+          />
+        </Tooltip>
+        <Tooltip title="缩小">
+          <Button
+            icon={<ZoomOutOutlined style={{ fontSize: 16 }} />}
+            onClick={() => setScale((value) => Math.max(value - 0.12, 0.76))}
+          />
+        </Tooltip>
+        <Tooltip title="北向">
+          <Button
+            icon={<RotateLeftOutlined style={{ fontSize: 16 }} />}
+            onClick={() => setSpin((value) => value - 18)}
+          />
+        </Tooltip>
+        <Tooltip title="定位到项目范围">
+          <Button
+            icon={<AimOutlined style={{ fontSize: 16 }} />}
+            onClick={() => {
+              setScale(1.12);
+              setSpin(bootstrap.map.defaultCenter[0] * -0.35);
+            }}
+          />
+        </Tooltip>
+        <Tooltip title="全屏">
+          <Button
+            icon={<FullscreenOutlined style={{ fontSize: 16 }} />}
+            onClick={() =>
+              document.querySelector(".offline-globe-shell")?.requestFullscreen()
+            }
+          />
+        </Tooltip>
+      </div>
+    </div>
+  );
+}
+
+function mapStyleFor(
+  configuredBasemap: string,
+  mapboxToken: string,
+): string | StyleSpecification {
+  const basemap = configuredBasemap.trim();
+  if (/^https?:\/\//.test(basemap)) {
+    return {
+      ...osmRasterStyle,
+      sources: {
+        osm: {
+          type: "raster",
+          tiles: [basemap],
+          tileSize: 256,
+        },
+      },
+    };
+  }
+  if (
+    basemap.startsWith("mapbox://") ||
+    basemap === "satellite" ||
+    basemap === ""
+  ) {
+    return mapboxToken ? mapboxSatelliteStyle : offlineGlobeStyle;
+  }
+  return offlineGlobeStyle;
 }
 
 function firstStyleLayerIdForLayer(map: MapboxMap, layer: LoadedLayer) {

@@ -1,9 +1,11 @@
 import {
   ApartmentOutlined,
-  ArrowLeftOutlined,
   DatabaseOutlined,
+  EnvironmentOutlined,
+  ExperimentOutlined,
   LogoutOutlined,
   SafetyCertificateOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { App, Button, Layout, Popover, Tag, Typography } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -612,11 +614,27 @@ export default function MapPage() {
           </div>
           <div className="header-primary-actions">
             <Button
-              icon={<ArrowLeftOutlined style={{ fontSize: 16 }} />}
-              onClick={() => navigate("/")}
+              aria-current="page"
+              className="workspace-nav-active"
+              icon={<EnvironmentOutlined style={{ fontSize: 16 }} />}
+              onClick={() => navigate("/map")}
             >
-              返回入口
+              地理可视化
             </Button>
+            <Button
+              icon={<ExperimentOutlined style={{ fontSize: 16 }} />}
+              onClick={() => navigate("/nongeo")}
+            >
+              非地理可视化
+            </Button>
+            {permissions.canAccessAdmin && (
+              <Button
+                icon={<SettingOutlined style={{ fontSize: 16 }} />}
+                onClick={() => navigate("/admin")}
+              >
+                管理后台
+              </Button>
+            )}
             {permissions.canBrowseData && (
               <Popover
                 trigger="click"

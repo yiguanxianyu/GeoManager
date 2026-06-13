@@ -1025,6 +1025,11 @@ body {
   }
 }
 
+.header-primary-actions .workspace-nav-active {
+  border-color: rgba(242, 195, 109, 0.62);
+  background: rgba(242, 195, 109, 0.18);
+}
+
 .workspace-body {
   --workspace-edge: 16px;
   --workspace-gap: 12px;
@@ -1859,6 +1864,148 @@ body {
 .map-container .mapboxgl-ctrl-logo {
   display: none;
   margin: 0 0 0 0;
+}
+
+.offline-globe-shell {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(79, 143, 124, 0.16), transparent 34%),
+    radial-gradient(circle at 50% 50%, rgba(6, 40, 55, 0.72), #020d14 66%);
+}
+
+.offline-globe-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  perspective: 1100px;
+}
+
+.offline-globe {
+  --globe-scale: 1;
+  --globe-spin: 0deg;
+  position: relative;
+  width: min(58vh, 58vw, 620px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  transform:
+    scale(var(--globe-scale))
+    rotateX(-13deg)
+    rotateZ(-3deg)
+    rotateY(var(--globe-spin));
+  transform-style: preserve-3d;
+  background:
+    radial-gradient(circle at 36% 28%, rgba(255, 255, 255, 0.42), transparent 8%),
+    radial-gradient(circle at 34% 28%, #3c8fb0 0, #0b4a65 32%, #082538 61%, #02121c 100%);
+  box-shadow:
+    inset -52px -24px 90px rgba(0, 0, 0, 0.5),
+    inset 18px 10px 44px rgba(255, 255, 255, 0.12),
+    0 0 0 1px rgba(168, 214, 205, 0.2),
+    0 34px 120px rgba(10, 56, 76, 0.5);
+}
+
+.offline-globe::before {
+  position: absolute;
+  inset: 8%;
+  content: "";
+  border-radius: 50%;
+  border: 1px solid rgba(188, 228, 220, 0.12);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 10%,
+      rgba(197, 232, 225, 0.08) 10.5% 10.8%,
+      transparent 11.4% 20%
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 10%,
+      rgba(197, 232, 225, 0.08) 10.5% 10.8%,
+      transparent 11.4% 20%
+    );
+  mask-image: radial-gradient(circle, #000 64%, transparent 66%);
+}
+
+.offline-globe::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 24%, transparent 0 46%, rgba(0, 0, 0, 0.12) 70%, rgba(0, 0, 0, 0.58) 100%),
+    linear-gradient(120deg, rgba(255, 255, 255, 0.18), transparent 34%);
+  pointer-events: none;
+}
+
+.offline-continent,
+.offline-marker {
+  position: absolute;
+  display: block;
+}
+
+.offline-continent {
+  background: linear-gradient(135deg, #6da878, #315f47);
+  box-shadow: inset -10px -8px 24px rgba(10, 45, 32, 0.24);
+}
+
+.offline-continent-eurasia {
+  left: 47%;
+  top: 24%;
+  width: 36%;
+  height: 26%;
+  clip-path: polygon(4% 48%, 22% 8%, 70% 0, 100% 24%, 92% 70%, 64% 84%, 34% 62%, 8% 82%);
+}
+
+.offline-continent-africa {
+  left: 50%;
+  top: 46%;
+  width: 21%;
+  height: 29%;
+  clip-path: polygon(28% 0, 82% 18%, 94% 54%, 54% 100%, 18% 76%, 0 30%);
+}
+
+.offline-continent-americas {
+  left: 18%;
+  top: 28%;
+  width: 28%;
+  height: 43%;
+  clip-path: polygon(28% 0, 78% 8%, 100% 30%, 70% 45%, 66% 76%, 38% 100%, 22% 70%, 0 48%);
+}
+
+.offline-continent-australia {
+  left: 72%;
+  top: 62%;
+  width: 13%;
+  height: 9%;
+  clip-path: polygon(0 28%, 66% 0, 100% 50%, 58% 100%, 8% 78%);
+}
+
+.offline-marker {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #f2c36d;
+  box-shadow:
+    0 0 0 4px rgba(242, 195, 109, 0.2),
+    0 0 18px rgba(242, 195, 109, 0.86);
+  z-index: 2;
+}
+
+.offline-marker-central-asia {
+  left: 64%;
+  top: 42%;
+}
+
+.offline-marker-amudarya {
+  left: 56%;
+  top: 47%;
+}
+
+.offline-marker-ili {
+  left: 67%;
+  top: 37%;
 }
 
 .full-width {

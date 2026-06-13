@@ -14,7 +14,7 @@ export function RequireAuth() {
 export function RequireAdmin() {
   const { user } = useAppContext();
   if (!user?.permissions.canAccessAdmin) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/map" replace />;
   }
   return <Outlet />;
 }
@@ -59,7 +59,7 @@ export function RequireManageAuth() {
 export function RedirectIfAuth() {
   const { user } = useAppContext();
   if (user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/map" replace />;
   }
   return <Outlet />;
 }

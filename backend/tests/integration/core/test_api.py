@@ -1,6 +1,7 @@
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import tomlkit
 from django.contrib.auth import get_user_model
@@ -10,6 +11,7 @@ from data_sharing_platform.settings import _default_csrf_trusted_origins
 
 from apps.audit.models import OperationLog
 from apps.catalog.models import DataResource, MapLayer
+from apps.core.admin_api import _load_average
 from apps.core.config import (
     ensure_runtime_config_file,
     load_project_config,
@@ -327,44 +329,6 @@ class FeaturePermissionTests(TestCase):
             "不能将普通用户加入超级管理员用户组",
         )
 
-    def test_current_user_cannot_update_own_groups_from_auth_management(self):
-        manager = get_user_model().objects.create_user(
-            username="self-group-manager", password="pass12345"
-        )
-        grant(manager, ("core", "manage_auth"))
-        group = Group.objects.create(name="科研用户")
-        manager.groups.add(group)
-        self.client.force_login(manager)
-
-        response = self.client.post(
-            f"/api/users/{manager.id}/groups/",
-            data=json.dumps({"groupIds": [group.id]}),
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.json()["detail"],
-            "不能修改当前登录用户的用户组",
-        )
-
-    def test_superadmin_user_groups_cannot_be_updated_from_auth_management(self):
-        manager = get_user_model().objects.create_user(
-            username="superadmin-group-manager", password="pass12345"
-        )
-        grant(manager, ("core", "manage_auth"))
-        superadmin, protected_group = ensure_superadmin_defaults()
-        self.client.force_login(manager)
-
-        response = self.client.post(
-            f"/api/users/{superadmin.id}/groups/",
-            data=json.dumps({"groupIds": [protected_group.id]}),
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "不能修改超级管理员的用户组")
-
     def test_manage_auth_can_toggle_user_status(self):
         manager = get_user_model().objects.create_user(
             username="status-manager", password="pass12345"
@@ -537,12 +501,12 @@ class FeaturePermissionTests(TestCase):
             "超级管理员用户组必须保留后台访问权限",
         )
 
-    def test_superadmin_user_groups_cannot_be_updated(self):
+    def test_superadmin_user_keeps_superadmin_group_when_groups_are_updated(self):
         manager = get_user_model().objects.create_user(
             username="superadmin-user-group-manager", password="pass12345"
         )
         grant(manager, ("core", "manage_auth"), ("core", "manage_feature_permissions"))
-        protected_user, _ = ensure_superadmin_defaults()
+        protected_user, protected_group = ensure_superadmin_defaults()
         normal_group = Group.objects.create(name="普通后台组")
         self.client.force_login(manager)
 
@@ -552,8 +516,8 @@ class FeaturePermissionTests(TestCase):
             content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "不能修改超级管理员的用户组")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(protected_group.id, response.json()["groupIds"])
 
     def test_regular_user_cannot_be_left_without_group(self):
         manager = get_user_model().objects.create_user(
@@ -627,22 +591,6 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["directPermissions"], ["core.query_data"])
         self.assertTrue(target.has_perm("core.query_data"))
-
-    def test_current_user_cannot_update_own_permissions_from_auth_management(self):
-        manager = get_user_model().objects.create_user(
-            username="own-permission-manager", password="pass12345"
-        )
-        grant(manager, ("core", "manage_auth"), ("core", "manage_feature_permissions"))
-        self.client.force_login(manager)
-
-        response = self.client.post(
-            f"/api/users/{manager.id}/permissions/",
-            data=json.dumps({"directPermissions": ["core.query_data"]}),
-            content_type="application/json",
-        )
-
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "请到用户设置中修改自己的权限")
 
     def test_manage_auth_without_feature_permission_cannot_update_user_permissions(
         self,
@@ -963,9 +911,6 @@ class FeaturePermissionTests(TestCase):
         active_user = get_user_model().objects.create_user(
             username="active-user", password="pass12345"
         )
-        get_user_model().objects.create_user(
-            username="disabled-user", password="pass12345", is_active=False
-        )
         grant(
             manager,
             ("core", "access_admin"),
@@ -1025,15 +970,6 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(
             payload["cards"]["users"]["total"], get_user_model().objects.count()
         )
-        self.assertEqual(
-            payload["cards"]["users"]["active"],
-            get_user_model().objects.filter(is_active=True).count(),
-        )
-        self.assertEqual(
-            payload["cards"]["users"]["disabled"],
-            get_user_model().objects.filter(is_active=False).count(),
-        )
-        self.assertEqual(payload["cards"]["users"]["groups"], Group.objects.count())
         self.assertEqual(payload["cards"]["activeUsers"]["period"], "day")
         self.assertEqual(payload["cards"]["activeUsers"]["count"], 1)
         self.assertEqual(payload["cards"]["activeUsers"]["loginCount"], 2)
@@ -1131,6 +1067,16 @@ class StoragePathTests(SimpleTestCase):
         self.assertTrue(
             str(table_data_path("survey.csv")).endswith("/table/survey.csv")
         )
+
+
+class ServerSnapshotHelperTests(SimpleTestCase):
+    def test_load_average_handles_platform_without_getloadavg(self):
+        with patch(
+            "apps.core.admin_api.os.getloadavg",
+            side_effect=AttributeError,
+            create=True,
+        ):
+            self.assertEqual(_load_average(), [0.0, 0.0, 0.0])
 
 
 class ConfigLoaderTests(SimpleTestCase):

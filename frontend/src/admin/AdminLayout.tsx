@@ -159,7 +159,7 @@ export default function AdminLayout() {
       menuItemRender={(item: MenuDataItem, dom) =>
         item.path ? <Link to={item.path}>{dom}</Link> : dom
       }
-      onMenuHeaderClick={() => navigate("/")}
+      onMenuHeaderClick={() => navigate("/map")}
       token={{
         header: {
           colorBgHeader: "#173f39",
@@ -178,9 +178,9 @@ export default function AdminLayout() {
         <Button
           key="home"
           icon={<HomeOutlined />}
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/map")}
         >
-          业务入口
+          主工作台
         </Button>,
         <Button key="logout" icon={<LogoutOutlined />} onClick={handleLogout}>
           退出

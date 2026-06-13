@@ -32,9 +32,9 @@ export default function NonGeoPage() {
         <div className="header-left">
           <Button
             icon={<ArrowLeftOutlined style={{ fontSize: 16 }} />}
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/map")}
           >
-            返回入口
+            返回主工作台
           </Button>
           <div className="brand-block">
             <ExperimentOutlined style={{ fontSize: 22 }} />
