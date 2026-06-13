@@ -181,8 +181,11 @@ def _profile_values(user):
         profile = user.profile
     except ObjectDoesNotExist:
         return {"avatar_url": "", "department": "", "operation_log_group_ids": []}
+    avatar_url = profile.avatar_url
+    if profile.avatar_data:
+        avatar_url = f"/api/users/{user.id}/avatar/"
     return {
-        "avatar_url": profile.avatar_url,
+        "avatar_url": avatar_url,
         "department": profile.department,
         "operation_log_group_ids": profile.operation_log_group_ids,
     }

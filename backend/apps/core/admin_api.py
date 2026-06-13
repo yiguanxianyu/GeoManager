@@ -1709,7 +1709,7 @@ def _serialize_profile(user) -> dict[str, Any]:
     # 构建头像URL
     avatar_url = profile.avatar_url
     if profile.avatar_data:
-        avatar_url = f"/api/admin/users/{user.id}/avatar/"
+        avatar_url = f"/api/users/{user.id}/avatar/"
 
     return {
         "user": serialize_user(user),

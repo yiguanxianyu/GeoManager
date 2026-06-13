@@ -128,6 +128,9 @@ export default function AdminDashboardPage() {
 
       {hasMetricCards && (
         <section className="admin-dashboard-section">
+          <div className="admin-dashboard-section-heading">
+            <Typography.Title level={4}>数据概览</Typography.Title>
+          </div>
           <Row gutter={[16, 16]}>
             {dashboard.cards.resources && (
               <MetricCard
@@ -359,7 +362,7 @@ function MetricCard({
   description: string;
 }) {
   return (
-    <Col xs={24} sm={12} xl={6}>
+    <Col xs={24} sm={12} xl={8}>
       <Card className="admin-dashboard-metric" variant="borderless">
         <div className="admin-dashboard-metric-icon">{icon}</div>
         <Statistic title={title} value={value} suffix={suffix} />

@@ -94,6 +94,7 @@ export default function AdminProfilePage() {
   const [profile, setProfile] = useState<AdminProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarVersion, setAvatarVersion] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -208,6 +209,7 @@ export default function AdminProfilePage() {
       setProfile(updated);
       setUser(updated.user);
       onSuccess?.(updated);
+      setAvatarVersion((v) => v + 1);
       message.success("头像上传成功");
     } catch (error) {
       onError?.(error as Error);
@@ -260,7 +262,7 @@ export default function AdminProfilePage() {
             <div className="admin-avatar-wrapper admin-avatar-editable">
               <Avatar
                 size={88}
-                src={profile?.avatarUrl || undefined}
+                src={avatarSrc(profile?.avatarUrl, avatarVersion)}
                 icon={<UserOutlined />}
               />
               <div className="admin-avatar-overlay">
@@ -400,4 +402,15 @@ type FormValidationError = {
 function firstFormError(errorInfo: FormValidationError, fallback: string) {
   const firstError = errorInfo.errorFields[0]?.errors[0];
   return firstError || fallback;
+}
+
+function avatarSrc(
+  url: string | undefined,
+  version: number,
+): string | undefined {
+  if (!url) return undefined;
+  if (version > 0 && url.startsWith("/")) {
+    return `${url}?v=${version}`;
+  }
+  return url;
 }
