@@ -355,6 +355,8 @@ class DataImportApiTests(TestCase):
         self.assertEqual(payload["validationIssues"][0]["code"], "invalid_longitude")
 
     def test_import_geographic_table_writes_gpkg_metadata(self):
+        self.assertFalse(self.vector_path.exists())
+
         response = self.client.post(
             "/api/catalog/import/commit/",
             data={
@@ -384,6 +386,7 @@ class DataImportApiTests(TestCase):
         self.assertEqual(payload["layerName"], "import_points")
         self.assertEqual(payload["tableName"], "import_points")
         self.assertEqual(payload["resourceName"], "导入点位")
+        self.assertTrue(self.vector_path.is_file())
 
         import geopandas as gpd
 
@@ -596,6 +599,8 @@ class DataImportApiTests(TestCase):
         self.assertEqual(response.json()["importedRows"], 2)
 
     def test_import_plain_table_writes_sqlite_data_and_metadata(self):
+        self.assertFalse(self.table_path.exists())
+
         response = self.client.post(
             "/api/catalog/import/commit/",
             data={
@@ -618,6 +623,7 @@ class DataImportApiTests(TestCase):
         self.assertEqual(payload["resourceName"], "调查表")
         resource = DataResource.objects.get(storage_path="survey_table")
         self.assertEqual(resource.data_type, DataResource.DataType.TABLE)
+        self.assertTrue(self.table_path.is_file())
         with sqlite3.connect(self.table_path) as connection:
             row = connection.execute("SELECT name, value FROM survey_table").fetchone()
             description = connection.execute(

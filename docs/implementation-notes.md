@@ -150,6 +150,16 @@ frontend/src/
 - Mapbox 公共 token 从 TOML 的 `[application.map].mapbox_access_token` 读取，经后端 bootstrap 下发，前端不硬编码默认 token。
 - Mapbox 底图标注语言使用 `zh-Hans`，并在样式加载后优先读取中文名称字段。
 
+## 管理后台实现约定
+
+- 管理后台通过前端 `/admin/` SPA 路由承载，使用 `@ant-design/pro-components` 的 `ProLayout`、`PageContainer`、`ProTable`、`ProForm` 和 `ProCard`。
+- `/admin/` 默认进入用户设置；操作日志、系统设置、认证授权、数据导入和存量数据管理根据功能权限显示。
+- 后台入口只要求登录态，具体页面、菜单和操作必须同时由前端权限展示和后端权限校验控制。
+- 用户设置和系统设置默认只读，点击编辑后进入编辑态；后台创建用户不受自助注册开关影响，但必须具备 `core.create_user` 权限。
+- 用户组权限配置复用 Django `Group`/`Permission`，必须具备 `core.manage_feature_permissions` 权限；超级管理员用户组不能删除，初始化的 `admin` 用户不能从该组移除。
+- 数据导入复用 `/api/catalog/import/preview/`、`/api/catalog/import/validate/` 和 `/api/catalog/import/commit/`，流程为文件预检、导入配置校验、数据预览和字段元数据维护。
+- 应用只使用 TOML 配置。后端通过 `--config /path/to/app.toml` 接收源配置，迁移时复制到业务数据目录的运行配置副本；后台设置只修改运行配置副本。
+
 ## 数据管理与图层管理
 
 - 数据管理负责浏览、按元数据筛选、读取字段与元信息、配置空间查询和属性查询。
@@ -270,8 +280,7 @@ huyang_system/
   "scripts": {
     "version:patch": "pnpm version patch",
     "version:minor": "pnpm version minor",
-    "version:major": "pnpm version major",
-    "version:prerelease": "pnpm version prerelease"
+    "version:major": "pnpm version major"
   }
 }
 ```

@@ -5,24 +5,23 @@
 - `backend/`：Django 后端，负责认证、权限、业务数据、GeoPackage 读取、栅格瓦片动态渲染。
 - `frontend/`：React + Vite + Ant Design + Mapbox GL JS 前端，负责统一登录、地图工作台和后台入口。
 - `config/`：TOML 配置示例，数据根目录由配置指定。
-- `docs/`：从设计文档提炼出的实现约束和开发记录。
+- `docs/`：权威设计、API 契约、开发指南和运行手册。
 
 ## 代码格式化
 
-前端：参考 pnpm scripts:
+前端：
 
 ```
-"format": "biome format . --write",
-"lint": "biome lint .",
-"check": "biome check .",
-"fix": "biome check . --write"
+cd frontend
+pnpm run check
+pnpm run fix
 ```
 
 后端：首先激活python环境，然后`ruff format .`
 
 ## 测试
 
-测试体系和 CI 稳定性要求见 [`docs/testing.md`](docs/testing.md)。提交前至少运行后端 `python -m pytest` 和前端 `pnpm test`。
+测试体系和 CI 稳定性要求见 [`docs/operations.md`](docs/operations.md)。提交前至少运行后端 `python -m pytest` 和前端 `pnpm test`。
 
 ## 本地运行
 
@@ -49,4 +48,4 @@ pnpm dev
 
 ## Docker 部署
 
-Linux Docker Compose 部署说明见 [`docs/docker-deploy.md`](docs/docker-deploy.md)。部署拆分为 `django` 和 `nginx` 两个容器：后端使用 Gunicorn，前端在 Docker 多阶段构建中执行 `pnpm build`，最终 Nginx 镜像只保留编译后的静态文件。部署时传入 TOML 配置文件，脚本会读取配置中的宿主机数据目录并映射到容器内固定目录，业务数据和地理数据不进入镜像。
+Linux Docker 部署说明见 [`docs/operations.md`](docs/operations.md)。部署时传入 TOML 配置文件，脚本会读取配置中的宿主机数据目录并映射到容器内固定目录，业务数据和地理数据不进入镜像。

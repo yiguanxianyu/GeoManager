@@ -16,6 +16,7 @@ info:
 
     ## 错误处理
     所有错误响应包含 `detail` 字段描述错误原因。
+    API 接口不会返回登录页 HTML：未认证请求返回 JSON `401`，CSRF 校验失败返回 JSON `403`。
   version: 0.1.0
   contact:
     name: API Support
@@ -164,6 +165,8 @@ paths:
                 $ref: '#/components/schemas/DetailResponse'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
   /api/auth/me/:
     get:
       tags:
@@ -1785,15 +1788,15 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            detail: 认证凭据未提供
+            detail: 请先登录
     Forbidden:
-      description: 权限不足
+      description: 权限不足或 CSRF 校验失败
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            detail: 当前用户组无权限
+            detail: CSRF 验证失败
     NotFound:
       description: 资源不存在
       content:

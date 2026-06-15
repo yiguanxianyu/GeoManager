@@ -94,6 +94,33 @@ pnpm run check:api
 pnpm run api:docs
 ```
 
+`api:docs` 和 `api:bundle` 的输出属于前端生成物，保存在 `frontend/generated/`，不作为人工维护文档编辑。
+
+### API 契约规范
+
+`docs/openapi.yaml` 是唯一权威 API 契约，使用 OpenAPI 3.1.0。新增、删除或修改接口时，先更新契约，再同步后端实现、前端类型、mock 示例和文档说明。
+
+强制规则：
+
+- `operationId` 使用唯一 camelCase 名称。
+- 公共接口显式声明 `security: []`，登录后接口声明 `sessionAuth`。
+- 所有参数、请求体、响应 schema 和错误响应都必须有清晰 `description`。
+- 错误响应统一使用 `ErrorResponse`，至少包含 `detail` 字段。
+- API 未认证返回 JSON `401 {"detail":"请先登录"}`，CSRF 失败返回 JSON `403 {"detail":"CSRF 验证失败"}`，不得返回登录页 HTML 或 Django HTML 错误页。
+- OpenAPI 3.1 可空字段使用 JSON Schema 语义，例如 `type: [integer, "null"]`，不使用 `nullable: true`。
+- Prism 示例维护在 `mock/prism/examples/*.json`，生成的 `mock/prism/openapi.prism.json` 不手写维护。
+
+修改 API 后运行：
+
+```bash
+cd frontend
+pnpm run generate:api
+pnpm run check:api
+pnpm run api:changes:check
+pnpm run api:docs
+pnpm run api:lint
+```
+
 ### Prism Mock Server
 
 前端可在没有真实后端的情况下使用 Prism mock server：

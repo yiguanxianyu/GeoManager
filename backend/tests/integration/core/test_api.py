@@ -11,6 +11,8 @@ from data_sharing_platform.settings import _default_csrf_trusted_origins
 from apps.audit.models import OperationLog
 from apps.catalog.models import DataResource, MapLayer
 from apps.core.config import (
+    APP_SUBDIRS,
+    RESEARCH_SUBDIRS,
     ensure_runtime_config_file,
     load_project_config,
     update_runtime_application_config,
@@ -1200,19 +1202,12 @@ symbolizer_timeout_seconds = 120
                 config_path, program_root=Path("/opt/data-sharing-platform")
             )
 
-            self.assertTrue(config.app_path("database").is_dir())
-            self.assertTrue(config.research_path("vector").is_dir())
-            self.assertTrue(config.research_path("raster").is_dir())
-            self.assertTrue(config.research_path("raster", "original").is_dir())
-            self.assertTrue(config.research_path("raster", "preprocessed").is_dir())
-            self.assertTrue(
-                config.research_path("raster", "metadata", "source").is_dir()
-            )
-            self.assertTrue(
-                config.research_path("raster", "metadata", "preprocessed").is_dir()
-            )
-            self.assertTrue(config.research_path("gene").is_dir())
-            self.assertTrue(config.research_path("table").is_dir())
+            for subdir in APP_SUBDIRS:
+                with self.subTest(root="app", subdir=subdir):
+                    self.assertTrue(config.app_path(subdir).is_dir())
+            for subdir in RESEARCH_SUBDIRS:
+                with self.subTest(root="research", subdir=subdir):
+                    self.assertTrue(config.research_path(subdir).is_dir())
 
     def test_migration_helper_copies_source_config_to_appdata_runtime_config(self):
         with tempfile.TemporaryDirectory() as tmpdir:

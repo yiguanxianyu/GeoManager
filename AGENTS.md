@@ -24,11 +24,10 @@ Read `docs/design-docs.md` before writing code. It is the primary functional and
 | --- | --- |
 | `docs/design-docs.md` | Full functional spec, architecture, data model, and acceptance criteria |
 | `docs/openapi.yaml` | Authoritative OpenAPI 3.1.0 contract |
-| `docs/openapi-standards.md` | Mandatory API specification rules |
 | `docs/api-change-requests.md` | Frontend-maintained API change handoff notes for backend implementation |
-| `docs/developer-guide.md` | API behavior, usage notes, permissions, and examples |
+| `docs/developer-guide.md` | API behavior, API specification rules, usage notes, permissions, and examples |
 | `docs/implementation-notes.md` | Shared implementation decisions and development memory |
-| `docs/testing.md` | Testing notes and verification guidance |
+| `docs/operations.md` | Local setup, testing, mock server, and deployment guidance |
 
 > **Important:** When a decision affects future implementation, summarize it in `docs/`. Do not leave architectural decisions only in code comments, chat history, or commit messages.
 
@@ -190,8 +189,6 @@ Frontend scripts are defined in `frontend/package.json`:
 
 ```bash
 cd frontend
-pnpm run format
-pnpm run lint
 pnpm run check
 pnpm run fix
 pnpm run typecheck
