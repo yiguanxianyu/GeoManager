@@ -128,6 +128,16 @@ securitySchemes:
 #### CSRF 保护
 - 所有 POST/PUT/DELETE 请求需携带 `X-CSRFToken` 请求头
 - Token 从 `/api/auth/csrf/` 接口获取
+- CSRF 校验失败必须返回 JSON `403`，响应体使用标准 `ErrorResponse`，不得返回 Django HTML 错误页。
+- 未认证 API 请求必须返回 JSON `401`，响应体使用标准 `ErrorResponse`，不得重定向到登录页。
+
+### 2.6 Mock Server 规范
+
+- Mock server 使用 Prism，输入文件由主契约 `docs/openapi.yaml` 生成，不维护独立的手写 OpenAPI 副本。
+- Prism 专用示例数据放在 `mock/prism/examples/*.json`，按业务域拆分维护，禁止继续堆叠单个超大 fixture 文件。
+- 生成的 Prism 输入文件为 `mock/prism/openapi.prism.json`，属于派生产物，可通过前端脚本重新生成。
+- Mock 示例必须贴近 `config/app.test.toml` 指向的数据目录，可从 `/Users/gx/Documents/Source/huyang_system_data` 抽取真实名称、图层和栅格元数据；缺失或空数据可补合理示例。
+- 修改 API 响应结构时，必须同步更新对应 mock 示例，并运行 `pnpm run mock:build` 验证示例目标仍存在。
 
 ---
 

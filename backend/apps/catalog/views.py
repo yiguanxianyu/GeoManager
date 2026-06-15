@@ -2,12 +2,12 @@ import json
 from datetime import datetime
 
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.audit.service import log_operation
+from apps.core.api import api_login_required
 from apps.catalog.data_query import (
     DataQueryError,
     get_vector_resource_profile,
@@ -50,7 +50,7 @@ from apps.raster.services import (
 
 
 @require_GET
-@login_required
+@api_login_required
 def directories(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
@@ -62,7 +62,7 @@ def directories(request):
 
 
 @require_GET
-@login_required
+@api_login_required
 def resources(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
@@ -115,7 +115,7 @@ def resources(request):
 
 
 @require_POST
-@login_required
+@api_login_required
 def scan_sources(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
@@ -150,7 +150,7 @@ def scan_sources(request):
 
 
 @require_POST
-@login_required
+@api_login_required
 def import_preview(request):
     if not has_feature_perm(request.user, "catalog.maintain_dataresource"):
         return feature_denied_response(request.user)
@@ -189,7 +189,7 @@ def import_preview(request):
 
 
 @require_POST
-@login_required
+@api_login_required
 def import_validate(request):
     if not has_feature_perm(request.user, "catalog.maintain_dataresource"):
         return feature_denied_response(request.user)
@@ -240,7 +240,7 @@ def import_validate(request):
 
 
 @require_POST
-@login_required
+@api_login_required
 def import_commit(request):
     if not has_feature_perm(request.user, "catalog.maintain_dataresource"):
         return feature_denied_response(request.user)
@@ -299,7 +299,7 @@ def _import_error_payload(exc: ImportDataError) -> dict:
 
 
 @require_GET
-@login_required
+@api_login_required
 def resource_profile(request, pk: int):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
@@ -327,7 +327,7 @@ def resource_profile(request, pk: int):
 
 
 @require_GET
-@login_required
+@api_login_required
 def vector_layer_profile(request, layer_name: str):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
@@ -353,7 +353,7 @@ def vector_layer_profile(request, layer_name: str):
 
 
 @require_POST
-@login_required
+@api_login_required
 def resource_query(request, pk: int):
     can_query = has_feature_perm(request.user, "core.query_data")
     can_load_vector = has_feature_perm(request.user, "core.load_vector_layer")
@@ -394,7 +394,7 @@ def resource_query(request, pk: int):
 
 
 @require_POST
-@login_required
+@api_login_required
 def vector_layer_query(request, layer_name: str):
     can_query = has_feature_perm(request.user, "core.query_data")
     can_load_vector = has_feature_perm(request.user, "core.load_vector_layer")
@@ -433,7 +433,7 @@ def vector_layer_query(request, layer_name: str):
 
 
 @require_POST
-@login_required
+@api_login_required
 def export_loaded_layers(request):
     if not has_feature_perm(request.user, "catalog.export_dataresource"):
         return feature_denied_response(request.user)
@@ -492,7 +492,7 @@ def export_loaded_layers(request):
 
 
 @require_POST
-@login_required
+@api_login_required
 def export_loaded_layers_async(request):
     if not has_feature_perm(request.user, "catalog.export_dataresource"):
         return feature_denied_response(request.user)
@@ -549,7 +549,7 @@ def export_loaded_layers_async(request):
 
 
 @require_GET
-@login_required
+@api_login_required
 def export_job_download(request, job_id: str):
     if not has_feature_perm(request.user, "catalog.export_dataresource"):
         return feature_denied_response(request.user)
@@ -582,7 +582,7 @@ def export_job_download(request, job_id: str):
 
 
 @require_GET
-@login_required
+@api_login_required
 def layers(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
@@ -606,7 +606,7 @@ def layers(request):
 
 
 @require_GET
-@login_required
+@api_login_required
 def layer_features(request, layer_name: str):
     if not has_feature_perm(request.user, "core.load_vector_layer"):
         return feature_denied_response(request.user)
@@ -654,7 +654,7 @@ def layer_features(request, layer_name: str):
 
 
 @require_GET
-@login_required
+@api_login_required
 def achievements(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
@@ -668,7 +668,7 @@ def achievements(request):
 
 
 @require_GET
-@login_required
+@api_login_required
 def search(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)

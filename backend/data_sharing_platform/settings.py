@@ -125,6 +125,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "/"
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_FAILURE_VIEW = "apps.core.api.csrf_failure"
 
 LOG_DIR = PROJECT_CONFIG.app_path("logs")
 LOGGING = {

@@ -94,6 +94,26 @@ pnpm run check:api
 pnpm run api:docs
 ```
 
+### Prism Mock Server
+
+前端可在没有真实后端的情况下使用 Prism mock server：
+
+```bash
+cd frontend
+pnpm run mock:build
+pnpm run mock:api
+pnpm run dev:mock
+```
+
+也可以一条命令同时启动 Prism 和 Vite：
+
+```bash
+cd frontend
+pnpm run dev:with-mock
+```
+
+`dev:mock` 会通过 `.env.mock` 将 Vite `/api` 代理到 `http://127.0.0.1:4010`。Mock 响应样例位于 `mock/prism/examples/`，由 `pnpm run mock:build` 注入到 `mock/prism/openapi.prism.json`。
+
 **Python**
 
 ```python
@@ -156,6 +176,20 @@ await fetch("/api/auth/csrf/", { credentials: "include" });
 # Python
 session.get(f"{base_url}/auth/csrf/")
 ```
+
+如果未携带有效 CSRF Token，后端返回 JSON `403`：
+
+```json
+{"detail": "CSRF 验证失败"}
+```
+
+受保护 API 未登录时返回 JSON `401`：
+
+```json
+{"detail": "请先登录"}
+```
+
+API 不应返回登录页 HTML 或 Django HTML 错误页，前后端和 mock server 都按 `ErrorResponse.detail` 处理错误。
 
 #### Step 2: 用户登录
 

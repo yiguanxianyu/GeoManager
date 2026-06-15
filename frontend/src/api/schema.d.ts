@@ -2490,13 +2490,13 @@ export interface components {
             content: {
                 /**
                  * @example {
-                 *       "detail": "认证凭据未提供"
+                 *       "detail": "请先登录"
                  *     }
                  */
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description 权限不足 */
+        /** @description 权限不足或 CSRF 校验失败 */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -2504,7 +2504,7 @@ export interface components {
             content: {
                 /**
                  * @example {
-                 *       "detail": "当前用户组无权限"
+                 *       "detail": "CSRF 验证失败"
                  *     }
                  */
                 "application/json": components["schemas"]["ErrorResponse"];
@@ -2672,6 +2672,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
         };
     };
     getCurrentUser: {

@@ -1,7 +1,6 @@
 import json
 
 from django.contrib.auth import authenticate, get_user_model, login, logout
-from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse
@@ -9,9 +8,14 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.audit.service import log_operation
+from apps.core.api import api_login_required
 from apps.core.initialization import ensure_guest_group, ensure_superadmin_defaults
 from apps.core.passwords import password_validation_errors
-from apps.core.permissions import has_feature_perm
+from apps.core.permissions import (
+    direct_feature_permissions,
+    effective_feature_permissions,
+    has_feature_perm,
+)
 from apps.core.views import registration_allowed
 
 
@@ -91,7 +95,7 @@ def register_view(request):
 
 
 @require_POST
-@login_required
+@api_login_required
 def logout_view(request):
     user = request.user
     logout(request)
@@ -171,6 +175,9 @@ def serialize_user(user):
         "isSuperuser": user.is_superuser,
         "roles": groups,
         "groupIds": group_ids,
+        "isActive": user.is_active,
+        "directPermissions": sorted(direct_feature_permissions(user)),
+        "effectivePermissions": sorted(effective_feature_permissions(user)),
         "operationLogGroupIds": profile["operation_log_group_ids"],
         "permissions": permissions,
     }

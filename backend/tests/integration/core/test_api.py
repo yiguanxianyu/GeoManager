@@ -5,7 +5,7 @@ from pathlib import Path
 import tomlkit
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
-from django.test import SimpleTestCase, TestCase
+from django.test import Client, SimpleTestCase, TestCase
 from data_sharing_platform.settings import _default_csrf_trusted_origins
 
 from apps.audit.models import OperationLog
@@ -58,6 +58,24 @@ class CsrfSettingsTests(SimpleTestCase):
         self.assertNotIn("http://*", origins)
 
 
+class ApiJsonErrorTests(TestCase):
+    def test_authenticated_api_returns_json_401_instead_of_login_redirect(self):
+        response = self.client.get("/api/catalog/resources/")
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertEqual(response.json()["detail"], "请先登录")
+
+    def test_csrf_failure_returns_standard_json_error(self):
+        client = Client(enforce_csrf_checks=True)
+
+        response = client.post("/api/auth/logout/")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response["Content-Type"], "application/json")
+        self.assertEqual(response.json()["detail"], "CSRF 验证失败")
+
+
 class RegistrationApiTests(TestCase):
     def test_login_writes_dashboard_compatible_audit_log(self):
         user = get_user_model().objects.create_user(
@@ -77,6 +95,10 @@ class RegistrationApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 200)
+        payload = response.json()["user"]
+        self.assertTrue(payload["isActive"])
+        self.assertEqual(payload["directPermissions"], [])
+        self.assertIn("effectivePermissions", payload)
         self.assertTrue(
             OperationLog.objects.filter(
                 user=user,

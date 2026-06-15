@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import {
-  ApiError,
   api,
   registerForbiddenHandler,
   unregisterForbiddenHandler,
@@ -91,7 +90,7 @@ export default function App() {
           const me = await api.me();
           currentUser = me.user;
         } catch (error) {
-          if (!(error instanceof ApiError) || error.status !== 401) {
+          if (!isApiStatus(error, 401)) {
             throw error;
           }
         }
@@ -193,5 +192,14 @@ export default function App() {
         </Routes>
       </Suspense>
     </AppContext.Provider>
+  );
+}
+
+function isApiStatus(error: unknown, status: number) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    error.status === status
   );
 }

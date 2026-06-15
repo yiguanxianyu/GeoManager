@@ -10,7 +10,6 @@ import sqlite3
 import subprocess
 from calendar import monthrange
 from datetime import datetime, time, timedelta
-from functools import wraps
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +27,11 @@ from django.views.decorators.http import require_GET, require_http_methods
 from apps.audit.models import OperationLog
 from apps.audit.service import log_operation
 from apps.catalog.models import DataResource, MapLayer
+from apps.core.api import (
+    api_any_permission_required,
+    api_login_required,
+    api_permission_required,
+)
 from apps.core.auth_views import serialize_user
 from apps.core.config import (
     load_runtime_config_document,
@@ -50,6 +54,7 @@ from apps.core.permissions import (
     FEATURE_PERMISSION_NAMES,
     FEATURE_PERMISSIONS,
     disabled_feature_permissions,
+    direct_feature_permissions,
     effective_feature_permissions,
     feature_permission_queryset,
     granted_feature_permissions,
@@ -63,46 +68,6 @@ from apps.core.storage import (
     vector_geopackage_path,
 )
 from apps.raster.models import RasterDataset
-
-
-def api_login_required(view_func):
-    @wraps(view_func)
-    def wrapped(request, *args, **kwargs):
-        if not request.user.is_authenticated:
-            return JsonResponse({"detail": "请先登录"}, status=401)
-        return view_func(request, *args, **kwargs)
-
-    return wrapped
-
-
-def api_permission_required(perm_name: str):
-    def decorator(view_func):
-        @wraps(view_func)
-        def wrapped(request, *args, **kwargs):
-            if not request.user.is_authenticated:
-                return JsonResponse({"detail": "请先登录"}, status=401)
-            if not has_feature_perm(request.user, perm_name):
-                return JsonResponse({"detail": "当前用户无后台管理权限"}, status=403)
-            return view_func(request, *args, **kwargs)
-
-        return wrapped
-
-    return decorator
-
-
-def api_any_permission_required(*perm_names: str):
-    def decorator(view_func):
-        @wraps(view_func)
-        def wrapped(request, *args, **kwargs):
-            if not request.user.is_authenticated:
-                return JsonResponse({"detail": "请先登录"}, status=401)
-            if not any(has_feature_perm(request.user, perm) for perm in perm_names):
-                return JsonResponse({"detail": "当前用户无后台管理权限"}, status=403)
-            return view_func(request, *args, **kwargs)
-
-        return wrapped
-
-    return decorator
 
 
 @require_GET
@@ -1728,7 +1693,7 @@ def _serialize_admin_user(user) -> dict[str, Any]:
     serialized = serialize_user(user)
     serialized["groupIds"] = list(user.groups.values_list("id", flat=True))
     serialized["isActive"] = user.is_active
-    serialized["directPermissions"] = sorted(_direct_feature_permissions(user))
+    serialized["directPermissions"] = sorted(direct_feature_permissions(user))
     serialized["effectivePermissions"] = sorted(effective_feature_permissions(user))
     serialized["operationLogGroupIds"] = _operation_log_group_ids(user)
     return serialized
@@ -2037,16 +2002,6 @@ def _set_group_feature_permissions(group: Group, permission_names: list[str]) ->
         group.permissions.exclude(id__in=feature_ids).values_list("id", flat=True)
     )
     group.permissions.set([*non_feature_ids, *selected_ids])
-
-
-def _direct_feature_permissions(user) -> set[str]:
-    feature_ids = set(feature_permission_queryset().values_list("id", flat=True))
-    return {
-        f"{permission.content_type.app_label}.{permission.codename}"
-        for permission in user.user_permissions.filter(id__in=feature_ids)
-        .select_related("content_type")
-        .all()
-    }
 
 
 def _set_user_feature_permissions(user, permission_names: list[str]) -> None:

@@ -200,6 +200,18 @@ def effective_feature_permissions(user) -> set[str]:
     return granted_feature_permissions(user) - disabled_feature_permissions(user)
 
 
+def direct_feature_permissions(user) -> set[str]:
+    if not user.is_authenticated:
+        return set()
+    feature_ids = set(feature_permission_queryset().values_list("id", flat=True))
+    return {
+        f"{permission.content_type.app_label}.{permission.codename}"
+        for permission in user.user_permissions.filter(id__in=feature_ids)
+        .select_related("content_type")
+        .all()
+    }
+
+
 def _user_profile(user):
     try:
         return user.profile

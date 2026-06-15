@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
 
-from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.audit.service import log_operation
+from apps.core.api import api_login_required
 from apps.catalog.models import MapLayer
 from apps.catalog.permissions import user_can_access
 from apps.core.permissions import feature_denied_response, has_feature_perm
@@ -29,7 +29,7 @@ from apps.raster.services import (
 
 
 @require_POST
-@login_required
+@api_login_required
 def render(request):
     if not has_feature_perm(request.user, "core.load_raster_layer"):
         return feature_denied_response(request.user)
@@ -79,7 +79,7 @@ def render(request):
 
 
 @require_POST
-@login_required
+@api_login_required
 def render_async(request):
     if not has_feature_perm(request.user, "core.load_raster_layer"):
         return feature_denied_response(request.user)
@@ -147,7 +147,7 @@ def render_async(request):
 
 
 @require_POST
-@login_required
+@api_login_required
 def unique_values(request):
     if not has_feature_perm(request.user, "core.custom_symbolization"):
         return feature_denied_response(request.user)
@@ -193,7 +193,7 @@ def unique_values(request):
 
 
 @require_POST
-@login_required
+@api_login_required
 def import_raster(request):
     if not can_manage_raster_data(request.user):
         return feature_denied_response(request.user)
@@ -249,7 +249,7 @@ def import_raster(request):
 
 
 @require_POST
-@login_required
+@api_login_required
 def scan_sources(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
@@ -266,7 +266,7 @@ def scan_sources(request):
 
 
 @require_GET
-@login_required
+@api_login_required
 def datasets(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
@@ -281,7 +281,7 @@ def datasets(request):
 
 
 @require_GET
-@login_required
+@api_login_required
 def job_status(request, job_id: str):
     try:
         return JsonResponse(get_job(job_id).as_dict())
@@ -290,7 +290,7 @@ def job_status(request, job_id: str):
 
 
 @require_GET
-@login_required
+@api_login_required
 def tile(request, dataset_id: int, style_hash: str, z: int, x: int, y: int):
     if not has_feature_perm(request.user, "core.load_raster_layer"):
         return feature_denied_response(request.user)

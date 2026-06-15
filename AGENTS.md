@@ -25,6 +25,7 @@ Read `docs/design-docs.md` before writing code. It is the primary functional and
 | `docs/design-docs.md` | Full functional spec, architecture, data model, and acceptance criteria |
 | `docs/openapi.yaml` | Authoritative OpenAPI 3.1.0 contract |
 | `docs/openapi-standards.md` | Mandatory API specification rules |
+| `docs/api-change-requests.md` | Frontend-maintained API change handoff notes for backend implementation |
 | `docs/developer-guide.md` | API behavior, usage notes, permissions, and examples |
 | `docs/implementation-notes.md` | Shared implementation decisions and development memory |
 | `docs/testing.md` | Testing notes and verification guidance |
@@ -101,9 +102,9 @@ Use the targets in `docs/design-docs.md` as acceptance constraints:
 - Map interaction: at least 20fps where feasible
 - Layer operations: no more than 500ms
 - Query response: no more than 1s for up to 30k rows
-- Layer management: support at least 15 concurrent loaded layers
+- Layer management: support at least 5 concurrent loaded layers
 
-When changing query, rendering, cache, or layer-state logic, consider these targets during design and verification.
+When changing query, rendering, cache, or layer-state logic, consider these targets. They are not hard requirements but are good guidelines.
 
 ## 3. API Contract Rules
 
@@ -136,11 +137,40 @@ After changing OpenAPI, run:
 cd frontend
 pnpm run generate:api
 pnpm run check:api
+pnpm run api:changes:check
 pnpm run api:docs
 pnpm run api:lint
 ```
 
 > **Pitfall:** API changes are high-conflict in multi-agent work. Prefer landing contract changes first, then backend implementation, then frontend usage.
+
+### Mock server workflow
+
+- Use Prism for frontend/backend separation. The canonical contract remains `docs/openapi.yaml`; do not create a second hand-written OpenAPI spec.
+- Mock response examples live in `mock/prism/examples/*.json`, split by domain. Do not keep growing one large fixture file.
+- Build the Prism spec with `cd frontend && pnpm run mock:build`; this generates `mock/prism/openapi.prism.json` from the canonical contract and injects examples.
+- Run Prism with `pnpm run mock:api`, or run Prism and Vite together with `pnpm run dev:with-mock`.
+- `pnpm run dev:mock` uses `.env.mock` to proxy Vite `/api` to `http://127.0.0.1:4010`.
+- Prefer real local names and metadata from `/Users/gx/Documents/Source/huyang_system_data` for examples; when actual data is empty or incomplete, generate small, plausible Chinese-facing examples.
+- API errors must be JSON: unauthenticated API requests return `401 {"detail":"请先登录"}` and CSRF failures return `403 {"detail":"CSRF 验证失败"}`. Do not allow API endpoints to redirect to a login page or return Django HTML error pages.
+
+### Frontend/backend separation workflow
+
+Use this protocol when one developer owns frontend work and another developer owns backend work.
+
+- Frontend owns the API contract. `docs/openapi.yaml` is the frontend developer's responsibility because it defines the data shape the UI needs.
+- Frontend code must use generated OpenAPI types from `frontend/src/api/schema.d.ts`; do not hand-write duplicate backend DTOs or infer hidden backend fields.
+- Frontend expresses data requirements by updating `docs/openapi.yaml` and `mock/prism/examples/*.json`, not by changing backend implementation code.
+- If frontend needs a new field, endpoint, status code, permission behavior, or response shape, the frontend developer updates `docs/openapi.yaml`, regenerates/checks `frontend/src/api/schema.d.ts`, and adds or updates a small domain-focused mock example that demonstrates the expected response.
+- Every frontend-owned API contract change must also be recorded in `docs/api-change-requests.md`. Keep each entry concise but actionable: affected endpoint, change summary, frontend reason, mock example file, backend implementation notes, and verification expectation.
+- Run `cd frontend && pnpm run api:changes:check` after changing `docs/openapi.yaml` or `mock/prism/examples/*.json`; the check fails when contract/mock files change without a tracked API change request.
+- Backend implements the API contract. The backend developer reads `docs/openapi.yaml` and matching mock examples, then updates backend behavior and backend tests so real responses conform to the frontend-maintained contract.
+- Backend developers should use `docs/api-change-requests.md` as the implementation queue for API changes. Mark entries implemented only after backend behavior, tests, and real response shapes match `docs/openapi.yaml` and the referenced mock examples.
+- If backend cannot implement a proposed API shape safely, the backend developer must raise the contract issue and request an OpenAPI change instead of silently returning a different shape.
+- Frontend and backend developers must not edit each other's application code without explicit handoff. Frontend-owned work stays under `frontend/`, `docs/openapi.yaml`, generated API types, and mock examples needed to express API needs. Backend-owned work stays under `backend/`, backend tests, and backend-facing API documentation.
+- Shared contract files are coordinated, not casually edited. Treat `docs/openapi.yaml`, `frontend/src/api/schema.d.ts`, `mock/prism/examples/*.json`, and `mock/prism/openapi.prism.json` as the handoff surface between frontend and backend.
+- `mock/prism/openapi.prism.json` is generated output. Do not hand-edit it; run `cd frontend && pnpm run mock:build`.
+- Do not add temporary frontend fallbacks for missing backend fields, and do not add backend compatibility branches for undocumented frontend assumptions. Fix the OpenAPI contract and mock examples first.
 
 ## 4. Development Environment
 
@@ -236,11 +266,27 @@ If a task request is missing one of these items, infer it from the repository wh
 Use these role boundaries to choose files and responsibilities. A single agent may perform multiple roles in one task, but keep edits ordered by dependency.
 
 - **Coordinator Agent:** task breakdown, merge order, API conflict tracking.
-- **Contract Agent:** `docs/openapi.yaml`, `docs/developer-guide.md`, API examples, generated frontend API types.
-- **Backend Agent:** Django features by app boundary.
-- **Frontend Agent:** React features by UI/state boundary.
+- **Contract Agent:** `docs/openapi.yaml`, `docs/developer-guide.md`, API examples, generated frontend API types. In frontend/backend split work, this role is owned by the frontend developer unless explicitly delegated.
+- **Backend Agent:** Django features by app boundary. Backend agents must not edit React UI code except during an explicit cross-stack handoff.
+- **Frontend Agent:** React features by UI/state boundary. Frontend agents must not edit Django code except during an explicit cross-stack handoff.
 - **Testing Agent:** verification, failure reproduction, missing tests.
 - **Documentation Agent:** implementation notes, testing notes, changelog entries, implementation explanations.
+
+### Frontend/backend ownership
+
+When frontend and backend are developed by different people, use these ownership boundaries:
+
+| Area | Owner | Allowed changes |
+| --- | --- | --- |
+| `backend/` | Backend developer | Django views, services, models, permissions, backend tests |
+| `docs/openapi.yaml` | Frontend developer | Authoritative API contract defining the data shape required by the UI |
+| `docs/api-change-requests.md` | Frontend developer | API change handoff notes that tell backend what to implement |
+| `frontend/` except generated API types | Frontend developer | React UI, state, routes, API client usage, frontend tests |
+| `frontend/src/api/schema.d.ts` | Generated from OpenAPI | Never hand-edit; regenerate after contract changes |
+| `mock/prism/examples/*.json` | Frontend developer | Expected data examples that demonstrate UI requirements; backend verifies real responses against them |
+| `mock/prism/openapi.prism.json` | Generated from OpenAPI and examples | Never hand-edit; regenerate with `pnpm run mock:build` |
+
+Cross-boundary edits require an explicit handoff note in the task or completion report. If a frontend task appears to require backend code changes, finish the OpenAPI/mock requirement and hand implementation to the backend owner. If a backend task appears to require contract or UI changes, implement only the backend-compatible part and hand the OpenAPI/UI change to the frontend owner.
 
 ### Branch model
 
@@ -265,8 +311,8 @@ Avoid editing these files unless the task explicitly owns them:
 
 | File | Default owner | Reason |
 | --- | --- | --- |
-| `docs/openapi.yaml` | Contract Agent | Authoritative API contract |
-| `frontend/src/api/schema.d.ts` | Contract Agent | Generated API types; never hand-edit |
+| `docs/openapi.yaml` | Frontend-owned Contract Agent | Authoritative API contract defining frontend data requirements |
+| `frontend/src/api/schema.d.ts` | Frontend-owned Contract Agent | Generated API types; never hand-edit |
 | `frontend/src/types.ts` | Frontend architecture owner | Separates UI types from API DTOs |
 | `backend/apps/core/permissions.py` | Permission owner | Central permission registry |
 | `frontend/src/App.tsx` | Frontend architecture owner | Routing and auth gate entry |

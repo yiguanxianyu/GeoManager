@@ -216,6 +216,17 @@ frontend/src/
 - 快速生产构建：`pnpm run build`（仅执行 Vite 生产打包）
 - 发布/CI 构建验证：`pnpm run build:verify`（check:api + typecheck + vite build）
 
+## Mock Server 与前后端分离开发
+
+- Prism 作为本地 API mock server，前端脚本位于 `frontend/package.json`：
+  - `pnpm run mock:build`：从 `docs/openapi.yaml` 生成 Prism 输入文件，并注入 `mock/prism/examples/*.json` 示例。
+  - `pnpm run mock:api`：在 `127.0.0.1:4010` 启动 Prism。
+  - `pnpm run dev:mock`：使用 `.env.mock` 将 Vite `/api` 代理到 Prism。
+  - `pnpm run dev:with-mock`：同时启动 Prism 与 Vite。
+- `docs/openapi.yaml` 仍是唯一权威 API 合同；`mock/prism/openapi.prism.json` 是派生产物，不手写维护。
+- Mock 示例按业务域拆分在 `mock/prism/examples/`，优先从 `config/app.test.toml` 指向的数据目录抽取真实资源、图层和栅格元数据。
+- API 错误响应统一为 JSON：未认证返回 `401 {"detail":"请先登录"}`，CSRF 失败返回 `403 {"detail":"CSRF 验证失败"}`。后端 API 不返回登录页 HTML 或 Django HTML 错误页。
+
 ## 前端构建优化记录
 
 - 路由页面使用 `React.lazy` 按需加载，登录、入口、地图、非地理、导入和后台页面由 `App.tsx` 按路由按需导入。
