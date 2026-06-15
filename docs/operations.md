@@ -109,61 +109,32 @@ pnpm run build:verify
 
 ## Docker 部署
 
-Linux 部署使用 Docker 镜像和 TOML 配置。业务数据和科研数据必须通过宿主机目录挂载进入容器，不能打包进镜像。
+Linux 部署使用单个 Docker 镜像和 TOML 配置。镜像构建不需要配置文件，配置只在容器运行时通过 `/config/app.toml` 挂载提供。镜像内由 Gunicorn 运行 Django WSGI 应用，Django 同时提供 `/api/` 接口和前端 Vite 构建产物；对公网关、HTTPS 和域名由宿主机上的反向代理自行配置。业务数据和科研数据保存在同一个 Docker 数据卷 `geomanager-data` 中，并挂载到容器内 `/data`。
 
 容器内固定路径：
 
 - 程序目录：`/opt/app`
 - 后端目录：`/opt/app/backend`
+- 前端构建产物：`/opt/app/frontend/dist`
 - 默认输入配置：`/config/app.toml`
 - 默认业务数据根目录：`/data/app`
 - 默认科研数据根目录：`/data/research`
 
-示例 TOML：
+Docker 容器内配置示例见 `config/app.docker.toml`。其中容器内路径、Gunicorn 绑定和默认运行参数已经固化；通常只需要按部署环境调整 `allowed_hosts`、`csrf_trusted_origins`、`http_port`、`gunicorn_workers` 和 `mapbox_access_token`。
 
-```toml
-[runtime]
-debug = false
-allowed_hosts = ["localhost", "127.0.0.1", "your.domain.com"]
-csrf_trusted_origins = ["https://your.domain.com"]
-gunicorn_bind = "0.0.0.0:8000"
-gunicorn_workers = 3
-http_port = 80
-disable_catalog_startup_scan = false
-disable_raster_startup_scan = false
-
-[application.system]
-name = "中亚胡杨林生态系统保护数据共享平台"
-allow_registration = true
-
-[application.storage]
-app_data = "/data/app"
-research_data_root = "/data/research"
-
-[application.map]
-default_center = [80.0, 41.5]
-default_zoom = 4.5
-default_basemap = "osm"
-mapbox_access_token = ""
-
-[application.limits]
-upload_max_mb = 512
-query_result_limit = 30000
-
-[application.raster]
-symbolizer_timeout_seconds = 120
-```
+手动 `docker run` 时，挂载到 `/config/app.toml` 的配置应使用容器内数据路径 `/data/app` 和 `/data/research`。业务数据和科研数据使用同一个 Docker named volume，不需要映射宿主机目录。
 
 构建和启动：
 
 ```bash
 docker build -t data-platform-django:latest .
 
+docker volume create geomanager-data
+
 docker run -d --name data-platform \
   -p 80:8000 \
   -v /srv/data-platform/app.toml:/config/app.toml:ro \
-  -v /srv/data-platform/appdata:/data/app \
-  -v /srv/data-platform/research:/data/research \
+  -v geomanager-data:/data \
   data-platform-django:latest serve /config/app.toml
 ```
 
@@ -172,6 +143,17 @@ docker run -d --name data-platform \
 ```bash
 scripts/deploy.sh /srv/data-platform/app.toml
 ```
+
+部署脚本会在本机 `geomanager` mamba 环境中读取输入 TOML 的 `runtime.http_port` 作为宿主机暴露端口，并生成容器内运行配置 `.deploy/app.toml`。生成后的容器内运行配置会把数据目录改写为 `/data/app` 和 `/data/research`，并自动创建 `geomanager-data` 数据卷挂载到 `/data`。
+
+默认数据卷名称为 `geomanager-data`。可通过环境变量改名：
+
+```bash
+DATA_VOLUME=huyang-data \
+scripts/deploy.sh config/app.docker.toml
+```
+
+重建容器不会删除数据卷。如需备份、迁移或删除数据，请直接操作对应 Docker volume。
 
 首次迁移会把输入配置复制到业务数据目录的运行配置副本：
 

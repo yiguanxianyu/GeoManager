@@ -48,4 +48,24 @@ pnpm dev
 
 ## Docker 部署
 
-Linux Docker 部署说明见 [`docs/operations.md`](docs/operations.md)。部署时传入 TOML 配置文件，脚本会读取配置中的宿主机数据目录并映射到容器内固定目录，业务数据和地理数据不进入镜像。
+镜像构建不需要配置文件，运行容器时把 TOML 配置挂载到 `/config/app.toml`。镜像内由 Gunicorn + Django 同时提供 API 和前端构建产物；业务数据和科研数据统一保存在 Docker 数据卷 `geomanager-data` 中。
+
+```bash
+docker build -t data-platform-django:latest .
+
+docker run -d --name geomanager \
+  -p 127.0.0.1:8000:8000 \
+  -v /absolute/path/app.docker.toml:/config/app.toml:ro \
+  -v geomanager-data:/data \
+  data-platform-django:latest
+```
+
+配置文件可从 [`config/app.docker.toml`](config/app.docker.toml) 复制修改，其中数据路径保持：
+
+```toml
+[application.storage]
+app_data = "/data/app"
+research_data_root = "/data/research"
+```
+
+`127.0.0.1:8000` 适合由宿主机 nginx 反向代理；如需直接对外访问，可改为 `-p 8000:8000`。更完整的运行说明见 [`docs/operations.md`](docs/operations.md)。

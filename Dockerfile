@@ -1,3 +1,15 @@
+FROM node:24-bookworm-slim AS frontend-build
+
+WORKDIR /opt/app/frontend
+
+RUN corepack enable
+
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY frontend ./
+RUN pnpm exec vite build --base=/static/
+
 FROM mambaorg/micromamba:latest
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -13,21 +25,14 @@ RUN apt-get update \
         tini \
     && rm -rf /var/lib/apt/lists/*
 
-RUN micromamba install -y -n base -c conda-forge \
-        python=3.14 \
-        "django>=6.0,<7.0" \
-        pillow \
-        gdal \
-        rasterio \
-        tomlkit \
-        geopandas \
-        gunicorn \
+COPY backend/environment.yml /tmp/environment.yml
+RUN micromamba env update -n base -f /tmp/environment.yml \
     && micromamba clean -a -y
 
 WORKDIR /opt/app
 
 COPY backend ./backend
-COPY config ./config
+COPY --from=frontend-build /opt/app/frontend/dist ./frontend/dist
 COPY docs/design-docs.md README.md AGENTS.md ./
 COPY docker/entrypoint.sh /usr/local/bin/app-entrypoint
 

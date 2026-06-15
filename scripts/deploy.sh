@@ -3,15 +3,21 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-COMPOSE_FILE="${COMPOSE_FILE:-${PROJECT_ROOT}/docker-compose.yml}"
 SOURCE_CONFIG_FILE="${1:-}"
 RUNTIME_DIR="${PROJECT_ROOT}/.deploy"
-APP_DOCKER_BUILD_MODE="${2:-serial}"
+IMAGE_NAME="${2:-data-platform-django:latest}"
+CONTAINER_NAME="${3:-data-platform}"
+DATA_VOLUME="${DATA_VOLUME:-geomanager-data}"
+
+cd "${PROJECT_ROOT}"
+
+git pull --ff-only
+docker build -t "${IMAGE_NAME}" .
 
 if [[ -z "${SOURCE_CONFIG_FILE}" ]]; then
   cat >&2 <<EOF
 缺少配置文件参数。
-用法：scripts/deploy.sh /path/to/app.toml [serial|parallel]
+用法：scripts/deploy.sh /path/to/app.toml [image-name] [container-name]
 EOF
   exit 1
 fi
@@ -24,7 +30,9 @@ fi
 mkdir -p "${RUNTIME_DIR}"
 
 CONFIG_VALUES="$(
-  python3 "${PROJECT_ROOT}/scripts/prepare_deploy_config.py" "${SOURCE_CONFIG_FILE}" "${RUNTIME_DIR}/app.toml"
+  eval "$(mamba shell hook --shell bash)"
+  mamba activate geomanager
+  python "${PROJECT_ROOT}/scripts/prepare_deploy_config.py" "${SOURCE_CONFIG_FILE}" "${RUNTIME_DIR}/app.toml"
 )"
 
 while IFS='=' read -r key value; do
@@ -35,21 +43,12 @@ while IFS='=' read -r key value; do
   esac
 done <<< "${CONFIG_VALUES}"
 
-cd "${PROJECT_ROOT}"
+docker volume create "${DATA_VOLUME}" >/dev/null
+docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 
-git pull --ff-only
-case "${APP_DOCKER_BUILD_MODE}" in
-  parallel)
-    docker compose -f "${COMPOSE_FILE}" build
-    ;;
-  serial)
-    docker compose -f "${COMPOSE_FILE}" build django
-    docker compose -f "${COMPOSE_FILE}" build nginx
-    ;;
-  *)
-    echo "APP_DOCKER_BUILD_MODE 只能是 parallel 或 serial，当前值：${APP_DOCKER_BUILD_MODE}" >&2
-    exit 1
-    ;;
-esac
-docker compose -f "${COMPOSE_FILE}" up -d --remove-orphans
-docker compose -f "${COMPOSE_FILE}" ps
+docker run -d --name "${CONTAINER_NAME}" \
+  -p "${APP_HTTP_PORT}:8000" \
+  -v "${RUNTIME_CONFIG}:/config/app.toml:ro" \
+  -v "${DATA_VOLUME}:/data" \
+  "${IMAGE_NAME}" serve /config/app.toml
+docker ps --filter "name=${CONTAINER_NAME}"

@@ -20,6 +20,5 @@ dependencies:
   - rasterio
   - ruff
   - tomlkit
+  - whitenoise
   - xlrd
-
-prefix: "/Users/gx/.local/share/mamba/envs/geomanager"

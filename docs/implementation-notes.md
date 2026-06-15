@@ -62,7 +62,8 @@ backend/apps/
 - 管理后台使用前端 `/admin/` SPA 路由承载。
 - 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。首个注册用户自动成为系统管理员，后续注册用户为普通账号。
 - 本地前后端分离开发时，Vite dev server 代理 `/api` 到 Django；`[runtime].debug = true` 且未显式设置 `csrf_trusted_origins` 时，后端默认信任本地开发服务器地址，确保首次注册和登录的 CSRF Origin 校验通过。
-- 运行日志统一写入业务数据根目录的 `logs/`：Django 应用日志、Django 框架日志、安全日志、Gunicorn 访问/错误日志、Nginx 访问/错误日志都落在该目录。
+- 运行日志统一写入业务数据根目录的 `logs/`：Django 应用日志、Django 框架日志、安全日志、Gunicorn 访问/错误日志都落在该目录。
+- Docker 镜像使用 `backend/environment.yml` 安装 mamba 运行环境，使用 pnpm 构建 `frontend/dist`，由 Django/WhiteNoise 在 WSGI 进程内提供前端静态资源和 SPA fallback；宿主机如需公网访问，可在容器端口前自行配置反向代理。
 - Docker 启动入口必须先创建固定业务/地理/非地理数据子目录，再执行 `python manage.py migrate --noinput` 和 `collectstatic`，确保空 appdata 首次启动可以直接注册首个管理员。
 - SQLite 数据库放在业务数据根目录的 `database/` 下。
 - 所有矢量数据统一从地理数据根目录下的 `vector/vector.gpkg` 读取；业务库中的矢量 `storage_path` 和图层 `source_path` 字段填写该 GeoPackage 内的图层名，后端读取并输出 GeoJSON。
