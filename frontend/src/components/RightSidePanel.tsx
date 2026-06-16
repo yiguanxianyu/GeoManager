@@ -14,7 +14,7 @@ import {
 import type { FeatureInfo, MapViewState } from "../types";
 import FeatureDetailPanel from "./FeatureDetailPanel";
 
-const thumbnailZoomOffset = 2;
+const thumbnailZoomOffset = 3;
 const thumbnailMinZoom = 0;
 const thumbnailMaxZoom = 17;
 
