@@ -4,10 +4,19 @@ import {
   RadarChartOutlined,
 } from "@ant-design/icons";
 import { Tabs, Tag, Typography } from "antd";
-import { useMemo } from "react";
-import { buildFlatThumbnailPlan } from "../map/flatThumbnail";
+import mapboxgl, { type Map as MapboxMap, type MapboxOptions } from "mapbox-gl";
+import { useEffect, useRef, useState } from "react";
+import {
+  applyChineseBasemapLanguage,
+  mapLabelLanguage,
+  osmChineseVectorStyle,
+} from "../map/basemapStyle";
 import type { FeatureInfo, MapViewState } from "../types";
 import FeatureDetailPanel from "./FeatureDetailPanel";
+
+const thumbnailZoomOffset = 2;
+const thumbnailMinZoom = 0;
+const thumbnailMaxZoom = 17;
 
 interface Props {
   selectedFeature: FeatureInfo | null;
@@ -18,13 +27,7 @@ export default function RightSidePanel({
   selectedFeature,
   currentView,
 }: Props) {
-  const thumbnailPlan = useMemo(
-    () =>
-      currentView
-        ? buildFlatThumbnailPlan(currentView.bounds, currentView.zoom)
-        : null,
-    [currentView],
-  );
+  const thumbnailZoom = currentView ? zoomForThumbnail(currentView.zoom) : null;
 
   return (
     <div className="right-panel-stack">
@@ -37,14 +40,16 @@ export default function RightSidePanel({
             <AimOutlined style={{ fontSize: 15 }} />
             <Typography.Text strong>当前视角平面缩略图</Typography.Text>
           </span>
-          <Tag color={thumbnailPlan ? "cyan" : "default"}>
-            {thumbnailPlan ? `${thumbnailPlan.zoom} 级瓦片` : "同步中"}
+          <Tag color={currentView ? "cyan" : "default"}>
+            {thumbnailZoom === null
+              ? "同步中"
+              : `2D ${thumbnailZoom.toFixed(1)}`}
           </Tag>
         </div>
-        <FlatMapThumbnail plan={thumbnailPlan} />
+        <FlatMapThumbnail currentView={currentView} />
         <div className="right-map-meta">
           <span>{formatViewCenter(currentView)}</span>
-          <span>{formatViewZoom(currentView, thumbnailPlan?.zoom)}</span>
+          <span>{formatViewZoom(currentView, thumbnailZoom)}</span>
         </div>
       </section>
 
@@ -100,69 +105,92 @@ export default function RightSidePanel({
 }
 
 function FlatMapThumbnail({
-  plan,
+  currentView,
 }: {
-  plan: ReturnType<typeof buildFlatThumbnailPlan>;
+  currentView: MapViewState | null;
 }) {
-  if (!plan) {
-    return (
-      <div className="right-map-mini right-map-mini-empty">
-        <Typography.Text type="secondary">等待地图视角</Typography.Text>
-      </div>
-    );
-  }
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MapboxMap | null>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
 
-  const rectCenterX = plan.viewRect.x + plan.viewRect.width / 2;
-  const rectCenterY = plan.viewRect.y + plan.viewRect.height / 2;
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!currentView || !container || mapRef.current || mapUnavailable) {
+      return;
+    }
+    const mapOptions: MapboxOptions = {
+      container,
+      style: osmChineseVectorStyle,
+      center: currentView.center,
+      zoom: zoomForThumbnail(currentView.zoom),
+      bearing: 0,
+      pitch: 0,
+      projection: "mercator",
+      language: mapLabelLanguage,
+      localIdeographFontFamily:
+        '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif',
+      attributionControl: false,
+      interactive: false,
+      performanceMetricsCollection: false,
+    };
+    try {
+      const nextMap = new mapboxgl.Map(mapOptions);
+      nextMap.on("style.load", () => applyChineseBasemapLanguage(nextMap));
+      nextMap.once("load", () => nextMap.resize());
+      mapRef.current = nextMap;
+      resizeObserverRef.current = new ResizeObserver(() => nextMap.resize());
+      resizeObserverRef.current.observe(container);
+    } catch {
+      setMapUnavailable(true);
+    }
+  }, [currentView, mapUnavailable]);
+
+  useEffect(() => {
+    return () => {
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
+      mapRef.current?.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !currentView) return;
+    map.jumpTo({
+      center: currentView.center,
+      zoom: zoomForThumbnail(currentView.zoom),
+      bearing: 0,
+      pitch: 0,
+    });
+  }, [currentView]);
 
   return (
     <div className="right-map-mini">
-      <svg
-        viewBox={`${plan.viewBox.x} ${plan.viewBox.y} ${plan.viewBox.width} ${plan.viewBox.height}`}
-        preserveAspectRatio="xMidYMid meet"
+      <div
+        ref={containerRef}
+        className="right-map-mini-canvas"
+        aria-label="当前范围二维地图缩略图"
         role="img"
-        aria-label="当前范围二维瓦片缩略图"
-      >
-        {plan.tiles.map((tile) => (
-          <image
-            key={tile.key}
-            href={tile.url}
-            x={tile.x}
-            y={tile.y}
-            width={tile.size}
-            height={tile.size}
-          />
-        ))}
-        <rect
-          className="right-map-current-extent"
-          x={plan.viewRect.x}
-          y={plan.viewRect.y}
-          width={plan.viewRect.width}
-          height={plan.viewRect.height}
-          rx="8"
-        />
-        <line
-          className="right-map-center-line"
-          x1={rectCenterX - 18}
-          y1={rectCenterY}
-          x2={rectCenterX + 18}
-          y2={rectCenterY}
-        />
-        <line
-          className="right-map-center-line"
-          x1={rectCenterX}
-          y1={rectCenterY - 18}
-          x2={rectCenterX}
-          y2={rectCenterY + 18}
-        />
-        <circle
-          className="right-map-center-point"
-          cx={rectCenterX}
-          cy={rectCenterY}
-          r="5"
-        />
-      </svg>
+      />
+      {!currentView || mapUnavailable ? (
+        <div className="right-map-mini-empty">
+          <Typography.Text type="secondary">
+            {mapUnavailable ? "2D 地图不可用" : "等待地图视角"}
+          </Typography.Text>
+        </div>
+      ) : null}
+      <span className="right-map-center-point" aria-hidden="true" />
     </div>
+  );
+}
+
+function zoomForThumbnail(mapZoom: number) {
+  const zoom = Number.isFinite(mapZoom) ? mapZoom : thumbnailMinZoom;
+  return Math.min(
+    thumbnailMaxZoom,
+    Math.max(thumbnailMinZoom, zoom - thumbnailZoomOffset),
   );
 }
 
@@ -173,9 +201,12 @@ function formatViewCenter(view: MapViewState | null) {
   )}`;
 }
 
-function formatViewZoom(view: MapViewState | null, tileZoom?: number) {
+function formatViewZoom(
+  view: MapViewState | null,
+  thumbnailZoom: number | null,
+) {
   if (!view) return "缩放：-";
-  return `缩放：${view.zoom.toFixed(1)} / 瓦片 ${tileZoom ?? "-"}`;
+  return `缩放：${view.zoom.toFixed(1)} / 2D ${thumbnailZoom?.toFixed(1) ?? "-"}`;
 }
 
 function formatLongitude(value: number) {

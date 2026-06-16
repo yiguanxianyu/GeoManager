@@ -12,10 +12,15 @@ import mapboxgl, {
   LngLatBounds,
   type Map as MapboxMap,
   type MapboxOptions,
-  type StyleSpecification,
 } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef } from "react";
+import {
+  applyChineseBasemapLanguage,
+  createBasemapStyle,
+  mapLabelLanguage,
+  shouldUseMapboxBasemap,
+} from "../map/basemapStyle";
 import { syncVectorInteractions } from "../map/featureInteraction";
 import { addRasterLayer } from "../map/rasterLayerSync";
 import {
@@ -45,31 +50,6 @@ import {
   sourceIdFor,
 } from "../utils/geometry";
 
-const mapboxSatelliteStyle = "mapbox://styles/mapbox/satellite-streets-v12";
-const osmRasterStyle: StyleSpecification = {
-  version: 8,
-  sources: {
-    "osm-raster": {
-      type: "raster",
-      tiles: [
-        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      ],
-      tileSize: 256,
-      attribution: "&copy; OpenStreetMap contributors",
-    },
-  },
-  layers: [
-    {
-      id: "osm-raster",
-      type: "raster",
-      source: "osm-raster",
-      minzoom: 0,
-      maxzoom: 19,
-    },
-  ],
-};
 const globeOverviewZoom = 2.4;
 const spatialFilterSourceId = "query-spatial-filter";
 const spatialFilterFillId = "query-spatial-filter-fill";
@@ -123,21 +103,21 @@ export default function MapCanvas({
 }: Props) {
   const mapRef = useRef<MapboxMap | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapboxToken = bootstrap.map.mapboxAccessToken;
-  const shouldUseMapboxStyle =
-    Boolean(mapboxToken) && bootstrap.map.defaultBasemap !== "osm";
+  const mapConfig = bootstrap.map;
+  const mapboxToken = mapConfig.mapboxAccessToken;
+  const shouldUseMapboxStyle = shouldUseMapboxBasemap(mapConfig);
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const mapOptions: MapboxOptions = {
       container: containerRef.current,
-      style: shouldUseMapboxStyle ? mapboxSatelliteStyle : osmRasterStyle,
-      center: bootstrap.map.defaultCenter,
-      zoom: Math.min(bootstrap.map.defaultZoom, globeOverviewZoom),
+      style: createBasemapStyle(mapConfig),
+      center: mapConfig.defaultCenter,
+      zoom: Math.min(mapConfig.defaultZoom, globeOverviewZoom),
       pitch: 18,
       bearing: -12,
       projection: "globe",
-      language: "zh-Hans",
+      language: mapLabelLanguage,
       localIdeographFontFamily: '"Microsoft YaHei", "PingFang SC", sans-serif',
       attributionControl: false,
       performanceMetricsCollection: false,
@@ -155,8 +135,7 @@ export default function MapCanvas({
         "star-intensity": 0.22,
       });
       if (shouldUseMapboxStyle) {
-        map.setLanguage("zh-Hans");
-        applyChineseLabels(map);
+        applyChineseBasemapLanguage(map);
         hideAdministrativeBoundaries(map);
         map.once("idle", () => hideAdministrativeBoundaries(map));
       }
@@ -188,8 +167,7 @@ export default function MapCanvas({
       mapRef.current = null;
     };
   }, [
-    bootstrap.map.defaultCenter,
-    bootstrap.map.defaultZoom,
+    mapConfig,
     mapboxToken,
     onMapDestroy,
     onMapReady,
@@ -443,27 +421,6 @@ function syncLoadedLayers(
   syncVectorInteractions(map, renderableVectorLayers, onFeatureSelect);
   (map as unknown as { __loadedSources: Set<string> }).__loadedSources =
     activeIds;
-}
-
-function applyChineseLabels(map: MapboxMap) {
-  const style = map.getStyle();
-  for (const layer of style.layers ?? []) {
-    if (
-      layer.type !== "symbol" ||
-      !layer.layout ||
-      !("text-field" in layer.layout)
-    )
-      continue;
-    const textField = JSON.stringify(layer.layout["text-field"]);
-    if (!textField.includes("name")) continue;
-    map.setLayoutProperty(layer.id, "text-field", [
-      "coalesce",
-      ["get", "name_zh-Hans"],
-      ["get", "name_zh"],
-      ["get", "name"],
-      ["get", "name_en"],
-    ]);
-  }
 }
 
 function hideAdministrativeBoundaries(map: MapboxMap) {
