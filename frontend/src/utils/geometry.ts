@@ -1,5 +1,4 @@
-/// <reference path="../mapbox-gl.d.ts" />
-// mapboxgl 通过 CDN 加载，使用全局变量
+import { LngLatBounds, type Map as MapboxMap } from "mapbox-gl";
 import type {
   GeoJsonFeatureCollection,
   GeoJsonGeometry,
@@ -119,7 +118,7 @@ export function geometryFromPoints(
 
 export function combinedFeatureBounds(
   collections: GeoJsonFeatureCollection[],
-): mapboxgl.LngLatBounds | null {
+): LngLatBounds | null {
   const points: Array<[number, number]> = [];
   for (const collection of collections) {
     for (const feature of collection.features) {
@@ -135,7 +134,7 @@ export function combinedFeatureBounds(
   if (!firstPoint) return null;
   return points.reduce(
     (bounds, point) => bounds.extend(point),
-    new mapboxgl.LngLatBounds(firstPoint, firstPoint),
+    new LngLatBounds(firstPoint, firstPoint),
   );
 }
 
@@ -159,18 +158,18 @@ export function extractCoordinates(
 
 export function boundsFromImageCoordinates(
   coordinates: Array<[number, number]>,
-): mapboxgl.LngLatBounds | null {
+): LngLatBounds | null {
   if (coordinates.length === 0) return null;
   const firstCoordinate = coordinates[0];
   if (!firstCoordinate) return null;
   return coordinates.reduce(
     (bounds, point) => bounds.extend(point),
-    new mapboxgl.LngLatBounds(firstCoordinate, firstCoordinate),
+    new LngLatBounds(firstCoordinate, firstCoordinate),
   );
 }
 
 export function fitGeojsonBounds(
-  map: mapboxgl.Map,
+  map: MapboxMap,
   geojson: GeoJsonFeatureCollection,
   fallbackCenter: [number, number],
   fallbackZoom: number,

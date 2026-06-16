@@ -150,6 +150,7 @@ frontend/src/
 - 前端仅做矢量样式表达和 XYZ 瓦片叠加，不实现栅格符号化。
 - Mapbox 公共 token 从 TOML 的 `[application.map].mapbox_access_token` 读取，经后端 bootstrap 下发，前端不硬编码默认 token。
 - Mapbox 底图标注语言使用 `zh-Hans`，并在样式加载后优先读取中文名称字段。
+- 前端初始化 Mapbox GL JS 时禁用 `EVENTS_URL` 和性能指标采集，避免浏览器插件拦截 `events.mapbox.com` 后产生控制台噪声；样式、瓦片和业务接口请求不受影响。
 
 ## 管理后台实现约定
 
@@ -241,8 +242,8 @@ frontend/src/
 ## 前端构建优化记录
 
 - 路由页面使用 `React.lazy` 按需加载，登录、入口、地图、非地理、导入和后台页面由 `App.tsx` 按路由按需导入。
-- Vite 按 `React.lazy` 的导入关系拆分 chunk，并过滤首屏 HTML 对后台/地图大包的预加载。
-- `mapbox-gl` 样式随地图组件加载。
+- Vite 按 `React.lazy` 的导入关系拆分 chunk，并过滤首屏 HTML 对后台大包的预加载。
+- Mapbox GL JS 和 `mapbox-gl` 样式均从前端 npm 依赖经 Vite 加载，不在 `index.html` 通过 CDN 注入，也不依赖全局 `mapboxgl`。
 - `pnpm run build` 定位为快速打包命令；需要类型检查的发布或 CI 流程使用 `pnpm run build:verify`。
 
 ## 前端依赖升级兼容记录

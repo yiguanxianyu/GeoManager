@@ -36,9 +36,7 @@ export default defineConfig(({ mode }) => {
             return deps;
           }
           return deps.filter(
-            (dep) =>
-              !/assets\/js\/(admin|mapbox)-/.test(dep) &&
-              !/assets\/css\/mapbox-/.test(dep),
+            (dep) => !/assets\/js\/admin-/.test(dep),
           );
         },
       },

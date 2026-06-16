@@ -7,13 +7,15 @@ import {
   ZoomOutOutlined,
 } from "@ant-design/icons";
 import { Button, Tooltip } from "antd";
-import type {
-  Map as MapboxMap,
-  MapboxOptions,
-  StyleSpecification,
+import mapboxgl, {
+  type GeoJSONSource,
+  LngLatBounds,
+  type Map as MapboxMap,
+  type MapboxOptions,
+  type StyleSpecification,
 } from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef } from "react";
-// mapboxgl 通过 CDN 加载，使用全局变量
 import { syncVectorInteractions } from "../map/featureInteraction";
 import { addRasterLayer } from "../map/rasterLayerSync";
 import {
@@ -89,6 +91,8 @@ const layerExtentStyle = {
   lineWidth: 2,
 };
 
+disableMapboxEventRequests();
+
 interface Props {
   bootstrap: Bootstrap;
   loadedLayers: LoadedLayer[];
@@ -133,6 +137,7 @@ export default function MapCanvas({
       language: "zh-Hans",
       localIdeographFontFamily: '"Microsoft YaHei", "PingFang SC", sans-serif',
       attributionControl: false,
+      performanceMetricsCollection: false,
     };
     if (mapboxToken) {
       mapOptions.accessToken = mapboxToken;
@@ -296,6 +301,19 @@ export default function MapCanvas({
   );
 }
 
+function disableMapboxEventRequests() {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    mapboxgl.config,
+    "EVENTS_URL",
+  );
+  if (descriptor?.value === null) return;
+  Object.defineProperty(mapboxgl.config, "EVENTS_URL", {
+    configurable: true,
+    enumerable: descriptor?.enumerable ?? true,
+    value: null,
+  });
+}
+
 function firstStyleLayerIdForLayer(map: MapboxMap, layer: LoadedLayer) {
   const sourceId = sourceIdFor(layer.id);
   const candidates =
@@ -334,7 +352,7 @@ function syncLoadedLayers(
     if (!activeIds.has(sourceId)) removeLoadedLayerGroup(map, sourceId);
   }
 
-  const newVectorBounds: mapboxgl.LngLatBounds[] = [];
+  const newVectorBounds: LngLatBounds[] = [];
   for (const layer of renderableVectorLayers) {
     const sourceId = sourceIdFor(layer.id);
     if (!layer.visible) {
@@ -351,14 +369,14 @@ function syncLoadedLayers(
       const bounds = combinedFeatureBounds([layer.geojson]);
       if (bounds) newVectorBounds.push(bounds);
     } else {
-      (map.getSource(sourceId) as mapboxgl.GeoJSONSource).setData(
+      (map.getSource(sourceId) as GeoJSONSource).setData(
         layer.geojson as never,
       );
     }
     addLoadedStyleLayers(map, sourceId, layer);
   }
 
-  const newRasterBounds: mapboxgl.LngLatBounds[] = [];
+  const newRasterBounds: LngLatBounds[] = [];
   for (const layer of renderableRasterLayers) {
     const sourceId = sourceIdFor(layer.id);
     if (!layer.visible) {
@@ -379,10 +397,7 @@ function syncLoadedLayers(
     if (!firstBound) return;
     const combined = allNewBounds.reduce(
       (b, next) => b.extend(next),
-      new mapboxgl.LngLatBounds(
-        firstBound.getSouthWest(),
-        firstBound.getNorthEast(),
-      ),
+      new LngLatBounds(firstBound.getSouthWest(), firstBound.getNorthEast()),
     );
     map.fitBounds(combined, { padding: 80, duration: 900, essential: true });
   }

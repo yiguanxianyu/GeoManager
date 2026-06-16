@@ -4,6 +4,7 @@ import {
   DatabaseOutlined,
 } from "@ant-design/icons";
 import { App, Layout, Tabs, Tag, Typography } from "antd";
+import type { LngLatBounds, Map as MapboxMap } from "mapbox-gl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
@@ -112,7 +113,7 @@ export default function MapPage() {
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [tableLayer, setTableLayer] = useState<LoadedLayer | null>(null);
   const [layerExtentVisible, setLayerExtentVisible] = useState(false);
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const mapInstanceRef = useRef<MapboxMap | null>(null);
   const startupScanStartedRef = useRef(false);
   const permissions = user?.permissions ?? emptyPermissions;
   const userRoles = user?.roles ?? [];
@@ -337,7 +338,7 @@ export default function MapPage() {
   }
 
   const handleMapReady = useCallback(
-    (map: mapboxgl.Map) => {
+    (map: MapboxMap) => {
       mapInstanceRef.current = map;
       setMapInstance(map);
     },
@@ -413,7 +414,7 @@ export default function MapPage() {
           const coords = (l as LoadedRasterLayer).imageCoordinates;
           return coords ? boundsFromImageCoordinates(coords) : null;
         })
-        .filter(Boolean) as mapboxgl.LngLatBounds[];
+        .filter(Boolean) as LngLatBounds[];
       if (geojsons.length === 0 && rasterBounds.length === 0) {
         message.warning("该图层组没有可定位的数据");
         return;

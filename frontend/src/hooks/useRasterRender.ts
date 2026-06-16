@@ -1,4 +1,5 @@
 import { App } from "antd";
+import type { Map as MapboxMap } from "mapbox-gl";
 import { useCallback, useRef } from "react";
 import { api } from "../api/client";
 import type { RasterSymbolization } from "../symbolization";
@@ -14,9 +15,9 @@ export function useRasterRender(
   ) => void,
 ) {
   const { message } = App.useApp();
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null);
+  const mapInstanceRef = useRef<MapboxMap | null>(null);
 
-  const setMapInstance = useCallback((map: mapboxgl.Map | null) => {
+  const setMapInstance = useCallback((map: MapboxMap | null) => {
     mapInstanceRef.current = map;
   }, []);
 
