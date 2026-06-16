@@ -1,7 +1,10 @@
 import {
   ApartmentOutlined,
+  AppstoreOutlined,
   BookOutlined,
+  DatabaseOutlined,
   FolderOpenOutlined,
+  FundProjectionScreenOutlined,
   HomeOutlined,
   InfoCircleOutlined,
   LogoutOutlined,
@@ -14,18 +17,27 @@ import {
   App,
   Avatar,
   Button,
+  Empty,
   Input,
   Popover,
   QRCode,
   Space,
+  Tag,
   Typography,
 } from "antd";
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import capfedLogo from "../assets/capfed-logo.png";
 import { useAppContext } from "../contexts/AppContext";
+import type { Achievement, ResourceListItem, WorkspaceScene } from "../types";
+import {
+  resourceCategory,
+  resourceCategoryName,
+  resourceFormatLabel,
+  resourceProvider,
+} from "../utils/resources";
 
 export type WorkspaceTab = "map" | "nongeo" | "admin";
 
@@ -36,8 +48,16 @@ interface WorkspaceHeaderProps {
   canBrowseData: boolean;
   dataPanel?: ReactNode;
   dataPanelOpen?: boolean;
+  resources?: ResourceListItem[];
+  workspaceScenes?: WorkspaceScene[];
+  achievements?: Achievement[];
+  searchKeyword?: string;
   onDataPanelOpenChange?: (open: boolean) => void;
   onGlobalSearch?: (keyword: string) => void;
+  onQuickLoadResource?: (resource: ResourceListItem) => void;
+  onLoadWorkspaceScene?: (scene: WorkspaceScene) => void;
+  onOpenAchievement?: (achievement: Achievement) => void;
+  onSearchFocus?: () => void;
 }
 
 export default function WorkspaceHeader({
@@ -45,13 +65,53 @@ export default function WorkspaceHeader({
   canBrowseData,
   dataPanel,
   dataPanelOpen,
+  resources = [],
+  workspaceScenes = [],
+  achievements = [],
+  searchKeyword = "",
   onDataPanelOpenChange,
   onGlobalSearch,
+  onQuickLoadResource,
+  onLoadWorkspaceScene,
+  onOpenAchievement,
+  onSearchFocus,
 }: WorkspaceHeaderProps) {
   const { bootstrap, user, setUser } = useAppContext();
   const { message } = App.useApp();
   const navigate = useNavigate();
   const [searchText, setSearchText] = useState("");
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    setSearchText(searchKeyword);
+  }, [searchKeyword]);
+
+  const searchQuery = searchText.trim().toLocaleLowerCase("zh-CN");
+  const filteredResources = useMemo(
+    () =>
+      resources.filter((resource) =>
+        searchQuery ? resourceMatches(resource, searchQuery) : true,
+      ),
+    [resources, searchQuery],
+  );
+  const filteredWorkspaceScenes = useMemo(
+    () =>
+      workspaceScenes.filter((scene) =>
+        searchQuery ? sceneMatches(scene, searchQuery) : true,
+      ),
+    [workspaceScenes, searchQuery],
+  );
+  const filteredAchievements = useMemo(
+    () =>
+      achievements.filter((achievement) =>
+        searchQuery ? achievementMatches(achievement, searchQuery) : true,
+      ),
+    [achievements, searchQuery],
+  );
+  const searchCategories = useMemo(
+    () => buildSearchCategories(resources, workspaceScenes, achievements),
+    [achievements, resources, workspaceScenes],
+  );
 
   async function handleLogout() {
     try {
@@ -65,17 +125,18 @@ export default function WorkspaceHeader({
     }
   }
 
-  function handleSearch(value: string) {
+  function handleSearchTextChange(value: string) {
+    setSearchText(value);
+    setSearchOpen(true);
+    onGlobalSearch?.(value.trim());
+  }
+
+  function commitSearch(value: string) {
     const keyword = value.trim();
     const query = keyword ? `?resourceQ=${encodeURIComponent(keyword)}` : "";
     navigate(`/map${query}`);
     onDataPanelOpenChange?.(Boolean(dataPanel));
     onGlobalSearch?.(keyword);
-    if (keyword) {
-      message.info(`已搜索全部数据资源：${keyword}`);
-    } else {
-      message.info("已打开全部数据资源");
-    }
   }
 
   function handleResourceCenter() {
@@ -148,6 +209,114 @@ export default function WorkspaceHeader({
     </div>
   );
 
+  const searchContent = (
+    <section className="workspace-search-results" aria-label="全局搜索结果">
+      <SearchResultSection
+        title="数据"
+        icon={<DatabaseOutlined style={{ fontSize: 15 }} />}
+        emptyText="暂无匹配数据"
+      >
+        {filteredResources.map((resource) => (
+          <button
+            type="button"
+            className="workspace-search-row"
+            key={`resource-${resource.id}`}
+            onClick={() => {
+              navigate(`/map?resourceQ=${encodeURIComponent(resource.name)}`);
+              onDataPanelOpenChange?.(Boolean(dataPanel));
+              onGlobalSearch?.(resource.name);
+            }}
+          >
+            <span className="workspace-search-row-main">
+              <strong>{resource.name}</strong>
+              <small>
+                {resourceCategoryName(resource) ?? "未分类"} ·{" "}
+                {resourceFormatLabel(resource)}
+              </small>
+            </span>
+            <Button
+              size="small"
+              type="primary"
+              ghost
+              disabled={!resource.isQueryable && !resource.isRenderable}
+              onClick={(event) => {
+                event.stopPropagation();
+                onQuickLoadResource?.(resource);
+              }}
+            >
+              快速加载
+            </Button>
+          </button>
+        ))}
+      </SearchResultSection>
+
+      <SearchResultSection
+        title="工程"
+        icon={<AppstoreOutlined style={{ fontSize: 15 }} />}
+        emptyText="暂无匹配工程或专题"
+      >
+        {filteredWorkspaceScenes.map((scene) => (
+          <button
+            type="button"
+            className="workspace-search-row"
+            key={`scene-${scene.id}`}
+            onClick={() => {
+              onLoadWorkspaceScene?.(scene);
+              setSearchOpen(false);
+            }}
+          >
+            <span className="workspace-search-row-main">
+              <strong>{scene.name}</strong>
+              <small>{scene.description || formatSceneUpdatedAt(scene)}</small>
+            </span>
+            <Tag color={scene.kind === "project" ? "blue" : "green"}>
+              {scene.kind === "project" ? "工程" : "专题"}
+            </Tag>
+          </button>
+        ))}
+      </SearchResultSection>
+
+      <SearchResultSection
+        title="成果"
+        icon={<FundProjectionScreenOutlined style={{ fontSize: 15 }} />}
+        emptyText="暂无匹配成果"
+      >
+        {filteredAchievements.map((achievement) => (
+          <button
+            type="button"
+            className="workspace-search-row"
+            key={`achievement-${achievement.id}`}
+            onClick={() => onOpenAchievement?.(achievement)}
+          >
+            <span className="workspace-search-row-main">
+              <strong>{achievement.title}</strong>
+              <small>
+                {achievement.category?.name ?? "未分类"} ·{" "}
+                {achievement.source || achievement.code}
+              </small>
+            </span>
+            <Tag color="purple">成果</Tag>
+          </button>
+        ))}
+      </SearchResultSection>
+
+      <div className="workspace-search-categories">
+        <Typography.Text type="secondary">分类</Typography.Text>
+        <div>
+          {searchCategories.map((category) => (
+            <Tag
+              key={`${category.kind}-${category.label}`}
+              className="workspace-search-category"
+              onClick={() => handleSearchTextChange(category.label)}
+            >
+              {category.label}
+            </Tag>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+
   return (
     <header className="workspace-header">
       <div className="brand-block">
@@ -160,21 +329,33 @@ export default function WorkspaceHeader({
         </div>
       </div>
 
-      <Space.Compact className="workspace-global-search">
-        <Input.Search
-          className="workspace-global-input"
-          allowClear
-          enterButton={
-            <Button type="primary" icon={<SearchOutlined />}>
-              搜索
-            </Button>
-          }
-          value={searchText}
-          placeholder="请输入数据、图层、站点或成果关键词"
-          onChange={(event) => setSearchText(event.target.value)}
-          onSearch={handleSearch}
-        />
-      </Space.Compact>
+      <Popover
+        trigger="click"
+        placement="bottomLeft"
+        open={searchOpen}
+        onOpenChange={(open) => {
+          setSearchOpen(open);
+          if (open) onSearchFocus?.();
+        }}
+        classNames={{ root: "workspace-search-popover" }}
+        content={searchContent}
+      >
+        <Space.Compact className="workspace-global-search">
+          <Input
+            className="workspace-global-input"
+            allowClear
+            prefix={<SearchOutlined style={{ fontSize: 15 }} />}
+            value={searchText}
+            placeholder="搜索数据、工程、成果"
+            onFocus={() => {
+              setSearchOpen(true);
+              onSearchFocus?.();
+            }}
+            onChange={(event) => handleSearchTextChange(event.target.value)}
+            onPressEnter={(event) => commitSearch(event.currentTarget.value)}
+          />
+        </Space.Compact>
+      </Popover>
 
       <nav className="header-primary-actions" aria-label="主导航">
         <button
@@ -298,4 +479,111 @@ function tabClass(active: boolean) {
   return active
     ? "workspace-switch-card workspace-switch-card-active"
     : "workspace-switch-card";
+}
+
+function SearchResultSection({
+  title,
+  icon,
+  emptyText,
+  children,
+}: {
+  title: string;
+  icon: ReactNode;
+  emptyText: string;
+  children: ReactNode[];
+}) {
+  const items = children.filter(Boolean);
+  return (
+    <section className="workspace-search-section">
+      <div className="workspace-search-section-title">
+        <span>
+          {icon}
+          <Typography.Text strong>{title}</Typography.Text>
+        </span>
+        <Tag>{items.length}</Tag>
+      </div>
+      {items.length > 0 ? (
+        <div className="workspace-search-list">{items}</div>
+      ) : (
+        <Empty
+          className="workspace-search-empty"
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={emptyText}
+        />
+      )}
+    </section>
+  );
+}
+
+function resourceMatches(resource: ResourceListItem, query: string) {
+  return [
+    resource.name,
+    resource.code,
+    resource.source,
+    resourceProvider(resource),
+    "description" in resource ? resource.description : "",
+    resourceCategoryName(resource),
+    resourceFormatLabel(resource),
+  ].some((value) => textMatches(value, query));
+}
+
+function sceneMatches(scene: WorkspaceScene, query: string) {
+  return [
+    scene.name,
+    scene.description,
+    scene.kind === "project" ? "工程" : "专题",
+    scene.owner.displayName,
+    scene.owner.username,
+  ].some((value) => textMatches(value, query));
+}
+
+function achievementMatches(achievement: Achievement, query: string) {
+  return [
+    achievement.title,
+    achievement.code,
+    achievement.summary,
+    achievement.source,
+    achievement.category?.name,
+  ].some((value) => textMatches(value, query));
+}
+
+function textMatches(value: unknown, query: string) {
+  return String(value ?? "")
+    .toLocaleLowerCase("zh-CN")
+    .includes(query);
+}
+
+function buildSearchCategories(
+  resources: ResourceListItem[],
+  workspaceScenes: WorkspaceScene[],
+  achievements: Achievement[],
+) {
+  const categories = new Map<string, { kind: string; label: string }>();
+  for (const resource of resources) {
+    const category = resourceCategory(resource);
+    if (category) {
+      categories.set(`data-${category.name}`, {
+        kind: "data",
+        label: category.name,
+      });
+    }
+  }
+  if (workspaceScenes.some((scene) => scene.kind === "project")) {
+    categories.set("scene-project", { kind: "scene", label: "工程" });
+  }
+  if (workspaceScenes.some((scene) => scene.kind === "topic")) {
+    categories.set("scene-topic", { kind: "scene", label: "专题" });
+  }
+  for (const achievement of achievements) {
+    const label = achievement.category?.name;
+    if (label) {
+      categories.set(`achievement-${label}`, { kind: "achievement", label });
+    }
+  }
+  categories.set("achievement-default", { kind: "achievement", label: "成果" });
+  return Array.from(categories.values()).slice(0, 18);
+}
+
+function formatSceneUpdatedAt(scene: WorkspaceScene) {
+  return new Date(scene.updatedAt).toLocaleString("zh-CN", { hour12: false });
 }

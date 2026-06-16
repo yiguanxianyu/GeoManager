@@ -3,8 +3,9 @@ import {
   StopOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
-import { Card, Col, Row, Statistic, Typography } from "antd";
+import { BorderBeam, Card, Col, Row, Statistic, Typography } from "antd";
 import type { ReactNode } from "react";
+import { oceanBorderBeam } from "../components/oceanBorderBeam";
 
 export type UserSummaryMetrics = {
   active: number;
@@ -55,11 +56,13 @@ function UserSummaryCard({
 }) {
   return (
     <Col xs={24} sm={12} xl={8}>
-      <Card className="admin-dashboard-metric" variant="borderless">
-        <div className="admin-dashboard-metric-icon">{icon}</div>
-        <Statistic title={title} value={value} suffix={suffix} />
-        <Typography.Text type="secondary">{description}</Typography.Text>
-      </Card>
+      <BorderBeam color={oceanBorderBeam}>
+        <Card className="admin-dashboard-metric" variant="borderless">
+          <div className="admin-dashboard-metric-icon">{icon}</div>
+          <Statistic title={title} value={value} suffix={suffix} />
+          <Typography.Text type="secondary">{description}</Typography.Text>
+        </Card>
+      </BorderBeam>
     </Col>
   );
 }

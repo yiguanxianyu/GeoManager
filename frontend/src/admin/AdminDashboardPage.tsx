@@ -8,6 +8,7 @@ import {
 import { ProCard } from "@ant-design/pro-components";
 import {
   App,
+  BorderBeam,
   Button,
   Card,
   Col,
@@ -23,6 +24,7 @@ import {
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { oceanBorderBeam } from "../components/oceanBorderBeam";
 import { useAppContext } from "../contexts/AppContext";
 import type { AdminDashboard, AdminDashboardServer } from "../types";
 import { UserSummaryCards } from "./UserSummaryCards";
@@ -218,105 +220,109 @@ export default function AdminDashboardPage() {
 
       {dashboard.cards.activeUsers && (
         <section className="admin-dashboard-section">
-          <Card
-            className="admin-active-card admin-dashboard-card"
-            variant="borderless"
-            styles={{ body: { padding: 0 } }}
-          >
-            <div className="admin-active-tabs">
-              <div className="admin-active-tab-current">活跃用户</div>
-              <div className="admin-active-actions">
-                {(["day", "week", "month"] as ActivePeriod[]).map((item) => (
-                  <Button
-                    type="text"
-                    className={period === item ? "active" : ""}
-                    key={item}
-                    onClick={() => setPeriod(item)}
-                  >
-                    {periodLabels[item]}
-                  </Button>
-                ))}
-                <Tag color="green">
-                  {dashboard.cards.activeUsers.rangeStart} 至{" "}
-                  {dashboard.cards.activeUsers.rangeEnd}
-                </Tag>
-              </div>
-            </div>
-            <Row
-              className="admin-active-body"
-              gutter={[24, 16]}
-              align="stretch"
+          <BorderBeam color={oceanBorderBeam}>
+            <Card
+              className="admin-active-card admin-dashboard-card"
+              variant="borderless"
+              styles={{ body: { padding: 0 } }}
             >
-              <Col xs={24} xl={16}>
-                <div className="admin-active-chart-heading">
-                  <Space size={18} wrap>
-                    <Statistic
-                      title={`${periodLabels[period]}活跃用户`}
-                      value={dashboard.cards.activeUsers.count}
-                      suffix="人"
+              <div className="admin-active-tabs">
+                <div className="admin-active-tab-current">活跃用户</div>
+                <div className="admin-active-actions">
+                  {(["day", "week", "month"] as ActivePeriod[]).map((item) => (
+                    <Button
+                      type="text"
+                      className={period === item ? "active" : ""}
+                      key={item}
+                      onClick={() => setPeriod(item)}
+                    >
+                      {periodLabels[item]}
+                    </Button>
+                  ))}
+                  <Tag color="green">
+                    {dashboard.cards.activeUsers.rangeStart} 至{" "}
+                    {dashboard.cards.activeUsers.rangeEnd}
+                  </Tag>
+                </div>
+              </div>
+              <Row
+                className="admin-active-body"
+                gutter={[24, 16]}
+                align="stretch"
+              >
+                <Col xs={24} xl={16}>
+                  <div className="admin-active-chart-heading">
+                    <Space size={18} wrap>
+                      <Statistic
+                        title={`${periodLabels[period]}活跃用户`}
+                        value={dashboard.cards.activeUsers.count}
+                        suffix="人"
+                      />
+                      <Statistic
+                        title="登录次数"
+                        value={dashboard.cards.activeUsers.loginCount}
+                        suffix="次"
+                      />
+                    </Space>
+                  </div>
+                  <div className="admin-active-chart">
+                    <Column
+                      height={300}
+                      data={activeChartData}
+                      xField="label"
+                      yField="count"
+                      paddingBottom={12}
+                      axis={{
+                        x: { title: false },
+                        y: {
+                          title: false,
+                          gridLineDash: null,
+                          gridStroke: "#e8ece9",
+                        },
+                      }}
+                      scale={{ x: { paddingInner: 0.35 } }}
+                      tooltip={{ name: "登录次数", channel: "y" }}
+                      style={{ fill: "#2f7d62" }}
                     />
-                    <Statistic
-                      title="登录次数"
-                      value={dashboard.cards.activeUsers.loginCount}
-                      suffix="次"
-                    />
-                  </Space>
-                </div>
-                <div className="admin-active-chart">
-                  <Column
-                    height={300}
-                    data={activeChartData}
-                    xField="label"
-                    yField="count"
-                    paddingBottom={12}
-                    axis={{
-                      x: { title: false },
-                      y: {
-                        title: false,
-                        gridLineDash: null,
-                        gridStroke: "#e8ece9",
-                      },
-                    }}
-                    scale={{ x: { paddingInner: 0.35 } }}
-                    tooltip={{ name: "登录次数", channel: "y" }}
-                    style={{ fill: "#2f7d62" }}
-                  />
-                </div>
-              </Col>
-              <Col xs={24} xl={8}>
-                <div className="admin-active-rank">
-                  <Typography.Title level={4}>活跃用户排名</Typography.Title>
-                  <ul>
-                    {dashboard.cards.activeUsers.ranking.map((item, index) => (
-                      <li key={item.userId}>
-                        <span
-                          className={
-                            index < 3
-                              ? "admin-rank-number active"
-                              : "admin-rank-number"
-                          }
-                        >
-                          {index + 1}
-                        </span>
-                        <span
-                          className="admin-rank-title"
-                          title={item.username}
-                        >
-                          {item.displayName}
-                        </span>
-                        <span>{item.loginCount}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {dashboard.cards.activeUsers.ranking.length === 0 && (
-                    <Typography.Text type="secondary">
-                      当前周期暂无登录记录
-                    </Typography.Text>
-                  )}
-                </div>
-              </Col>
-            </Row>
-          </Card>
+                  </div>
+                </Col>
+                <Col xs={24} xl={8}>
+                  <div className="admin-active-rank">
+                    <Typography.Title level={4}>活跃用户排名</Typography.Title>
+                    <ul>
+                      {dashboard.cards.activeUsers.ranking.map(
+                        (item, index) => (
+                          <li key={item.userId}>
+                            <span
+                              className={
+                                index < 3
+                                  ? "admin-rank-number active"
+                                  : "admin-rank-number"
+                              }
+                            >
+                              {index + 1}
+                            </span>
+                            <span
+                              className="admin-rank-title"
+                              title={item.username}
+                            >
+                              {item.displayName}
+                            </span>
+                            <span>{item.loginCount}</span>
+                          </li>
+                        ),
+                      )}
+                    </ul>
+                    {dashboard.cards.activeUsers.ranking.length === 0 && (
+                      <Typography.Text type="secondary">
+                        当前周期暂无登录记录
+                      </Typography.Text>
+                    )}
+                  </div>
+                </Col>
+              </Row>
+            </Card>
+          </BorderBeam>
         </section>
       )}
 
@@ -398,66 +404,70 @@ function MetricCard({
 }) {
   return (
     <Col xs={24} sm={12} xl={8}>
-      <Card className="admin-dashboard-metric" variant="borderless">
-        <div className="admin-dashboard-metric-icon">{icon}</div>
-        <Statistic title={title} value={value} suffix={suffix} />
-        <Typography.Text type="secondary">{description}</Typography.Text>
-      </Card>
+      <BorderBeam color={oceanBorderBeam}>
+        <Card className="admin-dashboard-metric" variant="borderless">
+          <div className="admin-dashboard-metric-icon">{icon}</div>
+          <Statistic title={title} value={value} suffix={suffix} />
+          <Typography.Text type="secondary">{description}</Typography.Text>
+        </Card>
+      </BorderBeam>
     </Col>
   );
 }
 
 function DataOverviewDetail({ overview }: { overview: DataOverviewCard }) {
   return (
-    <Card
-      className="admin-dashboard-card admin-data-overview-detail"
-      variant="borderless"
-    >
-      <Row gutter={[16, 16]}>
-        <Col xs={24} xl={overview.uploaders?.length ? 12 : 24}>
-          <Typography.Title level={5}>数据类型分布</Typography.Title>
-          <div className="admin-data-overview-list">
-            {overview.typeBreakdown.map((item) => (
-              <div key={item.dataType} className="admin-data-overview-row">
-                <Space>
-                  <Tag>{dataTypeLabels[item.dataType] ?? item.dataType}</Tag>
-                  <Typography.Text>{item.count} 项</Typography.Text>
-                </Space>
-                <Typography.Text type="secondary">
-                  {formatBytes(item.sizeBytes)} / {item.itemCount} 条
-                </Typography.Text>
-              </div>
-            ))}
-          </div>
-        </Col>
-        {overview.uploaders && overview.uploaders.length > 0 && (
-          <Col xs={24} xl={12}>
-            <Typography.Title level={5}>上传用户统计</Typography.Title>
+    <BorderBeam color={oceanBorderBeam}>
+      <Card
+        className="admin-dashboard-card admin-data-overview-detail"
+        variant="borderless"
+      >
+        <Row gutter={[16, 16]}>
+          <Col xs={24} xl={overview.uploaders?.length ? 12 : 24}>
+            <Typography.Title level={5}>数据类型分布</Typography.Title>
             <div className="admin-data-overview-list">
-              {overview.uploaders.map((item) => (
-                <div
-                  key={`${item.user.id}-${item.user.username}`}
-                  className="admin-data-overview-row"
-                >
-                  <Space orientation="vertical" size={0}>
-                    <Typography.Text strong>
-                      {item.user.displayName}
-                    </Typography.Text>
-                    <Typography.Text type="secondary">
-                      {item.user.username || "未记录"}
-                    </Typography.Text>
+              {overview.typeBreakdown.map((item) => (
+                <div key={item.dataType} className="admin-data-overview-row">
+                  <Space>
+                    <Tag>{dataTypeLabels[item.dataType] ?? item.dataType}</Tag>
+                    <Typography.Text>{item.count} 项</Typography.Text>
                   </Space>
                   <Typography.Text type="secondary">
-                    {item.resourceCount} 项 / {formatBytes(item.sizeBytes)} /{" "}
-                    {item.itemCount} 条
+                    {formatBytes(item.sizeBytes)} / {item.itemCount} 条
                   </Typography.Text>
                 </div>
               ))}
             </div>
           </Col>
-        )}
-      </Row>
-    </Card>
+          {overview.uploaders && overview.uploaders.length > 0 && (
+            <Col xs={24} xl={12}>
+              <Typography.Title level={5}>上传用户统计</Typography.Title>
+              <div className="admin-data-overview-list">
+                {overview.uploaders.map((item) => (
+                  <div
+                    key={`${item.user.id}-${item.user.username}`}
+                    className="admin-data-overview-row"
+                  >
+                    <Space orientation="vertical" size={0}>
+                      <Typography.Text strong>
+                        {item.user.displayName}
+                      </Typography.Text>
+                      <Typography.Text type="secondary">
+                        {item.user.username || "未记录"}
+                      </Typography.Text>
+                    </Space>
+                    <Typography.Text type="secondary">
+                      {item.resourceCount} 项 / {formatBytes(item.sizeBytes)} /{" "}
+                      {item.itemCount} 条
+                    </Typography.Text>
+                  </div>
+                ))}
+              </div>
+            </Col>
+          )}
+        </Row>
+      </Card>
+    </BorderBeam>
   );
 }
 
@@ -476,34 +486,36 @@ function ServerCard({
 }) {
   return (
     <Col xs={24} lg={8}>
-      <Card className="admin-dashboard-card" variant="borderless">
-        <div className="admin-server-card-heading">
-          <Space>
-            <span className="admin-dashboard-metric-icon">{icon}</span>
-            <Typography.Text strong>{title}</Typography.Text>
-          </Space>
-          <Tag
-            color={usage >= 90 ? "error" : usage >= 75 ? "warning" : "green"}
-          >
-            {usage}%
-          </Tag>
-        </div>
-        <Typography.Paragraph className="admin-server-model">
-          {model || "未识别型号"}
-        </Typography.Paragraph>
-        <Progress
-          percent={usage}
-          status={usage >= 90 ? "exception" : "normal"}
-          strokeColor={usage >= 75 ? "#d48806" : "#2f7d62"}
-        />
-        <div className="admin-server-lines">
-          {lines.map((line) => (
-            <Typography.Text type="secondary" key={line}>
-              {line}
-            </Typography.Text>
-          ))}
-        </div>
-      </Card>
+      <BorderBeam color={oceanBorderBeam}>
+        <Card className="admin-dashboard-card" variant="borderless">
+          <div className="admin-server-card-heading">
+            <Space>
+              <span className="admin-dashboard-metric-icon">{icon}</span>
+              <Typography.Text strong>{title}</Typography.Text>
+            </Space>
+            <Tag
+              color={usage >= 90 ? "error" : usage >= 75 ? "warning" : "green"}
+            >
+              {usage}%
+            </Tag>
+          </div>
+          <Typography.Paragraph className="admin-server-model">
+            {model || "未识别型号"}
+          </Typography.Paragraph>
+          <Progress
+            percent={usage}
+            status={usage >= 90 ? "exception" : "normal"}
+            strokeColor={usage >= 75 ? "#d48806" : "#2f7d62"}
+          />
+          <div className="admin-server-lines">
+            {lines.map((line) => (
+              <Typography.Text type="secondary" key={line}>
+                {line}
+              </Typography.Text>
+            ))}
+          </div>
+        </Card>
+      </BorderBeam>
     </Col>
   );
 }

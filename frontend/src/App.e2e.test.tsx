@@ -29,6 +29,8 @@ const { MockApiError, mockApi } = vi.hoisted(() => {
       register: vi.fn(),
       logout: vi.fn(),
       resources: vi.fn(),
+      workspaces: vi.fn(),
+      achievements: vi.fn(),
       scanCatalogSources: vi.fn(),
       scanRasterSources: vi.fn(),
       rasterJob: vi.fn(),
@@ -164,6 +166,8 @@ describe("application critical flows", () => {
     });
     mockApi.logout.mockResolvedValue({ detail: "已退出" });
     mockApi.resources.mockResolvedValue({ items: [] });
+    mockApi.workspaces.mockResolvedValue({ items: [] });
+    mockApi.achievements.mockResolvedValue({ items: [] });
     mockApi.scanCatalogSources.mockResolvedValue({ detail: "ok" });
     mockApi.scanRasterSources.mockResolvedValue({
       id: "scan-job",

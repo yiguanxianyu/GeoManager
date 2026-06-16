@@ -4,7 +4,11 @@ import {
   RadarChartOutlined,
 } from "@ant-design/icons";
 import { Tabs, Tag, Typography } from "antd";
-import mapboxgl, { type Map as MapboxMap, type MapboxOptions } from "mapbox-gl";
+import mapboxgl, {
+  type GeoJSONSource,
+  type Map as MapboxMap,
+  type MapboxOptions,
+} from "mapbox-gl";
 import { useEffect, useRef, useState } from "react";
 import {
   applyChineseBasemapLanguage,
@@ -14,9 +18,11 @@ import {
 import type { FeatureInfo, MapViewState } from "../types";
 import FeatureDetailPanel from "./FeatureDetailPanel";
 
-const thumbnailZoomOffset = 3;
+const thumbnailZoomOffset = 5;
 const thumbnailMinZoom = 0;
 const thumbnailMaxZoom = 17;
+const thumbnailExtentSourceId = "thumbnail-current-view-extent";
+const thumbnailExtentLayerId = "thumbnail-current-view-extent-line";
 
 interface Props {
   selectedFeature: FeatureInfo | null;
@@ -27,8 +33,6 @@ export default function RightSidePanel({
   selectedFeature,
   currentView,
 }: Props) {
-  const thumbnailZoom = currentView ? zoomForThumbnail(currentView.zoom) : null;
-
   return (
     <div className="right-panel-stack">
       <section
@@ -41,16 +45,10 @@ export default function RightSidePanel({
             <Typography.Text strong>当前视角平面缩略图</Typography.Text>
           </span>
           <Tag color={currentView ? "cyan" : "default"}>
-            {thumbnailZoom === null
-              ? "同步中"
-              : `2D ${thumbnailZoom.toFixed(1)}`}
+            {currentView ? "范围同步" : "同步中"}
           </Tag>
         </div>
         <FlatMapThumbnail currentView={currentView} />
-        <div className="right-map-meta">
-          <span>{formatViewCenter(currentView)}</span>
-          <span>{formatViewZoom(currentView, thumbnailZoom)}</span>
-        </div>
       </section>
 
       <section className="right-eco-panel" aria-label="生态数据展示窗口">
@@ -136,7 +134,10 @@ function FlatMapThumbnail({
     };
     try {
       const nextMap = new mapboxgl.Map(mapOptions);
-      nextMap.on("style.load", () => applyChineseBasemapLanguage(nextMap));
+      nextMap.on("style.load", () => {
+        applyChineseBasemapLanguage(nextMap);
+        updateThumbnailExtent(nextMap, currentView.bounds);
+      });
       nextMap.once("load", () => nextMap.resize());
       mapRef.current = nextMap;
       resizeObserverRef.current = new ResizeObserver(() => nextMap.resize());
@@ -164,6 +165,11 @@ function FlatMapThumbnail({
       bearing: 0,
       pitch: 0,
     });
+    if (map.isStyleLoaded()) {
+      updateThumbnailExtent(map, currentView.bounds);
+    } else {
+      map.once("load", () => updateThumbnailExtent(map, currentView.bounds));
+    }
   }, [currentView]);
 
   return (
@@ -181,7 +187,6 @@ function FlatMapThumbnail({
           </Typography.Text>
         </div>
       ) : null}
-      <span className="right-map-center-point" aria-hidden="true" />
     </div>
   );
 }
@@ -194,27 +199,52 @@ function zoomForThumbnail(mapZoom: number) {
   );
 }
 
-function formatViewCenter(view: MapViewState | null) {
-  if (!view) return "中心：等待同步";
-  return `中心：${formatLongitude(view.center[0])}，${formatLatitude(
-    view.center[1],
-  )}`;
-}
-
-function formatViewZoom(
-  view: MapViewState | null,
-  thumbnailZoom: number | null,
-) {
-  if (!view) return "缩放：-";
-  return `缩放：${view.zoom.toFixed(1)} / 2D ${thumbnailZoom?.toFixed(1) ?? "-"}`;
-}
-
-function formatLongitude(value: number) {
-  return `${Math.abs(value).toFixed(3)}°${value >= 0 ? "E" : "W"}`;
-}
-
-function formatLatitude(value: number) {
-  return `${Math.abs(value).toFixed(3)}°${value >= 0 ? "N" : "S"}`;
+function updateThumbnailExtent(map: MapboxMap, bounds: MapViewState["bounds"]) {
+  const [west, south, east, north] = bounds;
+  const data: GeoJSON.FeatureCollection<GeoJSON.Polygon> = {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [west, south],
+              [east, south],
+              [east, north],
+              [west, north],
+              [west, south],
+            ],
+          ],
+        },
+      },
+    ],
+  };
+  const source = map.getSource(thumbnailExtentSourceId) as
+    | GeoJSONSource
+    | undefined;
+  if (source) {
+    source.setData(data);
+  } else {
+    map.addSource(thumbnailExtentSourceId, {
+      type: "geojson",
+      data,
+    });
+  }
+  if (!map.getLayer(thumbnailExtentLayerId)) {
+    map.addLayer({
+      id: thumbnailExtentLayerId,
+      type: "line",
+      source: thumbnailExtentSourceId,
+      paint: {
+        "line-color": "#ef4444",
+        "line-width": 2,
+        "line-opacity": 0.96,
+      },
+    });
+  }
 }
 
 function EcologyOverviewPanel() {

@@ -1,5 +1,4 @@
 import {
-  AimOutlined,
   FullscreenOutlined,
   HomeOutlined,
   RotateLeftOutlined,
@@ -255,33 +254,38 @@ export default function MapCanvas({
   }, [drawMode, onDrawComplete]);
 
   function resetView() {
-    mapRef.current?.flyTo({
-      center: bootstrap.map.defaultCenter,
-      zoom: Math.min(bootstrap.map.defaultZoom, globeOverviewZoom),
-      pitch: 18,
-      bearing: -12,
-    });
+    mapRef.current?.fitBounds(
+      [
+        [50, 35],
+        [100, 48],
+      ],
+      {
+        padding: 72,
+        duration: 900,
+        essential: true,
+      },
+    );
   }
 
   return (
     <div className="map-shell">
       <div ref={containerRef} className="map-container" />
-      <div
-        className="map-coordinate-panel"
-        role="status"
-        aria-label="鼠标位置经纬度"
-      >
-        {pointerLngLat ? (
-          <>
-            <span>经度 {pointerLngLat[0].toFixed(4)}</span>
-            <span>纬度 {pointerLngLat[1].toFixed(4)}</span>
-          </>
-        ) : (
-          <span>经纬度 --</span>
-        )}
-      </div>
       <div className="map-toolbar">
-        <Tooltip title="复位">
+        <div
+          className="map-coordinate-panel"
+          role="status"
+          aria-label="鼠标位置经纬度"
+        >
+          {pointerLngLat ? (
+            <>
+              <span>经度 {pointerLngLat[0].toFixed(4)}</span>
+              <span>纬度 {pointerLngLat[1].toFixed(4)}</span>
+            </>
+          ) : (
+            <span>经纬度 --</span>
+          )}
+        </div>
+        <Tooltip title="复位到项目范围">
           <Button
             icon={<HomeOutlined style={{ fontSize: 16 }} />}
             onClick={resetView}
@@ -303,17 +307,6 @@ export default function MapCanvas({
           <Button
             icon={<RotateLeftOutlined style={{ fontSize: 16 }} />}
             onClick={() => mapRef.current?.resetNorthPitch()}
-          />
-        </Tooltip>
-        <Tooltip title="定位到项目范围">
-          <Button
-            icon={<AimOutlined style={{ fontSize: 16 }} />}
-            onClick={() =>
-              mapRef.current?.fitBounds([
-                [50, 35],
-                [100, 48],
-              ])
-            }
           />
         </Tooltip>
         <Tooltip title="全屏">
