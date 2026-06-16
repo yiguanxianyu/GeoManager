@@ -1,0 +1,75 @@
+import type { LoadedLayerGroup } from "../types";
+
+const DB_NAME = "huyang-system-map-workspace";
+const DB_VERSION = 1;
+const STORE_NAME = "layer-groups";
+
+interface CachedLayerWorkspace {
+  key: string;
+  groups: LoadedLayerGroup[];
+  savedAt: string;
+}
+
+export async function readCachedLayerGroups(
+  workspaceKey: string,
+): Promise<LoadedLayerGroup[]> {
+  const db = await openLayerWorkspaceDb();
+  try {
+    const workspace = await requestToPromise<CachedLayerWorkspace | undefined>(
+      db
+        .transaction(STORE_NAME, "readonly")
+        .objectStore(STORE_NAME)
+        .get(workspaceKey),
+    );
+    return Array.isArray(workspace?.groups) ? workspace.groups : [];
+  } finally {
+    db.close();
+  }
+}
+
+export async function writeCachedLayerGroups(
+  workspaceKey: string,
+  groups: LoadedLayerGroup[],
+): Promise<void> {
+  const db = await openLayerWorkspaceDb();
+  try {
+    await requestToPromise(
+      db
+        .transaction(STORE_NAME, "readwrite")
+        .objectStore(STORE_NAME)
+        .put({
+          key: workspaceKey,
+          groups,
+          savedAt: new Date().toISOString(),
+        } satisfies CachedLayerWorkspace),
+    );
+  } finally {
+    db.close();
+  }
+}
+
+function openLayerWorkspaceDb(): Promise<IDBDatabase> {
+  if (typeof indexedDB === "undefined") {
+    return Promise.reject(new Error("当前浏览器不支持 IndexedDB"));
+  }
+
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: "key" });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error("图层缓存数据库升级被阻塞"));
+  });
+}
+
+function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
+  return new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}

@@ -124,7 +124,7 @@ export default function MapPage() {
   const activeWorkspace = location.pathname === "/nongeo" ? "nongeo" : "geo";
   const isGeoWorkspace = activeWorkspace === "geo";
 
-  const layerGroups = useLayerGroups();
+  const layerGroups = useLayerGroups(user ? `user-${user.id}` : "anonymous");
   const { startRasterRender, setMapInstance } = useRasterRender(
     layerGroups.updateRasterLayer,
   );

@@ -1,13 +1,14 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import type {
   LoadedLayer,
   LoadedLayerGroup,
   LoadedRasterLayer,
 } from "../types";
 import { reorderLayerGroups } from "../utils/geometry";
+import { useCachedLayerGroups } from "./useCachedLayerGroups";
 
-export function useLayerGroups() {
-  const [groups, setGroups] = useState<LoadedLayerGroup[]>([]);
+export function useLayerGroups(cacheKey = "default") {
+  const [groups, setGroups] = useCachedLayerGroups(cacheKey);
 
   const updateLayer = useCallback(
     (
@@ -28,7 +29,7 @@ export function useLayerGroups() {
         ),
       );
     },
-    [],
+    [setGroups],
   );
 
   const updateRasterLayer = useCallback(
@@ -52,7 +53,7 @@ export function useLayerGroups() {
         ),
       );
     },
-    [],
+    [setGroups],
   );
 
   const setGroupVisibility = useCallback(
@@ -63,16 +64,19 @@ export function useLayerGroups() {
         ),
       );
     },
-    [],
+    [setGroups],
   );
 
-  const setGroupName = useCallback((groupId: string, name: string) => {
-    setGroups((current) =>
-      current.map((group) =>
-        group.id === groupId ? { ...group, name } : group,
-      ),
-    );
-  }, []);
+  const setGroupName = useCallback(
+    (groupId: string, name: string) => {
+      setGroups((current) =>
+        current.map((group) =>
+          group.id === groupId ? { ...group, name } : group,
+        ),
+      );
+    },
+    [setGroups],
+  );
 
   const setGroupSymbolization = useCallback(
     (groupId: string, symbolization: LoadedLayerGroup["symbolization"]) => {
@@ -82,7 +86,7 @@ export function useLayerGroups() {
         ),
       );
     },
-    [],
+    [setGroups],
   );
 
   const setLayerVisibility = useCallback(
@@ -100,7 +104,7 @@ export function useLayerGroups() {
         ),
       );
     },
-    [],
+    [setGroups],
   );
 
   const setLayerName = useCallback(
@@ -118,7 +122,7 @@ export function useLayerGroups() {
         ),
       );
     },
-    [],
+    [setGroups],
   );
 
   const setLayerSymbolization = useCallback(
@@ -142,29 +146,35 @@ export function useLayerGroups() {
         ),
       );
     },
-    [],
+    [setGroups],
   );
 
-  const removeGroup = useCallback((groupId: string) => {
-    setGroups((current) => current.filter((group) => group.id !== groupId));
-  }, []);
+  const removeGroup = useCallback(
+    (groupId: string) => {
+      setGroups((current) => current.filter((group) => group.id !== groupId));
+    },
+    [setGroups],
+  );
 
-  const removeLayer = useCallback((groupId: string, layerId: string) => {
-    setGroups((current) =>
-      current
-        .map((group) =>
-          group.id === groupId
-            ? {
-                ...group,
-                children: group.children.filter(
-                  (layer) => layer.id !== layerId,
-                ),
-              }
-            : group,
-        )
-        .filter((group) => group.children.length > 0),
-    );
-  }, []);
+  const removeLayer = useCallback(
+    (groupId: string, layerId: string) => {
+      setGroups((current) =>
+        current
+          .map((group) =>
+            group.id === groupId
+              ? {
+                  ...group,
+                  children: group.children.filter(
+                    (layer) => layer.id !== layerId,
+                  ),
+                }
+              : group,
+          )
+          .filter((group) => group.children.length > 0),
+      );
+    },
+    [setGroups],
+  );
 
   const reorderGroups = useCallback(
     (
@@ -176,12 +186,15 @@ export function useLayerGroups() {
         reorderLayerGroups(current, sourceGroupId, targetGroupId, placement),
       );
     },
-    [],
+    [setGroups],
   );
 
-  const addGroup = useCallback((group: LoadedLayerGroup) => {
-    setGroups((current) => [group, ...current]);
-  }, []);
+  const addGroup = useCallback(
+    (group: LoadedLayerGroup) => {
+      setGroups((current) => [group, ...current]);
+    },
+    [setGroups],
+  );
 
   return {
     groups,

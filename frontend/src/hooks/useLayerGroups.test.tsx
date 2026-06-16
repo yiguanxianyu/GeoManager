@@ -1,5 +1,5 @@
-import { act, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   cloneDefaultGroupSymbolization,
   cloneDefaultRasterSymbolization,
@@ -11,9 +11,65 @@ import type {
   LoadedVectorLayer,
   ResourceListItem,
 } from "../types";
+import {
+  readCachedLayerGroups,
+  writeCachedLayerGroups,
+} from "../utils/layerWorkspaceStorage";
 import { useLayerGroups } from "./useLayerGroups";
 
+vi.mock("../utils/layerWorkspaceStorage", () => ({
+  readCachedLayerGroups: vi.fn(),
+  writeCachedLayerGroups: vi.fn(),
+}));
+
+const readCachedLayerGroupsMock = vi.mocked(readCachedLayerGroups);
+const writeCachedLayerGroupsMock = vi.mocked(writeCachedLayerGroups);
+
 describe("useLayerGroups", () => {
+  beforeEach(() => {
+    readCachedLayerGroupsMock.mockReset();
+    writeCachedLayerGroupsMock.mockReset();
+    readCachedLayerGroupsMock.mockResolvedValue([]);
+    writeCachedLayerGroupsMock.mockResolvedValue();
+  });
+
+  it("restores cached groups on startup", async () => {
+    const cachedGroups = [makeGroup("cached")];
+    readCachedLayerGroupsMock.mockResolvedValueOnce(cachedGroups);
+
+    const { result } = renderHook(() => useLayerGroups());
+
+    await waitFor(() => {
+      expect(result.current.groups).toEqual(cachedGroups);
+    });
+  });
+
+  it("persists group changes after startup cache hydration", async () => {
+    const { result } = renderHook(() => useLayerGroups());
+
+    await waitFor(() => {
+      expect(writeCachedLayerGroupsMock).toHaveBeenCalledWith("default", []);
+    });
+    act(() => {
+      result.current.addGroup(makeGroup("persisted"));
+    });
+
+    await waitFor(() => {
+      expect(writeCachedLayerGroupsMock).toHaveBeenLastCalledWith("default", [
+        expect.objectContaining({ id: "persisted" }),
+      ]);
+    });
+  });
+
+  it("uses the provided cache key for browser-local layer state", async () => {
+    renderHook(() => useLayerGroups("user-7"));
+
+    await waitFor(() => {
+      expect(readCachedLayerGroupsMock).toHaveBeenCalledWith("user-7");
+      expect(writeCachedLayerGroupsMock).toHaveBeenCalledWith("user-7", []);
+    });
+  });
+
   it("prepends new groups and updates group-level state", () => {
     const { result } = renderHook(() => useLayerGroups());
 
