@@ -114,6 +114,14 @@ export interface FeatureInfo {
   properties: Record<string, unknown>;
 }
 
+export interface MapViewState {
+  center: [number, number];
+  bounds: [number, number, number, number];
+  zoom: number;
+  bearing: number;
+  pitch: number;
+}
+
 export interface LoadedVectorLayer {
   id: string;
   name: string;

@@ -2090,6 +2090,7 @@ body {
 
 .right-map-mini {
   min-height: 0;
+  position: relative;
   overflow: hidden;
   border: 1px solid rgba(67, 215, 255, 0.16);
   border-radius: 8px;
@@ -2113,12 +2114,57 @@ body {
   }
 }
 
+.right-map-mini::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(223, 248, 238, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(223, 248, 238, 0.08) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mix-blend-mode: screen;
+}
+
+.right-map-mini-empty {
+  display: grid;
+  place-items: center;
+}
+
+.right-map-current-extent {
+  fill: rgba(239, 68, 68, 0.06);
+  stroke: #ef4444;
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+
+.right-map-center-line {
+  stroke: #ef4444;
+  stroke-linecap: round;
+  stroke-width: 1.2px;
+  vector-effect: non-scaling-stroke;
+}
+
+.right-map-center-point {
+  fill: #ef4444;
+  stroke: rgba(5, 25, 33, 0.86);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+
 .right-map-meta {
   display: flex;
   justify-content: space-between;
   gap: 8px;
   color: rgba(223, 248, 238, 0.62);
   font-size: 12px;
+
+  & span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .right-side-tabs {

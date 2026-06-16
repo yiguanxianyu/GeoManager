@@ -36,6 +36,7 @@ import type {
   LoadedLayer,
   LoadedRasterLayer,
   LoadedVectorLayer,
+  MapViewState,
   SpatialFilter,
 } from "../types";
 import {
@@ -104,6 +105,7 @@ interface Props {
   onFeatureSelect?: (feature: FeatureInfo | null) => void;
   onMapReady?: (map: MapboxMap) => void;
   onMapDestroy?: () => void;
+  onViewStateChange?: (view: MapViewState) => void;
 }
 
 export default function MapCanvas({
@@ -117,6 +119,7 @@ export default function MapCanvas({
   onFeatureSelect,
   onMapReady,
   onMapDestroy,
+  onViewStateChange,
 }: Props) {
   const mapRef = useRef<MapboxMap | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -162,10 +165,24 @@ export default function MapCanvas({
       new mapboxgl.ScaleControl({ unit: "metric" }),
       "bottom-left",
     );
+    const emitViewState = () => {
+      onViewStateChange?.(readMapViewState(map));
+    };
+    map.on("load", emitViewState);
+    map.on("moveend", emitViewState);
+    map.on("zoomend", emitViewState);
+    map.on("rotateend", emitViewState);
+    map.on("pitchend", emitViewState);
+    emitViewState();
     mapRef.current = map;
     onMapReady?.(map);
 
     return () => {
+      map.off("load", emitViewState);
+      map.off("moveend", emitViewState);
+      map.off("zoomend", emitViewState);
+      map.off("rotateend", emitViewState);
+      map.off("pitchend", emitViewState);
       onMapDestroy?.();
       map.remove();
       mapRef.current = null;
@@ -176,6 +193,7 @@ export default function MapCanvas({
     mapboxToken,
     onMapDestroy,
     onMapReady,
+    onViewStateChange,
     shouldUseMapboxStyle,
   ]);
 
@@ -299,6 +317,22 @@ export default function MapCanvas({
       </div>
     </div>
   );
+}
+
+function readMapViewState(map: MapboxMap): MapViewState {
+  const center = map.getCenter();
+  const bounds = map.getBounds();
+  const west = bounds?.getWest() ?? center.lng;
+  const south = bounds?.getSouth() ?? center.lat;
+  const east = bounds?.getEast() ?? center.lng;
+  const north = bounds?.getNorth() ?? center.lat;
+  return {
+    center: [center.lng, center.lat],
+    bounds: [west, south, east, north],
+    zoom: map.getZoom(),
+    bearing: map.getBearing(),
+    pitch: map.getPitch(),
+  };
 }
 
 function disableMapboxEventRequests() {

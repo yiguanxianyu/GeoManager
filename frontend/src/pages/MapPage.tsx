@@ -36,6 +36,7 @@ import type {
   LoadedLayer,
   LoadedRasterLayer,
   LoadedVectorLayer,
+  MapViewState,
   ResourceFilters,
   ResourceListItem,
   ResourceQueryResult,
@@ -113,6 +114,9 @@ export default function MapPage() {
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [tableLayer, setTableLayer] = useState<LoadedLayer | null>(null);
   const [layerExtentVisible, setLayerExtentVisible] = useState(false);
+  const [currentMapView, setCurrentMapView] = useState<MapViewState | null>(
+    null,
+  );
   const mapInstanceRef = useRef<MapboxMap | null>(null);
   const startupScanStartedRef = useRef(false);
   const permissions = user?.permissions ?? emptyPermissions;
@@ -626,6 +630,7 @@ export default function MapPage() {
                 onFeatureSelect={setSelectedFeature}
                 onMapReady={handleMapReady}
                 onMapDestroy={handleMapDestroy}
+                onViewStateChange={setCurrentMapView}
               />
             </main>
             <aside className="floating-panel floating-panel-left">
@@ -679,7 +684,10 @@ export default function MapPage() {
               className="floating-panel floating-panel-right"
               aria-label="要素信息面板"
             >
-              <RightSidePanel selectedFeature={selectedFeature} />
+              <RightSidePanel
+                selectedFeature={selectedFeature}
+                currentView={currentMapView}
+              />
             </aside>
             <aside
               className="floating-panel-bottom"

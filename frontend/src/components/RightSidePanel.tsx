@@ -4,14 +4,28 @@ import {
   RadarChartOutlined,
 } from "@ant-design/icons";
 import { Tabs, Tag, Typography } from "antd";
-import type { FeatureInfo } from "../types";
+import { useMemo } from "react";
+import { buildFlatThumbnailPlan } from "../map/flatThumbnail";
+import type { FeatureInfo, MapViewState } from "../types";
 import FeatureDetailPanel from "./FeatureDetailPanel";
 
 interface Props {
   selectedFeature: FeatureInfo | null;
+  currentView: MapViewState | null;
 }
 
-export default function RightSidePanel({ selectedFeature }: Props) {
+export default function RightSidePanel({
+  selectedFeature,
+  currentView,
+}: Props) {
+  const thumbnailPlan = useMemo(
+    () =>
+      currentView
+        ? buildFlatThumbnailPlan(currentView.bounds, currentView.zoom)
+        : null,
+    [currentView],
+  );
+
   return (
     <div className="right-panel-stack">
       <section
@@ -23,45 +37,14 @@ export default function RightSidePanel({ selectedFeature }: Props) {
             <AimOutlined style={{ fontSize: 15 }} />
             <Typography.Text strong>当前视角平面缩略图</Typography.Text>
           </span>
-          <Tag color="cyan">示意</Tag>
+          <Tag color={thumbnailPlan ? "cyan" : "default"}>
+            {thumbnailPlan ? `${thumbnailPlan.zoom} 级瓦片` : "同步中"}
+          </Tag>
         </div>
-        <div className="right-map-mini">
-          <svg viewBox="0 0 320 112" role="img" aria-label="当前范围平面缩略图">
-            <path
-              d="M0 82 C54 54 94 78 136 54 S222 24 320 38 L320 112 L0 112 Z"
-              fill="#1f8b72"
-              opacity=".52"
-            />
-            <path
-              d="M0 88 C74 64 112 82 174 58 S250 40 320 48"
-              fill="none"
-              stroke="#43d7ff"
-              strokeWidth="10"
-              opacity=".58"
-            />
-            <path
-              d="M18 30 C70 42 98 20 146 34 S228 60 300 26"
-              fill="none"
-              stroke="#dff8ee"
-              strokeWidth="1.2"
-              opacity=".28"
-            />
-            <rect
-              x="120"
-              y="32"
-              width="108"
-              height="52"
-              rx="7"
-              fill="none"
-              stroke="#f2b84b"
-              strokeWidth="3"
-            />
-            <circle cx="174" cy="58" r="5" fill="#f2b84b" />
-          </svg>
-        </div>
+        <FlatMapThumbnail plan={thumbnailPlan} />
         <div className="right-map-meta">
-          <span>中心范围：中亚胡杨林样区</span>
-          <span>当前缩放：视图同步</span>
+          <span>{formatViewCenter(currentView)}</span>
+          <span>{formatViewZoom(currentView, thumbnailPlan?.zoom)}</span>
         </div>
       </section>
 
@@ -114,6 +97,93 @@ export default function RightSidePanel({ selectedFeature }: Props) {
       </section>
     </div>
   );
+}
+
+function FlatMapThumbnail({
+  plan,
+}: {
+  plan: ReturnType<typeof buildFlatThumbnailPlan>;
+}) {
+  if (!plan) {
+    return (
+      <div className="right-map-mini right-map-mini-empty">
+        <Typography.Text type="secondary">等待地图视角</Typography.Text>
+      </div>
+    );
+  }
+
+  const rectCenterX = plan.viewRect.x + plan.viewRect.width / 2;
+  const rectCenterY = plan.viewRect.y + plan.viewRect.height / 2;
+
+  return (
+    <div className="right-map-mini">
+      <svg
+        viewBox={`${plan.viewBox.x} ${plan.viewBox.y} ${plan.viewBox.width} ${plan.viewBox.height}`}
+        preserveAspectRatio="xMidYMid meet"
+        role="img"
+        aria-label="当前范围二维瓦片缩略图"
+      >
+        {plan.tiles.map((tile) => (
+          <image
+            key={tile.key}
+            href={tile.url}
+            x={tile.x}
+            y={tile.y}
+            width={tile.size}
+            height={tile.size}
+          />
+        ))}
+        <rect
+          className="right-map-current-extent"
+          x={plan.viewRect.x}
+          y={plan.viewRect.y}
+          width={plan.viewRect.width}
+          height={plan.viewRect.height}
+          rx="8"
+        />
+        <line
+          className="right-map-center-line"
+          x1={rectCenterX - 18}
+          y1={rectCenterY}
+          x2={rectCenterX + 18}
+          y2={rectCenterY}
+        />
+        <line
+          className="right-map-center-line"
+          x1={rectCenterX}
+          y1={rectCenterY - 18}
+          x2={rectCenterX}
+          y2={rectCenterY + 18}
+        />
+        <circle
+          className="right-map-center-point"
+          cx={rectCenterX}
+          cy={rectCenterY}
+          r="5"
+        />
+      </svg>
+    </div>
+  );
+}
+
+function formatViewCenter(view: MapViewState | null) {
+  if (!view) return "中心：等待同步";
+  return `中心：${formatLongitude(view.center[0])}，${formatLatitude(
+    view.center[1],
+  )}`;
+}
+
+function formatViewZoom(view: MapViewState | null, tileZoom?: number) {
+  if (!view) return "缩放：-";
+  return `缩放：${view.zoom.toFixed(1)} / 瓦片 ${tileZoom ?? "-"}`;
+}
+
+function formatLongitude(value: number) {
+  return `${Math.abs(value).toFixed(3)}°${value >= 0 ? "E" : "W"}`;
+}
+
+function formatLatitude(value: number) {
+  return `${Math.abs(value).toFixed(3)}°${value >= 0 ? "N" : "S"}`;
 }
 
 function EcologyOverviewPanel() {
