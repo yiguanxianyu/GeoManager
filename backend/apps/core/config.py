@@ -39,7 +39,6 @@ class RuntimeConfig:
     waitress_host: str
     waitress_port: int
     waitress_threads: int
-    http_port: int
     disable_catalog_startup_scan: bool
     disable_raster_startup_scan: bool
 
@@ -248,7 +247,6 @@ def _runtime_config(raw: dict[str, Any]) -> RuntimeConfig:
             raw.get("waitress_threads", 4),
             "runtime.waitress_threads",
         ),
-        http_port=_positive_int(raw.get("http_port", 80), "runtime.http_port"),
         disable_catalog_startup_scan=bool(
             raw.get("disable_catalog_startup_scan", False)
         ),

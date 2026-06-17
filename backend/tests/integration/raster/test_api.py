@@ -157,7 +157,6 @@ csrf_trusted_origins = []
 waitress_host = "127.0.0.1"
 waitress_port = 8000
 waitress_threads = 1
-http_port = 8000
 disable_catalog_startup_scan = true
 disable_raster_startup_scan = true
 

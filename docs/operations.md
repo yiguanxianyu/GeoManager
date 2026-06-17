@@ -120,7 +120,7 @@ Linux 部署使用单个 Docker 镜像和 TOML 配置。镜像构建使用 `back
 - 默认业务数据根目录：`/data/app`
 - 默认科研数据根目录：`/data/research`
 
-Docker 容器内配置示例见 `config/app.docker.toml`。其中容器内路径、Waitress 监听地址和默认运行参数已经固化；通常只需要按部署环境调整 `allowed_hosts`、`csrf_trusted_origins`、`http_port`、`waitress_threads` 和 `mapbox_access_token`。
+Docker 容器内配置示例见 `config/app.docker.toml`。其中容器内路径、Waitress 监听地址和默认运行参数已经固化；通常只需要按部署环境调整 `allowed_hosts`、`csrf_trusted_origins`、`waitress_port`、`waitress_threads` 和 `mapbox_access_token`。
 
 手动 `docker run` 时，挂载到 `/config/app.toml` 的配置应使用容器内数据路径 `/data/app` 和 `/data/research`。业务数据和科研数据使用同一个 Docker named volume，不需要映射宿主机目录。
 
@@ -138,7 +138,7 @@ docker run -d --name data-platform \
   data-platform-django:latest serve /config/app.toml
 ```
 
-Docker 配置中的数据目录应直接使用容器内路径 `/data/app` 和 `/data/research`。如需按配置里的 `runtime.http_port` 暴露端口，先在宿主机读取 TOML 配置并替换 `docker run -p` 的宿主机端口。
+Docker 配置中的数据目录应直接使用容器内路径 `/data/app` 和 `/data/research`。`docker run -p` 的宿主机端口应与 `runtime.waitress_port` 保持一致，或按反向代理需求另行映射。
 
 默认数据卷名称为 `huyang-data`。如需改名，直接创建并挂载新的 Docker volume：
 
