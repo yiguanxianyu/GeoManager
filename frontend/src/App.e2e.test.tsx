@@ -4,6 +4,7 @@ import zhCN from "antd/locale/zh_CN";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { appTheme } from "./theme";
 import type { Bootstrap, User } from "./types";
 
 const { MockApiError, mockApi } = vi.hoisted(() => {
@@ -127,7 +128,7 @@ const adminUser: User = {
 
 function renderApp(initialEntry: string) {
   return render(
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider locale={zhCN} theme={appTheme}>
       <AntApp>
         <MemoryRouter initialEntries={[initialEntry]}>
           <App />

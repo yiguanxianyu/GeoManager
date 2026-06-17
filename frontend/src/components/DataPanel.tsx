@@ -61,10 +61,6 @@ const operatorOptions = [
   { label: "介于", value: "between" },
 ];
 
-const panelSelectClassNames = {
-  popup: { root: "workspace-select-dropdown" },
-};
-
 export default function DataPanel({
   resources,
   profile,
@@ -167,7 +163,6 @@ export default function DataPanel({
             placeholder="数据分类"
             value={resourceFilters.category}
             allowClear
-            classNames={panelSelectClassNames}
             options={categoryOptions}
             onChange={(nextValue) =>
               updateResourceFilter("category", nextValue)
@@ -177,7 +172,6 @@ export default function DataPanel({
             placeholder="数据类型"
             value={resourceFilters.dataType}
             allowClear
-            classNames={panelSelectClassNames}
             options={[
               { value: "vector", label: "矢量空间数据" },
               { value: "raster", label: "栅格空间数据" },
@@ -339,13 +333,11 @@ export default function DataPanel({
                 options={fieldOptions}
                 onChange={setField}
                 disabled={!profile}
-                classNames={panelSelectClassNames}
               />
               <Select
                 value={operator}
                 options={operatorOptions}
                 onChange={setOperator}
-                classNames={panelSelectClassNames}
               />
             </div>
             <Input

@@ -8,6 +8,7 @@ import {
 import {
   App,
   Button,
+  ConfigProvider,
   Empty,
   Layout,
   Popconfirm,
@@ -40,6 +41,7 @@ import { useRasterRender } from "../hooks/useRasterRender";
 import { clearFeatureState, getMapState } from "../map/mapState";
 import type { DrawMode } from "../map/spatialDraw";
 import { fitBoundsOptionsForVisibleFrame } from "../map/visibleViewport";
+import { workspacePanelTheme } from "../theme";
 import type {
   Achievement,
   AttributeFilter,
@@ -1049,96 +1051,102 @@ export default function MapPage() {
           />
         </main>
         <aside className="floating-panel floating-panel-left">
-          <LayerContext.Provider value={layerContextValue}>
-            <Tabs
-              className="workspace-side-tabs workspace-left-tabs"
-              defaultActiveKey="data"
-              size="small"
-              items={[
-                {
-                  key: "data",
-                  label: (
-                    <span className="tab-label">
-                      <DatabaseOutlined style={{ fontSize: 14 }} />
-                      数据
-                    </span>
-                  ),
-                  children: renderDataPanel(),
-                },
-                {
-                  key: "layers",
-                  label: (
-                    <span className="tab-label">
-                      <ApartmentOutlined style={{ fontSize: 14 }} />
-                      图层
-                    </span>
-                  ),
-                  children: <LayerPanel />,
-                },
-                {
-                  key: "projects",
-                  label: (
-                    <span className="tab-label">
-                      <FolderOpenOutlined style={{ fontSize: 14 }} />
-                      工程
-                    </span>
-                  ),
-                  children: (
-                    <WorkspaceScenePanel
-                      kind="project"
-                      onLoad={loadWorkspaceScene}
-                    />
-                  ),
-                },
-                {
-                  key: "topics",
-                  label: (
-                    <span className="tab-label">
-                      <AppstoreOutlined style={{ fontSize: 14 }} />
-                      专题
-                    </span>
-                  ),
-                  children: (
-                    <WorkspaceScenePanel
-                      kind="topic"
-                      onLoad={loadWorkspaceScene}
-                    />
-                  ),
-                },
-              ]}
-            />
-            <LayerDataTableModal
-              layer={tableLayer}
-              open={Boolean(tableLayer)}
-              onClose={() => setTableLayer(null)}
-              onSelectionChange={handleSelectionChange}
-            />
-          </LayerContext.Provider>
+          <ConfigProvider theme={workspacePanelTheme}>
+            <LayerContext.Provider value={layerContextValue}>
+              <Tabs
+                className="workspace-side-tabs workspace-left-tabs"
+                defaultActiveKey="data"
+                size="small"
+                items={[
+                  {
+                    key: "data",
+                    label: (
+                      <span className="tab-label">
+                        <DatabaseOutlined style={{ fontSize: 14 }} />
+                        数据
+                      </span>
+                    ),
+                    children: renderDataPanel(),
+                  },
+                  {
+                    key: "layers",
+                    label: (
+                      <span className="tab-label">
+                        <ApartmentOutlined style={{ fontSize: 14 }} />
+                        图层
+                      </span>
+                    ),
+                    children: <LayerPanel />,
+                  },
+                  {
+                    key: "projects",
+                    label: (
+                      <span className="tab-label">
+                        <FolderOpenOutlined style={{ fontSize: 14 }} />
+                        工程
+                      </span>
+                    ),
+                    children: (
+                      <WorkspaceScenePanel
+                        kind="project"
+                        onLoad={loadWorkspaceScene}
+                      />
+                    ),
+                  },
+                  {
+                    key: "topics",
+                    label: (
+                      <span className="tab-label">
+                        <AppstoreOutlined style={{ fontSize: 14 }} />
+                        专题
+                      </span>
+                    ),
+                    children: (
+                      <WorkspaceScenePanel
+                        kind="topic"
+                        onLoad={loadWorkspaceScene}
+                      />
+                    ),
+                  },
+                ]}
+              />
+              <LayerDataTableModal
+                layer={tableLayer}
+                open={Boolean(tableLayer)}
+                onClose={() => setTableLayer(null)}
+                onSelectionChange={handleSelectionChange}
+              />
+            </LayerContext.Provider>
+          </ConfigProvider>
         </aside>
         <aside
           className="floating-panel floating-panel-right"
           aria-label="要素信息面板"
         >
-          <RightSidePanel
-            selectedFeature={selectedFeature}
-            currentView={currentMapView}
-          />
+          <ConfigProvider theme={workspacePanelTheme}>
+            <RightSidePanel
+              selectedFeature={selectedFeature}
+              currentView={currentMapView}
+            />
+          </ConfigProvider>
         </aside>
         <aside
           className="floating-panel-bottom"
           aria-label="底部数据与绘制面板"
         >
-          <WorkspaceBottomPanel
-            selectedLayer={selectedLayer}
-            exportClipGeometry={sharedSpatialGeometry}
-            spatialFilter={spatialFilter}
-            layerExtentVisible={layerExtentVisible}
-            activeDraw={activeDraw}
-            onStartQueryDraw={setQueryDrawMode}
-            onLayerExtentVisibleChange={setLayerExtentVisible}
-            onClearSpatialFilter={() => setSpatialFilter(null)}
-            onImportSpatialFilter={setSpatialFilter}
-          />
+          <ConfigProvider theme={workspacePanelTheme}>
+            <WorkspaceBottomPanel
+              selectedLayer={selectedLayer}
+              exportClipGeometry={sharedSpatialGeometry}
+              spatialFilter={spatialFilter}
+              layerExtentVisible={layerExtentVisible}
+              activeDraw={activeDraw}
+              onStartQueryDraw={setQueryDrawMode}
+              onLayerExtentVisibleChange={setLayerExtentVisible}
+              onClearSpatialFilter={() => setSpatialFilter(null)}
+              onImportSpatialFilter={setSpatialFilter}
+            />
+          </ConfigProvider>
         </aside>
       </div>
     </Layout>

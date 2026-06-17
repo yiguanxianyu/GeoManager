@@ -3,6 +3,7 @@ import { App as AntApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { describe, expect, it, vi } from "vitest";
 import { cloneDefaultVectorSymbolization } from "../symbolization";
+import { appTheme } from "../theme";
 import type { ResourceListItem, User } from "../types";
 import DataPanel from "./DataPanel";
 import { VectorSymbolizationEditor } from "./SymbolizationEditor";
@@ -59,7 +60,7 @@ const vectorResource: ResourceListItem = {
 
 function renderWithAntd(node: React.ReactNode) {
   return render(
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider locale={zhCN} theme={appTheme}>
       <AntApp>{node}</AntApp>
     </ConfigProvider>,
   );

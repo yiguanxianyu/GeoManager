@@ -11,6 +11,7 @@ import { MemoryRouter, Navigate, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppContext } from "../contexts/AppContext";
 import { RequireDataMaintain } from "../router";
+import { appTheme } from "../theme";
 import type { Bootstrap, User } from "../types";
 
 vi.mock("@ant-design/charts", () => ({
@@ -250,7 +251,7 @@ function renderWithProviders(children: React.ReactNode) {
 
 function AdminTestProviders({ children }: { children: React.ReactNode }) {
   return (
-    <ConfigProvider locale={zhCN}>
+    <ConfigProvider locale={zhCN} theme={appTheme}>
       <AntApp>
         <AppContext.Provider
           value={{

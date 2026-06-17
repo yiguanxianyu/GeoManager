@@ -2269,143 +2269,6 @@ body {
   overflow: hidden;
 }
 
-.floating-panel .ant-input,
-.floating-panel .ant-input-affix-wrapper,
-.floating-panel .ant-select,
-.floating-panel .ant-select-selector,
-.floating-panel .ant-picker {
-  color: #eafff8;
-  background: rgba(8, 32, 42, 0.62);
-  border-color: rgba(95, 231, 221, 0.2);
-  backdrop-filter: blur(12px);
-}
-
-.floating-panel .ant-input::placeholder,
-.floating-panel .ant-select-placeholder,
-.floating-panel .ant-select-selection-placeholder,
-.floating-panel .ant-picker-input > input::placeholder {
-  color: rgba(223, 248, 238, 0.5);
-}
-
-.floating-panel .ant-select-content,
-.floating-panel .ant-select-selection-item,
-.floating-panel .ant-picker-input > input,
-.floating-panel .ant-input-prefix,
-.floating-panel .ant-input-clear-icon,
-.floating-panel .ant-select-suffix,
-.floating-panel .ant-select-arrow,
-.floating-panel .ant-picker-suffix,
-.floating-panel .ant-picker-separator,
-.floating-panel .ant-picker-clear {
-  color: #eafff8;
-}
-
-.floating-panel .ant-input-affix-wrapper .ant-input,
-.floating-panel .ant-picker .ant-picker-input > input {
-  background: transparent;
-}
-
-.floating-panel .ant-input-affix-wrapper:hover,
-.floating-panel .ant-input:hover,
-.floating-panel .ant-select:not(.ant-select-disabled):hover,
-.floating-panel
-  .ant-select:not(.ant-select-disabled):hover
-  .ant-select-selector,
-.floating-panel .ant-picker:hover {
-  border-color: rgba(116, 243, 221, 0.48);
-}
-
-.floating-panel .ant-input-affix-wrapper-focused,
-.floating-panel .ant-input:focus,
-.floating-panel .ant-select-focused,
-.floating-panel .ant-select-focused .ant-select-selector,
-.floating-panel .ant-picker-focused {
-  border-color: #74f3dd;
-  box-shadow: 0 0 0 2px rgba(116, 243, 221, 0.12);
-}
-
-.floating-panel .ant-btn-default,
-.floating-panel .ant-btn-dashed {
-  color: #dff8ee;
-  background: rgba(8, 32, 42, 0.38);
-  border-color: rgba(95, 231, 221, 0.24);
-  box-shadow: none;
-}
-
-.floating-panel .ant-btn-default:not(:disabled):not(.ant-btn-disabled):hover,
-.floating-panel .ant-btn-dashed:not(:disabled):not(.ant-btn-disabled):hover,
-.floating-panel
-  .ant-btn-default:not(:disabled):not(.ant-btn-disabled):focus-visible,
-.floating-panel
-  .ant-btn-dashed:not(:disabled):not(.ant-btn-disabled):focus-visible {
-  color: #eafff8;
-  background: rgba(34, 197, 143, 0.16);
-  border-color: rgba(116, 243, 221, 0.5);
-}
-
-.floating-panel .ant-btn-primary.ant-btn-background-ghost {
-  color: #74f3dd;
-  background: rgba(8, 32, 42, 0.28);
-  border-color: rgba(116, 243, 221, 0.5);
-}
-
-.floating-panel .ant-btn:disabled,
-.floating-panel .ant-btn.ant-btn-disabled,
-.floating-panel .ant-input-disabled,
-.floating-panel .ant-select-disabled,
-.floating-panel .ant-select-disabled .ant-select-selector {
-  color: rgba(223, 248, 238, 0.38);
-  background: rgba(8, 32, 42, 0.24);
-  border-color: rgba(95, 231, 221, 0.12);
-}
-
-.floating-panel .ant-tag,
-.floating-panel .ant-tag.ant-tag-filled,
-.floating-panel .ant-tag.ant-tag-blue.ant-tag-filled:not(.ant-tag-disabled),
-.floating-panel .ant-tag.ant-tag-green.ant-tag-filled:not(.ant-tag-disabled),
-.floating-panel .ant-tag.ant-tag-default.ant-tag-filled:not(.ant-tag-disabled) {
-  color: #dff8ee;
-  background: rgba(8, 32, 42, 0.46);
-  border-color: rgba(95, 231, 221, 0.24);
-}
-
-.workspace-select-dropdown.ant-select-dropdown {
-  color: #dff8ee;
-  background:
-    linear-gradient(145deg, rgba(7, 27, 36, 0.94), rgba(11, 42, 45, 0.86)),
-    radial-gradient(circle at 18% 0, rgba(67, 215, 255, 0.16), transparent 34%);
-  border: 1px solid rgba(95, 231, 221, 0.26);
-  border-radius: 8px;
-  box-shadow:
-    0 18px 46px rgba(0, 7, 12, 0.38),
-    0 0 22px rgba(40, 211, 223, 0.12);
-  backdrop-filter: blur(18px) saturate(1.24);
-}
-
-.workspace-select-dropdown .ant-select-item {
-  color: rgba(223, 248, 238, 0.76);
-}
-
-.workspace-select-dropdown
-  .ant-select-item-option-active:not(.ant-select-item-option-disabled) {
-  color: #eafff8;
-  background: rgba(34, 197, 143, 0.16);
-}
-
-.workspace-select-dropdown
-  .ant-select-item-option-selected:not(.ant-select-item-option-disabled) {
-  color: #74f3dd;
-  background: rgba(34, 197, 143, 0.22);
-}
-
-.workspace-select-dropdown .ant-select-item-option-disabled {
-  color: rgba(223, 248, 238, 0.34);
-}
-
-.workspace-select-dropdown .ant-empty-description {
-  color: rgba(223, 248, 238, 0.58);
-}
-
 .data-popover .ant-input,
 .data-popover .ant-select-selector,
 .data-popover .ant-picker {
@@ -2416,36 +2279,6 @@ body {
 
 .panel-section {
   padding: 14px;
-}
-
-.floating-panel .ant-typography,
-.floating-panel-bottom .ant-typography {
-  color: #dff8ee;
-}
-
-.floating-panel .ant-typography-secondary,
-.floating-panel-bottom .ant-typography-secondary {
-  color: rgba(223, 248, 238, 0.64);
-}
-
-.floating-panel .ant-empty-description,
-.floating-panel-bottom .ant-empty-description {
-  color: rgba(223, 248, 238, 0.62);
-}
-
-.floating-panel .ant-descriptions-view,
-.floating-panel-bottom .ant-descriptions-view {
-  border-color: rgba(95, 231, 221, 0.18);
-  background: rgba(5, 24, 32, 0.32);
-}
-
-.floating-panel .ant-descriptions-item-label,
-.floating-panel .ant-descriptions-item-content,
-.floating-panel-bottom .ant-descriptions-item-label,
-.floating-panel-bottom .ant-descriptions-item-content {
-  color: #dff8ee;
-  background: rgba(7, 30, 38, 0.46);
-  border-color: rgba(95, 231, 221, 0.14);
 }
 
 .feature-detail-panel {
@@ -2594,7 +2427,6 @@ body {
   padding: 0;
 
   &.ant-tabs {
-    color: #dff8ee;
     display: flex;
     flex-direction: column;
   }
@@ -2617,19 +2449,6 @@ body {
 
   & .ant-tabs-tabpane {
     overflow: auto;
-  }
-
-  & .ant-tabs-tab {
-    color: rgba(223, 248, 238, 0.64);
-  }
-
-  & .ant-tabs-tab-active .ant-tabs-tab-btn {
-    color: #74f3dd;
-  }
-
-  & .ant-tabs-ink-bar {
-    background: #62ecd9;
-    box-shadow: 0 0 12px rgba(98, 236, 217, 0.58);
   }
 }
 
@@ -2749,26 +2568,9 @@ body {
   min-height: 0;
   padding: 12px;
 
-  &.ant-tabs {
-    color: #dff8ee;
-  }
-
   & .ant-tabs-nav {
     flex: 0 0 auto;
     margin: 0 0 10px;
-  }
-
-  & .ant-tabs-tab {
-    color: rgba(223, 248, 238, 0.66);
-  }
-
-  & .ant-tabs-tab-active .ant-tabs-tab-btn {
-    color: #74f3dd;
-  }
-
-  & .ant-tabs-ink-bar {
-    background: #62ecd9;
-    box-shadow: 0 0 12px rgba(98, 236, 217, 0.58);
   }
 
   & .ant-tabs-content-holder {
@@ -3354,7 +3156,6 @@ body {
   padding: 10px 12px 12px;
 
   &.ant-tabs {
-    color: #dff8ee;
     display: flex;
     flex-direction: column;
   }
@@ -3377,19 +3178,6 @@ body {
 
   & .ant-tabs-tabpane {
     overflow: hidden;
-  }
-
-  & .ant-tabs-tab {
-    color: rgba(223, 248, 238, 0.66);
-  }
-
-  & .ant-tabs-tab-active .ant-tabs-tab-btn {
-    color: #74f3dd;
-  }
-
-  & .ant-tabs-ink-bar {
-    background: #62ecd9;
-    box-shadow: 0 0 12px rgba(98, 236, 217, 0.58);
   }
 }
 
