@@ -74,9 +74,36 @@ export type WorkspaceSceneCreateRequest =
 export type WorkspaceSceneUpdateRequest =
   Schemas["WorkspaceSceneUpdateRequest"];
 export type WorkspaceSceneKind = WorkspaceScene["kind"];
+export type SavedWorkspaceLayer = {
+  id: string;
+  name: string;
+  layerType: LoadedLayer["layerType"];
+  sourceResource: ResourceListItem;
+  geometryType: string;
+  visible: boolean;
+  summary: string;
+  metadata: Record<string, string | number | boolean | null | undefined>;
+  symbolization: LoadedLayer["symbolization"];
+  fields: ResourceField[];
+  query?: {
+    attributeFilters: AttributeFilter[];
+    spatialFilter: SpatialFilter | null;
+  };
+  tileUrl?: string;
+  imageCoordinates?: RasterRenderResult["imageCoordinates"];
+  rasterDatasetId?: number;
+  rasterLayerId?: number | null;
+  rasterMetadata?: RasterDatasetProfile["metadata"];
+  renderStatus?: string;
+  renderProgress?: number;
+  renderMessages?: string[];
+};
+export type SavedWorkspaceLayerGroup = Omit<LoadedLayerGroup, "children"> & {
+  children: SavedWorkspaceLayer[];
+};
 export type WorkspaceSceneSnapshot = Schemas["WorkspaceSceneSnapshot"] & {
   version?: number;
-  groups?: LoadedLayerGroup[];
+  groups?: SavedWorkspaceLayerGroup[] | LoadedLayerGroup[];
   selectedLayerId?: string | null;
   mapView?: MapViewState | null;
   savedAt?: string;
@@ -149,6 +176,10 @@ export interface LoadedVectorLayer {
   metadata: Record<string, string | number | boolean | null | undefined>;
   symbolization: VectorSymbolization;
   fields: ResourceField[];
+  query?: {
+    attributeFilters: AttributeFilter[];
+    spatialFilter: SpatialFilter | null;
+  };
 }
 
 export interface LoadedRasterLayer {

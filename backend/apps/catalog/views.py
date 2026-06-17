@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from django.conf import settings
+from django.core.exceptions import RequestDataTooBig
 from django.db import IntegrityError
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
@@ -55,6 +56,8 @@ from apps.raster.services import (
     get_job_artifact_path,
     start_export_job,
 )
+
+WORKSPACE_SNAPSHOT_MAX_BODY_BYTES = 1024 * 1024
 
 
 @require_GET
@@ -319,7 +322,7 @@ def workspaces(request):
 
 
 def _create_workspace(request):
-    payload = _json_payload(request)
+    payload = _json_payload(request, max_body_bytes=WORKSPACE_SNAPSHOT_MAX_BODY_BYTES)
     if isinstance(payload, JsonResponse):
         return payload
     values = _workspace_payload(payload, partial=False)
@@ -348,7 +351,7 @@ def workspace_detail(request, workspace_id: int):
         return scene
     if request.method == "GET":
         return JsonResponse(_serialize_workspace(scene))
-    payload = _json_payload(request)
+    payload = _json_payload(request, max_body_bytes=WORKSPACE_SNAPSHOT_MAX_BODY_BYTES)
     if isinstance(payload, JsonResponse):
         return payload
     if payload.get("action") == "delete":
@@ -413,6 +416,13 @@ def _workspace_payload(
         snapshot = payload.get("snapshot")
         if not isinstance(snapshot, dict):
             return JsonResponse({"detail": "snapshot 必须是 JSON 对象"}, status=400)
+        if _snapshot_contains_embedded_data(snapshot):
+            return JsonResponse(
+                {
+                    "detail": "工程或专题快照只能保存查询、范围、资源引用和图层结构，不能包含原始数据"
+                },
+                status=400,
+            )
         values["snapshot"] = snapshot
     return values
 
@@ -438,14 +448,36 @@ def _workspace_kind_label(kind: str) -> str:
     return "专题" if kind == WorkspaceScene.Kind.TOPIC else "工程"
 
 
-def _json_payload(request) -> dict[str, Any] | JsonResponse:
+def _json_payload(
+    request, *, max_body_bytes: int | None = None
+) -> dict[str, Any] | JsonResponse:
+    if max_body_bytes is not None:
+        content_length = int(request.META.get("CONTENT_LENGTH") or 0)
+        if content_length > max_body_bytes:
+            return JsonResponse({"detail": "请求体过大"}, status=413)
     try:
         payload = json.loads(request.body.decode("utf-8") or "{}")
+    except RequestDataTooBig:
+        return JsonResponse({"detail": "请求体过大"}, status=413)
     except json.JSONDecodeError:
         return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
     if not isinstance(payload, dict):
         return JsonResponse({"detail": "请求体必须是 JSON 对象"}, status=400)
     return payload
+
+
+def _snapshot_contains_embedded_data(value: object) -> bool:
+    if isinstance(value, dict):
+        if "geojson" in value:
+            return True
+        if value.get("type") == "FeatureCollection" and isinstance(
+            value.get("features"), list
+        ):
+            return True
+        return any(_snapshot_contains_embedded_data(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_snapshot_contains_embedded_data(item) for item in value)
+    return False
 
 
 def _import_error_payload(exc: ImportDataError) -> dict:

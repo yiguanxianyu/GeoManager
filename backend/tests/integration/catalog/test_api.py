@@ -408,6 +408,56 @@ class WorkspaceSceneApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()["detail"], "同名工程或专题已存在")
 
+    def test_workspace_scene_rejects_embedded_geojson_data(self):
+        response = self.client.post(
+            "/api/catalog/workspaces/",
+            data=json.dumps(
+                {
+                    "kind": "project",
+                    "name": "错误工程",
+                    "snapshot": {
+                        "groups": [
+                            {
+                                "id": "group-1",
+                                "children": [
+                                    {
+                                        "id": "layer-1",
+                                        "geojson": {
+                                            "type": "FeatureCollection",
+                                            "features": [],
+                                        },
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            response.json()["detail"],
+            "工程或专题快照只能保存查询、范围、资源引用和图层结构，不能包含原始数据",
+        )
+
+    def test_workspace_scene_rejects_oversized_payload_with_json_error(self):
+        response = self.client.post(
+            "/api/catalog/workspaces/",
+            data=json.dumps(
+                {
+                    "kind": "project",
+                    "name": "超大工程",
+                    "snapshot": {"padding": "x" * (300 * 1024)},
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(response.json()["detail"], "请求体过大")
+
 
 class DataImportApiTests(TestCase):
     def setUp(self):

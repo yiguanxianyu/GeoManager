@@ -5,6 +5,7 @@ import {
   rasterSymbolizationFromRules,
 } from "../symbolization";
 import type {
+  AttributeFilter,
   DataResource,
   DataResourceProfile,
   LoadedLayerGroup,
@@ -12,6 +13,7 @@ import type {
   LoadedVectorLayer,
   ResourceListItem,
   ResourceQueryResult,
+  SpatialFilter,
 } from "../types";
 import {
   resourceCategoryName,
@@ -24,6 +26,10 @@ export function createVectorLayerGroup(
   resource: ResourceListItem,
   profile: DataResourceProfile,
   queryResult: ResourceQueryResult,
+  query?: {
+    attributeFilters: AttributeFilter[];
+    spatialFilter: SpatialFilter | null;
+  },
 ): LoadedLayerGroup {
   const now = new Date();
   const groupId = `query-${resource.id}-${now.getTime()}`;
@@ -68,6 +74,7 @@ export function createVectorLayerGroup(
         },
         symbolization: cloneDefaultVectorSymbolization(),
         fields: queryResult.fields,
+        query,
       } satisfies LoadedVectorLayer,
     ],
   };

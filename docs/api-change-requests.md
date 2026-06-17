@@ -22,6 +22,7 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260615-002 | ContractReady | GET /api/login/overview/ | new endpoint | Done | Done | Pending | Pending | Login page public overview contract |
 | API-20260616-001 | Implementing | Multiple catalog/admin/auth endpoints | new endpoints, response fields, permission behavior | Done | Updating | Implementing | Pending | Layer workspace snapshots, upload duplicate detection, data overview stats |
 | API-20260617-001 | BackendReady | POST /api/auth/guest-login/ | new endpoint, permission behavior | Done | N/A | Done | Done | Dedicated guest login account and group |
+| API-20260617-002 | BackendReady | POST /api/catalog/workspaces/; POST /api/catalog/workspaces/{workspaceId}/ | request body, status code | Done | N/A | Done | Done | Workspace snapshots store references, not raw data |
 
 ## Entry Template
 
@@ -77,6 +78,19 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Backend implementation notes: Add `WorkspaceScene`; persist `DataResource.size_bytes` and `item_count`; treat `DataResource.maintainer` as uploader; enforce workspace ownership; reject duplicate import targets when `overwrite=false`; initialize default `普通用户` group with upload/load/query permissions.
 - Verification: run `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check && pnpm run mock:build`, plus backend workspace/import/dashboard/auth tests.
 - Result: Backend and frontend implementation in progress.
+
+## API-20260617-002 - Workspace Snapshot Raw Data Guard
+
+- Status: BackendReady
+- Owner: Frontend / Backend
+- Endpoints: `POST /api/catalog/workspaces/`, `POST /api/catalog/workspaces/{workspaceId}/`
+- Change type: request body, status code
+- OpenAPI change: Clarifies that `WorkspaceSceneSnapshot` is a lightweight snapshot containing layer structure, query conditions, spatial ranges, resource references, symbolization, raster rendering references, and view state; raw GeoJSON feature collections, table rows, and query result data bodies are not allowed. Oversized workspace save requests return 413.
+- Mock examples: N/A; behavior is covered by backend integration tests rather than Prism examples.
+- Frontend reason: Saving 工程/专题 must persist how to reproduce the current workspace, not duplicate source/query data into `WorkspaceScene.snapshot`.
+- Backend implementation notes: Reject snapshots containing `geojson` or `FeatureCollection.features`; check workspace save body size before reading `request.body` to avoid `RequestDataTooBig` security log tracebacks.
+- Verification: run backend workspace API tests and `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check`.
+- Result: Backend guard and frontend lightweight snapshot serialization implemented.
 
 ## API-20260617-001 - Dedicated Guest Login
 

@@ -56,6 +56,8 @@ import type {
   ResourceFilters,
   ResourceListItem,
   ResourceQueryResult,
+  SavedWorkspaceLayer,
+  SavedWorkspaceLayerGroup,
   SpatialFilter,
   WorkspaceScene,
   WorkspaceSceneKind,
@@ -439,7 +441,10 @@ export default function MapPage() {
         );
         return;
       }
-      const group = createVectorLayerGroup(resource, profile, result);
+      const group = createVectorLayerGroup(resource, profile, result, {
+        attributeFilters,
+        spatialFilter: options.spatialFilter,
+      });
       layerGroups.addGroup(group);
       setSelectedLayerId(group.children[0]?.id ?? null);
       setDataPanelOpen(false);
@@ -685,14 +690,121 @@ export default function MapPage() {
     [currentMapView, layerGroups.groups, message, selectedLayerId],
   );
 
+  const restoreWorkspaceGroups = useCallback(
+    async (
+      savedGroups: WorkspaceSceneSnapshot["groups"],
+    ): Promise<LoadedLayerGroup[]> => {
+      if (!Array.isArray(savedGroups)) {
+        return [];
+      }
+      const restored: LoadedLayerGroup[] = [];
+      for (const savedGroup of savedGroups) {
+        const restoredChildren: LoadedLayer[] = [];
+        for (const savedLayer of savedGroup.children ?? []) {
+          if (isLoadedVectorLayer(savedLayer)) {
+            restoredChildren.push(savedLayer);
+            continue;
+          }
+          if (savedLayer.layerType === "vector") {
+            if (
+              !savedLayer.query ||
+              !permissions.canQueryData ||
+              !permissions.canLoadVectorLayer
+            ) {
+              continue;
+            }
+            try {
+              const profile = await api.resourceProfile(
+                savedLayer.sourceResource,
+              );
+              const result = await api.queryResource(
+                savedLayer.sourceResource,
+                {
+                  attributeFilters: savedLayer.query.attributeFilters,
+                  spatialFilter: savedLayer.query.spatialFilter,
+                  limit: bootstrap.limits.queryResultLimit,
+                },
+              );
+              showGeojsonWarnings(notification, result.warnings);
+              const queryGroup = createVectorLayerGroup(
+                savedLayer.sourceResource,
+                profile,
+                result,
+                savedLayer.query,
+              );
+              const queryLayer = queryGroup.children[0];
+              if (queryLayer?.layerType === "vector") {
+                restoredChildren.push({
+                  ...queryLayer,
+                  id: savedLayer.id,
+                  name: savedLayer.name,
+                  visible: savedLayer.visible,
+                  summary: savedLayer.summary,
+                  metadata: savedLayer.metadata,
+                  symbolization:
+                    savedLayer.symbolization as LoadedVectorLayer["symbolization"],
+                  fields: savedLayer.fields,
+                });
+              }
+            } catch (error) {
+              message.warning(
+                error instanceof Error
+                  ? `图层“${savedLayer.name}”恢复失败：${error.message}`
+                  : `图层“${savedLayer.name}”恢复失败`,
+              );
+            }
+            continue;
+          }
+          restoredChildren.push({
+            id: savedLayer.id,
+            name: savedLayer.name,
+            layerType: "raster",
+            sourceResource: savedLayer.sourceResource as DataResource,
+            tileUrl: savedLayer.tileUrl,
+            imageCoordinates: savedLayer.imageCoordinates,
+            rasterDatasetId: savedLayer.rasterDatasetId,
+            rasterLayerId: savedLayer.rasterLayerId,
+            rasterMetadata: savedLayer.rasterMetadata,
+            renderStatus: savedLayer.renderStatus,
+            renderProgress: savedLayer.renderProgress,
+            renderMessages: savedLayer.renderMessages,
+            geometryType: savedLayer.geometryType,
+            visible: savedLayer.visible,
+            summary: savedLayer.summary,
+            metadata: savedLayer.metadata,
+            symbolization:
+              savedLayer.symbolization as LoadedRasterLayer["symbolization"],
+            fields: savedLayer.fields,
+          });
+        }
+        if (restoredChildren.length > 0) {
+          restored.push({ ...savedGroup, children: restoredChildren });
+        }
+      }
+      return restored;
+    },
+    [
+      bootstrap.limits.queryResultLimit,
+      message,
+      notification,
+      permissions.canLoadVectorLayer,
+      permissions.canQueryData,
+    ],
+  );
+
   const loadWorkspaceScene = useCallback(
-    (scene: WorkspaceScene) => {
+    async (scene: WorkspaceScene) => {
       const snapshot = scene.snapshot as WorkspaceSceneSnapshot;
       if (!Array.isArray(snapshot.groups)) {
         message.warning("该工作区快照不包含可恢复的图层");
         return;
       }
-      layerGroups.replaceGroups(snapshot.groups);
+      const restoredGroups = await restoreWorkspaceGroups(snapshot.groups);
+      if (restoredGroups.length === 0) {
+        message.warning("该工作区快照没有可恢复的图层");
+        return;
+      }
+      layerGroups.replaceGroups(restoredGroups);
       setSelectedLayerId(snapshot.selectedLayerId ?? null);
       setTableLayer(null);
       setSelectedFeature(null);
@@ -710,7 +822,7 @@ export default function MapPage() {
         `已加载${scene.kind === "project" ? "工程" : "专题"}：${scene.name}`,
       );
     },
-    [layerGroups, message],
+    [layerGroups, message, restoreWorkspaceGroups],
   );
 
   const layerContextValue: LayerContextValue = {
@@ -1020,12 +1132,69 @@ function workspaceSnapshot(
   mapView: MapViewState | null,
 ): WorkspaceSceneSnapshot {
   return {
-    version: 1,
-    groups,
+    version: 2,
+    groups: groups.map(toSavedWorkspaceGroup),
     selectedLayerId,
     mapView,
     savedAt: new Date().toISOString(),
   };
+}
+
+function toSavedWorkspaceGroup(
+  group: LoadedLayerGroup,
+): SavedWorkspaceLayerGroup {
+  return {
+    ...group,
+    children: group.children.map(toSavedWorkspaceLayer),
+  };
+}
+
+function toSavedWorkspaceLayer(layer: LoadedLayer): SavedWorkspaceLayer {
+  const base = {
+    id: layer.id,
+    name: layer.name,
+    layerType: layer.layerType,
+    sourceResource: layer.sourceResource,
+    geometryType: layer.geometryType,
+    visible: layer.visible,
+    summary: layer.summary,
+    metadata: layer.metadata,
+    symbolization: layer.symbolization,
+    fields: layer.fields,
+  };
+  if (layer.layerType === "vector") {
+    return {
+      ...base,
+      layerType: "vector",
+      query: layer.query ?? {
+        attributeFilters: [],
+        spatialFilter: null,
+      },
+    };
+  }
+  return {
+    ...base,
+    layerType: "raster",
+    tileUrl: layer.tileUrl,
+    imageCoordinates: layer.imageCoordinates,
+    rasterDatasetId: layer.rasterDatasetId,
+    rasterLayerId: layer.rasterLayerId,
+    rasterMetadata: layer.rasterMetadata,
+    renderStatus: layer.renderStatus,
+    renderProgress: layer.renderProgress,
+    renderMessages: layer.renderMessages,
+  };
+}
+
+function isLoadedVectorLayer(
+  layer: SavedWorkspaceLayer | LoadedLayer,
+): layer is LoadedVectorLayer {
+  return (
+    layer.layerType === "vector" &&
+    "geojson" in layer &&
+    typeof layer.geojson === "object" &&
+    layer.geojson !== null
+  );
 }
 
 function showGeojsonWarnings(

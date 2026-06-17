@@ -630,7 +630,7 @@ export interface paths {
         put?: never;
         /**
          * 保存工程或专题
-         * @description 将当前工作台图层树、顺序、显隐和可视化方案保存为当前用户私有工程或专题。
+         * @description 将当前工作台图层树、顺序、显隐、查询条件、范围、资源引用和可视化方案保存为当前用户私有工程或专题；不得提交原始 GeoJSON 要素集合或查询结果数据本体。
          */
         post: operations["createCatalogWorkspace"];
         delete?: never;
@@ -654,7 +654,7 @@ export interface paths {
         put?: never;
         /**
          * 更新或删除工程专题
-         * @description 更新当前用户拥有的工程/专题快照，或提交 action=delete 删除。
+         * @description 更新当前用户拥有的工程/专题轻量快照，或提交 action=delete 删除；snapshot 不得包含原始 GeoJSON 要素集合或查询结果数据本体。
          */
         post: operations["updateCatalogWorkspace"];
         delete?: never;
@@ -2176,7 +2176,7 @@ export interface components {
             /** @description 展示名称；未记录时为“未记录” */
             displayName: string;
         };
-        /** @description 工作台快照 JSON。前端保存图层组、顺序、显隐、符号化、栅格渲染元数据和视图状态，后端仅持久化不解释。 */
+        /** @description 工作台轻量快照 JSON。前端只保存图层组、顺序、显隐、查询条件、空间范围、资源引用、符号化、栅格渲染引用元数据和视图状态；不得包含 geojson、FeatureCollection.features、属性表行或原始查询结果数据本体。后端拒绝含原始要素集合或超大请求体的快照。 */
         WorkspaceSceneSnapshot: {
             [key: string]: unknown;
         };
