@@ -622,6 +622,27 @@ body {
   margin-bottom: 18px;
 }
 
+.login-secondary-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+
+  & .ant-btn {
+    width: 100%;
+  }
+}
+
+.login-secondary-actions-single {
+  grid-template-columns: 1fr;
+}
+
+.login-secondary-action.ant-btn {
+  height: 34px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
 .login-security-note {
   display: flex;
   align-items: center;

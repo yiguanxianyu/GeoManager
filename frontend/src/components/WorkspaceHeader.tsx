@@ -111,6 +111,10 @@ export default function WorkspaceHeader({
   const effectiveResources = resources ?? localResources;
   const effectiveWorkspaceScenes = workspaceScenes ?? localWorkspaceScenes;
   const effectiveAchievements = achievements ?? localAchievements;
+  const isGuestUser =
+    user?.username === "guest" || Boolean(user?.roles.includes("游客"));
+  const showAdminTab =
+    Boolean(user?.permissions.canAccessAdmin) && !isGuestUser;
 
   useEffect(() => {
     setSearchText(searchKeyword);
@@ -763,20 +767,22 @@ export default function WorkspaceHeader({
             <BookOutlined aria-hidden="true" style={{ fontSize: 16 }} />
             <span className="tab-text">成果目录</span>
           </Button>
-          <Button
-            type="text"
-            className={tabClass(
-              activeTab === "admin",
-              expandedTabId === "admin",
-            )}
-            onClick={() => navigateFromHeader("/admin")}
-            onMouseEnter={() => scheduleTabHoverExpand("admin")}
-            onMouseLeave={collapseTabHover}
-            title="后台管理"
-          >
-            <SettingOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-            <span className="tab-text">后台管理</span>
-          </Button>
+          {showAdminTab && (
+            <Button
+              type="text"
+              className={tabClass(
+                activeTab === "admin",
+                expandedTabId === "admin",
+              )}
+              onClick={() => navigateFromHeader("/admin")}
+              onMouseEnter={() => scheduleTabHoverExpand("admin")}
+              onMouseLeave={collapseTabHover}
+              title="后台管理"
+            >
+              <SettingOutlined aria-hidden="true" style={{ fontSize: 16 }} />
+              <span className="tab-text">后台管理</span>
+            </Button>
+          )}
           <Popover
             trigger="click"
             placement="bottom"

@@ -6,6 +6,7 @@ import {
   LockOutlined,
   LoginOutlined,
   SafetyCertificateOutlined,
+  UserAddOutlined,
   UserOutlined,
   UserSwitchOutlined,
 } from "@ant-design/icons";
@@ -311,20 +312,33 @@ export default function LoginPage() {
               >
                 登录并进入三维地球
               </Button>
-              <Button
-                block
-                loading={submitting}
-                icon={<UserSwitchOutlined style={{ fontSize: 16 }} />}
-                size="large"
-                onClick={handleGuestLogin}
+              <div
+                className={
+                  bootstrap.allowRegistration
+                    ? "login-secondary-actions"
+                    : "login-secondary-actions login-secondary-actions-single"
+                }
               >
-                游客登录
-              </Button>
-              {bootstrap.allowRegistration && (
-                <Button type="link" block onClick={() => setMode("register")}>
-                  注册新账号
+                <Button
+                  type="link"
+                  className="login-secondary-action"
+                  loading={submitting}
+                  icon={<UserSwitchOutlined style={{ fontSize: 16 }} />}
+                  onClick={handleGuestLogin}
+                >
+                  游客登录
                 </Button>
-              )}
+                {bootstrap.allowRegistration && (
+                  <Button
+                    type="link"
+                    className="login-secondary-action"
+                    icon={<UserAddOutlined style={{ fontSize: 16 }} />}
+                    onClick={() => setMode("register")}
+                  >
+                    注册新账号
+                  </Button>
+                )}
+              </div>
               <div className="login-security-note">
                 <SafetyCertificateOutlined style={{ fontSize: 16 }} />
                 <span>后台功能和数据范围将在登录后按账号权限显示。</span>

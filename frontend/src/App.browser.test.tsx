@@ -237,6 +237,9 @@ describe("application critical flows", () => {
       await screen.findByText("资源中心", {}, { timeout: 10000 }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("map-canvas")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /后台管理/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("allows authenticated users to enter the admin route", async () => {
