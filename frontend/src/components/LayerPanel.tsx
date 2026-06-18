@@ -29,11 +29,21 @@ import {
   Segmented,
   Select,
   Space,
+  Spin,
   Switch,
   Tooltip,
   Typography,
 } from "antd";
-import { type DragEvent, useEffect, useMemo, useState } from "react";
+import {
+  type DragEvent,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   type DropPlacement,
   type LayerDropPlacement,
@@ -53,11 +63,22 @@ import type {
   WorkspaceSceneKind,
 } from "../types";
 import { resourceExportId } from "../utils/resources";
-import {
-  GroupSymbolizationEditor,
-  RasterSymbolizationEditor,
-  VectorSymbolizationEditor,
-} from "./SymbolizationEditor";
+
+const GroupSymbolizationEditor = lazy(() =>
+  import("./SymbolizationEditor").then((module) => ({
+    default: module.GroupSymbolizationEditor,
+  })),
+);
+const RasterSymbolizationEditor = lazy(() =>
+  import("./SymbolizationEditor").then((module) => ({
+    default: module.RasterSymbolizationEditor,
+  })),
+);
+const VectorSymbolizationEditor = lazy(() =>
+  import("./SymbolizationEditor").then((module) => ({
+    default: module.VectorSymbolizationEditor,
+  })),
+);
 
 export default function LayerPanel() {
   const ctx = useLayerContext();
@@ -86,6 +107,19 @@ export default function LayerPanel() {
   const [saveMode, setSaveMode] = useState<"create" | "update">("create");
   const [saveOpen, setSaveOpen] = useState(false);
   const [savingWorkspace, setSavingWorkspace] = useState(false);
+  const groupDragFrameRef = useRef<number | null>(null);
+  const groupDragPendingRef = useRef<{
+    element: HTMLElement;
+    clientY: number;
+    targetGroupId: string;
+  } | null>(null);
+  const layerDragFrameRef = useRef<number | null>(null);
+  const layerDragPendingRef = useRef<{
+    element: HTMLElement;
+    clientY: number;
+    targetGroupId: string;
+    targetLayerId: string;
+  } | null>(null);
   const selectedSaveTargetId = Form.useWatch("targetId", saveForm);
   const saveTargetScenes = useMemo(
     () => ctx.workspaceScenes.filter((scene) => scene.kind === saveKind),
@@ -114,6 +148,101 @@ export default function LayerPanel() {
       })
       .filter((group) => group.children.length > 0);
   }, [groups, query]);
+
+  const setDragTargetIfChanged = useCallback(
+    (next: { groupId: string; placement: DropPlacement } | null) => {
+      setDragTarget((current) =>
+        current?.groupId === next?.groupId &&
+        current?.placement === next?.placement
+          ? current
+          : next,
+      );
+    },
+    [],
+  );
+
+  const setLayerDropTargetIfChanged = useCallback(
+    (
+      next: {
+        groupId: string;
+        layerId: string | null;
+        placement: LayerDropPlacement;
+      } | null,
+    ) => {
+      setLayerDropTarget((current) =>
+        current?.groupId === next?.groupId &&
+        current?.layerId === next?.layerId &&
+        current?.placement === next?.placement
+          ? current
+          : next,
+      );
+    },
+    [],
+  );
+
+  const scheduleGroupDragTarget = useCallback(
+    (element: HTMLElement, clientY: number, targetGroupId: string) => {
+      groupDragPendingRef.current = { element, clientY, targetGroupId };
+      if (groupDragFrameRef.current !== null) return;
+      groupDragFrameRef.current = window.requestAnimationFrame(() => {
+        groupDragFrameRef.current = null;
+        const pending = groupDragPendingRef.current;
+        groupDragPendingRef.current = null;
+        if (!pending) return;
+        const rect = pending.element.getBoundingClientRect();
+        const placement =
+          pending.clientY < rect.top + rect.height / 2 ? "before" : "after";
+        setDragTargetIfChanged({
+          groupId: pending.targetGroupId,
+          placement,
+        });
+      });
+    },
+    [setDragTargetIfChanged],
+  );
+
+  const scheduleLayerDragTarget = useCallback(
+    (
+      element: HTMLElement,
+      clientY: number,
+      targetGroupId: string,
+      targetLayerId: string,
+    ) => {
+      layerDragPendingRef.current = {
+        element,
+        clientY,
+        targetGroupId,
+        targetLayerId,
+      };
+      if (layerDragFrameRef.current !== null) return;
+      layerDragFrameRef.current = window.requestAnimationFrame(() => {
+        layerDragFrameRef.current = null;
+        const pending = layerDragPendingRef.current;
+        layerDragPendingRef.current = null;
+        if (!pending) return;
+        const rect = pending.element.getBoundingClientRect();
+        const placement =
+          pending.clientY < rect.top + rect.height / 2 ? "before" : "after";
+        setLayerDropTargetIfChanged({
+          groupId: pending.targetGroupId,
+          layerId: pending.targetLayerId,
+          placement,
+        });
+      });
+    },
+    [setLayerDropTargetIfChanged],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (groupDragFrameRef.current !== null) {
+        window.cancelAnimationFrame(groupDragFrameRef.current);
+      }
+      if (layerDragFrameRef.current !== null) {
+        window.cancelAnimationFrame(layerDragFrameRef.current);
+      }
+    };
+  }, []);
 
   const keyword = query.trim();
 
@@ -193,10 +322,7 @@ export default function LayerPanel() {
     }
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    const rect = event.currentTarget.getBoundingClientRect();
-    const placement =
-      event.clientY < rect.top + rect.height / 2 ? "before" : "after";
-    setDragTarget({ groupId: targetGroupId, placement });
+    scheduleGroupDragTarget(event.currentTarget, event.clientY, targetGroupId);
   }
 
   function handleDrop(event: DragEvent<HTMLElement>, targetGroupId: string) {
@@ -238,7 +364,7 @@ export default function LayerPanel() {
     if (!sourceLayer) return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    setLayerDropTarget({
+    setLayerDropTargetIfChanged({
       groupId: targetGroupId,
       layerId: null,
       placement: "inside",
@@ -257,14 +383,12 @@ export default function LayerPanel() {
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = "move";
-    const rect = event.currentTarget.getBoundingClientRect();
-    const placement =
-      event.clientY < rect.top + rect.height / 2 ? "before" : "after";
-    setLayerDropTarget({
-      groupId: targetGroupId,
-      layerId: targetLayerId,
-      placement,
-    });
+    scheduleLayerDragTarget(
+      event.currentTarget,
+      event.clientY,
+      targetGroupId,
+      targetLayerId,
+    );
   }
 
   function handleLayerDrop(
@@ -1045,7 +1169,11 @@ function NodeActions({
           classNames={{ root: "symbolization-popover" }}
           open={symbolizationOpen}
           onOpenChange={handleSymbolizationOpenChange}
-          content={renderSymbolizationEditor()}
+          content={
+            <Suspense fallback={<Spin size="small" />}>
+              {renderSymbolizationEditor()}
+            </Suspense>
+          }
         >
           <Tooltip title="符号化">
             <Button

@@ -13,7 +13,7 @@ import mapboxgl, {
   type MapboxOptions,
 } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import {
   applyChineseBasemapLanguage,
   createBasemapStyle,
@@ -37,6 +37,7 @@ import {
   fitBoundsOptionsForVisibleFrame,
   readVisibleMapViewState,
 } from "../map/visibleViewport";
+import { getMapState } from "../map/mapState";
 import type {
   Bootstrap,
   FeatureInfo,
@@ -107,9 +108,9 @@ export default function MapCanvas({
 }: Props) {
   const mapRef = useRef<MapboxMap | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [pointerLngLat, setPointerLngLat] = useState<[number, number] | null>(
-    null,
-  );
+  const coordinatePanelRef = useRef<HTMLDivElement | null>(null);
+  const pointerUpdateFrameRef = useRef<number | null>(null);
+  const resizeFrameRef = useRef<number | null>(null);
   const mapConfig = bootstrap.map;
   const mapboxToken = mapConfig.mapboxAccessToken;
   const shouldUseMapboxStyle = shouldUseMapboxBasemap(mapConfig);
@@ -151,22 +152,41 @@ export default function MapCanvas({
       new mapboxgl.ScaleControl({ unit: "metric" }),
       "bottom-left",
     );
-    const updatePointer = (event: mapboxgl.MapMouseEvent) => {
-      if (!map.isPointOnSurface(event.point)) {
-        setPointerLngLat(null);
-        return;
+    const updatePointerPanel = (lngLat: [number, number] | null) => {
+      if (pointerUpdateFrameRef.current !== null) {
+        window.cancelAnimationFrame(pointerUpdateFrameRef.current);
       }
-      setPointerLngLat(normalizeDisplayLngLat(event.lngLat));
+      pointerUpdateFrameRef.current = window.requestAnimationFrame(() => {
+        pointerUpdateFrameRef.current = null;
+        const panel = coordinatePanelRef.current;
+        if (!panel) return;
+        panel.textContent = lngLat
+          ? `经度 ${lngLat[0].toFixed(4)}  纬度 ${lngLat[1].toFixed(4)}`
+          : "经纬度 --";
+      });
     };
-    const clearPointer = () => setPointerLngLat(null);
+    const updatePointer = (event: mapboxgl.MapMouseEvent) => {
+      updatePointerPanel(
+        map.isPointOnSurface(event.point)
+          ? normalizeDisplayLngLat(event.lngLat)
+          : null,
+      );
+    };
+    const clearPointer = () => updatePointerPanel(null);
     map.on("mousemove", updatePointer);
     map.on("mouseleave", clearPointer);
     const emitViewState = () => {
       onViewStateChange?.(readVisibleMapViewState(map));
     };
     const resizeAndEmitViewState = () => {
-      map.resize();
-      emitViewState();
+      if (resizeFrameRef.current !== null) {
+        return;
+      }
+      resizeFrameRef.current = window.requestAnimationFrame(() => {
+        resizeFrameRef.current = null;
+        map.resize();
+        emitViewState();
+      });
     };
     map.on("load", emitViewState);
     map.on("moveend", emitViewState);
@@ -187,6 +207,14 @@ export default function MapCanvas({
       window.removeEventListener("resize", resizeAndEmitViewState);
       map.off("mousemove", updatePointer);
       map.off("mouseleave", clearPointer);
+      if (pointerUpdateFrameRef.current !== null) {
+        window.cancelAnimationFrame(pointerUpdateFrameRef.current);
+        pointerUpdateFrameRef.current = null;
+      }
+      if (resizeFrameRef.current !== null) {
+        window.cancelAnimationFrame(resizeFrameRef.current);
+        resizeFrameRef.current = null;
+      }
       onMapDestroy?.();
       map.remove();
       mapRef.current = null;
@@ -280,18 +308,12 @@ export default function MapCanvas({
       <div ref={containerRef} className="map-container" />
       <div className="map-toolbar">
         <div
+          ref={coordinatePanelRef}
           className="map-coordinate-panel"
           role="status"
           aria-label="鼠标位置经纬度"
         >
-          {pointerLngLat ? (
-            <>
-              <span>经度 {pointerLngLat[0].toFixed(4)}</span>
-              <span>纬度 {pointerLngLat[1].toFixed(4)}</span>
-            </>
-          ) : (
-            <span>经纬度 --</span>
-          )}
+          经纬度 --
         </div>
         <Tooltip title="复位到项目范围">
           <Button
@@ -373,11 +395,12 @@ function syncLoadedLayers(
     ...renderableRasterLayers.map((l) => sourceIdFor(l.id)),
   ]);
 
-  const existing =
-    (map as unknown as { __loadedSources?: Set<string> }).__loadedSources ??
-    new Set<string>();
-  for (const sourceId of existing) {
-    if (!activeIds.has(sourceId)) removeLoadedLayerGroup(map, sourceId);
+  const state = getMapState(map);
+  for (const sourceId of state.loadedSourceIds) {
+    if (!activeIds.has(sourceId)) {
+      removeLoadedLayerGroup(map, sourceId);
+      state.sourceDataRefs.delete(sourceId);
+    }
   }
 
   const newVectorBounds: LngLatBounds[] = [];
@@ -394,12 +417,14 @@ function syncLoadedLayers(
         data: layer.geojson as never,
         generateId: true,
       });
+      state.sourceDataRefs.set(sourceId, layer.geojson);
       const bounds = combinedFeatureBounds([layer.geojson]);
       if (bounds) newVectorBounds.push(bounds);
-    } else {
+    } else if (state.sourceDataRefs.get(sourceId) !== layer.geojson) {
       (map.getSource(sourceId) as GeoJSONSource).setData(
         layer.geojson as never,
       );
+      state.sourceDataRefs.set(sourceId, layer.geojson);
     }
     addLoadedStyleLayers(map, sourceId, layer);
   }
@@ -435,8 +460,7 @@ function syncLoadedLayers(
     ...renderableRasterLayers,
   ]);
   syncVectorInteractions(map, renderableVectorLayers, onFeatureSelect);
-  (map as unknown as { __loadedSources: Set<string> }).__loadedSources =
-    activeIds;
+  state.loadedSourceIds = activeIds;
 }
 
 function hideAdministrativeBoundaries(map: MapboxMap) {

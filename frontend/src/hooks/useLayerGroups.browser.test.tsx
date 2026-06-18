@@ -48,8 +48,9 @@ describe("useLayerGroups", () => {
     const { result } = renderHook(() => useLayerGroups());
 
     await waitFor(() => {
-      expect(writeCachedLayerGroupsMock).toHaveBeenCalledWith("default", []);
+      expect(readCachedLayerGroupsMock).toHaveBeenCalledWith("default");
     });
+    expect(writeCachedLayerGroupsMock).not.toHaveBeenCalled();
     act(() => {
       result.current.addGroup(makeGroup("persisted"));
     });
@@ -66,8 +67,8 @@ describe("useLayerGroups", () => {
 
     await waitFor(() => {
       expect(readCachedLayerGroupsMock).toHaveBeenCalledWith("user-7");
-      expect(writeCachedLayerGroupsMock).toHaveBeenCalledWith("user-7", []);
     });
+    expect(writeCachedLayerGroupsMock).not.toHaveBeenCalled();
   });
 
   it("prepends new groups and updates group-level state", () => {

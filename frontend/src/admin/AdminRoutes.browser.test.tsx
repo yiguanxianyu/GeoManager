@@ -14,10 +14,6 @@ import { RequireDataMaintain } from "../router";
 import { appTheme } from "../theme";
 import type { Bootstrap, User } from "../types";
 
-vi.mock("@ant-design/charts", () => ({
-  Column: () => <div data-testid="active-chart" />,
-}));
-
 import AdminAuthPage from "./AdminAuthPage";
 import AdminDashboardPage from "./AdminDashboardPage";
 import AdminDataImportPage from "./AdminDataImportPage";

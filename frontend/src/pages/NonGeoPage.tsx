@@ -157,8 +157,7 @@ export default function NonGeoPage() {
   const [resources, setResources] = useState<ResourceListItem[]>([]);
   const [resourceKeyword, setResourceKeyword] = useState("");
   const [resourceType, setResourceType] = useState<ResourceTypeFilter>("all");
-  const [activeLeftPanel, setActiveLeftPanel] =
-    useState<LeftPanelKey>("data");
+  const [activeLeftPanel, setActiveLeftPanel] = useState<LeftPanelKey>("data");
   const [activeResourceId, setActiveResourceId] = useState<number | null>(null);
   const [loadingResources, setLoadingResources] = useState(false);
   const [analytics, setAnalytics] = useState<NonGeoAnalytics | null>(null);
@@ -176,7 +175,8 @@ export default function NonGeoPage() {
   const selectedResource = useMemo(
     () =>
       resources.find(
-        (resource) => isDataResource(resource) && resource.id === activeResourceId,
+        (resource) =>
+          isDataResource(resource) && resource.id === activeResourceId,
       ) ?? null,
     [activeResourceId, resources],
   );
@@ -187,10 +187,7 @@ export default function NonGeoPage() {
       if (!isDataResource(resource)) {
         return false;
       }
-      if (
-        resourceType !== "all" &&
-        resource.dataType !== resourceType
-      ) {
+      if (resourceType !== "all" && resource.dataType !== resourceType) {
         return false;
       }
       if (!keyword) {
@@ -216,7 +213,9 @@ export default function NonGeoPage() {
   const lifeFormDistribution =
     analytics?.categoricalDistributions.find((item) =>
       item.field.includes("生活型"),
-    ) ?? analytics?.categoricalDistributions[2] ?? null;
+    ) ??
+    analytics?.categoricalDistributions[2] ??
+    null;
   const numericDistributions = analytics?.numericDistributions ?? [];
   const primaryNumeric =
     numericDistributions.find((item) => item.field === selectedMetricField) ??
@@ -226,8 +225,10 @@ export default function NonGeoPage() {
     numericDistributions.find((item) => item.field !== primaryNumeric?.field) ??
     numericDistributions[1] ??
     null;
-  const measureFields = analytics?.fields.filter((field) => field.role === "measure") ?? [];
-  const categoryFields = analytics?.fields.filter((field) => field.role === "category") ?? [];
+  const measureFields =
+    analytics?.fields.filter((field) => field.role === "measure") ?? [];
+  const categoryFields =
+    analytics?.fields.filter((field) => field.role === "category") ?? [];
 
   const loadResources = useCallback(async () => {
     if (!canBrowseData) {
@@ -263,27 +264,22 @@ export default function NonGeoPage() {
     }
   }, [canBrowseData, message]);
 
-  const loadAnalytics = useCallback(
-    async (resourceId: number) => {
-      setLoadingAnalytics(true);
-      setAnalyticsError("");
-      setTableResult(null);
-      try {
-        const response = await api.nonGeoAnalytics(resourceId);
-        setAnalytics(response);
-      } catch (error) {
-        setAnalytics(null);
-        setAnalyticsError(
-          error instanceof Error
-            ? error.message
-            : "非地理分析接口暂不可用",
-        );
-      } finally {
-        setLoadingAnalytics(false);
-      }
-    },
-    [],
-  );
+  const loadAnalytics = useCallback(async (resourceId: number) => {
+    setLoadingAnalytics(true);
+    setAnalyticsError("");
+    setTableResult(null);
+    try {
+      const response = await api.nonGeoAnalytics(resourceId);
+      setAnalytics(response);
+    } catch (error) {
+      setAnalytics(null);
+      setAnalyticsError(
+        error instanceof Error ? error.message : "非地理分析接口暂不可用",
+      );
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  }, []);
 
   const queryTable = useCallback(async () => {
     if (!activeResourceId) {
@@ -367,7 +363,10 @@ export default function NonGeoPage() {
           </span>
         ),
         children: (
-          <CompositionContent analytics={analytics} selected={primaryCategory} />
+          <CompositionContent
+            analytics={analytics}
+            selected={primaryCategory}
+          />
         ),
       },
       {
@@ -418,7 +417,7 @@ export default function NonGeoPage() {
 
   const activeView =
     analysisViewOptions.find((item) => item.key === analysisTab) ??
-    analysisViewOptions[0];
+    analysisViewOptions[0]!;
   const dataTypeLabel =
     resourceType === "table"
       ? "生态表格"
@@ -544,7 +543,9 @@ export default function NonGeoPage() {
               <span>
                 <small>完整率</small>
                 <strong>
-                  {analytics ? formatPercent(analytics.summary.completeness) : "-"}
+                  {analytics
+                    ? formatPercent(analytics.summary.completeness)
+                    : "-"}
                 </strong>
               </span>
             </div>
@@ -687,14 +688,25 @@ export default function NonGeoPage() {
             {analytics ? (
               <>
                 <section className="nongeo-resource-profile">
-                  <Typography.Text strong>{analytics.resource.name}</Typography.Text>
+                  <Typography.Text strong>
+                    {analytics.resource.name}
+                  </Typography.Text>
                   <Typography.Paragraph ellipsis={{ rows: 3 }}>
-                    {analytics.resource.description || "暂无资源描述"}
+                    {"description" in analytics.resource &&
+                    analytics.resource.description
+                      ? analytics.resource.description
+                      : "暂无资源描述"}
                   </Typography.Paragraph>
                   <div className="nongeo-profile-tags">
-                    <Tag color="cyan">{resourceFormatLabel(analytics.resource)}</Tag>
-                    <Tag>{resourceCategoryName(analytics.resource) ?? "未分类"}</Tag>
-                    <Tag>{resourceProvider(analytics.resource) || "未记录单位"}</Tag>
+                    <Tag color="cyan">
+                      {resourceFormatLabel(analytics.resource)}
+                    </Tag>
+                    <Tag>
+                      {resourceCategoryName(analytics.resource) ?? "未分类"}
+                    </Tag>
+                    <Tag>
+                      {resourceProvider(analytics.resource) || "未记录单位"}
+                    </Tag>
                   </div>
                 </section>
                 <MetricRing value={analytics.summary.completeness} />
@@ -783,17 +795,45 @@ function OverviewContent({
         />
       </div>
       <div className="nongeo-chart-grid nongeo-chart-grid-2">
-        <ChartBox title={primaryCategory?.label ?? "分类分布"} icon={<BarChartOutlined />}>
-          {primaryCategory ? <HorizontalBarChart data={primaryCategory} /> : <ChartEmpty />}
+        <ChartBox
+          title={primaryCategory?.label ?? "分类分布"}
+          icon={<BarChartOutlined />}
+        >
+          {primaryCategory ? (
+            <HorizontalBarChart data={primaryCategory} />
+          ) : (
+            <ChartEmpty />
+          )}
         </ChartBox>
-        <ChartBox title={lifeFormDistribution?.label ?? "构成分析"} icon={<DotChartOutlined />}>
-          {lifeFormDistribution ? <DonutChart data={lifeFormDistribution} /> : <ChartEmpty />}
+        <ChartBox
+          title={lifeFormDistribution?.label ?? "构成分析"}
+          icon={<DotChartOutlined />}
+        >
+          {lifeFormDistribution ? (
+            <DonutChart data={lifeFormDistribution} />
+          ) : (
+            <ChartEmpty />
+          )}
         </ChartBox>
-        <ChartBox title={primaryNumeric?.label ?? "数值分布"} icon={<LineChartOutlined />}>
-          {primaryNumeric ? <HistogramChart data={primaryNumeric} /> : <ChartEmpty />}
+        <ChartBox
+          title={primaryNumeric?.label ?? "数值分布"}
+          icon={<LineChartOutlined />}
+        >
+          {primaryNumeric ? (
+            <HistogramChart data={primaryNumeric} />
+          ) : (
+            <ChartEmpty />
+          )}
         </ChartBox>
-        <ChartBox title={secondaryCategory?.label ?? "分类排行"} icon={<BranchesOutlined />}>
-          {secondaryCategory ? <RankingList data={secondaryCategory} /> : <ChartEmpty />}
+        <ChartBox
+          title={secondaryCategory?.label ?? "分类排行"}
+          icon={<BranchesOutlined />}
+        >
+          {secondaryCategory ? (
+            <RankingList data={secondaryCategory} />
+          ) : (
+            <ChartEmpty />
+          )}
         </ChartBox>
       </div>
     </div>
@@ -854,7 +894,10 @@ function TraitsContent({
           <ChartEmpty />
         )}
       </ChartBox>
-      <ChartBox title={numeric?.label ?? "指标箱线概览"} icon={<LineChartOutlined />}>
+      <ChartBox
+        title={numeric?.label ?? "指标箱线概览"}
+        icon={<LineChartOutlined />}
+      >
         {numeric ? <BoxSummary data={numeric} /> : <ChartEmpty />}
       </ChartBox>
       <ChartBox title="重点字段画像" icon={<ProfileOutlined />}>
@@ -883,11 +926,7 @@ function TableContent({
             ? `展示 ${data.returnedCount} / ${data.totalCount} 条记录`
             : "暂无表格预览"}
         </Typography.Text>
-        <Button
-          icon={<ReloadOutlined />}
-          loading={querying}
-          onClick={onQuery}
-        >
+        <Button icon={<ReloadOutlined />} loading={querying} onClick={onQuery}>
           刷新明细
         </Button>
       </div>
@@ -914,11 +953,17 @@ function ResourceRow({
   onSelect: () => void;
 }) {
   const typeLabel = resource.dataType;
-  const count = isDataResource(resource) ? resource.itemCount : resource.featureCount;
+  const count = isDataResource(resource)
+    ? resource.itemCount
+    : resource.featureCount;
   return (
     <button
       type="button"
-      className={active ? "nongeo-resource-row nongeo-resource-row-active" : "nongeo-resource-row"}
+      className={
+        active
+          ? "nongeo-resource-row nongeo-resource-row-active"
+          : "nongeo-resource-row"
+      }
       onClick={onSelect}
     >
       <span className="nongeo-resource-row-top">
@@ -926,7 +971,8 @@ function ResourceRow({
         <Badge color={active ? "#28e0c2" : "#6c8790"} text={typeLabel} />
       </span>
       <span className="nongeo-resource-row-meta">
-        {resourceCategoryName(resource) ?? "未分类"} · {resourceFormatLabel(resource)}
+        {resourceCategoryName(resource) ?? "未分类"} ·{" "}
+        {resourceFormatLabel(resource)}
       </span>
       <span className="nongeo-resource-row-foot">
         <span>{formatCompact(count ?? 0)} 条</span>
@@ -1010,9 +1056,14 @@ function HorizontalBarChart({
 }) {
   const max = Math.max(...data.items.map((item) => item.count), 1);
   return (
-    <div className={compact ? "nongeo-bars nongeo-bars-compact" : "nongeo-bars"}>
+    <div
+      className={compact ? "nongeo-bars nongeo-bars-compact" : "nongeo-bars"}
+    >
       {data.items.slice(0, compact ? 6 : 8).map((item) => (
-        <div key={`${data.field}-${valueLabel(item.value)}`} className="nongeo-bar-row">
+        <div
+          key={`${data.field}-${valueLabel(item.value)}`}
+          className="nongeo-bar-row"
+        >
           <span>{valueLabel(item.value)}</span>
           <div>
             <i style={{ width: `${(item.count / max) * 100}%` }} />
@@ -1081,7 +1132,12 @@ function DonutChart({ data }: { data: CategoricalDistribution }) {
       <div className="nongeo-donut-legend">
         {data.items.slice(0, 6).map((item, itemIndex) => (
           <span key={`${data.field}-legend-${valueLabel(item.value)}`}>
-            <i style={{ background: analyticsPalette[itemIndex % analyticsPalette.length] }} />
+            <i
+              style={{
+                background:
+                  analyticsPalette[itemIndex % analyticsPalette.length],
+              }}
+            />
             {valueLabel(item.value)}
           </span>
         ))}
@@ -1192,8 +1248,9 @@ function ScatterChart({
       y: toNumber(row[yField.name]),
       label: valueLabel(row["种"] ?? row["名称"] ?? row[xField.name]),
     }))
-    .filter((point): point is { key: string; x: number; y: number; label: string } =>
-      point.x !== null && point.y !== null,
+    .filter(
+      (point): point is { key: string; x: number; y: number; label: string } =>
+        point.x !== null && point.y !== null,
     );
   if (points.length === 0) {
     return <ChartEmpty />;
@@ -1322,7 +1379,8 @@ function resourceKey(resource: ResourceListItem) {
 }
 
 function stableRowKey(row: TableRow) {
-  const preferred = row.id ?? row.ID ?? row["采集号"] ?? row["种"] ?? row["Sample"];
+  const preferred =
+    row.id ?? row.ID ?? row["采集号"] ?? row["种"] ?? row["Sample"];
   if (preferred !== undefined && preferred !== null) {
     return String(preferred);
   }

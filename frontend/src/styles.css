@@ -56,6 +56,13 @@ body {
   background: var(--c-bg-page);
 }
 
+.map-canvas-loading {
+  min-height: 100%;
+  display: grid;
+  place-items: center;
+  background: #08221f;
+}
+
 .login-shell {
   min-height: 100vh;
   position: relative;
@@ -84,7 +91,7 @@ body {
       rgba(76, 186, 221, 0.14),
       transparent 30%
     ),
-    url("./assets/login-ecosystem-bg.png");
+    url("./assets/login-ecosystem-bg.jpg");
   background-size: cover, cover, cover, cover;
   background-position: center, center, center, center;
 }
@@ -1043,6 +1050,65 @@ body {
   min-width: 0;
 }
 
+.admin-active-lite-chart {
+  height: 300px;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(34px, 1fr);
+  align-items: end;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 8px 0;
+  border-bottom: 1px solid #dfe7e1;
+  background:
+    linear-gradient(#e8ece9 1px, transparent 1px) 0 28px / 100% 58px repeat-y,
+    linear-gradient(180deg, rgba(47, 125, 98, 0.06), rgba(255, 255, 255, 0));
+  overflow-x: auto;
+}
+
+.admin-active-lite-bar {
+  height: 100%;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 22px 30px;
+  justify-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-active-lite-bar-track {
+  width: min(100%, 42px);
+  height: 100%;
+  display: flex;
+  align-items: end;
+  border-radius: 8px 8px 0 0;
+  background: rgba(47, 125, 98, 0.1);
+  overflow: hidden;
+}
+
+.admin-active-lite-bar-fill {
+  width: 100%;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(180deg, #36a781, #2f7d62);
+}
+
+.admin-active-lite-bar-value {
+  color: var(--c-primary-dark);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 22px;
+}
+
+.admin-active-lite-bar-label {
+  max-width: 100%;
+  color: var(--c-text-muted);
+  font-size: 12px;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-active-rank {
   min-width: 0;
   padding: 18px 8px 0 22px;
@@ -1416,8 +1482,16 @@ body {
   padding: 0;
   overflow: hidden;
   background:
-    radial-gradient(circle at 16% 12%, rgba(40, 224, 194, 0.13), transparent 28%),
-    radial-gradient(circle at 80% 24%, rgba(57, 200, 255, 0.11), transparent 30%),
+    radial-gradient(
+      circle at 16% 12%,
+      rgba(40, 224, 194, 0.13),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 80% 24%,
+      rgba(57, 200, 255, 0.11),
+      transparent 30%
+    ),
     linear-gradient(145deg, rgba(248, 250, 247, 0.08), rgba(56, 86, 85, 0.14)),
     rgba(250, 252, 249, 0.035);
   border: 1px solid rgba(255, 255, 255, 0.24);
@@ -1557,7 +1631,11 @@ body {
 .nongeo-workbench-tab-active {
   color: #061b1e;
   background:
-    linear-gradient(135deg, rgba(40, 224, 194, 0.92), rgba(119, 228, 255, 0.88)),
+    linear-gradient(
+      135deg,
+      rgba(40, 224, 194, 0.92),
+      rgba(119, 228, 255, 0.88)
+    ),
     #28e0c2;
   border-color: rgba(180, 255, 242, 0.64);
   box-shadow:
@@ -1665,7 +1743,11 @@ body {
   color: inherit;
   text-align: left;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.055),
+      rgba(255, 255, 255, 0.02)
+    ),
     rgba(4, 25, 32, 0.48);
   border: 1px solid rgba(95, 231, 221, 0.14);
   border-radius: 8px;
@@ -1740,7 +1822,11 @@ body {
   padding: 12px;
   color: inherit;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.02)),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.055),
+      rgba(255, 255, 255, 0.02)
+    ),
     rgba(4, 25, 32, 0.48);
   border: 1px solid rgba(95, 231, 221, 0.14);
   border-radius: 8px;
@@ -3373,7 +3459,11 @@ body {
 
 .workspace-body-nongeo {
   background:
-    linear-gradient(135deg, rgba(235, 247, 242, 0.96), rgba(226, 241, 240, 0.94)),
+    linear-gradient(
+      135deg,
+      rgba(235, 247, 242, 0.96),
+      rgba(226, 241, 240, 0.94)
+    ),
     repeating-linear-gradient(
       90deg,
       rgba(22, 110, 102, 0.05) 0 1px,
@@ -3393,8 +3483,16 @@ body {
   gap: clamp(10px, 0.8vw, 14px);
   overflow: hidden;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.66), rgba(242, 250, 247, 0.58)),
-    radial-gradient(circle at 22% 10%, rgba(35, 185, 169, 0.13), transparent 32%),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.66),
+      rgba(242, 250, 247, 0.58)
+    ),
+    radial-gradient(
+      circle at 22% 10%,
+      rgba(35, 185, 169, 0.13),
+      transparent 32%
+    ),
     radial-gradient(circle at 78% 26%, rgba(67, 153, 215, 0.1), transparent 36%);
   border-color: rgba(92, 150, 139, 0.28);
   box-shadow:
@@ -3405,7 +3503,11 @@ body {
 .workspace-body-nongeo .nongeo-panel {
   color: #173f39;
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(242, 250, 247, 0.78)),
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.86),
+      rgba(242, 250, 247, 0.78)
+    ),
     radial-gradient(circle at 12% 0, rgba(43, 198, 174, 0.12), transparent 34%);
   border-color: rgba(52, 128, 116, 0.18);
   box-shadow:
@@ -3485,7 +3587,11 @@ body {
 
 .workspace-body-nongeo .nongeo-resource-row {
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(238, 248, 244, 0.7)),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.84),
+      rgba(238, 248, 244, 0.7)
+    ),
     rgba(255, 255, 255, 0.72);
   border-color: rgba(52, 128, 116, 0.15);
   box-shadow: 0 8px 22px rgba(38, 82, 74, 0.06);
@@ -3494,7 +3600,11 @@ body {
 .workspace-body-nongeo .nongeo-resource-row:hover,
 .workspace-body-nongeo .nongeo-resource-row-active {
   background:
-    linear-gradient(135deg, rgba(206, 247, 238, 0.86), rgba(239, 252, 249, 0.82)),
+    linear-gradient(
+      135deg,
+      rgba(206, 247, 238, 0.86),
+      rgba(239, 252, 249, 0.82)
+    ),
     #ffffff;
   border-color: rgba(23, 125, 113, 0.36);
   box-shadow: 0 12px 28px rgba(35, 128, 114, 0.12);
@@ -3523,7 +3633,11 @@ body {
 
 .workspace-body-nongeo .nongeo-workbench-tabs {
   background:
-    linear-gradient(145deg, rgba(232, 246, 242, 0.9), rgba(214, 236, 230, 0.78)),
+    linear-gradient(
+      145deg,
+      rgba(232, 246, 242, 0.9),
+      rgba(214, 236, 230, 0.78)
+    ),
     rgba(218, 236, 231, 0.74);
   border-color: rgba(52, 128, 116, 0.2);
   box-shadow:
@@ -3557,7 +3671,11 @@ body {
 .workspace-body-nongeo .nongeo-workbench-tab-active {
   color: #08766e;
   background:
-    linear-gradient(135deg, rgba(204, 249, 239, 0.96), rgba(255, 255, 255, 0.94)),
+    linear-gradient(
+      135deg,
+      rgba(204, 249, 239, 0.96),
+      rgba(255, 255, 255, 0.94)
+    ),
     #ffffff;
   border-color: rgba(17, 158, 143, 0.52);
   box-shadow:
@@ -3575,7 +3693,11 @@ body {
 .workspace-body-nongeo .nongeo-topic-row,
 .workspace-body-nongeo .nongeo-current-card {
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.84), rgba(238, 248, 244, 0.7)),
+    linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.84),
+      rgba(238, 248, 244, 0.7)
+    ),
     rgba(255, 255, 255, 0.72);
   border-color: rgba(52, 128, 116, 0.15);
   box-shadow: 0 8px 22px rgba(38, 82, 74, 0.06);
@@ -3586,7 +3708,11 @@ body {
 .workspace-body-nongeo .nongeo-topic-row:hover,
 .workspace-body-nongeo .nongeo-topic-row-active {
   background:
-    linear-gradient(135deg, rgba(206, 247, 238, 0.86), rgba(239, 252, 249, 0.82)),
+    linear-gradient(
+      135deg,
+      rgba(206, 247, 238, 0.86),
+      rgba(239, 252, 249, 0.82)
+    ),
     #ffffff;
   border-color: rgba(23, 125, 113, 0.36);
   box-shadow: 0 12px 28px rgba(35, 128, 114, 0.12);
@@ -3651,7 +3777,11 @@ body {
 .workspace-body-nongeo .nongeo-metric-selector {
   color: #173f39;
   background:
-    linear-gradient(135deg, rgba(226, 251, 245, 0.86), rgba(255, 255, 255, 0.92)),
+    linear-gradient(
+      135deg,
+      rgba(226, 251, 245, 0.86),
+      rgba(255, 255, 255, 0.92)
+    ),
     #ffffff;
   border-color: rgba(22, 184, 169, 0.22);
   box-shadow:
@@ -3704,7 +3834,11 @@ body {
   gap: 10px;
   padding: clamp(10px, 0.9vw, 14px);
   background:
-    linear-gradient(135deg, rgba(233, 250, 246, 0.86), rgba(255, 255, 255, 0.78)),
+    linear-gradient(
+      135deg,
+      rgba(233, 250, 246, 0.86),
+      rgba(255, 255, 255, 0.78)
+    ),
     #ffffff;
   border-color: rgba(52, 128, 116, 0.14);
 }
@@ -3736,7 +3870,11 @@ body {
   min-height: clamp(205px, 22vh, 246px);
   padding: clamp(11px, 0.85vw, 14px);
   background:
-    linear-gradient(145deg, rgba(255, 255, 255, 0.88), rgba(241, 249, 246, 0.76)),
+    linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.88),
+      rgba(241, 249, 246, 0.76)
+    ),
     radial-gradient(circle at 20% 0, rgba(22, 184, 169, 0.1), transparent 34%);
   border-color: rgba(52, 128, 116, 0.15);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.84);

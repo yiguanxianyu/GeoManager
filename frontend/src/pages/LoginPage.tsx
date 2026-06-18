@@ -24,7 +24,7 @@ import {
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import capfedLogo from "../assets/capfed-logo.png";
+import capfedLogo from "../assets/capfed-logo.svg";
 import { oceanBorderBeam } from "../components/oceanBorderBeam";
 import { useAppContext } from "../contexts/AppContext";
 import type { LoginFormValues, RegisterFormValues } from "../types";
@@ -169,7 +169,12 @@ export default function LoginPage() {
       <section className="login-hero-panel" aria-label="平台概览">
         <header className="login-brand-head">
           <span className="login-logo-frame">
-            <img src={capfedLogo} alt={`${platformChineseName} Logo`} />
+            <img
+              src={capfedLogo}
+              alt={`${platformChineseName} Logo`}
+              width={48}
+              height={48}
+            />
           </span>
           <span className="login-brand-text">
             <strong>{platformShortName}</strong>
@@ -243,7 +248,7 @@ export default function LoginPage() {
         <Card className="login-card" variant="borderless">
           <div className="login-card-header">
             <span className="login-card-logo">
-              <img src={capfedLogo} alt="" />
+              <img src={capfedLogo} alt="" width={32} height={32} />
             </span>
             <span>
               <strong>{platformShortName}</strong>

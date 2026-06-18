@@ -22,6 +22,12 @@ export function syncVectorInteractions(
     ]) {
       if (map.getLayer(styleLayerId)) {
         activeLayerIds.add(styleLayerId);
+        getMapState(map).interactiveContexts.set(styleLayerId, {
+          layerBySourceId,
+          onFeatureSelect: onFeatureSelect as
+            | ((feature: unknown) => void)
+            | undefined,
+        });
         addVectorInteraction(
           map,
           styleLayerId,
@@ -45,7 +51,7 @@ function addVectorInteraction(
 ) {
   const handlers = getMapState(map).interactiveHandlers;
   if (handlers.has(layerId)) {
-    removeVectorInteraction(map, layerId);
+    return;
   }
 
   const click = (event: MapLayerMouseEvent) => {
@@ -71,8 +77,17 @@ function addVectorInteraction(
       state.selectedFeature = target;
     }
     const sourceId = String(feature.source ?? "");
-    const layer = layerBySourceId.get(sourceId);
-    onFeatureSelect?.(
+    const context = getMapState(map).interactiveContexts.get(layerId);
+    const currentLayerBySourceId =
+      (context?.layerBySourceId as
+        | Map<string, LoadedVectorLayer>
+        | undefined) ?? layerBySourceId;
+    const currentOnFeatureSelect =
+      (context?.onFeatureSelect as
+        | ((feature: FeatureInfo | null) => void)
+        | undefined) ?? onFeatureSelect;
+    const layer = currentLayerBySourceId.get(sourceId);
+    currentOnFeatureSelect?.(
       layer
         ? {
             layerId: layer.id,
@@ -132,4 +147,5 @@ export function removeVectorInteraction(map: MapboxMap, layerId: string) {
   map.off("mousemove", layerId, handler.mousemove);
   map.off("mouseleave", layerId, handler.mouseleave);
   handlers.delete(layerId);
+  getMapState(map).interactiveContexts.delete(layerId);
 }

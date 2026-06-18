@@ -26,6 +26,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      manifest: true,
       // 减少内存占用：不计算 gzip 大小
       reportCompressedSize: false,
       modulePreload: {
@@ -33,7 +34,11 @@ export default defineConfig(({ mode }) => {
           if (context.hostType !== "html") {
             return deps;
           }
-          return deps.filter((dep) => !/assets\/js\/admin-/.test(dep));
+          return deps.filter(
+            (dep) =>
+              !/assets\/js\/admin-/i.test(dep) &&
+              !/assets\/js\/vendor-mapbox-/i.test(dep),
+          );
         },
       },
       // 代码分割策略

@@ -15,6 +15,7 @@ dist/
 coverage/
 frontend/.vite/
 frontend/.vitest-attachments/
+frontend/perf-results/
 frontend/src/__screenshots__/
 frontend/test-results/
 frontend/vite.config.d.ts

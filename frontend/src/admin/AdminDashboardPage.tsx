@@ -1,4 +1,3 @@
-import { Column } from "@ant-design/charts";
 import {
   BarChartOutlined,
   ClusterOutlined,
@@ -266,24 +265,7 @@ export default function AdminDashboardPage() {
                     </Space>
                   </div>
                   <div className="admin-active-chart">
-                    <Column
-                      height={300}
-                      data={activeChartData}
-                      xField="label"
-                      yField="count"
-                      paddingBottom={12}
-                      axis={{
-                        x: { title: false },
-                        y: {
-                          title: false,
-                          gridLineDash: null,
-                          gridStroke: "#e8ece9",
-                        },
-                      }}
-                      scale={{ x: { paddingInner: 0.35 } }}
-                      tooltip={{ name: "登录次数", channel: "y" }}
-                      style={{ fill: "#2f7d62" }}
-                    />
+                    <ActiveUsersChart data={activeChartData} />
                   </div>
                 </Col>
                 <Col xs={24} xl={8}>
@@ -385,6 +367,49 @@ export default function AdminDashboardPage() {
           )}
         </section>
       )}
+    </div>
+  );
+}
+
+function ActiveUsersChart({
+  data,
+}: {
+  data: { label: string; count: number }[];
+}) {
+  const maxCount = Math.max(...data.map((item) => item.count), 0);
+  if (data.length === 0) {
+    return (
+      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />
+    );
+  }
+  return (
+    <div
+      className="admin-active-lite-chart"
+      role="list"
+      aria-label="活跃用户柱状图"
+    >
+      {data.map((item) => {
+        const ratio = maxCount > 0 ? item.count / maxCount : 0;
+        return (
+          <div
+            className="admin-active-lite-bar"
+            role="listitem"
+            key={item.label}
+            title={`${item.label}：${item.count} 次`}
+          >
+            <div className="admin-active-lite-bar-track">
+              <div
+                className="admin-active-lite-bar-fill"
+                style={{
+                  height: `${Math.max(ratio * 100, item.count ? 6 : 0)}%`,
+                }}
+              />
+            </div>
+            <div className="admin-active-lite-bar-value">{item.count}</div>
+            <div className="admin-active-lite-bar-label">{item.label}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }

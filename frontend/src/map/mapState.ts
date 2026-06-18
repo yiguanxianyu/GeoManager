@@ -16,11 +16,19 @@ interface VectorInteractionHandlers {
   mouseleave: () => void;
 }
 
+export interface VectorInteractionContext {
+  layerBySourceId: Map<string, unknown>;
+  onFeatureSelect?: (feature: unknown) => void;
+}
+
 export interface MapInternalState {
   interactiveHandlers: Map<string, VectorInteractionHandlers>;
+  interactiveContexts: Map<string, VectorInteractionContext>;
   hoveredFeature: FeatureStateTarget | undefined;
   selectedFeature: FeatureStateTarget | undefined;
   popup: Popup | undefined;
+  loadedSourceIds: Set<string>;
+  sourceDataRefs: Map<string, unknown>;
   rasterSourceKeys: Map<string, string>;
 }
 
@@ -31,9 +39,12 @@ export function getMapState(map: MapboxMap): MapInternalState {
   if (!state) {
     state = {
       interactiveHandlers: new Map(),
+      interactiveContexts: new Map(),
       hoveredFeature: undefined,
       selectedFeature: undefined,
       popup: undefined,
+      loadedSourceIds: new Set(),
+      sourceDataRefs: new Map(),
       rasterSourceKeys: new Map(),
     };
     mapStates.set(map, state);

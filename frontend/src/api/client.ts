@@ -53,8 +53,7 @@ import type {
   WorkspaceSceneUpdateRequest,
 } from "../types";
 import { isDataResource } from "../utils/resources";
-import { client as heyClient } from "./generated/client.gen";
-import * as sdk from "./generated/sdk.gen";
+import type * as sdkTypes from "./generated/sdk.gen";
 
 interface ListResponse<T> {
   items: T[];
@@ -80,18 +79,40 @@ class ApiError extends Error {
   }
 }
 
-heyClient.setConfig({
-  baseUrl: "",
-  credentials: "include",
-  fetch: (request) => fetch(request),
+type SdkModule = typeof sdkTypes;
+type SdkFunction = (...args: never[]) => Promise<HeyApiResponse>;
+let sdkPromise: Promise<SdkModule> | null = null;
+let sdkConfigured = false;
+const sdk = new Proxy({} as SdkModule, {
+  get(_target, property: keyof SdkModule) {
+    return (...args: never[]) =>
+      getSdk().then((module) => (module[property] as SdkFunction)(...args));
+  },
 });
 
-heyClient.interceptors.request.use((request) => {
-  if (request.method !== "GET") {
-    request.headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
-  }
-  return request;
-});
+function getSdk() {
+  sdkPromise ??= Promise.all([
+    import("./generated/client.gen"),
+    import("./generated/sdk.gen"),
+  ]).then(([clientModule, sdkModule]) => {
+    if (!sdkConfigured) {
+      clientModule.client.setConfig({
+        baseUrl: "",
+        credentials: "include",
+        fetch: (request) => fetch(request),
+      });
+      clientModule.client.interceptors.request.use((request) => {
+        if (request.method !== "GET") {
+          request.headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
+        }
+        return request;
+      });
+      sdkConfigured = true;
+    }
+    return sdkModule;
+  });
+  return sdkPromise;
+}
 
 interface HeyApiResponse<T = unknown> {
   data?: T;
@@ -179,6 +200,50 @@ function getCookie(name: string): string | null {
   return match ? decodeURIComponent(match.slice(name.length + 1)) : null;
 }
 
+async function requestJson<T>(
+  url: string,
+  options: {
+    method?: string;
+    body?: unknown;
+  } = {},
+): Promise<T> {
+  const method = options.method ?? "GET";
+  const headers = new Headers();
+  const init: RequestInit = { method, credentials: "include", headers };
+  if (method !== "GET") {
+    headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
+  }
+  if (options.body !== undefined) {
+    headers.set("Content-Type", "application/json");
+    init.body = JSON.stringify(options.body);
+  }
+  const request = new Request(url, init);
+  const response = await fetch(request);
+  const data = await parseResponseBody(response);
+  if (!response.ok) {
+    if (response.status === 403 && onForbiddenHandler) {
+      onForbiddenHandler();
+    }
+    throw new ApiError(
+      errorMessage(data, response.status),
+      response.status,
+      data,
+    );
+  }
+  return data as T;
+}
+
+async function parseResponseBody(response: Response) {
+  if (response.status === 204) {
+    return undefined;
+  }
+  const contentType = response.headers.get("Content-Type") ?? "";
+  if (contentType.includes("application/json")) {
+    return response.json();
+  }
+  return response.text();
+}
+
 type ForbiddenHandler = () => void;
 let onForbiddenHandler: ForbiddenHandler | null = null;
 
@@ -191,26 +256,28 @@ export function unregisterForbiddenHandler() {
 }
 
 export const api = {
-  bootstrap: () => unwrap<Bootstrap>(sdk.getBootstrap()),
-  csrf: () => unwrap<{ detail: string }>(sdk.getCsrfCookie()),
-  me: () => unwrap<MeResponse>(sdk.getCurrentUser()),
+  bootstrap: () => requestJson<Bootstrap>("/api/bootstrap/"),
+  csrf: () => requestJson<{ detail: string }>("/api/auth/csrf/"),
+  me: () => requestJson<MeResponse>("/api/auth/me/"),
   login: (username: string, password: string, remember: boolean) =>
-    unwrap<{ user: User }>(
-      sdk.login({ body: { username, password, remember } }),
-    ),
-  guestLogin: () => unwrap<{ user: User }>(sdk.guestLogin()),
+    requestJson<{ user: User }>("/api/auth/login/", {
+      method: "POST",
+      body: { username, password, remember },
+    }),
+  guestLogin: () =>
+    requestJson<{ user: User }>("/api/auth/guest-login/", { method: "POST" }),
   register: (
     username: string,
     email: string,
     password: string,
     passwordConfirm: string,
   ) =>
-    unwrap<{ user: User; detail: string }>(
-      sdk.register({
-        body: { username, email, password, passwordConfirm },
-      }),
-    ),
-  logout: () => unwrap<{ detail: string }>(sdk.logout()),
+    requestJson<{ user: User; detail: string }>("/api/auth/register/", {
+      method: "POST",
+      body: { username, email, password, passwordConfirm },
+    }),
+  logout: () =>
+    requestJson<{ detail: string }>("/api/auth/logout/", { method: "POST" }),
   adminProfile: () => unwrap<AdminProfile>(sdk.getAdminProfile()),
   updateAdminProfile: (payload: AdminProfileUpdate) =>
     unwrap<AdminProfile>(sdk.updateAdminProfile({ body: payload })),

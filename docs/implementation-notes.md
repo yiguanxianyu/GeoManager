@@ -255,6 +255,20 @@ frontend/src/
 - Mapbox GL JS 和 `mapbox-gl` 样式均从前端 npm 依赖经 Vite 加载，不在 `index.html` 通过 CDN 注入，也不依赖全局 `mapboxgl`。
 - `pnpm run build` 定位为快速打包命令；需要类型检查的发布或 CI 流程使用 `pnpm run build:verify`。
 
+## 前端性能基准与优化记录
+
+- 前端性能验收统一使用本地生产构建、Vite preview、Prism Mock API 和 Playwright Chromium 采集。命令为 `pnpm run build`、`pnpm run perf:mock -- --label <label>`、`pnpm run perf:compare -- before after`；结果写入被 git 忽略的 `frontend/perf-results/`。
+- 性能脚本覆盖 `/login`、`/map`、`/admin/dashboard`，记录加载时间、FCP、LCP、CLS、长任务数量和耗时、JS heap、资源传输体积与构建产物体积。外部地图瓦片在脚本中以透明 PNG mock 响应，避免公网波动影响本地对比。
+- 本轮优化不修改 `docs/openapi.yaml`、后端接口、权限语义、数据路径或栅格渲染架构。API client 保留生成 SDK 类型约束，但把非首屏 SDK 和 fetch client 改为首次业务调用时动态加载；登录、bootstrap、当前用户等启动请求使用同一错误处理和 CSRF 逻辑的轻量 fetch 门面。
+- 首屏和路由代码拆分结果：原 `MapPage` 路由 chunk 约 1.89 MB，优化后 `MapPage` 入口约 80 KB，Mapbox 相关代码延后到地图画布加载；原 `AdminDashboardPage` chunk 约 1.47 MB，优化后页面入口约 13 KB，Dashboard 活跃用户图表改为轻量 React/CSS 柱状图，不再为单个图表加载 2 MB 级图表库。
+- 登录背景从 2.4 MB PNG 改为约 428 KB JPG，体积降低约 82%；登录页和工作台 Logo 改用约 4 KB SVG，并为图片提供稳定尺寸，避免加载 1024px PNG 和减少布局偏移风险。
+- 地图鼠标经纬度显示通过 `requestAnimationFrame` 和 DOM ref 更新，窗口 resize 也按帧合并 `map.resize()` 与视图状态计算，避免高频事件触发 React 重渲染或连续 layout 计算；hover 高亮只在目标 feature 变化时更新 feature-state。
+- 地图内部状态统一放在 `mapState` 的 WeakMap 中，包括 `sourceDataRefs`、`loadedSourceIds`、交互 handler 和交互上下文。地图图层同步跳过未变化 GeoJSON 的 `setData`，交互 handler 只注册一次并更新上下文，减少重复解绑绑定。
+- 图层数据表弹窗只在打开时构建字段和轻量行索引，行数据不再复制完整 properties，单元格、排序和筛选按 feature index 懒读取原始 GeoJSON；列宽拖拽、图层树 dragover 和工作台头部尺寸测量均按帧合并状态更新，减少拖拽与导航测量造成的重排。
+- 符号化编辑器、MapCanvas、后台图表等重型组件按交互或路由懒加载。IndexedDB 工作台缓存改为 debounce 写入、重复快照跳过、串行队列写入，并在页面卸载时 flush 最新快照；超过 8 MB 的图层快照不写入本地缓存并给出提示，避免主线程频繁结构化克隆大对象。
+- `index.html` 提供 SVG favicon、主题色和 Mapbox `preconnect`；应用字体继续使用系统中文字体，不引入远程字体。前端构建产物继续使用 hash 命名，部署侧应对 `assets/*` 设置长期缓存、对 `index.html` 使用 no-cache 或短缓存。
+- 当前 `perf:compare` 的 bundle 表按 hash 后文件名比较，适合定位构建产物变化，但重命名 chunk 会显示为旧文件移除和新文件新增；结论应优先结合路由入口 chunk、主要库 chunk 和页面指标判断。
+
 ## 前端依赖升级兼容记录
 
 - 当前前端升级目标：React `19.2.7`、React DOM `19.2.7`、Ant Design `6.4.3`、`@ant-design/icons` `6.2.5`。

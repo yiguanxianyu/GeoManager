@@ -34,7 +34,7 @@ import {
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import capfedLogo from "../assets/capfed-logo.png";
+import capfedLogo from "../assets/capfed-logo.svg";
 import { useAppContext } from "../contexts/AppContext";
 import type { Achievement, ResourceListItem, WorkspaceScene } from "../types";
 import {
@@ -107,6 +107,7 @@ export default function WorkspaceHeader({
   const searchOpenTimerRef = useRef<number | null>(null);
   const tabHoverTimerRef = useRef<number | null>(null);
   const navMeasureTimerRef = useRef<number | null>(null);
+  const layoutMeasureFrameRef = useRef<number | null>(null);
   const fullPrimaryNavWidthRef = useRef(0);
   const effectiveResources = resources ?? localResources;
   const effectiveWorkspaceScenes = workspaceScenes ?? localWorkspaceScenes;
@@ -234,13 +235,21 @@ export default function WorkspaceHeader({
     );
   }, [navCompressed, searchExpanded]);
 
-  const expandSearch = useCallback(() => {
-    setSearchExpanded(true);
-    window.requestAnimationFrame(() => {
+  const scheduleLayoutMeasure = useCallback(() => {
+    if (layoutMeasureFrameRef.current !== null) {
+      return;
+    }
+    layoutMeasureFrameRef.current = window.requestAnimationFrame(() => {
+      layoutMeasureFrameRef.current = null;
       syncSearchPopoverWidth();
       measureNavFit();
     });
   }, [measureNavFit, syncSearchPopoverWidth]);
+
+  const expandSearch = useCallback(() => {
+    setSearchExpanded(true);
+    scheduleLayoutMeasure();
+  }, [scheduleLayoutMeasure]);
 
   const scheduleSearchOpen = useCallback(
     (delay = 0) => {
@@ -273,8 +282,8 @@ export default function WorkspaceHeader({
     setSearchOpen(false);
     setSearchExpanded(false);
     setExpandedTabId(null);
-    window.requestAnimationFrame(measureNavFit);
-  }, [measureNavFit]);
+    scheduleLayoutMeasure();
+  }, [scheduleLayoutMeasure]);
 
   const clearTabHoverTimer = useCallback(() => {
     if (tabHoverTimerRef.current !== null) {
@@ -302,11 +311,11 @@ export default function WorkspaceHeader({
   useLayoutEffect(() => {
     const container = searchContainerRef.current;
     if (!container) return;
-    syncSearchPopoverWidth();
-    const observer = new ResizeObserver(syncSearchPopoverWidth);
+    scheduleLayoutMeasure();
+    const observer = new ResizeObserver(scheduleLayoutMeasure);
     observer.observe(container);
     return () => observer.disconnect();
-  }, [syncSearchPopoverWidth]);
+  }, [scheduleLayoutMeasure]);
 
   useLayoutEffect(() => {
     const nav = searchNavRef.current;
@@ -314,17 +323,17 @@ export default function WorkspaceHeader({
     const primaryNav = primaryNavRef.current;
     if (!nav || !search || !primaryNav) return;
 
-    measureNavFit();
-    const observer = new ResizeObserver(measureNavFit);
+    scheduleLayoutMeasure();
+    const observer = new ResizeObserver(scheduleLayoutMeasure);
     observer.observe(nav);
     observer.observe(search);
     observer.observe(primaryNav);
     return () => observer.disconnect();
-  }, [measureNavFit]);
+  }, [scheduleLayoutMeasure]);
 
   useLayoutEffect(() => {
-    window.requestAnimationFrame(measureNavFit);
-  }, [measureNavFit]);
+    scheduleLayoutMeasure();
+  }, [scheduleLayoutMeasure]);
 
   useEffect(() => {
     return () => {
@@ -336,6 +345,9 @@ export default function WorkspaceHeader({
       }
       if (navMeasureTimerRef.current !== null) {
         window.clearTimeout(navMeasureTimerRef.current);
+      }
+      if (layoutMeasureFrameRef.current !== null) {
+        window.cancelAnimationFrame(layoutMeasureFrameRef.current);
       }
     };
   }, []);
@@ -658,7 +670,12 @@ export default function WorkspaceHeader({
     >
       <div className="brand-block">
         <span className="brand-logo-frame">
-          <img src={capfedLogo} alt={`${bootstrap.systemName} Logo`} />
+          <img
+            src={capfedLogo}
+            alt={`${bootstrap.systemName} Logo`}
+            width={40}
+            height={40}
+          />
         </span>
         <div className="brand-copy">
           <strong>CAPFED</strong>

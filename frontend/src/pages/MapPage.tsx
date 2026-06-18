@@ -22,13 +22,20 @@ import {
   Typography,
 } from "antd";
 import type { LngLatBounds, Map as MapboxMap } from "mapbox-gl";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import DataPanel from "../components/DataPanel";
 import LayerDataTableModal from "../components/LayerDataTableModal";
 import LayerPanel from "../components/LayerPanel";
-import MapCanvas from "../components/MapCanvas";
 import RightSidePanel from "../components/RightSidePanel";
 import WorkspaceBottomPanel from "../components/WorkspaceBottomPanel";
 import WorkspaceHeader from "../components/WorkspaceHeader";
@@ -43,7 +50,6 @@ import { useLayerGroups } from "../hooks/useLayerGroups";
 import { useRasterRender } from "../hooks/useRasterRender";
 import { clearFeatureState, getMapState } from "../map/mapState";
 import type { DrawMode } from "../map/spatialDraw";
-import { fitBoundsOptionsForVisibleFrame } from "../map/visibleViewport";
 import { workspacePanelTheme } from "../theme";
 import type {
   Achievement,
@@ -111,6 +117,8 @@ const emptyPermissions = {
   canMaintainData: false,
   canManageRasterData: false,
 };
+
+const MapCanvas = lazy(() => import("../components/MapCanvas"));
 
 export default function MapPage() {
   const { bootstrap, user } = useAppContext();
@@ -466,7 +474,7 @@ export default function MapPage() {
   }, [setMapInstance]);
 
   const locateLayer = useCallback(
-    (groupId: string, layerId: string) => {
+    async (groupId: string, layerId: string) => {
       const map = mapInstanceRef.current;
       if (!map) {
         message.warning("地图尚未准备好");
@@ -484,7 +492,7 @@ export default function MapPage() {
       ) {
         const bounds = boundsFromImageCoordinates(targetLayer.imageCoordinates);
         if (bounds) {
-          map.fitBounds(bounds, fitBoundsOptionsForVisibleFrame(map));
+          map.fitBounds(bounds, await fitOptionsForVisibleFrame(map));
           return;
         }
       }
@@ -497,7 +505,7 @@ export default function MapPage() {
         targetLayer.geojson,
         bootstrap.map.defaultCenter,
         bootstrap.map.defaultZoom,
-        fitBoundsOptionsForVisibleFrame(map),
+        await fitOptionsForVisibleFrame(map),
       );
     },
     [
@@ -509,7 +517,7 @@ export default function MapPage() {
   );
 
   const locateGroup = useCallback(
-    (groupId: string) => {
+    async (groupId: string) => {
       const map = mapInstanceRef.current;
       if (!map) {
         message.warning("地图尚未准备好");
@@ -540,14 +548,14 @@ export default function MapPage() {
       }
       const firstRasterBound = rasterBounds[0];
       if (!bounds && firstRasterBound) {
-        map.fitBounds(firstRasterBound, fitBoundsOptionsForVisibleFrame(map));
+        map.fitBounds(firstRasterBound, await fitOptionsForVisibleFrame(map));
         return;
       }
       if (!bounds) {
         message.warning("无法计算图层组范围");
         return;
       }
-      map.fitBounds(bounds, fitBoundsOptionsForVisibleFrame(map));
+      map.fitBounds(bounds, await fitOptionsForVisibleFrame(map));
     },
     [layerGroups.groups, message],
   );
@@ -1038,19 +1046,27 @@ export default function MapPage() {
       />
       <div className="workspace-body">
         <main className="map-stage">
-          <MapCanvas
-            bootstrap={bootstrap}
-            loadedLayers={mapLayers}
-            drawMode={activeDraw?.mode ?? null}
-            spatialFilter={spatialFilter}
-            layerExtentGeometry={selectedLayerExtentGeometry}
-            layerExtentTargetLayer={selectedLayer}
-            onDrawComplete={handleDrawComplete}
-            onFeatureSelect={setSelectedFeature}
-            onMapReady={handleMapReady}
-            onMapDestroy={handleMapDestroy}
-            onViewStateChange={setCurrentMapView}
-          />
+          <Suspense
+            fallback={
+              <div className="map-canvas-loading">
+                <Spin size="large" />
+              </div>
+            }
+          >
+            <MapCanvas
+              bootstrap={bootstrap}
+              loadedLayers={mapLayers}
+              drawMode={activeDraw?.mode ?? null}
+              spatialFilter={spatialFilter}
+              layerExtentGeometry={selectedLayerExtentGeometry}
+              layerExtentTargetLayer={selectedLayer}
+              onDrawComplete={handleDrawComplete}
+              onFeatureSelect={setSelectedFeature}
+              onMapReady={handleMapReady}
+              onMapDestroy={handleMapDestroy}
+              onViewStateChange={setCurrentMapView}
+            />
+          </Suspense>
         </main>
         <aside className="floating-panel floating-panel-left">
           <ConfigProvider theme={workspacePanelTheme}>
@@ -1365,6 +1381,12 @@ function WorkspaceScenePanel({
       </Modal>
     </section>
   );
+}
+
+async function fitOptionsForVisibleFrame(map: MapboxMap) {
+  const { fitBoundsOptionsForVisibleFrame } =
+    await import("../map/visibleViewport");
+  return fitBoundsOptionsForVisibleFrame(map);
 }
 
 function workspaceSnapshot(

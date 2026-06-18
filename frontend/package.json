@@ -18,6 +18,8 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "build": "vite build",
     "build:verify": "pnpm run check:api && pnpm run typecheck && vite build",
+    "perf:mock": "node scripts/perf-mock.mjs",
+    "perf:compare": "node scripts/perf-compare.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest --config vitest.config.ts run",
     "test:browser": "vitest --config vitest.browser.config.ts run --browser.headless",
@@ -29,7 +31,6 @@
     "version:major": "pnpm version major"
   },
   "dependencies": {
-    "@ant-design/charts": "^2.6.7",
     "@ant-design/icons": "^6.2.5",
     "@ant-design/pro-components": "^3.1.12-0",
     "antd": "^6.4.4",

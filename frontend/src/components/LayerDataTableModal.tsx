@@ -66,11 +66,17 @@ export default function LayerDataTableModal({
   );
 }
 
-type RowData = Record<string, unknown> & { __rowKey: string };
+interface RowData {
+  __rowKey: string;
+  __featureIndex: number;
+}
+
 const defaultDataColumnWidth = 160;
 const minDataColumnWidth = 88;
 const indexColumnPaddingWidth = 38;
 const indexDigitWidth = 9;
+const maxFilterFieldCount = 24;
+const maxColumnFilterValues = 50;
 
 function VectorAttributeTable({
   layer,
@@ -79,13 +85,14 @@ function VectorAttributeTable({
   layer: LoadedVectorLayer;
   onSelectionChange?: (featureIds: (string | number)[]) => void;
 }) {
-  const fieldNames = layer.fields.length
-    ? layer.fields.map((field) => field.name)
-    : inferPropertyNames(layer);
-  const rows = useMemo(
-    () => buildTableRows(layer, fieldNames),
-    [layer, fieldNames],
+  const fieldNames = useMemo(
+    () =>
+      layer.fields.length
+        ? layer.fields.map((field) => field.name)
+        : inferPropertyNames(layer),
+    [layer],
   );
+  const rows = useMemo(() => buildTableRows(layer), [layer]);
 
   const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
@@ -100,7 +107,10 @@ function VectorAttributeTable({
     });
   };
 
-  const visibleFieldNames = fieldNames.filter((n) => !hiddenKeys.has(n));
+  const visibleFieldNames = useMemo(
+    () => fieldNames.filter((n) => !hiddenKeys.has(n)),
+    [fieldNames, hiddenKeys],
+  );
   const indexColumnWidth = Math.max(
     48,
     String(Math.max(rows.length, 1)).length * indexDigitWidth +
@@ -112,6 +122,14 @@ function VectorAttributeTable({
   const selectedKeySet = useMemo(
     () => new Set(selectedRowKeys),
     [selectedRowKeys],
+  );
+  const fieldByName = useMemo(
+    () => new Map(layer.fields.map((field) => [field.name, field])),
+    [layer.fields],
+  );
+  const columnFilters = useMemo(
+    () => buildColumnFilterMap(layer, visibleFieldNames),
+    [layer, visibleFieldNames],
   );
 
   const handleSelectionChange = useCallback(
@@ -156,13 +174,23 @@ function VectorAttributeTable({
 
     const dataCols: TableColumnsType<RowData> = visibleFieldNames.map(
       (fieldName) => {
-        const field = layer.fields.find((f) => f.name === fieldName);
+        const field = fieldByName.get(fieldName);
         const hasDescription =
           field?.description && field.description.trim() !== "";
+        const sorter = (a: RowData, b: RowData) => {
+          const va = String(getCellValue(layer, a, fieldName) ?? "");
+          const vb = String(getCellValue(layer, b, fieldName) ?? "");
+          return va.localeCompare(vb, "zh-CN", { numeric: true });
+        };
+        const onFilter = (value: boolean | React.Key, record: RowData) =>
+          String(getCellValue(layer, record, fieldName) ?? "").includes(
+            String(value),
+          );
+        const render = (_: unknown, record: RowData) =>
+          String(getCellValue(layer, record, fieldName) ?? "-");
 
         return {
           title: fieldName,
-          dataIndex: fieldName,
           key: fieldName,
           width: columnWidths[fieldName] ?? defaultDataColumnWidth,
           ellipsis: true,
@@ -182,20 +210,14 @@ function VectorAttributeTable({
                 children: [
                   {
                     title: field.description,
-                    dataIndex: fieldName,
                     key: `${fieldName}__desc`,
                     width: columnWidths[fieldName] ?? defaultDataColumnWidth,
                     ellipsis: true,
-                    sorter: (a: RowData, b: RowData) => {
-                      const va = String(a[fieldName] ?? "");
-                      const vb = String(b[fieldName] ?? "");
-                      return va.localeCompare(vb, "zh-CN", { numeric: true });
-                    },
-                    filters: buildColumnFilters(rows, fieldName),
-                    onFilter: (value: boolean | React.Key, record: RowData) =>
-                      String(record[fieldName] ?? "").includes(String(value)),
+                    sorter,
+                    filters: columnFilters.get(fieldName) ?? [],
+                    onFilter,
                     filterSearch: true,
-                    render: (value: unknown) => String(value ?? "-"),
+                    render,
                     onCell: (record: RowData) => ({
                       className: selectedKeySet.has(record.__rowKey)
                         ? "layer-table-cell-selected"
@@ -205,16 +227,11 @@ function VectorAttributeTable({
                 ],
               }
             : {
-                sorter: (a: RowData, b: RowData) => {
-                  const va = String(a[fieldName] ?? "");
-                  const vb = String(b[fieldName] ?? "");
-                  return va.localeCompare(vb, "zh-CN", { numeric: true });
-                },
-                filters: buildColumnFilters(rows, fieldName),
-                onFilter: (value: boolean | React.Key, record: RowData) =>
-                  String(record[fieldName] ?? "").includes(String(value)),
+                sorter,
+                filters: columnFilters.get(fieldName) ?? [],
+                onFilter,
                 filterSearch: true,
-                render: (value: unknown) => String(value ?? "-"),
+                render,
               }),
         };
       },
@@ -223,12 +240,13 @@ function VectorAttributeTable({
     return [indexCol, ...dataCols];
   }, [
     columnWidths,
+    fieldByName,
     indexColumnWidth,
-    layer.fields,
+    layer,
     resizeColumn,
     selectedKeySet,
     visibleFieldNames,
-    rows,
+    columnFilters,
   ]);
   const tableScrollX = Math.max(
     960,
@@ -298,16 +316,25 @@ function VectorAttributeTable({
 }
 
 function buildColumnFilters(
-  rows: RowData[],
+  layer: LoadedVectorLayer,
   fieldName: string,
 ): { text: string; value: string }[] {
   const unique = new Set<string>();
-  for (const row of rows) {
-    const val = String(row[fieldName] ?? "");
+  for (const feature of layer.geojson.features) {
+    const val = String(getFeatureProperties(feature)[fieldName] ?? "");
     if (val) unique.add(val);
+    if (unique.size >= maxColumnFilterValues) break;
   }
-  const values = Array.from(unique).slice(0, 50);
+  const values = Array.from(unique);
   return values.map((v) => ({ text: v, value: v }));
+}
+
+function buildColumnFilterMap(layer: LoadedVectorLayer, fieldNames: string[]) {
+  const result = new Map<string, { text: string; value: string }[]>();
+  for (const fieldName of fieldNames.slice(0, maxFilterFieldCount)) {
+    result.set(fieldName, buildColumnFilters(layer, fieldName));
+  }
+  return result;
 }
 
 interface ResizableHeaderCellProps extends React.ThHTMLAttributes<HTMLTableCellElement> {
@@ -334,19 +361,32 @@ function ResizableHeaderCell({
     const startWidth = width;
     const previousCursor = document.body.style.cursor;
     const previousUserSelect = document.body.style.userSelect;
+    let resizeFrame: number | null = null;
+    let pendingWidth = width;
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
 
+    const flushResize = () => {
+      resizeFrame = null;
+      onResize?.(pendingWidth);
+    };
     const handleMouseMove = (moveEvent: MouseEvent) => {
-      const nextWidth = Math.max(
+      pendingWidth = Math.max(
         minDataColumnWidth,
         startWidth + moveEvent.clientX - startX,
       );
-      onResize?.(nextWidth);
+      if (resizeFrame === null) {
+        resizeFrame = window.requestAnimationFrame(flushResize);
+      }
     };
     const handleMouseUp = () => {
       document.body.style.cursor = previousCursor;
       document.body.style.userSelect = previousUserSelect;
+      if (resizeFrame !== null) {
+        window.cancelAnimationFrame(resizeFrame);
+        resizeFrame = null;
+      }
+      onResize?.(pendingWidth);
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
@@ -382,42 +422,43 @@ function inferPropertyNames(layer: LoadedVectorLayer) {
   return Array.from(names);
 }
 
-function buildTableRows(layer: LoadedVectorLayer, fieldNames: string[]) {
+function buildTableRows(layer: LoadedVectorLayer) {
   const keyCounts = new Map<string, number>();
-  return layer.geojson.features.map((feature) => {
-    const properties =
-      (feature as { properties?: Record<string, unknown> }).properties ?? {};
-    const baseKey = stableFeatureKey(feature);
+  return layer.geojson.features.map((feature, index) => {
+    const baseKey = stableFeatureKey(feature, index);
     const count = keyCounts.get(baseKey) ?? 0;
     keyCounts.set(baseKey, count + 1);
     return {
-      __rowKey: count ? `${baseKey}-${count}` : baseKey,
-      ...Object.fromEntries(
-        fieldNames.map((fieldName) => [fieldName, properties[fieldName]]),
-      ),
+      __rowKey: count ? `${baseKey}::${count}` : baseKey,
+      __featureIndex: index,
     };
   });
 }
 
-function stableFeatureKey(feature: Record<string, unknown>) {
+function getFeatureProperties(feature: unknown): Record<string, unknown> {
+  return (feature as { properties?: Record<string, unknown> }).properties ?? {};
+}
+
+function getCellValue(
+  layer: LoadedVectorLayer,
+  row: RowData,
+  fieldName: string,
+) {
+  const feature = layer.geojson.features[row.__featureIndex];
+  return feature ? getFeatureProperties(feature)[fieldName] : undefined;
+}
+
+function stableFeatureKey(feature: Record<string, unknown>, index: number) {
   const featureId = feature.id;
   if (typeof featureId === "string" || typeof featureId === "number") {
-    return `feature-${featureId}`;
+    return `feature-id-${featureId}`;
   }
-  const text = JSON.stringify({
-    properties: feature.properties ?? {},
-    geometry: feature.geometry ?? {},
-  });
-  let hash = 0;
-  for (let index = 0; index < text.length; index += 1) {
-    hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
-  }
-  return `feature-${hash.toString(16)}`;
+  return `feature-index-${index}`;
 }
 
 function extractFeatureIdFromRowKey(rowKey: string): string | number | null {
-  // 从 "feature-{id}" 格式中提取id
-  const match = rowKey.match(/^feature-(.+)$/);
+  const normalizedRowKey = rowKey.split("::")[0] ?? rowKey;
+  const match = normalizedRowKey.match(/^feature-id-(.+)$/);
   if (!match) return null;
 
   const idStr = match[1];
