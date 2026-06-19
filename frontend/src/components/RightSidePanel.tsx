@@ -42,11 +42,11 @@ export default function RightSidePanel({
         <FlatMapThumbnail currentView={currentView} />
       </section>
 
-      <section className="right-eco-panel" aria-label="生态数据展示窗口">
+      <section className="right-eco-panel" aria-label="生态数据展示窗口（示意）">
         <div className="right-panel-heading right-panel-heading-main">
           <span>
             <RadarChartOutlined style={{ fontSize: 15 }} />
-            <Typography.Text strong>生态数据展示窗口</Typography.Text>
+            <Typography.Text strong>生态数据展示窗口（示意）</Typography.Text>
           </span>
           <Tag color={selectedFeature ? "green" : "default"}>
             {selectedFeature ? "已选要素" : "等待选取"}
