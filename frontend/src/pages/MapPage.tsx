@@ -2,25 +2,9 @@ import {
   ApartmentOutlined,
   AppstoreOutlined,
   DatabaseOutlined,
-  DeleteOutlined,
-  EditOutlined,
   FolderOpenOutlined,
 } from "@ant-design/icons";
-import {
-  App,
-  Button,
-  ConfigProvider,
-  Empty,
-  Form,
-  Input,
-  Layout,
-  Modal,
-  Popconfirm,
-  Space,
-  Spin,
-  Tabs,
-  Typography,
-} from "antd";
+import { App, ConfigProvider, Layout, Spin, Tabs } from "antd";
 import type { LngLatBounds, Map as MapboxMap } from "mapbox-gl";
 import {
   lazy,
@@ -37,6 +21,7 @@ import DataPanel from "../components/DataPanel";
 import LayerDataTableModal from "../components/LayerDataTableModal";
 import LayerPanel from "../components/LayerPanel";
 import RightSidePanel from "../components/RightSidePanel";
+import WorkspaceScenePanel from "../components/WorkspaceScenePanel";
 import WorkspaceBottomPanel from "../components/WorkspaceBottomPanel";
 import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useAppContext } from "../contexts/AppContext";
@@ -48,6 +33,7 @@ import {
 } from "../hooks/LayerContext";
 import { useLayerGroups } from "../hooks/useLayerGroups";
 import { useRasterRender } from "../hooks/useRasterRender";
+import { useWorkspaceScenes } from "../hooks/useWorkspaceScenes";
 import { clearFeatureState, getMapState } from "../map/mapState";
 import type { DrawMode } from "../map/spatialDraw";
 import { workspacePanelTheme } from "../theme";
@@ -58,20 +44,13 @@ import type {
   ExportLayerItem,
   FeatureInfo,
   GeoJsonGeometry,
-  GeoJsonValidationWarning,
   LoadedLayer,
-  LoadedLayerGroup,
   LoadedRasterLayer,
   LoadedVectorLayer,
   MapViewState,
   ResourceFilters,
   ResourceListItem,
-  SavedWorkspaceLayer,
-  SavedWorkspaceLayerGroup,
   SpatialFilter,
-  WorkspaceScene,
-  WorkspaceSceneKind,
-  WorkspaceSceneSnapshot,
 } from "../types";
 import { downloadBlob } from "../utils/download";
 import {
@@ -86,6 +65,7 @@ import {
   createVectorLayerGroup,
 } from "../utils/layerFactory";
 import { resourceSpatialExtent } from "../utils/resources";
+import { showGeojsonWarnings } from "../workspace/workspaceNotifications";
 
 type DrawPurpose = "query";
 
@@ -125,7 +105,6 @@ export default function MapPage() {
   const [searchParams] = useSearchParams();
 
   const [resources, setResources] = useState<ResourceListItem[]>([]);
-  const [workspaceScenes, setWorkspaceScenes] = useState<WorkspaceScene[]>([]);
   const [resourceSearchKeyword, setResourceSearchKeyword] = useState("");
   const [selectedResource, setSelectedResource] =
     useState<ResourceListItem | null>(null);
@@ -160,6 +139,31 @@ export default function MapPage() {
     layerGroups.updateRasterLayer,
   );
   const permissionDeniedMessage = `当前用户组"${userRoles.length > 0 ? userRoles.join("、") : "未分组"}"无权限`;
+  const handleWorkspaceLoaded = useCallback(() => {
+    setTableLayer(null);
+    setSelectedFeature(null);
+  }, []);
+  const {
+    workspaceScenes,
+    loadWorkspaceScenes,
+    loadWorkspaceScene,
+    loadWorkspaceSceneById,
+    saveWorkspace,
+    updateWorkspaceScene,
+    deleteWorkspaceScene,
+  } = useWorkspaceScenes({
+    canBrowseData: permissions.canBrowseData,
+    canQueryData: permissions.canQueryData,
+    canLoadVectorLayer: permissions.canLoadVectorLayer,
+    queryResultLimit: bootstrap.limits.queryResultLimit,
+    groups: layerGroups.groups,
+    selectedLayerId,
+    currentMapView,
+    mapRef: mapInstanceRef,
+    replaceGroups: layerGroups.replaceGroups,
+    setSelectedLayerId,
+    onWorkspaceLoaded: handleWorkspaceLoaded,
+  });
 
   const mapLayers = useMemo(
     () =>
@@ -230,23 +234,9 @@ export default function MapPage() {
     }
   }, [permissions.canBrowseData, loadResources]);
 
-  const loadSearchItems = useCallback(async () => {
-    if (!permissions.canBrowseData) {
-      return;
-    }
-    try {
-      const sceneResponse = await api.workspaces();
-      setWorkspaceScenes(sceneResponse.items);
-    } catch (error) {
-      message.warning(
-        error instanceof Error ? error.message : "搜索内容加载失败",
-      );
-    }
-  }, [message, permissions.canBrowseData]);
-
   useEffect(() => {
-    void loadSearchItems();
-  }, [loadSearchItems]);
+    void loadWorkspaceScenes();
+  }, [loadWorkspaceScenes]);
 
   useEffect(() => {
     const keyword = searchParams.get("resourceQ")?.trim() ?? "";
@@ -649,275 +639,6 @@ export default function MapPage() {
     [message, permissionDeniedMessage, permissions.canExportData],
   );
 
-  const saveWorkspace = useCallback(
-    async (
-      kind: WorkspaceSceneKind,
-      values: { name: string; description?: string; targetId?: number },
-    ) => {
-      const label = kind === "project" ? "工程" : "专题";
-      const notificationKey = `workspace-save-${kind}-${Date.now()}`;
-      const targetName = values.name.trim();
-      try {
-        openWorkspaceProgressNotification(notification, {
-          key: notificationKey,
-          title: values.targetId ? `正在覆盖${label}` : `正在保存${label}`,
-          percent: 15,
-          status: "active",
-          detail: "正在整理当前图层、视图和符号化配置",
-        });
-        const snapshot = workspaceSnapshot(
-          layerGroups.groups,
-          selectedLayerId,
-          currentMapView,
-        );
-        openWorkspaceProgressNotification(notification, {
-          key: notificationKey,
-          title: values.targetId ? `正在覆盖${label}` : `正在保存${label}`,
-          percent: 55,
-          status: "active",
-          detail: "正在写入工作区快照",
-        });
-        const saved = values.targetId
-          ? await api.updateWorkspace(values.targetId, {
-              kind,
-              name: targetName,
-              description: values.description?.trim() ?? "",
-              snapshot,
-            })
-          : await api.createWorkspace({
-              kind,
-              name: targetName,
-              description: values.description?.trim() ?? "",
-              snapshot,
-            });
-        if ("id" in saved) {
-          setWorkspaceScenes((current) => {
-            const others = current.filter((item) => item.id !== saved.id);
-            return [saved, ...others];
-          });
-        }
-        openWorkspaceProgressNotification(notification, {
-          key: notificationKey,
-          title: values.targetId ? `${label}已覆盖` : `${label}已保存`,
-          percent: 100,
-          status: "success",
-          detail: targetName,
-        });
-      } catch (error) {
-        openWorkspaceProgressNotification(notification, {
-          key: notificationKey,
-          title: `${label}保存失败`,
-          percent: 100,
-          status: "exception",
-          detail: error instanceof Error ? error.message : `${label}保存失败`,
-        });
-        throw error;
-      }
-    },
-    [currentMapView, layerGroups.groups, notification, selectedLayerId],
-  );
-
-  const restoreWorkspaceGroups = useCallback(
-    async (
-      savedGroups: WorkspaceSceneSnapshot["groups"],
-      onProgress?: (state: { percent: number; detail: string }) => void,
-    ): Promise<LoadedLayerGroup[]> => {
-      if (!Array.isArray(savedGroups)) {
-        return [];
-      }
-      const totalLayers = savedGroups.reduce(
-        (total, group) => total + (group.children?.length ?? 0),
-        0,
-      );
-      let processedLayers = 0;
-      const updateRestoreProgress = (detail: string) => {
-        if (!onProgress) {
-          return;
-        }
-        const layerProgress =
-          totalLayers > 0
-            ? Math.round((processedLayers / totalLayers) * 70)
-            : 70;
-        onProgress({
-          percent: Math.min(85, 10 + layerProgress),
-          detail,
-        });
-      };
-      const restored: LoadedLayerGroup[] = [];
-      for (const savedGroup of savedGroups) {
-        const restoredChildren: LoadedLayer[] = [];
-        for (const savedLayer of savedGroup.children ?? []) {
-          updateRestoreProgress(`正在恢复图层：${savedLayer.name}`);
-          if (isLoadedVectorLayer(savedLayer)) {
-            restoredChildren.push(savedLayer);
-            processedLayers += 1;
-            updateRestoreProgress(`已恢复图层：${savedLayer.name}`);
-            continue;
-          }
-          if (savedLayer.layerType === "vector") {
-            if (
-              !savedLayer.query ||
-              !permissions.canQueryData ||
-              !permissions.canLoadVectorLayer
-            ) {
-              processedLayers += 1;
-              updateRestoreProgress(`已跳过图层：${savedLayer.name}`);
-              continue;
-            }
-            try {
-              const profile = await api.resourceProfile(
-                savedLayer.sourceResource,
-              );
-              const result = await api.queryResource(
-                savedLayer.sourceResource,
-                {
-                  attributeFilters: savedLayer.query.attributeFilters,
-                  spatialFilter: savedLayer.query.spatialFilter,
-                  limit: bootstrap.limits.queryResultLimit,
-                },
-              );
-              showGeojsonWarnings(notification, result.warnings);
-              const queryGroup = createVectorLayerGroup(
-                savedLayer.sourceResource,
-                profile,
-                result,
-                savedLayer.query,
-              );
-              const queryLayer = queryGroup.children[0];
-              if (queryLayer?.layerType === "vector") {
-                restoredChildren.push({
-                  ...queryLayer,
-                  id: savedLayer.id,
-                  name: savedLayer.name,
-                  visible: savedLayer.visible,
-                  summary: savedLayer.summary,
-                  metadata: savedLayer.metadata,
-                  symbolization:
-                    savedLayer.symbolization as LoadedVectorLayer["symbolization"],
-                  fields: savedLayer.fields,
-                });
-              }
-            } catch (error) {
-              message.warning(
-                error instanceof Error
-                  ? `图层“${savedLayer.name}”恢复失败：${error.message}`
-                  : `图层“${savedLayer.name}”恢复失败`,
-              );
-            }
-            processedLayers += 1;
-            updateRestoreProgress(`已处理图层：${savedLayer.name}`);
-            continue;
-          }
-          restoredChildren.push({
-            id: savedLayer.id,
-            name: savedLayer.name,
-            layerType: "raster",
-            sourceResource: savedLayer.sourceResource as DataResource,
-            tileUrl: savedLayer.tileUrl,
-            imageCoordinates: savedLayer.imageCoordinates,
-            rasterDatasetId: savedLayer.rasterDatasetId,
-            rasterLayerId: savedLayer.rasterLayerId,
-            rasterMetadata: savedLayer.rasterMetadata,
-            renderStatus: savedLayer.renderStatus,
-            renderProgress: savedLayer.renderProgress,
-            renderMessages: savedLayer.renderMessages,
-            geometryType: savedLayer.geometryType,
-            visible: savedLayer.visible,
-            summary: savedLayer.summary,
-            metadata: savedLayer.metadata,
-            symbolization:
-              savedLayer.symbolization as LoadedRasterLayer["symbolization"],
-            fields: savedLayer.fields,
-          });
-          processedLayers += 1;
-          updateRestoreProgress(`已恢复图层：${savedLayer.name}`);
-        }
-        if (restoredChildren.length > 0) {
-          restored.push({ ...savedGroup, children: restoredChildren });
-        }
-      }
-      return restored;
-    },
-    [
-      bootstrap.limits.queryResultLimit,
-      message,
-      notification,
-      permissions.canLoadVectorLayer,
-      permissions.canQueryData,
-    ],
-  );
-
-  const loadWorkspaceScene = useCallback(
-    async (scene: WorkspaceScene) => {
-      const label = scene.kind === "project" ? "工程" : "专题";
-      const notificationKey = `workspace-load-${scene.id}`;
-      const snapshot = scene.snapshot as WorkspaceSceneSnapshot;
-      if (!Array.isArray(snapshot.groups)) {
-        message.warning("该工作区快照不包含可恢复的图层");
-        return;
-      }
-      openWorkspaceProgressNotification(notification, {
-        key: notificationKey,
-        title: `正在加载${label}`,
-        percent: 8,
-        status: "active",
-        detail: scene.name,
-      });
-      const restoredGroups = await restoreWorkspaceGroups(
-        snapshot.groups,
-        (state) => {
-          openWorkspaceProgressNotification(notification, {
-            key: notificationKey,
-            title: `正在加载${label}`,
-            percent: state.percent,
-            status: "active",
-            detail: state.detail,
-          });
-        },
-      );
-      if (restoredGroups.length === 0) {
-        openWorkspaceProgressNotification(notification, {
-          key: notificationKey,
-          title: `${label}加载失败`,
-          percent: 100,
-          status: "exception",
-          detail: "该工作区快照没有可恢复的图层",
-        });
-        message.warning("该工作区快照没有可恢复的图层");
-        return;
-      }
-      openWorkspaceProgressNotification(notification, {
-        key: notificationKey,
-        title: `正在加载${label}`,
-        percent: 90,
-        status: "active",
-        detail: "正在应用图层和地图视图",
-      });
-      layerGroups.replaceGroups(restoredGroups);
-      setSelectedLayerId(snapshot.selectedLayerId ?? null);
-      setTableLayer(null);
-      setSelectedFeature(null);
-      if (snapshot.mapView && mapInstanceRef.current) {
-        mapInstanceRef.current.flyTo({
-          center: snapshot.mapView.center,
-          zoom: snapshot.mapView.zoom,
-          bearing: snapshot.mapView.bearing,
-          pitch: snapshot.mapView.pitch,
-          duration: 800,
-          essential: true,
-        });
-      }
-      openWorkspaceProgressNotification(notification, {
-        key: notificationKey,
-        title: `${label}已加载`,
-        percent: 100,
-        status: "success",
-        detail: scene.name,
-      });
-    },
-    [layerGroups, message, notification, restoreWorkspaceGroups],
-  );
-
   useEffect(() => {
     const sceneIdText = searchParams.get("sceneId")?.trim();
     if (!sceneIdText) {
@@ -935,10 +656,7 @@ export default function MapPage() {
     loadedSceneIdRef.current = sceneId;
     async function loadSceneFromUrl() {
       try {
-        const scene =
-          workspaceScenes.find((item) => item.id === sceneId) ??
-          (await api.workspace(sceneId));
-        await loadWorkspaceScene(scene);
+        await loadWorkspaceSceneById(sceneId);
       } catch (error) {
         loadedSceneIdRef.current = null;
         message.error(
@@ -947,7 +665,7 @@ export default function MapPage() {
       }
     }
     void loadSceneFromUrl();
-  }, [loadWorkspaceScene, message, searchParams, workspaceScenes]);
+  }, [loadWorkspaceSceneById, message, searchParams]);
 
   const layerContextValue: LayerContextValue = {
     groups: layerGroups.groups,
@@ -1021,7 +739,7 @@ export default function MapPage() {
         onLoadWorkspaceScene={loadWorkspaceScene}
         onSearchFocus={() => {
           if (permissions.canBrowseData) {
-            void loadSearchItems();
+            void loadWorkspaceScenes();
           }
         }}
       />
@@ -1092,19 +810,9 @@ export default function MapPage() {
                           (scene) => scene.kind === "project",
                         )}
                         onLoad={loadWorkspaceScene}
-                        onRefresh={loadSearchItems}
-                        onUpdate={(updated) =>
-                          setWorkspaceScenes((current) =>
-                            current.map((item) =>
-                              item.id === updated.id ? updated : item,
-                            ),
-                          )
-                        }
-                        onDelete={(sceneId) =>
-                          setWorkspaceScenes((current) =>
-                            current.filter((item) => item.id !== sceneId),
-                          )
-                        }
+                        onRefresh={loadWorkspaceScenes}
+                        onUpdate={updateWorkspaceScene}
+                        onDelete={deleteWorkspaceScene}
                       />
                     ),
                   },
@@ -1123,19 +831,9 @@ export default function MapPage() {
                           (scene) => scene.kind === "topic",
                         )}
                         onLoad={loadWorkspaceScene}
-                        onRefresh={loadSearchItems}
-                        onUpdate={(updated) =>
-                          setWorkspaceScenes((current) =>
-                            current.map((item) =>
-                              item.id === updated.id ? updated : item,
-                            ),
-                          )
-                        }
-                        onDelete={(sceneId) =>
-                          setWorkspaceScenes((current) =>
-                            current.filter((item) => item.id !== sceneId),
-                          )
-                        }
+                        onRefresh={loadWorkspaceScenes}
+                        onUpdate={updateWorkspaceScene}
+                        onDelete={deleteWorkspaceScene}
                       />
                     ),
                   },
@@ -1184,308 +882,7 @@ export default function MapPage() {
   );
 }
 
-function WorkspaceScenePanel({
-  kind,
-  items,
-  onLoad,
-  onRefresh,
-  onUpdate,
-  onDelete,
-}: {
-  kind: WorkspaceSceneKind;
-  items: WorkspaceScene[];
-  onLoad: (scene: WorkspaceScene) => void | Promise<void>;
-  onRefresh: () => void | Promise<void>;
-  onUpdate: (scene: WorkspaceScene) => void;
-  onDelete: (sceneId: number) => void;
-}) {
-  const { message } = App.useApp();
-  const [form] = Form.useForm<{ name: string; description: string }>();
-  const [loading, setLoading] = useState(false);
-  const [editingScene, setEditingScene] = useState<WorkspaceScene | null>(null);
-  const [savingEdit, setSavingEdit] = useState(false);
-  const label = kind === "project" ? "工程" : "专题";
-
-  const loadItems = useCallback(async () => {
-    setLoading(true);
-    try {
-      await onRefresh();
-    } catch (error) {
-      message.error(
-        error instanceof Error ? error.message : `${label}加载失败`,
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [label, message, onRefresh]);
-
-  async function removeScene(scene: WorkspaceScene) {
-    try {
-      await api.deleteWorkspace(scene.id);
-      onDelete(scene.id);
-      message.success(`${label}已删除`);
-    } catch (error) {
-      message.error(
-        error instanceof Error ? error.message : `${label}删除失败`,
-      );
-    }
-  }
-
-  function openEditScene(scene: WorkspaceScene) {
-    setEditingScene(scene);
-    form.setFieldsValue({
-      name: scene.name,
-      description: scene.description,
-    });
-  }
-
-  async function submitEditScene() {
-    if (!editingScene) {
-      return;
-    }
-    let values: { name: string; description?: string };
-    try {
-      values = await form.validateFields();
-    } catch {
-      return;
-    }
-    const name = values.name.trim();
-    const description = values.description?.trim() ?? "";
-    setSavingEdit(true);
-    try {
-      const updated = await api.updateWorkspace(editingScene.id, {
-        name,
-        description,
-      });
-      if ("id" in updated) {
-        onUpdate(updated);
-      }
-      setEditingScene(null);
-      message.success(`${label}已更新`);
-    } catch (error) {
-      message.error(
-        error instanceof Error ? error.message : `${label}更新失败`,
-      );
-    } finally {
-      setSavingEdit(false);
-    }
-  }
-
-  return (
-    <section className="panel-section topic-workspace-panel">
-      <Button size="small" onClick={() => void loadItems()} loading={loading}>
-        刷新
-      </Button>
-      {items.length === 0 ? (
-        <Empty
-          className="layer-empty"
-          image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description={`暂无已保存${label}`}
-        />
-      ) : (
-        <div className="topic-scenario-list">
-          {items.map((scene) => (
-            <div key={scene.id} className="topic-scenario-row">
-              <div className="topic-scenario-main">
-                <span>
-                  <strong>{scene.name}</strong>
-                  <small>
-                    {scene.description ||
-                      new Date(scene.updatedAt).toLocaleString("zh-CN", {
-                        hour12: false,
-                      })}
-                  </small>
-                </span>
-              </div>
-              <Space size={4}>
-                <Button size="small" onClick={() => void onLoad(scene)}>
-                  加载
-                </Button>
-                <Button
-                  size="small"
-                  icon={<EditOutlined style={{ fontSize: 14 }} />}
-                  onClick={() => openEditScene(scene)}
-                />
-                <Popconfirm
-                  title={`删除${label}`}
-                  description={`确认删除“${scene.name}”？`}
-                  okText="删除"
-                  cancelText="取消"
-                  onConfirm={() => removeScene(scene)}
-                >
-                  <Button
-                    className="topic-scenario-delete-button"
-                    size="small"
-                    danger
-                    icon={<DeleteOutlined style={{ fontSize: 14 }} />}
-                  />
-                </Popconfirm>
-              </Space>
-            </div>
-          ))}
-        </div>
-      )}
-      <Modal
-        title={`编辑${label}`}
-        open={Boolean(editingScene)}
-        okText="保存"
-        cancelText="取消"
-        confirmLoading={savingEdit}
-        onOk={() => void submitEditScene()}
-        onCancel={() => setEditingScene(null)}
-        destroyOnHidden
-      >
-        <Form form={form} layout="vertical" requiredMark={false}>
-          <Form.Item
-            name="name"
-            label={`${label}名称`}
-            rules={[
-              {
-                required: true,
-                whitespace: true,
-                message: `请输入${label}名称`,
-              },
-              { max: 160, message: `${label}名称不能超过 160 个字符` },
-            ]}
-          >
-            <Input placeholder={`请输入${label}名称`} />
-          </Form.Item>
-          <Form.Item name="description" label={`${label}说明`}>
-            <Input.TextArea
-              rows={4}
-              maxLength={1000}
-              showCount
-              placeholder={`请输入${label}说明`}
-            />
-          </Form.Item>
-        </Form>
-      </Modal>
-    </section>
-  );
-}
-
 async function mapFitBoundsOptions(_map: MapboxMap) {
   const { fitBoundsOptions } = await import("../map/mapViewport");
   return fitBoundsOptions();
-}
-
-function workspaceSnapshot(
-  groups: LoadedLayerGroup[],
-  selectedLayerId: string | null,
-  mapView: MapViewState | null,
-): WorkspaceSceneSnapshot {
-  return {
-    version: 2,
-    groups: groups.map(toSavedWorkspaceGroup),
-    selectedLayerId,
-    mapView,
-    savedAt: new Date().toISOString(),
-  };
-}
-
-function toSavedWorkspaceGroup(
-  group: LoadedLayerGroup,
-): SavedWorkspaceLayerGroup {
-  return {
-    ...group,
-    children: group.children.map(toSavedWorkspaceLayer),
-  };
-}
-
-function toSavedWorkspaceLayer(layer: LoadedLayer): SavedWorkspaceLayer {
-  const base = {
-    id: layer.id,
-    name: layer.name,
-    layerType: layer.layerType,
-    sourceResource: layer.sourceResource,
-    geometryType: layer.geometryType,
-    visible: layer.visible,
-    summary: layer.summary,
-    metadata: layer.metadata,
-    symbolization: layer.symbolization,
-    fields: layer.fields,
-  };
-  if (layer.layerType === "vector") {
-    return {
-      ...base,
-      layerType: "vector",
-      query: layer.query ?? {
-        attributeFilters: [],
-        spatialFilter: null,
-      },
-    };
-  }
-  return {
-    ...base,
-    layerType: "raster",
-    tileUrl: layer.tileUrl,
-    imageCoordinates: layer.imageCoordinates,
-    rasterDatasetId: layer.rasterDatasetId,
-    rasterLayerId: layer.rasterLayerId,
-    rasterMetadata: layer.rasterMetadata,
-    renderStatus: layer.renderStatus,
-    renderProgress: layer.renderProgress,
-    renderMessages: layer.renderMessages,
-  };
-}
-
-function isLoadedVectorLayer(
-  layer: SavedWorkspaceLayer | LoadedLayer,
-): layer is LoadedVectorLayer {
-  return (
-    layer.layerType === "vector" &&
-    "geojson" in layer &&
-    typeof layer.geojson === "object" &&
-    layer.geojson !== null
-  );
-}
-
-function openWorkspaceProgressNotification(
-  notification: ReturnType<typeof App.useApp>["notification"],
-  options: {
-    key: string;
-    title: string;
-    percent: number;
-    status: "active" | "success" | "exception";
-    detail: string;
-  },
-) {
-  notification.open({
-    key: options.key,
-    message: options.title,
-    description: (
-      <Space orientation="vertical" size={6} style={{ width: "100%" }}>
-        <Space size={8}>
-          <Spin spinning={options.status === "active"} size="small" />
-          <Typography.Text type="secondary">{options.detail}</Typography.Text>
-        </Space>
-      </Space>
-    ),
-    duration: options.status === "active" ? 0 : 5,
-    showProgress: options.status !== "active",
-    pauseOnHover: false,
-  });
-}
-
-function showGeojsonWarnings(
-  notification: ReturnType<typeof App.useApp>["notification"],
-  warnings?: GeoJsonValidationWarning[],
-) {
-  if (!warnings?.length) {
-    return;
-  }
-  notification.warning({
-    message: "地理坐标数据警告",
-    description: (
-      <div className="geojson-warning-list">
-        {warnings.map((warning) => (
-          <div key={`${warning.code}-${warning.message}`}>
-            {warning.message}
-          </div>
-        ))}
-      </div>
-    ),
-    placement: "topRight",
-    duration: 8,
-  });
 }

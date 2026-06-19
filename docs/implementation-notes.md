@@ -123,6 +123,10 @@ frontend/src/
 │   ├── LayerContext.tsx          # 图层状态 Context，消除 props drilling
 │   ├── useLayerGroups.ts        # 图层组 CRUD（12 个操作）
 │   └── useRasterRender.ts       # 栅格渲染调度/轮询/结果应用
+├── workspace/
+│   ├── workspaceSnapshot.ts      # 工程/专题轻量快照序列化，不保存 GeoJSON 要素集合
+│   ├── workspaceRestore.ts       # 工程/专题快照恢复，必要时按资源引用重新查询矢量图层
+│   └── workspaceNotifications.tsx # 工程/专题进度和 GeoJSON 警告通知
 ├── map/
 │   ├── mapState.ts              # WeakMap<Map, MapInternalState> 状态管理
 │   ├── styleHelpers.ts          # Mapbox 样式层增删改工具
@@ -141,6 +145,7 @@ frontend/src/
 - **纯函数与 React 分离**：`utils/` 和 `map/` 中的纯函数可独立测试，不依赖 React 生命周期。
 - **WeakMap 替代属性挂载**：`mapState.ts` 用 `WeakMap<Map, MapInternalState>` 管理 Mapbox 实例的内部状态，避免在 map 对象上挂载自定义属性。
 - **Context 消除 props drilling**：`LayerContext` 提供图层组全部操作，`LayerPanel` 零 props 通过 `useLayerContext()` 消费。
+- **地图工作台持久化深模块**：`hooks/useWorkspaceScenes.ts` 负责工程/专题列表、保存、加载和恢复；`workspace/workspaceSnapshot.ts` 负责轻量快照序列化，必须避免把矢量 `geojson.features` 写入服务端工程/专题快照。
 - **Discriminated union 类型安全**：`LoadedLayer = LoadedVectorLayer | LoadedRasterLayer`，通过 `layerType` 字段判别，编译期消除可选字段歧义。
 - **OpenAPI 契约驱动类型**：`frontend/src/api/generated/` 由 `docs/openapi.yaml` 通过 `@hey-api/openapi-ts` 生成；`frontend/src/types.ts` 只保留前端运行态类型、少量 UI 扩展和对生成 DTO 的统一转出。
 - **类型安全 API 请求**：`frontend/src/api/client.ts` 调用 Hey API 生成的 SDK 函数，并集中处理 CSRF、中文错误、Blob 下载文件名和业务资源分支；路径、路径参数、查询参数和 JSON 请求体必须来自 `docs/openapi.yaml`。
