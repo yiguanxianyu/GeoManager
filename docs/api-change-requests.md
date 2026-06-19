@@ -25,6 +25,7 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260617-002 | BackendReady | POST /api/catalog/workspaces/; POST /api/catalog/workspaces/{workspaceId}/ | request body, status code | Done | N/A | Done | Done | Workspace snapshots store references, not raw data |
 | API-20260618-001 | ContractReady | GET /api/catalog/resources/{id}/nongeo-analytics/; POST /api/catalog/resources/{id}/table-query/ | new endpoint, response fields, permission behavior, mock data | Done | Done | Pending | Pending | Non-geographic table analytics workspace |
 | API-20260619-001 | Implementing | POST /api/catalog/import/commit/; GET /api/admin/data/resources/; POST /api/admin/data/resources/{id}/ | request body, response fields, permission behavior, mock data | Done | Updating | Implementing | Pending | Uploaded data visibility scope |
+| API-20260619-002 | Verified | Multiple mock example endpoints | mock data consistency | N/A | Done | N/A | Done | Align representative auth, vector, raster, and non-geographic mock data |
 
 ## Entry Template
 
@@ -93,6 +94,19 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Backend implementation notes: Store visibility in `DataResource.access_groups`, force-add the `超级管理员` group, treat `DataResource.maintainer` as uploader ownership, and keep historical resources with no maintainer and no access groups public.
 - Verification: run `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check && pnpm run mock:build`, plus backend catalog/admin permission tests.
 - Result: Implementation in progress.
+
+## API-20260619-002 - Mock Example Business Consistency
+
+- Status: Verified
+- Owner: Frontend
+- Endpoints: `POST /api/auth/register/`, `GET /api/catalog/resources/`, `POST /api/catalog/scan/`, `GET /api/catalog/resources/{id}/profile/`, `POST /api/catalog/resources/{id}/query/`, `GET /api/layers/`, `GET /api/layers/{layer_name}/features/`, `GET /api/layers/{layer_name}/profile/`, `POST /api/layers/{layer_name}/query/`, `GET /api/catalog/resources/{id}/nongeo-analytics/`, `POST /api/catalog/resources/{id}/table-query/`
+- Change type: mock data
+- OpenAPI change: None; endpoint shapes, status codes, permissions, and generated frontend API types are unchanged.
+- Mock examples: `mock/prism/examples/00-public-auth.json`, `mock/prism/examples/30-catalog-vector.json`, `mock/prism/examples/35-catalog-nongeo.json`
+- Frontend reason: Representative Prism data must use one coherent business scenario so tests and local UI development can exercise realistic interactions across login, resource listing, vector querying, raster layer references, and non-geographic table analysis.
+- Backend implementation notes: No backend implementation required. Existing backend behavior already controls real data; this entry only documents mock fixture corrections.
+- Verification: run `cd frontend && pnpm run check:api && pnpm run api:changes:check && pnpm run mock:build && pnpm test`, plus the mock consistency test in `frontend/src/test/mockExamples.test.ts`.
+- Result: Mock examples aligned and verified by automated consistency checks.
 
 ## API-20260617-002 - Workspace Snapshot Raw Data Guard
 

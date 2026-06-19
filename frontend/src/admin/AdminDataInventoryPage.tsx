@@ -653,7 +653,7 @@ export default function AdminDataInventoryPage() {
               className="inventory-drawer-form"
             >
               <Typography.Title level={5}>数据访问权限</Typography.Title>
-              <Space direction="vertical" size={10} style={{ width: "100%" }}>
+              <Space orientation="vertical" size={10} style={{ width: "100%" }}>
                 <Checkbox checked disabled>
                   上传者本人可见
                 </Checkbox>

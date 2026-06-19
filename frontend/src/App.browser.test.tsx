@@ -5,7 +5,13 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { appTheme } from "./theme";
-import type { Bootstrap, User } from "./types";
+import type {
+  Bootstrap,
+  DataResourceProfile,
+  ResourceListItem,
+  ResourceQueryResult,
+  User,
+} from "./types";
 
 const { MockApiError, mockApi } = vi.hoisted(() => {
   class MockApiError extends Error {
@@ -30,6 +36,8 @@ const { MockApiError, mockApi } = vi.hoisted(() => {
       register: vi.fn(),
       logout: vi.fn(),
       resources: vi.fn(),
+      resourceProfile: vi.fn(),
+      queryResource: vi.fn(),
       workspaces: vi.fn(),
       achievements: vi.fn(),
       scanCatalogSources: vi.fn(),
@@ -126,6 +134,75 @@ const adminUser: User = {
   },
 };
 
+const tarimVectorResource: ResourceListItem = {
+  id: 21,
+  name: "塔里木河胡杨样地监测点",
+  code: "tarim-poplar-monitoring-2026",
+  dataType: "vector",
+  category: { code: "monitoring", name: "长期监测" },
+  source: "2026 塔里木河野外调查",
+  provider: "生态监测组",
+  dataDate: "2026-06-01",
+  spatialExtent: "87.600000,43.795100,87.642800,43.812450",
+  coordinateSystem: "EPSG:4326",
+  fileFormat: "GeoPackage",
+  description: "塔里木河胡杨样地监测点位",
+  qualityNote: "",
+  status: "active",
+  isQueryable: true,
+  isRenderable: false,
+  updatedAt: "2026-06-18T12:00:00+08:00",
+  sizeBytes: 245760,
+  itemCount: 3,
+};
+
+const tarimVectorProfile: DataResourceProfile = {
+  resource: tarimVectorResource,
+  fields: [
+    {
+      name: "sample_id",
+      type: "str",
+      nullable: false,
+      sampleValues: ["TP-2026-001"],
+      description: "样点编号",
+    },
+    {
+      name: "dbh_cm",
+      type: "float",
+      nullable: false,
+      sampleValues: [32.5],
+      description: "胸径",
+    },
+  ],
+  featureCount: 3,
+  geometryType: "Point",
+  bounds: [87.6, 43.7951, 87.6428, 43.81245],
+};
+
+const tarimQueryResult: ResourceQueryResult = {
+  resourceId: 21,
+  resourceName: "塔里木河胡杨样地监测点",
+  totalCount: 3,
+  returnedCount: 3,
+  limit: 30000,
+  fields: tarimVectorProfile.fields,
+  geojson: {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [87.6, 43.8] },
+        properties: {
+          sample_id: "TP-2026-001",
+          health: "良好",
+          dbh_cm: 32.5,
+        },
+      },
+    ],
+  },
+  warnings: [],
+};
+
 function renderApp(initialEntry: string) {
   return render(
     <ConfigProvider locale={zhCN} theme={appTheme}>
@@ -168,6 +245,8 @@ describe("application critical flows", () => {
     });
     mockApi.logout.mockResolvedValue({ detail: "已退出" });
     mockApi.resources.mockResolvedValue({ items: [] });
+    mockApi.resourceProfile.mockResolvedValue(tarimVectorProfile);
+    mockApi.queryResource.mockResolvedValue(tarimQueryResult);
     mockApi.workspaces.mockResolvedValue({ items: [] });
     mockApi.achievements.mockResolvedValue({ items: [] });
     mockApi.scanCatalogSources.mockResolvedValue({ detail: "ok" });
@@ -241,6 +320,37 @@ describe("application critical flows", () => {
     expect(
       screen.queryByRole("button", { name: /后台管理/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("runs a representative vector query flow from resource selection to layer loading", async () => {
+    mockApi.me.mockResolvedValue({ authenticated: true, user: normalUser });
+    mockApi.resources.mockResolvedValue({ items: [tarimVectorResource] });
+
+    renderApp("/map");
+
+    expect(
+      await screen.findByText("塔里木河胡杨样地监测点", {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /选\s*择/ }));
+
+    await waitFor(() => {
+      expect(mockApi.resourceProfile).toHaveBeenCalledWith(tarimVectorResource);
+    });
+    expect(await screen.findByText("sample_id")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "查询并加载" }));
+
+    await waitFor(() => {
+      expect(mockApi.queryResource).toHaveBeenCalledWith(tarimVectorResource, {
+        attributeFilters: [],
+        spatialFilter: null,
+        limit: 30000,
+      });
+    });
+    fireEvent.click(screen.getByRole("tab", { name: /图层/ }));
+    expect(
+      await screen.findByText("塔里木河胡杨样地监测点 查询组"),
+    ).toBeInTheDocument();
   });
 
   it("keeps guest login from showing a spinner during account login", async () => {

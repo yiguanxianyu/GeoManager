@@ -463,7 +463,11 @@ export default function AdminDataImportPage() {
 
               <section className="import-section">
                 <Typography.Title level={5}>数据可见权限</Typography.Title>
-                <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                <Space
+                  orientation="vertical"
+                  size={10}
+                  style={{ width: "100%" }}
+                >
                   <Checkbox checked disabled>
                     我自己可见
                   </Checkbox>

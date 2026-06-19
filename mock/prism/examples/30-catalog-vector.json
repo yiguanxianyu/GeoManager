@@ -111,18 +111,18 @@
           "geometryType": "point",
           "bounds": [
             87.6,
-            43.8,
-            87.6,
-            43.8
+            43.7951,
+            87.6428,
+            43.81245
           ],
           "coordinateSystem": "EPSG:4326",
-          "featureCount": 1,
+          "featureCount": 3,
           "source": "GeoPackage 实时读取",
           "isQueryable": true,
           "isRenderable": false,
           "status": "active",
           "sizeBytes": 245760,
-          "itemCount": 1
+          "itemCount": 3
         },
         {
           "id": 13,
@@ -163,18 +163,18 @@
           "geometryType": "point",
           "bounds": [
             87.6,
-            43.8,
-            87.6,
-            43.8
+            43.7951,
+            87.6428,
+            43.81245
           ],
           "coordinateSystem": "EPSG:4326",
-          "featureCount": 1,
+          "featureCount": 3,
           "source": "GeoPackage 实时读取",
           "isQueryable": true,
           "isRenderable": false,
           "status": "active",
           "sizeBytes": 245760,
-          "itemCount": 1
+          "itemCount": 3
         }
       ],
       "count": 1
@@ -409,55 +409,55 @@
         "geometryType": "point",
         "bounds": [
           87.6,
-          43.8,
-          87.6,
-          43.8
+          43.7951,
+          87.6428,
+          43.81245
         ],
         "coordinateSystem": "EPSG:4326",
-        "featureCount": 1,
+        "featureCount": 3,
         "source": "GeoPackage 实时读取",
         "isQueryable": true,
         "isRenderable": false,
         "status": "active",
         "sizeBytes": 245760,
-        "itemCount": 1
+        "itemCount": 3
       },
       "fields": [
         {
-          "name": "name",
+          "name": "sample_id",
           "type": "str",
           "nullable": false,
           "sampleValues": [
-            "A"
+            "TP-2026-001"
           ],
-          "description": ""
+          "description": "样地编号"
         },
         {
-          "name": "lon",
+          "name": "health",
           "type": "str",
           "nullable": false,
           "sampleValues": [
-            "87.600"
+            "良好"
           ],
-          "description": ""
+          "description": "健康状况"
         },
         {
-          "name": "lat",
-          "type": "str",
+          "name": "dbh_cm",
+          "type": "float",
           "nullable": false,
           "sampleValues": [
-            "43.800"
+            32.5
           ],
-          "description": ""
+          "description": "胸径（厘米）"
         }
       ],
-      "featureCount": 1,
+      "featureCount": 3,
       "geometryType": "Point",
       "bounds": [
         87.6,
-        43.8,
-        87.6,
-        43.8
+        43.7951,
+        87.6428,
+        43.81245
       ]
     }
   },
@@ -470,31 +470,31 @@
       "limit": 30000,
       "fields": [
         {
-          "name": "name",
+          "name": "sample_id",
           "type": "str",
           "nullable": false,
           "sampleValues": [
-            "A"
+            "TP-2026-001"
           ],
-          "description": ""
+          "description": "样地编号"
         },
         {
-          "name": "lon",
+          "name": "health",
           "type": "str",
           "nullable": false,
           "sampleValues": [
-            "87.600"
+            "良好"
           ],
-          "description": ""
+          "description": "健康状况"
         },
         {
-          "name": "lat",
-          "type": "str",
+          "name": "dbh_cm",
+          "type": "float",
           "nullable": false,
           "sampleValues": [
-            "43.800"
+            32.5
           ],
-          "description": ""
+          "description": "胸径（厘米）"
         }
       ],
       "geojson": {
@@ -584,18 +584,18 @@
           "geometryType": "point",
           "bounds": [
             87.6,
-            43.8,
-            87.6,
-            43.8
+            43.7951,
+            87.6428,
+            43.81245
           ],
           "coordinateSystem": "EPSG:4326",
-          "featureCount": 1,
+          "featureCount": 3,
           "source": "GeoPackage 实时读取",
           "isQueryable": true,
           "isRenderable": false,
           "status": "active",
           "sizeBytes": 245760,
-          "itemCount": 1
+          "itemCount": 3
         },
         {
           "id": 1,
@@ -726,15 +726,50 @@
           "id": "0",
           "type": "Feature",
           "properties": {
-            "name": "A",
-            "lon": "87.600",
-            "lat": "43.800"
+            "sample_id": "TP-2026-001",
+            "health": "良好",
+            "dbh_cm": 32.5,
+            "canopy_m": 7.8
           },
           "geometry": {
             "type": "Point",
             "coordinates": [
               87.6,
               43.8
+            ]
+          }
+        },
+        {
+          "id": "1",
+          "type": "Feature",
+          "properties": {
+            "sample_id": "TP-2026-002",
+            "health": "一般",
+            "dbh_cm": 28.1,
+            "canopy_m": 6.4
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              87.61532,
+              43.81245
+            ]
+          }
+        },
+        {
+          "id": "2",
+          "type": "Feature",
+          "properties": {
+            "sample_id": "TP-2026-003",
+            "health": "良好",
+            "dbh_cm": 35.7,
+            "canopy_m": 8.1
+          },
+          "geometry": {
+            "type": "Point",
+            "coordinates": [
+              87.6428,
+              43.7951
             ]
           }
         }
@@ -753,55 +788,55 @@
         "geometryType": "point",
         "bounds": [
           87.6,
-          43.8,
-          87.6,
-          43.8
+          43.7951,
+          87.6428,
+          43.81245
         ],
         "coordinateSystem": "EPSG:4326",
-        "featureCount": 1,
+        "featureCount": 3,
         "source": "GeoPackage 实时读取",
         "isQueryable": true,
         "isRenderable": false,
         "status": "active",
         "sizeBytes": 245760,
-        "itemCount": 1
+        "itemCount": 3
       },
       "fields": [
         {
-          "name": "name",
+          "name": "sample_id",
           "type": "str",
           "nullable": false,
           "sampleValues": [
-            "A"
+            "TP-2026-001"
           ],
-          "description": ""
+          "description": "样地编号"
         },
         {
-          "name": "lon",
+          "name": "health",
           "type": "str",
           "nullable": false,
           "sampleValues": [
-            "87.600"
+            "良好"
           ],
-          "description": ""
+          "description": "健康状况"
         },
         {
-          "name": "lat",
-          "type": "str",
+          "name": "dbh_cm",
+          "type": "float",
           "nullable": false,
           "sampleValues": [
-            "43.800"
+            32.5
           ],
-          "description": ""
+          "description": "胸径（厘米）"
         }
       ],
-      "featureCount": 1,
+      "featureCount": 3,
       "geometryType": "Point",
       "bounds": [
         87.6,
-        43.8,
-        87.6,
-        43.8
+        43.7951,
+        87.6428,
+        43.81245
       ]
     }
   },
@@ -814,31 +849,31 @@
       "limit": 30000,
       "fields": [
         {
-          "name": "name",
+          "name": "sample_id",
           "type": "str",
           "nullable": false,
           "sampleValues": [
-            "A"
+            "TP-2026-001"
           ],
-          "description": ""
+          "description": "样地编号"
         },
         {
-          "name": "lon",
+          "name": "health",
           "type": "str",
           "nullable": false,
           "sampleValues": [
-            "87.600"
+            "良好"
           ],
-          "description": ""
+          "description": "健康状况"
         },
         {
-          "name": "lat",
-          "type": "str",
+          "name": "dbh_cm",
+          "type": "float",
           "nullable": false,
           "sampleValues": [
-            "43.800"
+            32.5
           ],
-          "description": ""
+          "description": "胸径（厘米）"
         }
       ],
       "geojson": {
@@ -977,18 +1012,18 @@
           "geometryType": "point",
           "bounds": [
             87.6,
-            43.8,
-            87.6,
-            43.8
+            43.7951,
+            87.6428,
+            43.81245
           ],
           "coordinateSystem": "EPSG:4326",
-          "featureCount": 1,
+          "featureCount": 3,
           "source": "GeoPackage 实时读取",
           "isQueryable": true,
           "isRenderable": false,
           "status": "active",
           "sizeBytes": 245760,
-          "itemCount": 1
+          "itemCount": 3
         }
       ],
       "achievements": [

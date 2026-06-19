@@ -685,7 +685,7 @@ export default function WorkspaceHeader({
       menu={{ items: dataManagementMenuItems }}
       trigger={["hover"]}
       placement="bottom"
-      overlayClassName="workspace-management-dropdown"
+      classNames={{ root: "workspace-management-dropdown" }}
     >
       <Button
         ref={resourcesTabRef}
@@ -940,7 +940,7 @@ export default function WorkspaceHeader({
               menu={{ items: adminMenuItems }}
               trigger={["hover"]}
               placement="bottom"
-              overlayClassName="workspace-management-dropdown"
+              classNames={{ root: "workspace-management-dropdown" }}
             >
               <Button
                 ref={adminTabRef}
@@ -963,7 +963,7 @@ export default function WorkspaceHeader({
             trigger="click"
             placement="bottom"
             content={aboutContent}
-            overlayClassName="workspace-info-popover"
+            classNames={{ root: "workspace-info-popover" }}
           >
             <Button
               ref={aboutTabRef}
@@ -985,7 +985,7 @@ export default function WorkspaceHeader({
           trigger="click"
           placement="bottomRight"
           content={wechatContent}
-          overlayClassName="workspace-info-popover"
+          classNames={{ root: "workspace-info-popover" }}
         >
           <Button
             aria-label="公众号二维码"
@@ -1000,7 +1000,7 @@ export default function WorkspaceHeader({
           content={userContent}
           open={userPopoverOpen}
           onOpenChange={setUserPopoverOpen}
-          overlayClassName="workspace-info-popover"
+          classNames={{ root: "workspace-info-popover" }}
         >
           <Button
             ref={userButtonRef}

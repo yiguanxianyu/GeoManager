@@ -142,6 +142,47 @@ describe("api client", () => {
     );
   });
 
+  it("serializes import validation payload into multipart form data", async () => {
+    setTestCookie("csrftoken=validate-token");
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        coordinateStats: {
+          totalRows: 3,
+          validRows: 3,
+          missingRows: 0,
+          errorMinMeters: 0.05,
+          errorMaxMeters: 0.55,
+        },
+        validationIssues: [],
+        duplicateTarget: null,
+      }),
+    );
+
+    await api.importValidate(
+      new File(["sample_id,lon,lat\nTP-1,87.600,43.800\n"], "points.csv", {
+        type: "text/csv",
+      }),
+      {
+        importMode: "geographic",
+        tableName: "tarim_poplar_monitoring_2026",
+        longitudeColumn: "lon",
+        latitudeColumn: "lat",
+      },
+    );
+
+    const request = capturedRequest(fetchMock);
+    const body = await request.clone().formData();
+    expect(requestPath(request)).toBe("/api/catalog/import/validate/");
+    expect(request.method).toBe("POST");
+    expect(request.headers.get("X-CSRFToken")).toBe("validate-token");
+    expect(JSON.parse(String(body.get("payload")))).toEqual({
+      importMode: "geographic",
+      tableName: "tarim_poplar_monitoring_2026",
+      longitudeColumn: "lon",
+      latitudeColumn: "lat",
+    });
+  });
+
   it("encodes vector layer names for temporary GeoPackage resources", async () => {
     fetchMock.mockResolvedValue(jsonResponse({}));
     const resource = {
@@ -159,6 +200,79 @@ describe("api client", () => {
     expect(requestPath(capturedRequest(fetchMock))).toBe(
       "/api/layers/sample%20layer%2F%E4%B8%80/query/",
     );
+  });
+
+  it("posts non-geographic table query filters to the resource endpoint", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        resourceId: 13,
+        resourceName: "胡杨群落生物多样性与功能性状数据表",
+        totalCount: 1,
+        returnedCount: 1,
+        limit: 20,
+        offset: 0,
+        fields: [],
+        records: [],
+      }),
+    );
+
+    await api.queryNonGeoTable(13, {
+      attributeFilters: [
+        { field: "生活型（乔、灌、草）", operator: "eq", value: "乔木" },
+      ],
+      sort: { field: "重要值", direction: "desc" },
+      limit: 20,
+      offset: 0,
+    });
+
+    const request = capturedRequest(fetchMock);
+    expect(requestPath(request)).toBe("/api/catalog/resources/13/table-query/");
+    expect(JSON.parse(await request.clone().text())).toEqual({
+      attributeFilters: [
+        { field: "生活型（乔、灌、草）", operator: "eq", value: "乔木" },
+      ],
+      sort: { field: "重要值", direction: "desc" },
+      limit: 20,
+      offset: 0,
+    });
+  });
+
+  it("starts custom raster rendering with explicit rules mode and dataset reference", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        id: "raster-render-job",
+        status: "queued",
+        progressPercent: 0,
+        messages: [],
+      }),
+    );
+
+    await api.renderRasterAsync({
+      datasetId: 2,
+      layerId: null,
+      rulesMode: "custom",
+      rules: {
+        mode: "unique",
+        bands: [1],
+        palette: "poplar",
+        uniqueValues: [
+          { value: 1, color: "#2f7d62", label: "胡杨" },
+          { value: 2, color: "#d8b365", label: "其他植被" },
+        ],
+      },
+    });
+
+    const request = capturedRequest(fetchMock);
+    expect(requestPath(request)).toBe("/api/raster/render/async/");
+    expect(JSON.parse(await request.clone().text())).toMatchObject({
+      datasetId: 2,
+      layerId: null,
+      rulesMode: "custom",
+      rules: {
+        mode: "unique",
+        bands: [1],
+      },
+    });
   });
 
   it("extracts export filenames from content-disposition headers", async () => {

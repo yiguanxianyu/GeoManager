@@ -166,7 +166,7 @@
         "isStaff": false,
         "isSuperuser": false,
         "roles": [
-          "游客"
+          "普通用户"
         ],
         "permissions": {
           "canAccessAdmin": true,

@@ -4,7 +4,7 @@ import zhCN from "antd/locale/zh_CN";
 import { describe, expect, it, vi } from "vitest";
 import { cloneDefaultVectorSymbolization } from "../symbolization";
 import { appTheme } from "../theme";
-import type { ResourceListItem, User } from "../types";
+import type { DataResourceProfile, ResourceListItem, User } from "../types";
 import DataPanel from "./DataPanel";
 import { VectorSymbolizationEditor } from "./SymbolizationEditor";
 
@@ -58,6 +58,93 @@ const vectorResource: ResourceListItem = {
   updatedAt: "2026-06-17T00:00:00+08:00",
 };
 
+const rasterResource: ResourceListItem = {
+  id: 2,
+  name: "塔里木河胡杨提取结果",
+  code: "tarim-poplar-raster",
+  dataType: "raster",
+  category: { code: "remote-sensing", name: "遥感监测" },
+  source: "高分遥感解译",
+  provider: "遥感处理组",
+  dataDate: "2026-06-01",
+  spatialExtent: "88.328434,40.079174,88.401642,40.160831",
+  coordinateSystem: "EPSG:3857",
+  fileFormat: "COG",
+  description: "",
+  qualityNote: "",
+  sizeBytes: 5861035,
+  itemCount: 1,
+  status: "active",
+  isQueryable: false,
+  isRenderable: true,
+  updatedAt: "2026-06-18T12:00:00+08:00",
+};
+
+const rasterProfile: DataResourceProfile = {
+  resource: rasterResource,
+  fields: [],
+  featureCount: 0,
+  geometryType: "Raster",
+  bounds: [88.328434, 40.079174, 88.401642, 40.160831],
+  raster: {
+    id: 2,
+    name: "塔里木河胡杨提取结果",
+    code: "tarim-poplar-raster",
+    status: "ready",
+    sourcePath: "胡杨提取结果/Traim_result.tif",
+    processedPath: "胡杨提取结果/Traim_result.cog.tif",
+    sourceMetadataPath: "source/胡杨提取结果/Traim_result.tif.gdalinfo.json",
+    processedMetadataPath:
+      "preprocessed/胡杨提取结果/Traim_result.cog.tif.gdalinfo.json",
+    dataResourceId: 2,
+    mapLayerId: 2,
+    bandCount: 1,
+    bounds3857: [9832676.279, 4877454.34, 9840825.79, 4889341.335],
+    bounds4326: [88.328434, 40.079174, 88.401642, 40.160831],
+    imageCoordinates: [
+      [88.328434, 40.160831],
+      [88.401642, 40.160831],
+      [88.401642, 40.079174],
+      [88.328434, 40.079174],
+    ],
+    defaultRules: {
+      mode: "gray",
+      bands: [1],
+      palette: "poplar",
+      uniqueValues: [],
+      alphaBand: "mask",
+      nodata: { enabled: true },
+      stretch: {
+        enabled: true,
+        type: "minmax",
+        perBand: { "1": { min: 0, max: 2 } },
+      },
+    },
+    sourceFileSize: 4464959,
+    processedFileSize: 5861035,
+    progressLog: "",
+    errorMessage: "",
+    importedAt: "2026-06-18T12:00:00+08:00",
+    processedAt: "2026-06-18T12:10:00+08:00",
+    metadata: {
+      size: [12444, 18151],
+      driver: "GTiff",
+      coordinateSystem: 3857,
+      bands: [
+        {
+          band: 1,
+          type: "Byte",
+          description: "胡杨分类值",
+          colorInterpretation: "Gray",
+          min: 0,
+          max: 2,
+          isInteger: true,
+        },
+      ],
+    },
+  },
+};
+
 function renderWithAntd(node: React.ReactNode) {
   return render(
     <ConfigProvider locale={zhCN} theme={appTheme}>
@@ -67,6 +154,37 @@ function renderWithAntd(node: React.ReactNode) {
 }
 
 describe("DataPanel", () => {
+  it("submits metadata filters with the current keyword and source text", () => {
+    const onFilterResources = vi.fn();
+
+    renderWithAntd(
+      <DataPanel
+        resources={[vectorResource]}
+        profile={null}
+        selectedResourceId={null}
+        queryResult={null}
+        loadingProfile={false}
+        querying={false}
+        permissions={permissions}
+        searchKeyword="胡杨"
+        onFilterResources={onFilterResources}
+        onSelectResource={vi.fn()}
+        onQuickLoadResource={vi.fn()}
+        onQueryAndLoad={vi.fn()}
+        onLoadRaster={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("数据来源"), {
+      target: { value: "野外调查" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /筛选数据/ }));
+
+    expect(onFilterResources).toHaveBeenCalledWith(
+      expect.objectContaining({ q: "胡杨", source: "野外调查" }),
+    );
+  });
+
   it("calls quick load for queryable resources", () => {
     const onQuickLoadResource = vi.fn();
 
@@ -90,6 +208,66 @@ describe("DataPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "快速加载" }));
 
     expect(onQuickLoadResource).toHaveBeenCalledWith(vectorResource);
+  });
+
+  it("hides vector query execution when the user lacks query permissions", () => {
+    renderWithAntd(
+      <DataPanel
+        resources={[vectorResource]}
+        profile={{
+          resource: vectorResource,
+          fields: [
+            { name: "name", type: "str", nullable: false, sampleValues: ["A"] },
+          ],
+          featureCount: 8,
+          geometryType: "Point",
+          bounds: [87.6, 43.8, 87.7, 43.9],
+        }}
+        selectedResourceId={vectorResource.id}
+        queryResult={null}
+        loadingProfile={false}
+        querying={false}
+        permissions={{ ...permissions, canQueryData: false }}
+        onFilterResources={vi.fn()}
+        onSelectResource={vi.fn()}
+        onQuickLoadResource={vi.fn()}
+        onQueryAndLoad={vi.fn()}
+        onLoadRaster={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: "查询并加载" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("loads renderable raster resources through the raster action only", () => {
+    const onLoadRaster = vi.fn();
+
+    renderWithAntd(
+      <DataPanel
+        resources={[rasterResource]}
+        profile={rasterProfile}
+        selectedResourceId={rasterResource.id}
+        queryResult={null}
+        loadingProfile={false}
+        querying={false}
+        permissions={permissions}
+        onFilterResources={vi.fn()}
+        onSelectResource={vi.fn()}
+        onQuickLoadResource={vi.fn()}
+        onQueryAndLoad={vi.fn()}
+        onLoadRaster={onLoadRaster}
+      />,
+    );
+
+    expect(screen.getByText("波段数")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "查询并加载" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "加载栅格" }));
+
+    expect(onLoadRaster).toHaveBeenCalledOnce();
   });
 });
 

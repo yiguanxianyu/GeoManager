@@ -216,6 +216,181 @@ class ResourceQueryApiTests(TestCase):
         self.assertEqual(response.json()["detail"], "无权访问该数据资源")
 
 
+class CatalogBusinessScenarioTests(TestCase):
+    def setUp(self):
+        self.research_group = Group.objects.create(name="科研用户")
+        self.researcher = get_user_model().objects.create_user(
+            username="tarim-researcher", password="pass12345"
+        )
+        self.researcher.groups.add(self.research_group)
+        grant(
+            self.researcher,
+            ("core", "browse_data"),
+            ("core", "query_data"),
+            ("core", "load_vector_layer"),
+        )
+        self.other_user = get_user_model().objects.create_user(
+            username="external-user", password="pass12345"
+        )
+        grant(
+            self.other_user,
+            ("core", "browse_data"),
+            ("core", "query_data"),
+            ("core", "load_vector_layer"),
+        )
+        self.layer_name = "tarim_poplar_monitoring_2026"
+        self.path = vector_geopackage_path()
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.unlink(missing_ok=True)
+
+        import geopandas as gpd
+
+        gdf = gpd.GeoDataFrame(
+            [
+                {
+                    "sample_id": "TP-2026-001",
+                    "health": "良好",
+                    "dbh_cm": 32.5,
+                    "canopy_m": 7.8,
+                    "geometry": Point(87.60000, 43.80000),
+                },
+                {
+                    "sample_id": "TP-2026-002",
+                    "health": "一般",
+                    "dbh_cm": 28.1,
+                    "canopy_m": 6.4,
+                    "geometry": Point(87.61532, 43.81245),
+                },
+                {
+                    "sample_id": "TP-2026-003",
+                    "health": "良好",
+                    "dbh_cm": 35.7,
+                    "canopy_m": 8.1,
+                    "geometry": Point(87.64280, 43.79510),
+                },
+            ],
+            geometry="geometry",
+            crs="EPSG:4326",
+        )
+        gdf.to_file(self.path, layer=self.layer_name, driver="GPKG")
+        self.resource = DataResource.objects.create(
+            name="塔里木河胡杨样地监测点",
+            code="tarim-poplar-monitoring-2026",
+            data_type=DataResource.DataType.VECTOR,
+            source="2026 塔里木河野外调查",
+            provider="生态监测组",
+            spatial_extent="87.600000,43.795100,87.642800,43.812450",
+            coordinate_system="EPSG:4326",
+            file_format="GeoPackage",
+            storage_path=self.layer_name,
+            item_count=3,
+            status=DataResource.Status.ACTIVE,
+            maintainer=self.researcher,
+        )
+        self.resource.access_groups.add(self.research_group)
+        MapLayer.objects.create(
+            name="塔里木河胡杨样地监测点",
+            code="tarim-poplar-monitoring-layer",
+            layer_type=MapLayer.LayerType.VECTOR,
+            geometry_type=MapLayer.GeometryType.POINT,
+            data_resource=self.resource,
+            source_path=self.layer_name,
+            is_active=True,
+            bounds=[87.6, 43.7951, 87.6428, 43.81245],
+        ).access_groups.add(self.research_group)
+
+    def test_authorized_researcher_can_filter_query_and_audit_resource_flow(self):
+        self.client.force_login(self.researcher)
+
+        list_response = self.client.get(
+            "/api/catalog/resources/?q=塔里木河&dataType=vector"
+        )
+        profile_response = self.client.get(
+            f"/api/catalog/resources/{self.resource.id}/profile/"
+        )
+        query_response = self.client.post(
+            f"/api/catalog/resources/{self.resource.id}/query/",
+            data=json.dumps(
+                {
+                    "attributeFilters": [
+                        {"field": "dbh_cm", "operator": "gte", "value": "32"}
+                    ],
+                    "spatialFilter": {
+                        "mode": "rectangle",
+                        "geometry": {
+                            "type": "Polygon",
+                            "coordinates": [
+                                [
+                                    [87.59, 43.79],
+                                    [87.65, 43.79],
+                                    [87.65, 43.82],
+                                    [87.59, 43.82],
+                                    [87.59, 43.79],
+                                ]
+                            ],
+                        },
+                    },
+                    "limit": 10,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        listed_ids = [item["id"] for item in list_response.json()["items"]]
+        self.assertEqual(listed_ids, [self.resource.id])
+
+        self.assertEqual(profile_response.status_code, 200)
+        profile = profile_response.json()
+        self.assertEqual(profile["featureCount"], 3)
+        self.assertEqual(profile["bounds"], [87.6, 43.7951, 87.6428, 43.81245])
+        self.assertIn("dbh_cm", [field["name"] for field in profile["fields"]])
+
+        self.assertEqual(query_response.status_code, 200)
+        payload = query_response.json()
+        self.assertEqual(payload["totalCount"], 2)
+        self.assertEqual(payload["returnedCount"], 2)
+        sample_ids = {
+            feature["properties"]["sample_id"]
+            for feature in payload["geojson"]["features"]
+        }
+        self.assertEqual(sample_ids, {"TP-2026-001", "TP-2026-003"})
+        self.assertTrue(
+            OperationLog.objects.filter(
+                user=self.researcher,
+                module="数据查询",
+                action="查询数据资源",
+                status=OperationLog.Status.SUCCESS,
+                message__contains="返回 2 条",
+            ).exists()
+        )
+
+    def test_unauthorized_user_cannot_see_profile_or_query_restricted_resource(self):
+        self.client.force_login(self.other_user)
+
+        list_response = self.client.get("/api/catalog/resources/?dataType=vector")
+        profile_response = self.client.get(
+            f"/api/catalog/resources/{self.resource.id}/profile/"
+        )
+        query_response = self.client.post(
+            f"/api/catalog/resources/{self.resource.id}/query/",
+            data=json.dumps({"limit": 10}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        listed_ids = {
+            item["id"]
+            for item in list_response.json()["items"]
+            if isinstance(item["id"], int)
+        }
+        self.assertNotIn(self.resource.id, listed_ids)
+        self.assertEqual(profile_response.status_code, 403)
+        self.assertEqual(profile_response.json()["detail"], "无权访问该数据资源")
+        self.assertEqual(query_response.status_code, 403)
+        self.assertEqual(query_response.json()["detail"], "无权访问该数据资源")
+
+
 class CatalogScanTests(TestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(
