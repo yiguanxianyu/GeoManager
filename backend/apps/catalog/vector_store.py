@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -17,6 +18,8 @@ from apps.core.storage import (
     validate_vector_layer_name,
     vector_geopackage_path,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class DataQueryError(ValueError):
@@ -38,7 +41,13 @@ def list_layers() -> list[dict[str, Any]]:
         return []
 
     layers_info: list[dict[str, Any]] = []
-    for layer_name in _vector_layer_names(path):
+    try:
+        layer_names = _vector_layer_names(path)
+    except Exception:
+        logger.exception("统一 GeoPackage 图层列表读取失败：%s", path)
+        return []
+
+    for layer_name in layer_names:
         try:
             profile = _layer_info_from_file(layer_name)
             field_metadata = read_field_metadata(path, layer_name)
@@ -63,7 +72,11 @@ def get_layer_info(layer_name: str) -> dict[str, Any] | None:
     if not path.exists():
         return None
 
-    existing_layers = _vector_layer_names(path)
+    try:
+        existing_layers = _vector_layer_names(path)
+    except Exception:
+        logger.exception("统一 GeoPackage 图层列表读取失败：%s", path)
+        return None
     if layer_name not in existing_layers:
         return None
 

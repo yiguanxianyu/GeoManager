@@ -439,6 +439,32 @@ class CatalogScanTests(TestCase):
         self.assertEqual(payload["count"], 1)
         self.assertEqual(payload["items"][0]["name"], self.layer_name)
 
+    def test_resources_endpoint_ignores_unreadable_realtime_geopackage(self):
+        self.path.write_text("not a geopackage", encoding="utf-8")
+        DataResource.objects.create(
+            name="已登记样点",
+            code="registered-points",
+            data_type=DataResource.DataType.VECTOR,
+            storage_path="registered_points",
+            status=DataResource.Status.ACTIVE,
+        )
+
+        response = self.client.get("/api/catalog/resources/?dataType=vector")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual([item["name"] for item in payload["items"]], ["已登记样点"])
+
+    def test_scan_endpoint_ignores_unreadable_geopackage(self):
+        self.path.write_text("not a geopackage", encoding="utf-8")
+
+        response = self.client.post(
+            "/api/catalog/scan/", data={}, content_type="application/json"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"items": [], "count": 0})
+
     def test_scan_catalog_sources_registers_nongeographic_files(self):
         gene_file = gene_data_path("populus.fasta")
         table_file = table_data_path("survey.csv")

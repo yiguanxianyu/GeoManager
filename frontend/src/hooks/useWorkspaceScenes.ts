@@ -10,7 +10,11 @@ import type {
   WorkspaceSceneKind,
   WorkspaceSceneSnapshot,
 } from "../types";
-import { openWorkspaceProgressNotification } from "../workspace/workspaceNotifications";
+import {
+  openWorkspaceProgressNotification,
+  showWorkspaceRestoreEmptyResult,
+  showWorkspaceRestoreIssues,
+} from "../workspace/workspaceNotifications";
 import { restoreWorkspaceGroups } from "../workspace/workspaceRestore";
 import { workspaceSnapshot } from "../workspace/workspaceSnapshot";
 
@@ -144,13 +148,12 @@ export function useWorkspaceScenes({
         status: "active",
         detail: scene.name,
       });
-      const restoredGroups = await restoreWorkspaceGroups({
+      const restoreResult = await restoreWorkspaceGroups({
         savedGroups: snapshot.groups,
         canQueryData,
         canLoadVectorLayer,
         queryResultLimit,
         notification,
-        warn: (warning) => message.warning(warning),
         onProgress: (state) => {
           openWorkspaceProgressNotification(notification, {
             key: notificationKey,
@@ -161,15 +164,16 @@ export function useWorkspaceScenes({
           });
         },
       });
+      const restoredGroups = restoreResult.groups;
       if (restoredGroups.length === 0) {
-        openWorkspaceProgressNotification(notification, {
+        showWorkspaceRestoreEmptyResult(notification, {
           key: notificationKey,
-          title: `${label}加载失败`,
-          percent: 100,
-          status: "exception",
-          detail: "该工作区快照没有可恢复的图层",
+          label,
+          issues: restoreResult.issues,
         });
-        message.warning("该工作区快照没有可恢复的图层");
+        if (restoreResult.issues.length === 0) {
+          message.warning("该工作区快照没有可恢复的图层");
+        }
         return;
       }
       openWorkspaceProgressNotification(notification, {
@@ -199,6 +203,7 @@ export function useWorkspaceScenes({
         status: "success",
         detail: scene.name,
       });
+      showWorkspaceRestoreIssues(notification, restoreResult.issues);
     },
     [
       mapRef,
@@ -223,16 +228,14 @@ export function useWorkspaceScenes({
     [loadWorkspaceScene, workspaceScenes],
   );
 
-  const updateWorkspaceScene = useCallback((updated: WorkspaceScene) => {
+  const updateWorkspaceScene = useCallback((scene: WorkspaceScene) => {
     setWorkspaceScenes((current) =>
-      current.map((item) => (item.id === updated.id ? updated : item)),
+      current.map((item) => (item.id === scene.id ? scene : item)),
     );
   }, []);
 
-  const deleteWorkspaceScene = useCallback((sceneId: number) => {
-    setWorkspaceScenes((current) =>
-      current.filter((item) => item.id !== sceneId),
-    );
+  const deleteWorkspaceScene = useCallback((id: number) => {
+    setWorkspaceScenes((current) => current.filter((item) => item.id !== id));
   }, []);
 
   return {

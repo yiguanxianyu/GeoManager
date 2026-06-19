@@ -17,13 +17,24 @@ export interface WorkspaceRestoreProgress {
   detail: string;
 }
 
+export interface WorkspaceRestoreIssue {
+  layerName: string;
+  resourceName: string;
+  reason: string;
+  action: "skipped" | "restored-with-warning";
+}
+
+export interface WorkspaceRestoreResult {
+  groups: LoadedLayerGroup[];
+  issues: WorkspaceRestoreIssue[];
+}
+
 interface RestoreWorkspaceGroupsOptions {
   savedGroups: WorkspaceSceneSnapshot["groups"];
   canQueryData: boolean;
   canLoadVectorLayer: boolean;
   queryResultLimit: number;
   notification: AppNotification;
-  warn: (message: string) => void;
   onProgress?: (state: WorkspaceRestoreProgress) => void;
 }
 
@@ -33,11 +44,10 @@ export async function restoreWorkspaceGroups({
   canLoadVectorLayer,
   queryResultLimit,
   notification,
-  warn,
   onProgress,
-}: RestoreWorkspaceGroupsOptions): Promise<LoadedLayerGroup[]> {
+}: RestoreWorkspaceGroupsOptions): Promise<WorkspaceRestoreResult> {
   if (!Array.isArray(savedGroups)) {
-    return [];
+    return { groups: [], issues: [] };
   }
   const totalLayers = savedGroups.reduce(
     (total, group) => total + (group.children?.length ?? 0),
@@ -56,6 +66,7 @@ export async function restoreWorkspaceGroups({
     });
   };
   const restored: LoadedLayerGroup[] = [];
+  const issues: WorkspaceRestoreIssue[] = [];
   for (const savedGroup of savedGroups) {
     const restoredChildren: LoadedLayer[] = [];
     for (const savedLayer of savedGroup.children ?? []) {
@@ -67,7 +78,24 @@ export async function restoreWorkspaceGroups({
         continue;
       }
       if (savedLayer.layerType === "vector") {
-        if (!savedLayer.query || !canQueryData || !canLoadVectorLayer) {
+        if (!savedLayer.query) {
+          issues.push({
+            layerName: savedLayer.name,
+            resourceName: savedLayer.sourceResource.name,
+            reason: "缺少原始查询条件",
+            action: "skipped",
+          });
+          processedLayers += 1;
+          updateRestoreProgress(`已跳过图层：${savedLayer.name}`);
+          continue;
+        }
+        if (!canQueryData || !canLoadVectorLayer) {
+          issues.push({
+            layerName: savedLayer.name,
+            resourceName: savedLayer.sourceResource.name,
+            reason: "当前账号无权重新查询或加载原始矢量数据",
+            action: "skipped",
+          });
           processedLayers += 1;
           updateRestoreProgress(`已跳过图层：${savedLayer.name}`);
           continue;
@@ -101,15 +129,46 @@ export async function restoreWorkspaceGroups({
             });
           }
         } catch (error) {
-          warn(
-            error instanceof Error
-              ? `图层“${savedLayer.name}”恢复失败：${error.message}`
-              : `图层“${savedLayer.name}”恢复失败`,
-          );
+          issues.push({
+            layerName: savedLayer.name,
+            resourceName: savedLayer.sourceResource.name,
+            reason:
+              error instanceof Error ? error.message : "原始矢量数据不可用",
+            action: "skipped",
+          });
         }
         processedLayers += 1;
         updateRestoreProgress(`已处理图层：${savedLayer.name}`);
         continue;
+      }
+      try {
+        const profile = await api.resourceProfile(savedLayer.sourceResource);
+        if (!profile.raster) {
+          issues.push({
+            layerName: savedLayer.name,
+            resourceName: savedLayer.sourceResource.name,
+            reason: "原始栅格数据未就绪或已不可用",
+            action: "restored-with-warning",
+          });
+        } else if (
+          savedLayer.rasterDatasetId &&
+          profile.raster.id !== savedLayer.rasterDatasetId
+        ) {
+          issues.push({
+            layerName: savedLayer.name,
+            resourceName: savedLayer.sourceResource.name,
+            reason: "原始栅格数据已变更，已使用快照中的瓦片引用恢复",
+            action: "restored-with-warning",
+          });
+        }
+      } catch (error) {
+        issues.push({
+          layerName: savedLayer.name,
+          resourceName: savedLayer.sourceResource.name,
+          reason:
+            error instanceof Error ? error.message : "原始栅格数据无法校验",
+          action: "restored-with-warning",
+        });
       }
       restoredChildren.push({
         id: savedLayer.id,
@@ -139,5 +198,5 @@ export async function restoreWorkspaceGroups({
       restored.push({ ...savedGroup, children: restoredChildren });
     }
   }
-  return restored;
+  return { groups: restored, issues };
 }
