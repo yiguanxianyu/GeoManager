@@ -79,6 +79,16 @@ export default function WorkspaceBottomPanel({
           ),
         },
         {
+          key: "estimate",
+          label: (
+            <span className="tab-label">
+              <BarChartOutlined style={{ fontSize: 14 }} />
+              命中预估
+            </span>
+          ),
+          children: <HitEstimatePanel selectedLayer={selectedLayer} />,
+        },
+        {
           key: "result",
           label: (
             <span className="tab-label">
@@ -86,13 +96,7 @@ export default function WorkspaceBottomPanel({
               结果
             </span>
           ),
-          children: (
-            <MetadataPanel
-              layer={selectedLayer}
-              layerExtentVisible={layerExtentVisible}
-              onLayerExtentVisibleChange={onLayerExtentVisibleChange}
-            />
-          ),
+          children: <MetadataPanel layer={selectedLayer} />,
         },
         {
           key: "time",
@@ -153,83 +157,78 @@ function SpatialQueryPanel({
           <Tag color={currentGeometry ? "green" : "default"}>{rangeLabel}</Tag>
         </div>
         <DrawingPanel
+          selectedLayer={selectedLayer}
           spatialFilter={spatialFilter}
           exportClipGeometry={exportClipGeometry}
+          layerExtentVisible={layerExtentVisible}
           activeDraw={activeDraw}
           onStartQueryDraw={onStartQueryDraw}
+          onLayerExtentVisibleChange={onLayerExtentVisibleChange}
           onClearSpatialFilter={onClearSpatialFilter}
           onImportSpatialFilter={onImportSpatialFilter}
         />
-      </section>
-      <section className="spatial-query-region spatial-query-insight">
-        <div className="bottom-region-heading">
-          <span>
-            <BarChartOutlined style={{ fontSize: 15 }} />
-            <strong>查询命中预估</strong>
-          </span>
-          <Typography.Text type="secondary">当前仅为布局占位</Typography.Text>
-        </div>
-        <div className="spatial-insight-grid">
-          <div className="spatial-layer-card">
-            <Typography.Text strong>
-              {selectedLayer?.name ?? "请选择已加载图层"}
-            </Typography.Text>
-            <Typography.Text type="secondary">
-              {selectedLayer
-                ? selectedLayer.summary
-                : "绘制范围后，后续查询结果将在这里联动展示。"}
-            </Typography.Text>
-            <div className="spatial-layer-switch">
-              <span>显示当前图层范围</span>
-              <Switch
-                size="small"
-                checked={layerExtentVisible}
-                disabled={!selectedLayer}
-                onChange={onLayerExtentVisibleChange}
-              />
-            </div>
-          </div>
-          <div
-            className="spatial-hit-preview"
-            role="img"
-            aria-label="查询命中预估图"
-          >
-            <span style={{ height: "44%" }} />
-            <span style={{ height: "66%" }} />
-            <span style={{ height: "82%" }} />
-            <span style={{ height: "56%" }} />
-            <span style={{ height: "72%" }} />
-            <span style={{ height: "38%" }} />
-          </div>
-          <div className="spatial-symbol-list">
-            <span>
-              <i className="spatial-symbol spatial-symbol-border" />
-              查询范围边框
-            </span>
-            <span>
-              <i className="spatial-symbol" />
-              胡杨林分布
-            </span>
-            <span>
-              <i className="spatial-symbol spatial-symbol-water" />
-              水文监测
-            </span>
-          </div>
-        </div>
       </section>
     </div>
   );
 }
 
-function MetadataPanel({
-  layer,
-  layerExtentVisible,
-  onLayerExtentVisibleChange,
+function HitEstimatePanel({
+  selectedLayer,
 }: {
-  layer: LoadedLayer | null;
-  layerExtentVisible: boolean;
-  onLayerExtentVisibleChange: (visible: boolean) => void;
+  selectedLayer: LoadedLayer | null;
 }) {
+  return (
+    <section className="spatial-query-region spatial-query-insight">
+      <div className="bottom-region-heading">
+        <span>
+          <BarChartOutlined style={{ fontSize: 15 }} />
+          <strong>查询命中预估</strong>
+        </span>
+        <Typography.Text type="secondary">当前仅为布局占位</Typography.Text>
+      </div>
+      <div className="spatial-insight-grid">
+        <div className="spatial-layer-card">
+          <Typography.Text strong>
+            {selectedLayer?.name ?? "请选择已加载图层"}
+          </Typography.Text>
+          <Typography.Text type="secondary">
+            {selectedLayer
+              ? selectedLayer.summary
+              : "绘制范围后，后续查询结果将在这里联动展示。"}
+          </Typography.Text>
+        </div>
+        <div
+          className="spatial-hit-preview"
+          role="img"
+          aria-label="查询命中预估图"
+        >
+          <span style={{ height: "44%" }} />
+          <span style={{ height: "66%" }} />
+          <span style={{ height: "82%" }} />
+          <span style={{ height: "56%" }} />
+          <span style={{ height: "72%" }} />
+          <span style={{ height: "38%" }} />
+        </div>
+        <div className="spatial-symbol-list">
+          <span>
+            <i className="spatial-symbol spatial-symbol-border" />
+            查询范围边框
+          </span>
+          <span>
+            <i className="spatial-symbol" />
+            胡杨林分布
+          </span>
+          <span>
+            <i className="spatial-symbol spatial-symbol-water" />
+            水文监测
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MetadataPanel({ layer }: { layer: LoadedLayer | null }) {
   if (!layer) {
     return (
       <Empty
@@ -265,20 +264,7 @@ function MetadataPanel({
         <Descriptions size="small" column={1} bordered>
           {entries.map(([key, value]) => (
             <Descriptions.Item key={key} label={key}>
-              {key === "空间范围" ? (
-                <Space size={8} wrap>
-                  <Typography.Text>{String(value ?? "-")}</Typography.Text>
-                  <Switch
-                    size="small"
-                    checked={layerExtentVisible}
-                    checkedChildren="显示"
-                    unCheckedChildren="隐藏"
-                    onChange={onLayerExtentVisibleChange}
-                  />
-                </Space>
-              ) : (
-                String(value ?? "-")
-              )}
+              {String(value ?? "-")}
             </Descriptions.Item>
           ))}
         </Descriptions>
@@ -290,16 +276,16 @@ function MetadataPanel({
 }
 
 function DrawingPanel({
+  selectedLayer,
   spatialFilter,
   exportClipGeometry,
+  layerExtentVisible,
   activeDraw,
   onStartQueryDraw,
+  onLayerExtentVisibleChange,
   onClearSpatialFilter,
   onImportSpatialFilter,
-}: Omit<
-  Props,
-  "selectedLayer" | "layerExtentVisible" | "onLayerExtentVisibleChange"
->) {
+}: Props) {
   const { message } = App.useApp();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const currentGeometry = spatialFilter?.geometry ?? exportClipGeometry;
@@ -354,23 +340,34 @@ function DrawingPanel({
   return (
     <div className="drawing-panel-grid">
       <section className="drawing-control-block">
-        <Segmented
-          block
-          className="spatial-range-mode-selector"
-          value={activeDraw?.purpose === "query" ? activeDraw.mode : "none"}
-          options={[
-            { label: "无", value: "none" },
-            { label: "矩形", value: "rectangle" },
-            { label: "圆", value: "circle" },
-            { label: "椭圆", value: "ellipse" },
-            { label: "多边形", value: "polygon" },
-          ]}
-          onChange={(nextValue) =>
-            onStartQueryDraw(
-              nextValue === "none" ? null : (nextValue as DrawMode),
-            )
-          }
-        />
+        <div className="spatial-range-control-row">
+          <Segmented
+            block
+            className="spatial-range-mode-selector"
+            value={activeDraw?.purpose === "query" ? activeDraw.mode : "none"}
+            options={[
+              { label: "无", value: "none" },
+              { label: "矩形", value: "rectangle" },
+              { label: "圆", value: "circle" },
+              { label: "椭圆", value: "ellipse" },
+              { label: "多边形", value: "polygon" },
+            ]}
+            onChange={(nextValue) =>
+              onStartQueryDraw(
+                nextValue === "none" ? null : (nextValue as DrawMode),
+              )
+            }
+          />
+          <div className="spatial-layer-switch spatial-range-layer-switch">
+            <span>显示当前图层范围</span>
+            <Switch
+              size="small"
+              checked={layerExtentVisible}
+              disabled={!selectedLayer}
+              onChange={onLayerExtentVisibleChange}
+            />
+          </div>
+        </div>
         <input
           ref={fileInputRef}
           className="visually-hidden-file-input"

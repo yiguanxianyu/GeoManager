@@ -5324,7 +5324,8 @@ body {
 
 .drawing-control-block {
   display: grid;
-  grid-template-rows: minmax(38px, auto) minmax(34px, 1fr);
+  grid-template-rows: auto auto;
+  align-content: start;
   align-items: stretch;
   gap: 10px;
   width: 100%;
@@ -5337,6 +5338,14 @@ body {
   flex: 0 0 auto;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+.spatial-range-control-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(176px, 0.28fr);
+  gap: 10px;
+  align-items: stretch;
   min-width: 0;
 }
 
@@ -5374,7 +5383,7 @@ body {
 
 .spatial-query-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 0.36fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   height: 100%;
   min-width: 0;
@@ -5434,6 +5443,14 @@ body {
   gap: 10px;
   color: rgba(223, 248, 238, 0.7);
   font-size: 12px;
+}
+
+.spatial-range-layer-switch {
+  padding: 9px 10px;
+  background: rgba(7, 30, 38, 0.46);
+  border: 1px solid rgba(95, 231, 221, 0.14);
+  border-radius: 8px;
+  white-space: nowrap;
 }
 
 .spatial-hit-preview {
