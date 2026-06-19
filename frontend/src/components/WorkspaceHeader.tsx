@@ -7,6 +7,7 @@ import {
   FundProjectionScreenOutlined,
   InfoCircleOutlined,
   LogoutOutlined,
+  QuestionCircleOutlined,
   QrcodeOutlined,
   SearchOutlined,
   SettingOutlined,
@@ -22,9 +23,10 @@ import {
   Popover,
   QRCode,
   Tag,
+  Tour,
   Typography,
 } from "antd";
-import type { MenuProps } from "antd";
+import type { MenuProps, TourProps } from "antd";
 import type { ReactNode } from "react";
 import {
   useCallback,
@@ -50,6 +52,7 @@ export type WorkspaceTab = "map" | "nongeo" | "resources" | "admin";
 const platformChineseName = "中亚胡杨林生态系统保护数据共享平台";
 const hoverExpandDelayMs = 100;
 const searchOpenDelayMs = 400;
+const workspaceTourStoragePrefix = "huyang-system.workspace-tour.v1";
 
 interface WorkspaceHeaderProps {
   activeTab: WorkspaceTab;
@@ -93,12 +96,21 @@ export default function WorkspaceHeader({
   const [navCompressed, setNavCompressed] = useState(false);
   const [navMeasured, setNavMeasured] = useState(false);
   const [expandedTabId, setExpandedTabId] = useState<string | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [userPopoverOpen, setUserPopoverOpen] = useState(false);
   const [searchPopoverWidth, setSearchPopoverWidth] = useState<
     number | undefined
   >();
   const searchNavRef = useRef<HTMLDivElement | null>(null);
   const searchContainerRef = useRef<HTMLElement | null>(null);
   const primaryNavRef = useRef<HTMLElement | null>(null);
+  const mapTabRef = useRef<HTMLButtonElement | null>(null);
+  const nonGeoTabRef = useRef<HTMLButtonElement | null>(null);
+  const achievementsTabRef = useRef<HTMLButtonElement | null>(null);
+  const resourcesTabRef = useRef<HTMLButtonElement | null>(null);
+  const adminTabRef = useRef<HTMLButtonElement | null>(null);
+  const aboutTabRef = useRef<HTMLButtonElement | null>(null);
+  const userButtonRef = useRef<HTMLButtonElement | null>(null);
   const searchOpenTimerRef = useRef<number | null>(null);
   const tabHoverTimerRef = useRef<number | null>(null);
   const navMeasureTimerRef = useRef<number | null>(null);
@@ -111,10 +123,25 @@ export default function WorkspaceHeader({
     user?.username === "guest" || Boolean(user?.roles.includes("游客"));
   const showAdminTab =
     Boolean(user?.permissions.canAccessAdmin) && !isGuestUser;
+  const tourStorageKey = user
+    ? `${workspaceTourStoragePrefix}.${user.id}.${user.username}`
+    : null;
 
   useEffect(() => {
     setSearchText(searchKeyword);
   }, [searchKeyword]);
+
+  useEffect(() => {
+    if (!user || !tourStorageKey) {
+      setTourOpen(false);
+      return;
+    }
+    try {
+      setTourOpen(window.localStorage.getItem(tourStorageKey) !== "completed");
+    } catch {
+      setTourOpen(true);
+    }
+  }, [tourStorageKey, user]);
 
   useEffect(() => {
     if (
@@ -565,6 +592,94 @@ export default function WorkspaceHeader({
     user?.permissions.canViewOperationLogs,
   ]);
 
+  const finishTour = useCallback(() => {
+    setTourOpen(false);
+    if (!tourStorageKey) {
+      return;
+    }
+    try {
+      window.localStorage.setItem(tourStorageKey, "completed");
+    } catch {
+      // 本地存储不可用时，仅在当前页面会话内关闭引导。
+    }
+  }, [tourStorageKey]);
+
+  const showWorkspaceTour = useCallback(() => {
+    setUserPopoverOpen(false);
+    closeSearchPanel();
+    setTourOpen(true);
+  }, [closeSearchPanel]);
+
+  const tourSteps = useMemo<TourProps["steps"]>(() => {
+    const steps: NonNullable<TourProps["steps"]> = [
+      {
+        title: "全局搜索",
+        description:
+          "检索数据资源、已保存工程和项目成果，并从结果中快速加载到当前工作台。",
+        target: () => searchContainerRef.current ?? document.body,
+        placement: "bottom",
+      },
+      {
+        title: "地理数据",
+        description:
+          "进入三维地球工作台，浏览空间数据、加载图层、执行空间查询并查看要素属性。",
+        target: () => mapTabRef.current ?? document.body,
+        placement: "bottom",
+      },
+      {
+        title: "非地理数据",
+        description:
+          "查看生态表格、基因等非空间数据，并使用图表与表格完成基础分析。",
+        target: () => nonGeoTabRef.current ?? document.body,
+        placement: "bottom",
+      },
+      {
+        title: "成果目录",
+        description:
+          "集中查看项目图件、分析成果、说明材料和相关附件，后续可从成果定位到地图。",
+        target: () => achievementsTabRef.current ?? document.body,
+        placement: "bottom",
+      },
+    ];
+
+    if (canBrowseData || showAdminTab) {
+      steps.push({
+        title: "数据管理",
+        description:
+          "浏览数据概览、维护存量数据或发起数据导入；可见菜单会按账号权限自动收敛。",
+        target: () => resourcesTabRef.current ?? document.body,
+        placement: "bottom",
+      });
+    }
+
+    if (showAdminTab) {
+      steps.push({
+        title: "后台管理",
+        description:
+          "进入运行概览、个人设置、操作日志、系统设置以及用户组权限等管理功能。",
+        target: () => adminTabRef.current ?? document.body,
+        placement: "bottom",
+      });
+    }
+
+    steps.push(
+      {
+        title: "关于我们",
+        description: "查看平台定位与系统名称等基础信息。",
+        target: () => aboutTabRef.current ?? document.body,
+        placement: "bottom",
+      },
+      {
+        title: "个人入口",
+        description: "查看个人信息、进入个人设置或安全退出当前账号。",
+        target: () => userButtonRef.current ?? document.body,
+        placement: "bottomRight",
+      },
+    );
+
+    return steps;
+  }, [canBrowseData, showAdminTab]);
+
   const dataButton = (
     <Dropdown
       menu={{ items: dataManagementMenuItems }}
@@ -573,6 +688,7 @@ export default function WorkspaceHeader({
       overlayClassName="workspace-management-dropdown"
     >
       <Button
+        ref={resourcesTabRef}
         type="text"
         className={tabClass(
           activeTab === "resources",
@@ -629,6 +745,13 @@ export default function WorkspaceHeader({
         {user?.email && <span>邮箱：{user.email}</span>}
       </div>
       <div className="user-popover-actions">
+        <Button
+          size="small"
+          icon={<QuestionCircleOutlined />}
+          onClick={showWorkspaceTour}
+        >
+          显示引导
+        </Button>
         <Button size="small" onClick={() => navigate("/admin/profile")}>
           个人信息
         </Button>
@@ -773,6 +896,7 @@ export default function WorkspaceHeader({
           aria-label="主导航"
         >
           <Button
+            ref={mapTabRef}
             type="text"
             className={tabClass(activeTab === "map", expandedTabId === "map")}
             onClick={() => navigateFromHeader("/map")}
@@ -784,6 +908,7 @@ export default function WorkspaceHeader({
             <span className="tab-text">地理数据</span>
           </Button>
           <Button
+            ref={nonGeoTabRef}
             type="text"
             className={tabClass(
               activeTab === "nongeo",
@@ -798,6 +923,7 @@ export default function WorkspaceHeader({
             <span className="tab-text">非地理数据</span>
           </Button>
           <Button
+            ref={achievementsTabRef}
             type="text"
             className={tabClass(false, expandedTabId === "achievements")}
             onClick={() => message.info("成果目录页面正在接入")}
@@ -817,6 +943,7 @@ export default function WorkspaceHeader({
               overlayClassName="workspace-management-dropdown"
             >
               <Button
+                ref={adminTabRef}
                 type="text"
                 className={tabClass(
                   activeTab === "admin",
@@ -839,6 +966,7 @@ export default function WorkspaceHeader({
             overlayClassName="workspace-info-popover"
           >
             <Button
+              ref={aboutTabRef}
               type="text"
               className={tabClass(false, expandedTabId === "about")}
               onMouseEnter={() => scheduleTabHoverExpand("about")}
@@ -870,9 +998,15 @@ export default function WorkspaceHeader({
           trigger="click"
           placement="bottomRight"
           content={userContent}
+          open={userPopoverOpen}
+          onOpenChange={setUserPopoverOpen}
           overlayClassName="workspace-info-popover"
         >
-          <Button className="user-button">
+          <Button
+            ref={userButtonRef}
+            aria-label="用户信息"
+            className="user-button"
+          >
             <span className="user-button-content">
               <Avatar
                 size={24}
@@ -886,6 +1020,13 @@ export default function WorkspaceHeader({
           </Button>
         </Popover>
       </div>
+      <Tour
+        open={tourOpen}
+        steps={tourSteps}
+        onClose={finishTour}
+        onFinish={finishTour}
+        mask={{ color: "rgba(6, 18, 24, 0.52)" }}
+      />
     </header>
   );
 }

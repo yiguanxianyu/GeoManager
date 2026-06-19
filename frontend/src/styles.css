@@ -3409,9 +3409,14 @@ body {
 
 .user-popover-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding-top: 4px;
+
+  & .ant-btn {
+    flex: 1 1 calc(50% - 4px);
+  }
 }
 
 .workspace-info-popover .ant-popover-inner {

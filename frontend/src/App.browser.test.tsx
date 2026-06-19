@@ -140,6 +140,7 @@ function renderApp(initialEntry: string) {
 
 describe("application critical flows", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     for (const fn of Object.values(mockApi)) {
       fn.mockReset();
     }
@@ -242,6 +243,42 @@ describe("application critical flows", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps guest login from showing a spinner during account login", async () => {
+    let resolveLogin: ((value: { user: User }) => void) | undefined;
+    mockApi.login.mockReturnValue(
+      new Promise((resolve) => {
+        resolveLogin = resolve;
+      }),
+    );
+
+    renderApp("/");
+
+    expect(
+      await screen.findByRole("heading", { name: "用户登录" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("请输入账号"), {
+      target: { value: "researcher" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("请输入密码"), {
+      target: { value: "pass12345" },
+    });
+
+    const loginButton = screen.getByRole("button", {
+      name: /登录并进入三维地球$/,
+    });
+    const guestButton = screen.getByRole("button", { name: /游客登录/ });
+    fireEvent.click(loginButton);
+
+    await waitFor(() => {
+      expect(mockApi.login).toHaveBeenCalled();
+    });
+    expect(guestButton).toBeDisabled();
+    expect(guestButton).not.toHaveClass("ant-btn-loading");
+
+    resolveLogin?.({ user: normalUser });
+  });
+
   it("allows authenticated users to enter the admin route", async () => {
     mockApi.me.mockResolvedValue({ authenticated: true, user: adminUser });
 
@@ -274,4 +311,41 @@ describe("application critical flows", () => {
       screen.queryByRole("button", { name: /安全退出/ }),
     ).not.toBeInTheDocument();
   }, 30000);
+
+  it("shows the workspace tour once for a first-time signed-in user", async () => {
+    mockApi.me.mockResolvedValue({ authenticated: true, user: normalUser });
+
+    const { unmount } = renderApp("/map");
+
+    expect(
+      await screen.findByText("全局搜索", {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+
+    const closeButton =
+      document.querySelector<HTMLButtonElement>(".ant-tour-close");
+    expect(closeButton).not.toBeNull();
+    fireEvent.click(closeButton!);
+
+    await waitFor(() => {
+      expect(screen.queryByText("全局搜索")).not.toBeInTheDocument();
+    });
+    expect(
+      window.localStorage.getItem(
+        `huyang-system.workspace-tour.v1.${normalUser.id}.${normalUser.username}`,
+      ),
+    ).toBe("completed");
+
+    unmount();
+    renderApp("/map");
+
+    await screen.findByText("数据管理", {}, { timeout: 10000 });
+    expect(screen.queryByText("全局搜索")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "用户信息" }));
+    fireEvent.click(await screen.findByRole("button", { name: /显示引导/ }));
+
+    expect(
+      await screen.findByText("全局搜索", {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+  });
 });

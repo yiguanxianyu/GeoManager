@@ -107,11 +107,14 @@ export default function LoginPage() {
   const { bootstrap, setUser } = useAppContext();
   const { message } = App.useApp();
   const navigate = useNavigate();
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<
+    "login" | "register" | "guest" | null
+  >(null);
   const [mode, setMode] = useState<"login" | "register">("login");
+  const isSubmitting = submittingAction !== null;
 
   async function handleFinish(values: LoginFormValues) {
-    setSubmitting(true);
+    setSubmittingAction("login");
     try {
       await api.csrf();
       const response = await api.login(
@@ -125,12 +128,12 @@ export default function LoginPage() {
     } catch (error) {
       message.error(error instanceof Error ? error.message : "登录失败");
     } finally {
-      setSubmitting(false);
+      setSubmittingAction(null);
     }
   }
 
   async function handleRegister(values: RegisterFormValues) {
-    setSubmitting(true);
+    setSubmittingAction("register");
     try {
       await api.csrf();
       const response = await api.register(
@@ -145,12 +148,12 @@ export default function LoginPage() {
     } catch (error) {
       message.error(error instanceof Error ? error.message : "注册失败");
     } finally {
-      setSubmitting(false);
+      setSubmittingAction(null);
     }
   }
 
   async function handleGuestLogin() {
-    setSubmitting(true);
+    setSubmittingAction("guest");
     try {
       await api.csrf();
       const response = await api.guestLogin();
@@ -160,7 +163,7 @@ export default function LoginPage() {
     } catch (error) {
       message.error(error instanceof Error ? error.message : "游客登录失败");
     } finally {
-      setSubmitting(false);
+      setSubmittingAction(null);
     }
   }
 
@@ -300,7 +303,7 @@ export default function LoginPage() {
                 <Form.Item name="remember" valuePropName="checked" noStyle>
                   <Checkbox>记住登录状态</Checkbox>
                 </Form.Item>
-                <Button type="link" size="small">
+                <Button type="link" size="small" disabled={isSubmitting}>
                   忘记密码
                 </Button>
               </div>
@@ -311,7 +314,8 @@ export default function LoginPage() {
                 type="primary"
                 htmlType="submit"
                 block
-                loading={submitting}
+                loading={submittingAction === "login"}
+                disabled={isSubmitting && submittingAction !== "login"}
                 icon={<LoginOutlined style={{ fontSize: 16 }} />}
                 size="large"
               >
@@ -327,7 +331,8 @@ export default function LoginPage() {
                 <Button
                   type="link"
                   className="login-secondary-action"
-                  loading={submitting}
+                  loading={submittingAction === "guest"}
+                  disabled={isSubmitting && submittingAction !== "guest"}
                   icon={<UserSwitchOutlined style={{ fontSize: 16 }} />}
                   onClick={handleGuestLogin}
                 >
@@ -337,6 +342,7 @@ export default function LoginPage() {
                   <Button
                     type="link"
                     className="login-secondary-action"
+                    disabled={isSubmitting}
                     icon={<UserAddOutlined style={{ fontSize: 16 }} />}
                     onClick={() => setMode("register")}
                   >
@@ -424,13 +430,19 @@ export default function LoginPage() {
                 type="primary"
                 htmlType="submit"
                 block
-                loading={submitting}
+                loading={submittingAction === "register"}
+                disabled={isSubmitting && submittingAction !== "register"}
                 icon={<LoginOutlined style={{ fontSize: 16 }} />}
                 size="large"
               >
                 注册并进入
               </Button>
-              <Button type="link" block onClick={() => setMode("login")}>
+              <Button
+                type="link"
+                block
+                disabled={isSubmitting}
+                onClick={() => setMode("login")}
+              >
                 返回登录
               </Button>
             </Form>
