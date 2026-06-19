@@ -12,6 +12,7 @@ import {
   Drawer,
   Form,
   Input,
+  Modal,
   Skeleton,
   Space,
   Tag,
@@ -39,6 +40,7 @@ interface ProfileDescriptionItem {
 
 function createProfileDescriptionColumns(
   onManagePermissions: () => void,
+  onChangePassword: () => void,
 ): ProDescriptionsItemProps<ProfileDescriptionItem>[] {
   return [
     {
@@ -50,6 +52,14 @@ function createProfileDescriptionColumns(
     {
       title: "显示名称",
       dataIndex: "displayName",
+    },
+    {
+      title: "邮箱",
+      dataIndex: "email",
+      copyable: true,
+      formItemProps: {
+        rules: [{ type: "email", message: "请输入有效邮箱" }],
+      },
     },
     {
       title: "用户组",
@@ -69,6 +79,10 @@ function createProfileDescriptionColumns(
         ),
     },
     {
+      title: "部门",
+      dataIndex: "department",
+    },
+    {
       title: "我的权限",
       key: "permissions",
       editable: false,
@@ -77,16 +91,12 @@ function createProfileDescriptionColumns(
       ),
     },
     {
-      title: "部门",
-      dataIndex: "department",
-    },
-    {
-      title: "邮箱",
-      dataIndex: "email",
-      copyable: true,
-      formItemProps: {
-        rules: [{ type: "email", message: "请输入有效邮箱" }],
-      },
+      title: "更改密码",
+      key: "password",
+      editable: false,
+      render: () => (
+        <Typography.Link onClick={onChangePassword}>修改密码</Typography.Link>
+      ),
     },
   ];
 }
@@ -107,6 +117,7 @@ export default function AdminProfilePage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [avatarVersion, setAvatarVersion] = useState(0);
   const [permDrawerOpen, setPermDrawerOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -178,6 +189,7 @@ export default function AdminProfilePage() {
     try {
       await api.updateAdminProfilePassword(values);
       passwordForm.resetFields();
+      setPasswordModalOpen(false);
       message.success("密码已更新");
     } catch (error) {
       message.error(error instanceof Error ? error.message : "密码更新失败");
@@ -240,6 +252,7 @@ export default function AdminProfilePage() {
   };
   const profileDescriptionColumns = createProfileDescriptionColumns(() =>
     setPermDrawerOpen(true),
+    () => setPasswordModalOpen(true),
   );
 
   return (
@@ -278,7 +291,7 @@ export default function AdminProfilePage() {
           </Upload>
           <ProDescriptions<ProfileDescriptionItem>
             className="admin-profile-descriptions"
-            column={2}
+            column={3}
             columns={profileDescriptionColumns}
             dataSource={profileDescriptionData}
             editable={{
@@ -289,7 +302,14 @@ export default function AdminProfilePage() {
         </div>
       </ProCard>
 
-      <ProCard title="修改密码" className="admin-section-card">
+      <Modal
+        title="修改密码"
+        open={passwordModalOpen}
+        footer={null}
+        onCancel={() => setPasswordModalOpen(false)}
+        afterClose={() => passwordForm.resetFields()}
+        destroyOnHidden
+      >
         <Form
           form={passwordForm}
           layout="vertical"
@@ -350,7 +370,7 @@ export default function AdminProfilePage() {
             更新密码
           </Button>
         </Form>
-      </ProCard>
+      </Modal>
 
       <Drawer
         title="我的权限"
