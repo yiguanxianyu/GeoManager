@@ -4235,9 +4235,8 @@ body {
 }
 
 .right-map-overview-panel {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 8px;
+  display: block;
+  padding: 0;
   overflow: hidden;
 }
 
@@ -4268,11 +4267,13 @@ body {
 }
 
 .right-map-mini {
+  width: 100%;
+  height: 100%;
   min-height: 0;
   position: relative;
   overflow: hidden;
   border: 0;
-  border-radius: 8px;
+  border-radius: inherit;
   background:
     linear-gradient(135deg, rgba(10, 40, 50, 0.72), rgba(5, 22, 32, 0.72)),
     repeating-linear-gradient(

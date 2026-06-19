@@ -39,15 +39,6 @@ export default function RightSidePanel({
         className="right-map-overview-panel"
         aria-label="当前视角平面缩略图"
       >
-        <div className="right-panel-heading">
-          <span>
-            <AimOutlined style={{ fontSize: 15 }} />
-            <Typography.Text strong>当前视角平面缩略图</Typography.Text>
-          </span>
-          <Tag color={currentView ? "cyan" : "default"}>
-            {currentView ? "范围同步" : "同步中"}
-          </Tag>
-        </div>
         <FlatMapThumbnail currentView={currentView} />
       </section>
 
