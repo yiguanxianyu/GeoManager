@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import hashlib
-import sqlite3
 from typing import Any
 
-import geopandas as gpd
 from django.db import OperationalError, ProgrammingError
 
 from apps.catalog.models import DataResource
-from apps.core.storage import gene_data_path, table_data_path, vector_geopackage_path
+from apps.catalog import vector_store
+from apps.core.storage import gene_data_path, table_data_path
 
 
 GENE_FILE_EXTENSIONS = {
@@ -31,54 +30,11 @@ def stable_catalog_code(prefix: str, value: str) -> str:
 
 
 def get_vector_layers_from_geopackage() -> list[dict[str, Any]]:
-    path = vector_geopackage_path()
-    if not path.exists():
-        return []
-
-    layers_info: list[dict[str, Any]] = []
-    for layer_name in _vector_layer_names(path):
-        try:
-            profile = _vector_layer_profile(layer_name)
-            field_metadata = _read_field_metadata(path, layer_name)
-            layers_info.append(
-                {
-                    "name": layer_name,
-                    "layerName": layer_name,
-                    "geometryType": profile["geometry_type"],
-                    "bounds": profile["bounds"],
-                    "coordinateSystem": profile["coordinate_system"],
-                    "featureCount": profile["feature_count"],
-                    "fieldMetadata": field_metadata,
-                }
-            )
-        except Exception:
-            continue
-    return layers_info
+    return vector_store.list_layers()
 
 
 def get_vector_layer_info(layer_name: str) -> dict[str, Any] | None:
-    path = vector_geopackage_path()
-    if not path.exists():
-        return None
-
-    existing_layers = _vector_layer_names(path)
-    if layer_name not in existing_layers:
-        return None
-
-    try:
-        profile = _vector_layer_profile(layer_name)
-        field_metadata = _read_field_metadata(path, layer_name)
-        return {
-            "name": layer_name,
-            "layerName": layer_name,
-            "geometryType": profile["geometry_type"],
-            "bounds": profile["bounds"],
-            "coordinateSystem": profile["coordinate_system"],
-            "featureCount": profile["feature_count"],
-            "fieldMetadata": field_metadata,
-        }
-    except Exception:
-        return None
+    return vector_store.get_layer_info(layer_name)
 
 
 def scan_vector_geopackage() -> list[dict[str, Any]]:
@@ -160,15 +116,6 @@ def upsert_nongeographic_catalog_record(
     return resource
 
 
-def _vector_layer_names(path) -> list[str]:
-    layers = gpd.list_layers(path)
-    if hasattr(layers, "columns") and "name" in layers.columns:
-        return [str(name) for name in layers["name"].dropna().tolist()]
-    return [
-        str(item[0] if isinstance(item, (list, tuple)) else item) for item in layers
-    ]
-
-
 def _scan_nongeographic_kind(
     data_type: DataResource.DataType, root, extensions: set[str]
 ) -> list[DataResource]:
@@ -180,54 +127,3 @@ def _scan_nongeographic_kind(
             continue
         resources.append(upsert_nongeographic_catalog_record(data_type, path))
     return resources
-
-
-def _vector_layer_profile(layer_name: str) -> dict[str, Any]:
-    path = vector_geopackage_path()
-    gdf = gpd.read_file(path, layer=layer_name)
-    if gdf.crs and gdf.crs.to_epsg() != 4326:
-        gdf = gdf.to_crs(4326)
-    bounds = (
-        [round(float(value), 6) for value in gdf.total_bounds.tolist()]
-        if len(gdf)
-        else []
-    )
-    return {
-        "bounds": bounds,
-        "coordinate_system": f"EPSG:{gdf.crs.to_epsg()}"
-        if gdf.crs and gdf.crs.to_epsg()
-        else str(gdf.crs or ""),
-        "geometry_type": _map_geometry_type(gdf),
-        "feature_count": len(gdf),
-    }
-
-
-def _map_geometry_type(gdf) -> str:
-    if len(gdf) == 0:
-        return "mixed"
-    values = set(gdf.geometry.geom_type.dropna().astype(str).tolist())
-    if values and values <= {"Point", "MultiPoint"}:
-        return "point"
-    if values and values <= {"LineString", "MultiLineString"}:
-        return "line"
-    if values and values <= {"Polygon", "MultiPolygon"}:
-        return "polygon"
-    return "mixed"
-
-
-def _read_field_metadata(path, table_name: str) -> dict[str, str]:
-    metadata: dict[str, str] = {}
-    try:
-        with sqlite3.connect(path) as connection:
-            cursor = connection.execute(
-                "SELECT column_name, description FROM gpkg_data_columns WHERE table_name = ?",
-                (table_name,),
-            )
-            for column_name, description in cursor.fetchall():
-                if description:
-                    metadata[column_name] = description
-    except sqlite3.OperationalError as exc:
-        if "no such table: gpkg_data_columns" in str(exc):
-            return metadata
-        raise
-    return metadata

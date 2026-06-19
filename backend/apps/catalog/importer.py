@@ -86,7 +86,6 @@ def preview_uploaded_table(uploaded_file) -> dict[str, Any]:
     columns = list(df.columns)
     longitude_column, latitude_column = infer_coordinate_columns(df)
     suggested_table_name = suggest_table_name(Path(uploaded_file.name).stem)
-    import_mode = "geographic" if longitude_column and latitude_column else "table"
     return {
         "columns": columns,
         "rows": _preview_rows(df),

@@ -22,7 +22,8 @@ backend/apps/
 │   ├── models.py       # DataResource, MapLayer, DataCatalog, Achievement, DictionaryItem
 │   ├── serializers.py  # 模型 → JSON
 │   ├── permissions.py  # access_groups 基于 Django Group 的访问控制
-│   ├── data_query.py   # 矢量 GeoPackage 查询（GeoPandas + Shapely）
+│   ├── vector_store.py # GeoPackage 矢量列表、profile、查询、字段元数据和要素读取
+│   ├── data_query.py   # 资源 profile/query 兼容门面，栅格 profile 桥接到 raster.profile
 │   └── views.py        # 目录、资源、图层、成果、搜索 HTTP API
 ├── raster/         # 栅格数据全生命周期
 │   ├── models.py       # RasterDataset
@@ -53,6 +54,8 @@ backend/apps/
 - `services/__init__.py` 重新导出所有公共符号，保持 `from apps.raster.services import xxx` 兼容。
 - `services/` 内部模块按职责拆分：纯函数模块（`rules_engine`、`color_mapping`、`geo_utils`、`progress`）无外部依赖，可独立单元测试。
 - `profile.py` 是 `catalog.data_query` 访问栅格数据的唯一入口，避免了 `catalog.data_query ↔ raster.services` 的循环依赖。
+- `catalog.vector_store` 是 GeoPackage 矢量数据的深模块；列表、profile、字段元数据、空间查询、属性查询和图层要素读取都应通过该模块，避免视图层或扫描逻辑直接读取 `vector/vector.gpkg`。
+- 栅格 XYZ 瓦片样式注册状态归 `raster.services.renderer` 所有；`jobs.py` 只维护异步任务状态、进度消息和导出 artifact 路径。
 - 权限检查集中在 `permissions.py`，视图层仅负责 HTTP 协议处理。
 - 异步任务（`jobs.py`）通过线程池 + 全局字典管理，进度通过轮询接口返回。
 

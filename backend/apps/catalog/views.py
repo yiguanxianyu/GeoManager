@@ -17,7 +17,6 @@ from apps.catalog.data_query import (
     query_vector_resource,
 )
 from apps.catalog.export import ExportError, export_layers_zip, validate_epsg
-from apps.catalog.geojson_validation import validate_geojson_geometries
 from apps.catalog.importer import (
     ImportDataError,
     import_uploaded_table,
@@ -44,12 +43,8 @@ from apps.catalog.services import (
     get_vector_layers_from_geopackage,
     scan_catalog_sources,
 )
+from apps.catalog.vector_store import layer_features_geojson
 from apps.core.permissions import feature_denied_response, has_feature_perm
-from apps.core.storage import (
-    StoragePathError,
-    validate_vector_layer_name,
-    vector_geopackage_path,
-)
 from apps.raster.services import (
     RasterJobError,
     get_job,
@@ -806,17 +801,6 @@ def layer_features(request, layer_name: str):
         return JsonResponse({"detail": f"矢量图层不存在：{layer_name}"}, status=404)
 
     try:
-        layer_name = validate_vector_layer_name(layer_name)
-        geopackage_path = vector_geopackage_path()
-    except StoragePathError as exc:
-        return JsonResponse({"detail": str(exc)}, status=400)
-
-    if not geopackage_path.exists():
-        return JsonResponse(
-            {"detail": f"统一 GeoPackage 文件不存在：{geopackage_path}"}, status=404
-        )
-
-    try:
         limit = int(
             request.GET.get("limit", settings.PROJECT_CONFIG.limits.query_result_limit)
         )
@@ -825,20 +809,9 @@ def layer_features(request, layer_name: str):
     limit = min(max(limit, 1), settings.PROJECT_CONFIG.limits.query_result_limit)
 
     try:
-        import geopandas as gpd
-
-        gdf = gpd.read_file(geopackage_path, layer=layer_name)
-        if gdf.crs and gdf.crs.to_epsg() != 4326:
-            gdf = gdf.to_crs(4326)
-        gdf, warnings = validate_geojson_geometries(gdf)
-        if len(gdf) > limit:
-            gdf = gdf.head(limit)
-        geojson = json.loads(gdf.to_json())
-        geojson["warnings"] = warnings
-    except Exception as exc:
-        return JsonResponse(
-            {"detail": f"读取 GeoPackage 图层失败：{layer_name}，{exc}"}, status=500
-        )
+        geojson = layer_features_geojson(layer_name, limit)
+    except DataQueryError as exc:
+        return JsonResponse({"detail": str(exc)}, status=500)
 
     return JsonResponse(geojson)
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import threading
 from typing import Any
 
 from django.utils import timezone
@@ -22,6 +23,10 @@ from apps.raster.services.geo_utils import (
 from apps.raster.services.rules_engine import normalize_rules, read_source_bands
 
 
+_TILE_STYLES: dict[tuple[int, str], dict[str, Any]] = {}
+_TILE_STYLES_LOCK = threading.RLock()
+
+
 def register_tile_style(
     dataset: RasterDataset, rules: dict[str, Any] | None
 ) -> dict[str, Any]:
@@ -33,9 +38,7 @@ def register_tile_style(
     )
     sh = style_hash_for(raster_path, normalized_rules)
 
-    from apps.raster.services.jobs import _LOCK, _TILE_STYLES
-
-    with _LOCK:
+    with _TILE_STYLES_LOCK:
         _TILE_STYLES[(dataset.id, sh)] = {
             "dataset_id": dataset.id,
             "rules": normalized_rules,
@@ -59,9 +62,7 @@ def render_xyz_tile(dataset_id: int, style_hash: str, z: int, x: int, y: int) ->
     if z < 0 or x < 0 or y < 0 or x >= 2**z or y >= 2**z:
         return transparent_png()
 
-    from apps.raster.services.jobs import _LOCK, _TILE_STYLES
-
-    with _LOCK:
+    with _TILE_STYLES_LOCK:
         style = _TILE_STYLES.get((dataset_id, style_hash))
     if not style:
         raise RasterRenderError("符号化瓦片样式不存在或已过期")

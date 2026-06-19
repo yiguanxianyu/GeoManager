@@ -49,7 +49,6 @@ class RasterJob:
 
 
 _JOBS: dict[str, RasterJob] = {}
-_TILE_STYLES: dict[tuple[int, str], dict[str, Any]] = {}
 _LOCK = threading.RLock()
 
 
