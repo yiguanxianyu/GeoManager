@@ -61,6 +61,7 @@ backend/apps/
 
 ## 首批后端边界
 
+- 当前后端迁移基线面向全新部署生成，不保留旧数据库升级兼容迁移。重新部署时应使用空业务数据库运行 `python manage.py migrate --noinput`，历史迁移链、旧权限清理和旧表结构升级逻辑不作为交付路径。
 - 使用 Django 内置 auth、session、permission；平台后台是登录后的功能入口，所有登录用户可进入，后台内部菜单、页面和操作通过平台功能权限决定是否显示和访问。
 - 管理后台使用前端 `/admin/` SPA 路由承载。
 - 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。首个注册用户自动成为系统管理员，后续注册用户为普通账号。
