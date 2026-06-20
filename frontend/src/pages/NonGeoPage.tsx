@@ -41,7 +41,6 @@ import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useAppContext } from "../contexts/AppContext";
 import type { DataResource, ResourceListItem } from "../types";
 import {
-  isDataResource,
   resourceCategoryName,
   resourceFormatLabel,
   resourceProvider,
@@ -573,19 +572,13 @@ export default function NonGeoPage() {
 
   const selectedResource = useMemo(
     () =>
-      resources.find(
-        (resource) =>
-          isDataResource(resource) && resource.id === activeResourceId,
-      ) ?? null,
+      resources.find((resource) => resource.id === activeResourceId) ?? null,
     [activeResourceId, resources],
   );
 
   const filteredResources = useMemo(() => {
     const keyword = resourceKeyword.trim().toLowerCase();
     return resources.filter((resource) => {
-      if (!isDataResource(resource)) {
-        return false;
-      }
       if (resourceType !== "all" && resource.dataType !== resourceType) {
         return false;
       }
@@ -638,9 +631,7 @@ export default function NonGeoPage() {
     setResources(demoResources);
     setActiveResourceId((current) =>
       current !== null &&
-      demoResources.some(
-        (resource) => isDataResource(resource) && resource.id === current,
-      )
+      demoResources.some((resource) => resource.id === current)
         ? current
         : (demoResources[0]?.id ?? null),
     );
@@ -651,9 +642,7 @@ export default function NonGeoPage() {
     setLoadingAnalytics(true);
     setAnalyticsError("");
     setTableResult(null);
-    const resource = demoResources.find(
-      (item) => isDataResource(item) && item.id === resourceId,
-    );
+    const resource = demoResources.find((item) => item.id === resourceId);
     setAnalytics(
       resource
         ? {
@@ -864,14 +853,8 @@ export default function NonGeoPage() {
                 <ResourceRow
                   key={resourceKey(resource)}
                   resource={resource}
-                  active={
-                    isDataResource(resource) && resource.id === activeResourceId
-                  }
-                  onSelect={() => {
-                    if (isDataResource(resource)) {
-                      setActiveResourceId(resource.id);
-                    }
-                  }}
+                  active={resource.id === activeResourceId}
+                  onSelect={() => setActiveResourceId(resource.id)}
                 />
               ))
             ) : (
@@ -1350,9 +1333,7 @@ function ResourceRow({
   onSelect: () => void;
 }) {
   const typeLabel = resource.dataType;
-  const count = isDataResource(resource)
-    ? resource.itemCount
-    : resource.featureCount;
+  const count = resource.itemCount;
   return (
     <button
       type="button"

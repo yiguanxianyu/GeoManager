@@ -466,10 +466,6 @@ export type UserPermissions = {
      */
     canExportData: boolean;
     /**
-     * 是否具备编辑或删除数据资源能力，用于兼容现有前端管理入口判断
-     */
-    canMaintainData: boolean;
-    /**
      * 是否可查看工程和专题，对应 `catalog.view_workspacescene`
      */
     canViewWorkspaces: boolean;
@@ -1461,7 +1457,7 @@ export type AdminDataResource = {
      */
     status: 'active' | 'inactive';
     /**
-     * 允许访问该数据资源的用户组；用户导入数据会强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。历史无上传者且无访问用户组的数据视为平台公共登记资源。
+     * 允许访问该数据资源的用户组；用户导入、目录扫描和栅格导入会强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。
      */
     accessGroups: Array<AdminDataResourceAccessGroup>;
     /**
@@ -1469,7 +1465,7 @@ export type AdminDataResource = {
      */
     canManageAccess: boolean;
     /**
-     * 维护人员显示名称；兼容旧前端字段
+     * 维护人员显示名称
      */
     maintainer: string;
     /**
@@ -1737,62 +1733,7 @@ export type WorkspaceSceneUpdateRequest = {
     snapshot?: WorkspaceSceneSnapshot;
 };
 
-export type VectorLayerResource = {
-    /**
-     * 由 GeoPackage 图层名称生成的临时资源 ID
-     */
-    id: string;
-    /**
-     * GeoPackage 图层名称
-     */
-    name: string;
-    /**
-     * 由 GeoPackage 图层名称生成的临时资源编码
-     */
-    code: string;
-    /**
-     * 数据类型，统一 GeoPackage 图层固定为 vector
-     */
-    dataType: 'vector';
-    /**
-     * 图层类型，统一 GeoPackage 图层固定为 vector
-     */
-    layerType: 'vector';
-    /**
-     * 几何类型
-     */
-    geometryType: string;
-    /**
-     * WGS84 边界 [minLng, minLat, maxLng, maxLat]，无法计算时为空数组
-     */
-    bounds: Array<number>;
-    /**
-     * 坐标系统描述
-     */
-    coordinateSystem: string;
-    /**
-     * 要素数量
-     */
-    featureCount: number | null;
-    /**
-     * 数据来源说明
-     */
-    source: string;
-    /**
-     * 是否支持查询
-     */
-    isQueryable: boolean;
-    /**
-     * 是否支持栅格渲染
-     */
-    isRenderable: boolean;
-    /**
-     * 临时矢量资源状态
-     */
-    status: 'active';
-};
-
-export type ResourceListItem = DataResource | VectorLayerResource;
+export type ResourceListItem = DataResource;
 
 export type MapLayer = {
     /**
@@ -2106,16 +2047,16 @@ export type Directory = {
 
 export type ResourceListResponse = {
     /**
-     * 数据资源列表，可能包含统一 GeoPackage 中的临时矢量资源
+     * 数据资源列表
      */
-    items: Array<ResourceListItem>;
+    items: Array<DataResource>;
 };
 
 export type ScanResponse = {
     /**
      * 本次扫描发现或同步的资源
      */
-    items: Array<ResourceListItem>;
+    items: Array<DataResource>;
     /**
      * 资源数量
      */
@@ -2369,7 +2310,7 @@ export type ValidationIssue = {
 };
 
 export type ResourceProfileResponse = {
-    resource: ResourceListItem;
+    resource: DataResource;
     /**
      * 属性字段信息
      */
@@ -2459,9 +2400,9 @@ export type SpatialFilter = {
 
 export type QueryResponse = {
     /**
-     * 查询资源 ID；临时 GeoPackage 图层查询时为字符串 ID
+     * 查询资源 ID
      */
-    resourceId: number | string;
+    resourceId: number;
     /**
      * 查询资源名称
      */
@@ -2522,11 +2463,11 @@ export type ExportItem = {
      */
     name: string;
     /**
-     * 数据资源 ID；临时 GeoPackage 查询结果没有业务资源 ID，可省略或传 null
+     * 数据资源 ID
      */
     resourceId?: number | null;
     /**
-     * 前端临时矢量查询结果
+     * 矢量图层查询结果
      */
     geojson?: GeoJsonFeatureCollection | null;
     /**
@@ -2543,14 +2484,14 @@ export type LayerListResponse = {
     /**
      * 可加载图层列表
      */
-    items: Array<VectorLayerResource | MapLayer>;
+    items: Array<MapLayer>;
 };
 
 export type SearchResponse = {
     /**
      * 匹配的数据资源
      */
-    resources: Array<ResourceListItem>;
+    resources: Array<DataResource>;
 };
 
 export type RasterDatasetListResponse = {
@@ -2698,16 +2639,6 @@ export type GeoJsonGeometry = {
     coordinates: unknown;
 };
 
-/**
- * 矢量图层要素响应，包含 GeoJSON FeatureCollection 和校验警告
- */
-export type LayerFeaturesResponse = GeoJsonFeatureCollection & {
-    /**
-     * 地理坐标校验警告
-     */
-    warnings: Array<ValidationWarning>;
-};
-
 export type ValidationWarning = {
     /**
      * 警告代码，如 missing_geometry、invalid_longitude、coordinate_uncertainty
@@ -2773,11 +2704,6 @@ export type ResourceId = number;
  * 异步任务 ID
  */
 export type JobId = string;
-
-/**
- * 统一 GeoPackage 中的矢量图层名称
- */
-export type LayerName = string;
 
 export type GetBootstrapData = {
     body?: never;
@@ -4660,137 +4586,6 @@ export type GetLayersResponses = {
 };
 
 export type GetLayersResponse = GetLayersResponses[keyof GetLayersResponses];
-
-export type GetLayerFeaturesData = {
-    body?: never;
-    path: {
-        /**
-         * 统一 GeoPackage 中的矢量图层名称
-         */
-        layer_name: string;
-    };
-    query?: {
-        /**
-         * 返回要素上限
-         */
-        limit?: number;
-    };
-    url: '/api/layers/{layer_name}/features/';
-};
-
-export type GetLayerFeaturesErrors = {
-    /**
-     * 请求错误
-     */
-    400: ErrorResponse;
-    /**
-     * 未认证
-     */
-    401: ErrorResponse;
-    /**
-     * 权限不足或 CSRF 校验失败
-     */
-    403: ErrorResponse;
-    /**
-     * 资源不存在
-     */
-    404: ErrorResponse;
-};
-
-export type GetLayerFeaturesError = GetLayerFeaturesErrors[keyof GetLayerFeaturesErrors];
-
-export type GetLayerFeaturesResponses = {
-    /**
-     * 成功
-     */
-    200: LayerFeaturesResponse;
-};
-
-export type GetLayerFeaturesResponse = GetLayerFeaturesResponses[keyof GetLayerFeaturesResponses];
-
-export type GetLayerProfileData = {
-    body?: never;
-    path: {
-        /**
-         * 统一 GeoPackage 中的矢量图层名称
-         */
-        layer_name: string;
-    };
-    query?: never;
-    url: '/api/layers/{layer_name}/profile/';
-};
-
-export type GetLayerProfileErrors = {
-    /**
-     * 请求错误
-     */
-    400: ErrorResponse;
-    /**
-     * 未认证
-     */
-    401: ErrorResponse;
-    /**
-     * 权限不足或 CSRF 校验失败
-     */
-    403: ErrorResponse;
-    /**
-     * 资源不存在
-     */
-    404: ErrorResponse;
-};
-
-export type GetLayerProfileError = GetLayerProfileErrors[keyof GetLayerProfileErrors];
-
-export type GetLayerProfileResponses = {
-    /**
-     * 成功
-     */
-    200: ResourceProfileResponse;
-};
-
-export type GetLayerProfileResponse = GetLayerProfileResponses[keyof GetLayerProfileResponses];
-
-export type QueryLayerData = {
-    body: QueryRequest;
-    path: {
-        /**
-         * 统一 GeoPackage 中的矢量图层名称
-         */
-        layer_name: string;
-    };
-    query?: never;
-    url: '/api/layers/{layer_name}/query/';
-};
-
-export type QueryLayerErrors = {
-    /**
-     * 请求错误
-     */
-    400: ErrorResponse;
-    /**
-     * 未认证
-     */
-    401: ErrorResponse;
-    /**
-     * 权限不足或 CSRF 校验失败
-     */
-    403: ErrorResponse;
-    /**
-     * 资源不存在
-     */
-    404: ErrorResponse;
-};
-
-export type QueryLayerError = QueryLayerErrors[keyof QueryLayerErrors];
-
-export type QueryLayerResponses = {
-    /**
-     * 查询成功
-     */
-    200: QueryResponse;
-};
-
-export type QueryLayerResponse = QueryLayerResponses[keyof QueryLayerResponses];
 
 export type SearchData = {
     body?: never;

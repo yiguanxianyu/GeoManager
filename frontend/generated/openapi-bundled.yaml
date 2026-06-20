@@ -1725,97 +1725,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-  /api/layers/{layer_name}/features/:
-    get:
-      tags:
-        - 图层
-      summary: 获取图层 GeoJSON 要素
-      description: |
-        获取矢量图层的全部要素（GeoJSON FeatureCollection 格式）。
-        返回前会忽略无几何、经度越界、纬度越界的数据，相关警告通过 `warnings` 字段返回。
-      operationId: getLayerFeatures
-      security:
-        - sessionAuth: []
-      parameters:
-        - $ref: '#/components/parameters/LayerName'
-        - name: limit
-          in: query
-          schema:
-            type: integer
-          description: 返回要素上限
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LayerFeaturesResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /api/layers/{layer_name}/profile/:
-    get:
-      tags:
-        - 图层
-      summary: 获取统一 GeoPackage 矢量图层详情
-      description: 获取未登记为 DataResource 的 GeoPackage 图层元数据、字段信息及空间范围
-      operationId: getLayerProfile
-      security:
-        - sessionAuth: []
-      parameters:
-        - $ref: '#/components/parameters/LayerName'
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ResourceProfileResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-  /api/layers/{layer_name}/query/:
-    post:
-      tags:
-        - 图层
-      summary: 查询统一 GeoPackage 矢量图层
-      description: 对未登记为 DataResource 的 GeoPackage 图层执行属性 + 空间联合查询
-      operationId: queryLayer
-      security:
-        - sessionAuth: []
-      parameters:
-        - $ref: '#/components/parameters/LayerName'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/QueryRequest'
-      responses:
-        '200':
-          description: 查询成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QueryResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
   /api/search/:
     get:
       tags:
@@ -2101,13 +2010,6 @@ components:
       schema:
         type: string
       description: 异步任务 ID
-    LayerName:
-      name: layer_name
-      in: path
-      required: true
-      schema:
-        type: string
-      description: 统一 GeoPackage 中的矢量图层名称
   responses:
     BadRequest:
       description: 请求错误
@@ -2660,7 +2562,6 @@ components:
         - canLoadRasterLayer
         - canUseCustomSymbolization
         - canExportData
-        - canMaintainData
         - canViewWorkspaces
         - canCreateWorkspaces
         - canChangeWorkspaces
@@ -2748,9 +2649,6 @@ components:
         canExportData:
           type: boolean
           description: 是否可导出数据
-        canMaintainData:
-          type: boolean
-          description: 是否具备编辑或删除数据资源能力，用于兼容现有前端管理入口判断
         canViewWorkspaces:
           type: boolean
           description: 是否可查看工程和专题，对应 `catalog.view_workspacescene`
@@ -3939,7 +3837,7 @@ components:
           description: 数据资源状态
         accessGroups:
           type: array
-          description: 允许访问该数据资源的用户组；用户导入数据会强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。历史无上传者且无访问用户组的数据视为平台公共登记资源。
+          description: 允许访问该数据资源的用户组；用户导入、目录扫描和栅格导入会强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。
           items:
             $ref: '#/components/schemas/AdminDataResourceAccessGroup'
         canManageAccess:
@@ -3947,7 +3845,7 @@ components:
           description: 当前用户是否可修改该资源的可见范围；上传者本人或具备 `catalog.change_dataresource` 时为 true
         maintainer:
           type: string
-          description: 维护人员显示名称；兼容旧前端字段
+          description: 维护人员显示名称
         uploader:
           oneOf:
             - $ref: '#/components/schemas/AdminDataResourceUploader'
@@ -4266,76 +4164,8 @@ components:
           description: 更新后的说明
         snapshot:
           $ref: '#/components/schemas/WorkspaceSceneSnapshot'
-    VectorLayerResource:
-      type: object
-      required:
-        - id
-        - name
-        - code
-        - dataType
-        - layerType
-        - geometryType
-        - bounds
-        - coordinateSystem
-        - featureCount
-        - source
-        - isQueryable
-        - isRenderable
-        - status
-      properties:
-        id:
-          type: string
-          description: 由 GeoPackage 图层名称生成的临时资源 ID
-        name:
-          type: string
-          description: GeoPackage 图层名称
-        code:
-          type: string
-          description: 由 GeoPackage 图层名称生成的临时资源编码
-        dataType:
-          type: string
-          enum:
-            - vector
-          description: 数据类型，统一 GeoPackage 图层固定为 vector
-        layerType:
-          type: string
-          enum:
-            - vector
-          description: 图层类型，统一 GeoPackage 图层固定为 vector
-        geometryType:
-          type: string
-          description: 几何类型
-        bounds:
-          type: array
-          description: WGS84 边界 [minLng, minLat, maxLng, maxLat]，无法计算时为空数组
-          items:
-            type: number
-        coordinateSystem:
-          type: string
-          description: 坐标系统描述
-        featureCount:
-          type:
-            - integer
-            - 'null'
-          description: 要素数量
-        source:
-          type: string
-          description: 数据来源说明
-        isQueryable:
-          type: boolean
-          description: 是否支持查询
-        isRenderable:
-          type: boolean
-          description: 是否支持栅格渲染
-        status:
-          type: string
-          enum:
-            - active
-          description: 临时矢量资源状态
     ResourceListItem:
-      oneOf:
-        - $ref: '#/components/schemas/DataResource'
-        - $ref: '#/components/schemas/VectorLayerResource'
+      $ref: '#/components/schemas/DataResource'
     MapLayer:
       type: object
       required:
@@ -4744,9 +4574,9 @@ components:
       properties:
         items:
           type: array
-          description: 数据资源列表，可能包含统一 GeoPackage 中的临时矢量资源
+          description: 数据资源列表
           items:
-            $ref: '#/components/schemas/ResourceListItem'
+            $ref: '#/components/schemas/DataResource'
     ScanResponse:
       type: object
       required:
@@ -4757,7 +4587,7 @@ components:
           type: array
           description: 本次扫描发现或同步的资源
           items:
-            $ref: '#/components/schemas/ResourceListItem'
+            $ref: '#/components/schemas/DataResource'
         count:
           type: integer
           description: 资源数量
@@ -5072,7 +4902,7 @@ components:
         - bounds
       properties:
         resource:
-          $ref: '#/components/schemas/ResourceListItem'
+          $ref: '#/components/schemas/DataResource'
         fields:
           type: array
           description: 属性字段信息
@@ -5204,10 +5034,8 @@ components:
         - warnings
       properties:
         resourceId:
-          oneOf:
-            - type: integer
-            - type: string
-          description: 查询资源 ID；临时 GeoPackage 图层查询时为字符串 ID
+          type: integer
+          description: 查询资源 ID
         resourceName:
           type: string
           description: 查询资源名称
@@ -5282,12 +5110,12 @@ components:
           type:
             - integer
             - 'null'
-          description: 数据资源 ID；临时 GeoPackage 查询结果没有业务资源 ID，可省略或传 null
+          description: 数据资源 ID
         geojson:
           oneOf:
             - $ref: '#/components/schemas/GeoJSONFeatureCollection'
             - type: 'null'
-          description: 前端临时矢量查询结果
+          description: 矢量图层查询结果
         datasetId:
           type:
             - integer
@@ -5308,9 +5136,7 @@ components:
           type: array
           description: 可加载图层列表
           items:
-            oneOf:
-              - $ref: '#/components/schemas/VectorLayerResource'
-              - $ref: '#/components/schemas/MapLayer'
+            $ref: '#/components/schemas/MapLayer'
     SearchResponse:
       type: object
       required:
@@ -5320,7 +5146,7 @@ components:
           type: array
           description: 匹配的数据资源
           items:
-            $ref: '#/components/schemas/ResourceListItem'
+            $ref: '#/components/schemas/DataResource'
     RasterDatasetListResponse:
       type: object
       required:
@@ -5508,19 +5334,6 @@ components:
           description: GeoJSON 几何类型
         coordinates:
           description: GeoJSON 坐标数组
-    LayerFeaturesResponse:
-      description: 矢量图层要素响应，包含 GeoJSON FeatureCollection 和校验警告
-      allOf:
-        - $ref: '#/components/schemas/GeoJSONFeatureCollection'
-        - type: object
-          required:
-            - warnings
-          properties:
-            warnings:
-              type: array
-              description: 地理坐标校验警告
-              items:
-                $ref: '#/components/schemas/ValidationWarning'
     ValidationWarning:
       type: object
       required:

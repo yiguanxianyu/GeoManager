@@ -156,9 +156,6 @@ FEATURE_PERMISSIONS: tuple[FeaturePermissionDef, ...] = (
         "catalog", "DataResource", "delete_dataresource", "删除数据资源", "数据权限"
     ),
     FeaturePermissionDef(
-        "catalog", "DataResource", "maintain_dataresource", "维护数据资源", "数据权限"
-    ),
-    FeaturePermissionDef(
         "catalog", "WorkspaceScene", "add_workspacescene", "新增工程专题", "数据权限"
     ),
     FeaturePermissionDef(

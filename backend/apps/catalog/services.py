@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import hashlib
-from typing import Any
 
 from django.db import OperationalError, ProgrammingError
 
 from apps.catalog.models import DataResource
-from apps.catalog import vector_store
+from apps.core.initialization import ensure_superadmin_defaults
 from apps.core.storage import gene_data_path, table_data_path
 
 
@@ -29,30 +28,6 @@ def stable_catalog_code(prefix: str, value: str) -> str:
     return f"{prefix}-{digest}"
 
 
-def get_vector_layers_from_geopackage() -> list[dict[str, Any]]:
-    return vector_store.list_layers()
-
-
-def get_vector_layer_info(layer_name: str) -> dict[str, Any] | None:
-    return vector_store.get_layer_info(layer_name)
-
-
-def scan_vector_geopackage() -> list[dict[str, Any]]:
-    return get_vector_layers_from_geopackage()
-
-
-def scan_vector_geopackage_safely() -> None:
-    import logging
-
-    logger = logging.getLogger(__name__)
-    try:
-        scan_vector_geopackage()
-    except (OperationalError, ProgrammingError):
-        logger.debug("矢量目录扫描跳过：数据库尚未就绪")
-    except Exception:
-        logger.exception("矢量目录扫描失败")
-
-
 def scan_nongeographic_files() -> list[DataResource]:
     resources: list[DataResource] = []
     resources.extend(
@@ -68,13 +43,11 @@ def scan_nongeographic_files() -> list[DataResource]:
     return resources
 
 
-def scan_catalog_sources() -> tuple[list[dict[str, Any]], list[DataResource]]:
-    vector_layers = scan_vector_geopackage()
-    nongeographic_resources = scan_nongeographic_files()
-    return vector_layers, nongeographic_resources
+def scan_catalog_sources() -> list[DataResource]:
+    return scan_nongeographic_files()
 
 
-def scan_catalog_sources_safely() -> tuple[list[dict[str, Any]], list[DataResource]]:
+def scan_catalog_sources_safely() -> list[DataResource]:
     import logging
 
     logger = logging.getLogger(__name__)
@@ -113,6 +86,8 @@ def upsert_nongeographic_catalog_record(
             "status": DataResource.Status.ACTIVE,
         },
     )
+    _, superadmin_group = ensure_superadmin_defaults(create_account=False)
+    resource.access_groups.set([superadmin_group])
     return resource
 
 

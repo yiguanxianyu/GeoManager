@@ -114,10 +114,10 @@ export async function restoreWorkspaceGroups({
             result,
             savedLayer.query,
           );
-          const queryLayer = queryGroup.children[0];
-          if (queryLayer?.layerType === "vector") {
+          const restoredVectorLayer = queryGroup.children[0];
+          if (restoredVectorLayer?.layerType === "vector") {
             restoredChildren.push({
-              ...queryLayer,
+              ...restoredVectorLayer,
               id: savedLayer.id,
               name: savedLayer.name,
               visible: savedLayer.visible,

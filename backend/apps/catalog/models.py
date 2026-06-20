@@ -109,7 +109,6 @@ class DataResource(models.Model):
         ordering = ("name",)
         permissions = [
             ("export_dataresource", "可导出数据资源"),
-            ("maintain_dataresource", "可导入数据资源"),
         ]
 
     def __str__(self) -> str:

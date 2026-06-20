@@ -24,11 +24,8 @@ __all__ = [
     "DataQueryError",
     "ResourceProfile",
     "get_resource_profile",
-    "get_vector_resource_profile",
     "query_resource",
-    "query_vector_resource",
     "read_vector_resource",
-    "read_vector_layer",
     "read_field_metadata",
     "field_metadata_for_layer",
     "field_profiles",
@@ -62,40 +59,8 @@ def get_resource_profile(resource: DataResource) -> ResourceProfile:
     return vector_store.resource_profile(resource)
 
 
-def get_vector_resource_profile(
-    resource: DataResource | None = None, layer_name: str | None = None
-) -> ResourceProfile:
-    if resource is not None:
-        return get_resource_profile(resource)
-
-    if layer_name is None:
-        return ResourceProfile(
-            fields=[], feature_count=None, geometry_type="", bounds=[]
-        )
-
-    return vector_store.layer_profile(layer_name)
-
-
 def query_resource(resource: DataResource, payload: dict[str, Any]) -> dict[str, Any]:
     return vector_store.query_resource(resource, payload)
 
 
-def query_vector_resource(
-    resource: DataResource | None = None,
-    payload: dict[str, Any] | None = None,
-    layer_name: str | None = None,
-) -> dict[str, Any]:
-    if payload is None:
-        payload = {}
-
-    if resource is not None:
-        return vector_store.query_resource(resource, payload)
-
-    if layer_name is None:
-        raise DataQueryError("必须指定资源或图层名称")
-
-    return vector_store.query_layer(layer_name, payload)
-
-
 read_vector_resource = vector_store.read_resource
-read_vector_layer = vector_store.read_layer

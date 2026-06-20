@@ -102,7 +102,6 @@ const basePermissions = {
   canLoadRasterLayer: true,
   canUseCustomSymbolization: false,
   canExportData: false,
-  canMaintainData: false,
   canViewWorkspaces: false,
   canCreateWorkspaces: false,
   canChangeWorkspaces: false,
@@ -136,7 +135,6 @@ const adminUser: User = {
     ...basePermissions,
     canManageFeaturePermissions: true,
     canCreateUser: true,
-    canMaintainData: true,
     canManageRasterData: true,
   },
 };

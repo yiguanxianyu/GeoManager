@@ -32,6 +32,7 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260620-003 | BackendReady | GET /api/admin/operation-logs/ | response fields, query parameters | Done | N/A | Done | Done | Structured audit target fields for data and workspace scenes |
 | API-20260620-004 | BackendReady | GET/POST /api/admin/workspaces/ | new endpoints, request body, response fields, permission behavior, mock data | Done | Done | Done | Pending | Shared management UI for 工程、专题 |
 | API-20260620-005 | BackendReady | POST /api/admin/profile/avatar/; GET /api/users/{userId}/avatar/ | contract coverage | Done | N/A | Done | Pending | Existing avatar endpoints added to OpenAPI and generated SDK |
+| API-20260620-006 | BackendReady | Multiple catalog/auth endpoints | removed endpoints, response fields, permission behavior | Done | Done | Done | Pending | Remove previous temporary GeoPackage resources and broad maintenance flag |
 
 ## Entry Template
 
@@ -81,7 +82,7 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Owner: Frontend / Backend
 - Endpoints: `GET/POST /api/catalog/workspaces/`, `GET/POST /api/catalog/workspaces/{workspaceId}/`, `POST /api/catalog/import/preview/`, `POST /api/catalog/import/validate/`, `POST /api/catalog/import/commit/`, `GET /api/auth/me/`, `GET /api/users/`, `GET /api/admin/dashboard/`, `GET /api/admin/data/resources/`
 - Change type: new endpoint, response fields, request body, permission behavior, mock data
-- OpenAPI change: Adds private workspace scene APIs for `project` and `topic`; import preview/validate responses include duplicate target metadata; import endpoints accept `core.upload_data` or `catalog.maintain_dataresource`; user permissions include `canUploadData`, `canViewDataOverview`, and `groupPermissions`; Dashboard may include `dataOverview`; data resources include `sizeBytes`, `itemCount`, and structured `uploader`.
+- OpenAPI change: Adds private workspace scene APIs for `project` and `topic`; import preview/validate responses include duplicate target metadata; import endpoints use current CRUD permissions; user permissions include `canUploadData`, `canViewDataOverview`, and `groupPermissions`; Dashboard may include `dataOverview`; data resources include `sizeBytes`, `itemCount`, and structured `uploader`.
 - Mock examples: `mock/prism/examples/10-admin-auth.json`, `mock/prism/examples/20-admin-dashboard-data.json`, `mock/prism/examples/30-catalog-vector.json`
 - Frontend reason: Support one-step query-and-load, blocking duplicate upload warnings, local layer autosave with explicit server save as 工程/专题, Dashboard data overview, and clearer inherited-vs-direct permission display.
 - Backend implementation notes: Add `WorkspaceScene`; persist `DataResource.size_bytes` and `item_count`; treat `DataResource.maintainer` as uploader; enforce workspace ownership; reject duplicate import targets when duplicate names are not confirmed; initialize default `普通用户` group with upload/load/query permissions.
@@ -94,10 +95,10 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Owner: Frontend / Backend
 - Endpoints: `POST /api/catalog/import/commit/`, `GET /api/admin/data/resources/`, `POST /api/admin/data/resources/{id}/`
 - Change type: request body, response fields, permission behavior, mock data
-- OpenAPI change: Import commit payload may include `accessGroupIds`; admin data resources return access group metadata with `isGuest`/`isSuperadmin` and per-resource `canManageAccess`; admin resource update allows uploaders to execute `updateAccess` for their own resources while other maintenance actions still require `catalog.maintain_dataresource`.
+- OpenAPI change: Import commit payload may include `accessGroupIds`; admin data resources return access group metadata with `isGuest`/`isSuperadmin` and per-resource `canManageAccess`; admin resource update allows uploaders to execute `updateAccess` for their own resources while other maintenance actions require current CRUD permissions.
 - Mock examples: `mock/prism/examples/20-admin-dashboard-data.json`
 - Frontend reason: Upload and inventory flows must let users choose data visibility: uploader always visible, superadmin always visible, optional user groups, with an explicit warning when the guest group is selected.
-- Backend implementation notes: Store visibility in `DataResource.access_groups`, force-add the `超级管理员` group, treat `DataResource.maintainer` as uploader ownership, and keep historical resources with no maintainer and no access groups public.
+- Backend implementation notes: Store visibility in `DataResource.access_groups`, force-add the `超级管理员` group, and treat `DataResource.maintainer` as uploader ownership.
 - Verification: run `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check && pnpm run mock:build`, plus backend catalog/admin permission tests.
 - Result: Implementation in progress.
 
@@ -105,7 +106,7 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 
 - Status: Verified
 - Owner: Frontend
-- Endpoints: `POST /api/auth/register/`, `GET /api/catalog/resources/`, `POST /api/catalog/scan/`, `GET /api/catalog/resources/{id}/profile/`, `POST /api/catalog/resources/{id}/query/`, `GET /api/layers/`, `GET /api/layers/{layer_name}/features/`, `GET /api/layers/{layer_name}/profile/`, `POST /api/layers/{layer_name}/query/`
+- Endpoints: `POST /api/auth/register/`, `GET /api/catalog/resources/`, `POST /api/catalog/scan/`, `GET /api/catalog/resources/{id}/profile/`, `POST /api/catalog/resources/{id}/query/`, `GET /api/layers/`
 - Change type: mock data
 - OpenAPI change: None; endpoint shapes, status codes, permissions, and generated frontend API types are unchanged.
 - Mock examples: `mock/prism/examples/00-public-auth.json`, `mock/prism/examples/30-catalog-vector.json`, `mock/prism/examples/35-catalog-nongeo.json`
@@ -191,6 +192,19 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Backend implementation notes: Existing Django views already validate JPG/PNG, cap upload size, compress to JPEG, store image bytes on `UserProfile`, and return `/api/users/{userId}/avatar/` through profile serialization.
 - Verification: run `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check`, plus backend core avatar tests if this behavior changes.
 - Result: Contract added for existing backend behavior.
+
+## API-20260620-006 - Remove Previous Catalog Compatibility Surface
+
+- Status: BackendReady
+- Owner: Frontend / Backend
+- Endpoints: `GET /api/auth/me/`, `GET /api/catalog/resources/`, `POST /api/catalog/scan/`, `GET /api/catalog/resources/{id}/profile/`, `POST /api/catalog/resources/{id}/query/`, `GET /api/layers/`
+- Change type: removed endpoint, response fields, permission behavior, mock data
+- OpenAPI change: Removes the previous string-ID GeoPackage layer endpoints, removes the previous temporary resource schema, narrows `ResourceListItem` to `DataResource`, removes the broad maintenance flag from `UserPermissions`, and removes the old broad data-maintenance feature permission from current permission metadata.
+- Mock examples: `mock/prism/examples/00-public-auth.json`, `mock/prism/examples/10-admin-auth.json`, `mock/prism/examples/30-catalog-vector.json`
+- Frontend reason: Fresh deployments should only support current registered data resources and fine-grained CRUD permissions. The UI no longer needs string-ID temporary resources or broad maintenance compatibility flags.
+- Backend implementation notes: Resource listing/search/profile/query must operate only on `DataResource`; `/api/layers/` returns registered `MapLayer` records only; scanned and raster-imported resources must receive explicit access groups instead of relying on empty access-group public behavior.
+- Verification: run backend catalog/core tests plus `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check && pnpm run mock:build && pnpm test`.
+- Result: Backend and frontend implementation completed in this change; full verification pending.
 
 ## API-20260617-002 - Workspace Snapshot Raw Data Guard
 

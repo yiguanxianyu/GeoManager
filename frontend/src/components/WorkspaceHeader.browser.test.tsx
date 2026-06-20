@@ -62,7 +62,6 @@ const permissions: User["permissions"] = {
   canLoadRasterLayer: true,
   canUseCustomSymbolization: false,
   canExportData: false,
-  canMaintainData: false,
   canViewWorkspaces: false,
   canCreateWorkspaces: false,
   canChangeWorkspaces: false,

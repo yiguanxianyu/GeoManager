@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import sqlite3
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -19,8 +18,6 @@ from apps.core.storage import (
     vector_geopackage_path,
 )
 
-logger = logging.getLogger(__name__)
-
 
 class DataQueryError(ValueError):
     pass
@@ -35,67 +32,6 @@ class ResourceProfile:
     raster: dict[str, Any] | None = None
 
 
-def list_layers() -> list[dict[str, Any]]:
-    path = vector_geopackage_path()
-    if not path.exists():
-        return []
-
-    layers_info: list[dict[str, Any]] = []
-    try:
-        layer_names = _vector_layer_names(path)
-    except Exception:
-        logger.exception("统一 GeoPackage 图层列表读取失败：%s", path)
-        return []
-
-    for layer_name in layer_names:
-        try:
-            profile = _layer_info_from_file(layer_name)
-            field_metadata = read_field_metadata(path, layer_name)
-            layers_info.append(
-                {
-                    "name": layer_name,
-                    "layerName": layer_name,
-                    "geometryType": profile["geometry_type"],
-                    "bounds": profile["bounds"],
-                    "coordinateSystem": profile["coordinate_system"],
-                    "featureCount": profile["feature_count"],
-                    "fieldMetadata": field_metadata,
-                }
-            )
-        except Exception:
-            continue
-    return layers_info
-
-
-def get_layer_info(layer_name: str) -> dict[str, Any] | None:
-    path = vector_geopackage_path()
-    if not path.exists():
-        return None
-
-    try:
-        existing_layers = _vector_layer_names(path)
-    except Exception:
-        logger.exception("统一 GeoPackage 图层列表读取失败：%s", path)
-        return None
-    if layer_name not in existing_layers:
-        return None
-
-    try:
-        profile = _layer_info_from_file(layer_name)
-        field_metadata = read_field_metadata(path, layer_name)
-        return {
-            "name": layer_name,
-            "layerName": layer_name,
-            "geometryType": profile["geometry_type"],
-            "bounds": profile["bounds"],
-            "coordinateSystem": profile["coordinate_system"],
-            "featureCount": profile["feature_count"],
-            "fieldMetadata": field_metadata,
-        }
-    except Exception:
-        return None
-
-
 def resource_profile(resource: DataResource) -> ResourceProfile:
     if resource.data_type != DataResource.DataType.VECTOR or not resource.storage_path:
         return ResourceProfile(
@@ -103,19 +39,6 @@ def resource_profile(resource: DataResource) -> ResourceProfile:
         )
     gdf = read_resource(resource)
     field_metadata = field_metadata_for_layer(resource.storage_path)
-    return ResourceProfile(
-        fields=field_profiles(gdf, field_metadata),
-        feature_count=len(gdf),
-        geometry_type=geometry_type(gdf),
-        bounds=[round(float(value), 6) for value in gdf.total_bounds.tolist()]
-        if len(gdf)
-        else [],
-    )
-
-
-def layer_profile(layer_name: str) -> ResourceProfile:
-    gdf = read_layer(layer_name)
-    field_metadata = field_metadata_for_layer(layer_name)
     return ResourceProfile(
         fields=field_profiles(gdf, field_metadata),
         feature_count=len(gdf),
@@ -160,47 +83,6 @@ def query_resource(resource: DataResource, payload: dict[str, Any]) -> dict[str,
     }
 
 
-def query_layer(layer_name: str, payload: dict[str, Any]) -> dict[str, Any]:
-    from apps.catalog.geojson_validation import validate_geojson_geometries
-
-    spatial_filter = payload.get("spatialFilter")
-    query_geometry = spatial_filter_geometry(spatial_filter)
-    gdf = read_layer(layer_name, bbox=_spatial_prefilter_bbox(query_geometry))
-    gdf = apply_spatial_filter(gdf, spatial_filter, query_geometry=query_geometry)
-    gdf = apply_attribute_filters(gdf, payload.get("attributeFilters") or [])
-
-    field_metadata = field_metadata_for_layer(layer_name)
-
-    limit = _limit(payload.get("limit"))
-    total_count = len(gdf)
-    returned, warnings = validate_geojson_geometries(gdf)
-    returned = returned.head(limit).copy()
-    returned = normalize_for_geojson(returned)
-
-    return {
-        "resourceId": f"vector_{layer_name}",
-        "resourceName": layer_name,
-        "totalCount": total_count,
-        "returnedCount": len(returned),
-        "limit": limit,
-        "fields": field_profiles(gdf, field_metadata),
-        "geojson": json.loads(returned.to_json()),
-        "warnings": warnings,
-    }
-
-
-def layer_features_geojson(layer_name: str, limit: int) -> dict[str, Any]:
-    from apps.catalog.geojson_validation import validate_geojson_geometries
-
-    gdf = read_layer(layer_name)
-    returned, warnings = validate_geojson_geometries(gdf)
-    if len(returned) > limit:
-        returned = returned.head(limit)
-    geojson = json.loads(returned.to_json())
-    geojson["warnings"] = warnings
-    return geojson
-
-
 def read_resource(
     resource: DataResource, bbox: tuple[float, float, float, float] | None = None
 ):
@@ -212,15 +94,6 @@ def read_resource(
     except StoragePathError as exc:
         raise DataQueryError(str(exc)) from exc
     return _read_layer_from_path(path, layer_name, bbox=bbox)
-
-
-def read_layer(layer_name: str, bbox: tuple[float, float, float, float] | None = None):
-    try:
-        validated_name = validate_vector_layer_name(layer_name)
-        path = vector_geopackage_path()
-    except StoragePathError as exc:
-        raise DataQueryError(str(exc)) from exc
-    return _read_layer_from_path(path, validated_name, bbox=bbox)
 
 
 def _read_layer_from_path(
@@ -444,49 +317,3 @@ def _json_value(value: Any):
     if hasattr(value, "item"):
         return value.item()
     return value
-
-
-def _vector_layer_names(path) -> list[str]:
-    import geopandas as gpd
-
-    layers = gpd.list_layers(path)
-    if hasattr(layers, "columns") and "name" in layers.columns:
-        return [str(name) for name in layers["name"].dropna().tolist()]
-    return [
-        str(item[0] if isinstance(item, (list, tuple)) else item) for item in layers
-    ]
-
-
-def _layer_info_from_file(layer_name: str) -> dict[str, Any]:
-    path = vector_geopackage_path()
-    import geopandas as gpd
-
-    gdf = gpd.read_file(path, layer=layer_name)
-    if gdf.crs and gdf.crs.to_epsg() != 4326:
-        gdf = gdf.to_crs(4326)
-    bounds = (
-        [round(float(value), 6) for value in gdf.total_bounds.tolist()]
-        if len(gdf)
-        else []
-    )
-    return {
-        "bounds": bounds,
-        "coordinate_system": f"EPSG:{gdf.crs.to_epsg()}"
-        if gdf.crs and gdf.crs.to_epsg()
-        else str(gdf.crs or ""),
-        "geometry_type": _map_geometry_type(gdf),
-        "feature_count": len(gdf),
-    }
-
-
-def _map_geometry_type(gdf) -> str:
-    if len(gdf) == 0:
-        return "mixed"
-    values = set(gdf.geometry.geom_type.dropna().astype(str).tolist())
-    if values and values <= {"Point", "MultiPoint"}:
-        return "point"
-    if values and values <= {"LineString", "MultiLineString"}:
-        return "line"
-    if values and values <= {"Polygon", "MultiPolygon"}:
-        return "polygon"
-    return "mixed"

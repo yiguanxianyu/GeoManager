@@ -87,26 +87,20 @@ describe("Prism mock example business consistency", () => {
     }
   });
 
-  it("keeps vector profile, features, and query result counts consistent", () => {
+  it("keeps vector resource profile and query result counts consistent", () => {
     const profile = response<{
-      resource: { id: string; featureCount: number; itemCount: number };
+      resource: { id: number; itemCount: number };
       featureCount: number;
       bounds: number[];
-    }>(examples, "GET /api/layers/{layer_name}/profile/");
-    const features = response<{ features: unknown[] }>(
-      examples,
-      "GET /api/layers/{layer_name}/features/",
-    );
+    }>(examples, "GET /api/catalog/resources/{id}/profile/");
     const query = response<{
-      resourceId: string;
+      resourceId: number;
       totalCount: number;
       returnedCount: number;
       geojson: { features: unknown[] };
-    }>(examples, "POST /api/layers/{layer_name}/query/");
+    }>(examples, "POST /api/catalog/resources/{id}/query/");
 
-    expect(profile.featureCount).toBe(profile.resource.featureCount);
     expect(profile.resource.itemCount).toBe(profile.featureCount);
-    expect(features.features).toHaveLength(profile.featureCount);
     expect(query.resourceId).toBe(profile.resource.id);
     expect(query.totalCount).toBe(profile.featureCount);
     expect(query.returnedCount).toBe(query.geojson.features.length);

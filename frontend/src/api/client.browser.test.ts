@@ -183,11 +183,11 @@ describe("api client", () => {
     });
   });
 
-  it("encodes vector layer names for temporary GeoPackage resources", async () => {
+  it("uses data-resource query endpoint for registered resources", async () => {
     fetchMock.mockResolvedValue(jsonResponse({}));
     const resource = {
-      id: "vector_temp",
-      name: "sample layer/一",
+      id: 7,
+      name: "样地资源",
       dataType: "vector",
     } as ResourceListItem;
 
@@ -198,7 +198,7 @@ describe("api client", () => {
     });
 
     expect(requestPath(capturedRequest(fetchMock))).toBe(
-      "/api/layers/sample%20layer%2F%E4%B8%80/query/",
+      "/api/catalog/resources/7/query/",
     );
   });
 

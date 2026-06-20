@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from apps.catalog.models import DataResource, MapLayer
+from apps.core.initialization import ensure_superadmin_defaults
 from apps.raster.models import RasterDataset
 
 
@@ -54,4 +55,7 @@ def upsert_catalog_records(
             "is_active": True,
         },
     )
+    _, superadmin_group = ensure_superadmin_defaults(create_account=False)
+    data_resource.access_groups.set([superadmin_group])
+    map_layer.access_groups.set([superadmin_group])
     return data_resource, map_layer

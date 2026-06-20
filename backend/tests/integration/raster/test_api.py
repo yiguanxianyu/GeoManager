@@ -87,6 +87,7 @@ class RasterPermissionApiTests(TestCase):
             code="public-raster-resource",
             data_type=DataResource.DataType.RASTER,
             status=DataResource.Status.ACTIVE,
+            maintainer=self.user,
         )
         restricted_resource = DataResource.objects.create(
             name="受限栅格资源",

@@ -189,7 +189,6 @@ def serialize_user(user):
             user, "core.custom_symbolization"
         ),
         "canExportData": has_feature_perm(user, "catalog.export_dataresource"),
-        "canMaintainData": can_change_data or can_delete_data,
         "canViewWorkspaces": can_view_workspace,
         "canCreateWorkspaces": can_create_workspace,
         "canChangeWorkspaces": can_change_workspace,

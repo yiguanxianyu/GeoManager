@@ -131,7 +131,7 @@ flowchart TD
 |----|----|----|----|----|----|----|----|
 | F01 | 统一登录页 | `frontend/src/pages/LoginPage.tsx` | 登录、注册入口、记住登录、错误提示、系统第一印象 | `/api/bootstrap/`、`/api/auth/csrf/`、`/api/auth/login/`、`/api/auth/register/`、`/api/auth/me/` | 未登录可访问；已登录重定向 `/map` | 沉浸式生态背景、右侧登录表单、轻量数据指标 | 未开始 |
 | F02 | 三维地球主界面 | `frontend/src/pages/MapPage.tsx` | 地图浏览、图层管理、数据检索、空间查询、结果分析、顶部导航 | `/api/catalog/resources/`、`/api/catalog/directories/`、`/api/layers/`、`/api/raster/render/`、`/api/search/`、导出和任务接口 | 登录后访问；功能按钮按权限显示 | 参考遥感平台布局，保留左右下栏，升级工作台视觉 | 未开始 |
-| F03 | 数据资源中心 | 现有 `DataPanel` 能力演进 | 资源筛选、资源预览、字段元数据、加载到地图、最近使用 | `/api/catalog/resources/`、`/api/catalog/resources/{id}/profile/`、`/api/layers/{layer_name}/profile/`、`/api/raster/datasets/` | 需 `core.browse_data`，加载按矢量/栅格权限控制 | 宽弹层三列结构：筛选、列表、详情 | 未开始 |
+| F03 | 数据资源中心 | 现有 `DataPanel` 能力演进 | 资源筛选、资源预览、字段元数据、加载到地图、最近使用 | `/api/catalog/resources/`、`/api/catalog/resources/{id}/profile/`、`/api/raster/datasets/` | 需 `core.browse_data`，加载按矢量/栅格权限控制 | 宽弹层三列结构：筛选、列表、详情 | 未开始 |
 | F04 | 非地理可视化 | `frontend/src/pages/NonGeoPage.tsx` | 表格、基因、文档、图片等非空间数据分析 | 现有资源列表与搜索接口可支撑总览；高级分析可能需要新增接口 | 登录后访问，按数据可见范围裁剪 | 从空承载页升级为科研数据分析工作台 | 未开始 |
 | F05 | 专题目录 | 建议新增页面 | 专题列表、专题筛选、专题详情、关联图层或资源 | `/api/topics/`、`/api/search/`；详情和附件预览能力待确认 | 登录后访问，需浏览数据权限 | 顶部导航独立入口，承接设计文档“专题展示”要求 | 未开始 |
 | F06 | 后台 Dashboard | `frontend/src/admin/AdminDashboardPage.tsx` | 资源、图层、栅格、用户、活跃用户、服务器状态 | `/api/admin/dashboard/`、`/api/admin/dashboard/server/` | 需 `core.access_admin`；卡片按 Dashboard 权限返回 | Ant Design Pro 风格增强指标图表 | 未开始 |

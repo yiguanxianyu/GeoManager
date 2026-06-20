@@ -97,7 +97,6 @@ const emptyPermissions = {
   canLoadRasterLayer: false,
   canUseCustomSymbolization: false,
   canExportData: false,
-  canMaintainData: false,
   canViewWorkspaces: false,
   canCreateWorkspaces: false,
   canChangeWorkspaces: false,

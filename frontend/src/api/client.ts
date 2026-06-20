@@ -54,7 +54,6 @@ import type {
   WorkspaceSceneKind,
   WorkspaceSceneUpdateRequest,
 } from "../types";
-import { isDataResource } from "../utils/resources";
 import type * as sdkTypes from "./generated/sdk.gen";
 
 interface ListResponse<T> {
@@ -415,35 +414,17 @@ export const api = {
     unwrap<ImportValidateResult>(
       sdk.importValidate({ body: { file, payload: JSON.stringify(payload) } }),
     ),
-  resourceProfile: (resource: ResourceListItem) => {
-    if (isDataResource(resource)) {
-      return unwrap<DataResourceProfile>(
-        sdk.getResourceProfile({ path: { id: resource.id } }),
-      );
-    }
-    return unwrap<DataResourceProfile>(
-      sdk.getLayerProfile({ path: { layer_name: resource.name } }),
-    );
-  },
-  queryResource: (
-    resource: ResourceListItem,
-    payload: ResourceQueryPayload,
-  ) => {
-    if (isDataResource(resource)) {
-      return unwrap<ResourceQueryResult>(
-        sdk.queryResource({
-          path: { id: resource.id },
-          body: payload,
-        }),
-      );
-    }
-    return unwrap<ResourceQueryResult>(
-      sdk.queryLayer({
-        path: { layer_name: resource.name },
+  resourceProfile: (resource: ResourceListItem) =>
+    unwrap<DataResourceProfile>(
+      sdk.getResourceProfile({ path: { id: resource.id } }),
+    ),
+  queryResource: (resource: ResourceListItem, payload: ResourceQueryPayload) =>
+    unwrap<ResourceQueryResult>(
+      sdk.queryResource({
+        path: { id: resource.id },
         body: payload,
       }),
-    );
-  },
+    ),
   exportLayers: (payload: ExportLayersPayload) =>
     unwrapBlob(sdk.exportLayers({ body: payload, parseAs: "blob" })),
   exportLayersAsync: (payload: ExportLayersPayload) =>

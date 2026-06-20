@@ -118,7 +118,6 @@ const adminUser: User = {
     canLoadRasterLayer: true,
     canUseCustomSymbolization: true,
     canExportData: true,
-    canMaintainData: true,
     canViewWorkspaces: true,
     canCreateWorkspaces: true,
     canChangeWorkspaces: true,

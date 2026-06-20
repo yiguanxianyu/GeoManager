@@ -8,7 +8,7 @@
           "code": "vector",
           "parentId": null,
           "resourceIds": [
-            "vector_survey_points_2026"
+            3
           ],
           "children": []
         },
@@ -103,24 +103,28 @@
           "itemCount": 1
         },
         {
-          "id": "vector_survey_points_2026",
-          "name": "survey_points_2026",
-          "code": "vector_survey_points_2026",
+          "id": 3,
+          "name": "塔里木河胡杨样地监测点",
+          "code": "survey-points-2026",
           "dataType": "vector",
-          "layerType": "vector",
-          "geometryType": "point",
-          "bounds": [
-            87.6,
-            43.7951,
-            87.6428,
-            43.81245
-          ],
+          "category": {
+            "id": 101,
+            "type": "data_category",
+            "code": "monitoring",
+            "name": "长期监测"
+          },
+          "source": "2026 塔里木河野外调查",
+          "provider": "生态监测组",
+          "dataDate": "2026-06-01",
+          "spatialExtent": "87.600000,43.795100,87.642800,43.812450",
           "coordinateSystem": "EPSG:4326",
-          "featureCount": 3,
-          "source": "GeoPackage 实时读取",
+          "fileFormat": "GPKG",
+          "description": "由 Excel/CSV 导入的地理样地监测点数据。",
+          "qualityNote": "坐标有效 3/3 行。",
+          "status": "active",
           "isQueryable": true,
           "isRenderable": false,
-          "status": "active",
+          "updatedAt": "2026-06-18T12:30:00+08:00",
           "sizeBytes": 245760,
           "itemCount": 3
         },
@@ -153,31 +157,8 @@
   },
   "POST /api/catalog/scan/": {
     "200": {
-      "items": [
-        {
-          "id": "vector_survey_points_2026",
-          "name": "survey_points_2026",
-          "code": "vector_survey_points_2026",
-          "dataType": "vector",
-          "layerType": "vector",
-          "geometryType": "point",
-          "bounds": [
-            87.6,
-            43.7951,
-            87.6428,
-            43.81245
-          ],
-          "coordinateSystem": "EPSG:4326",
-          "featureCount": 3,
-          "source": "GeoPackage 实时读取",
-          "isQueryable": true,
-          "isRenderable": false,
-          "status": "active",
-          "sizeBytes": 245760,
-          "itemCount": 3
-        }
-      ],
-      "count": 1
+      "items": [],
+      "count": 0
     }
   },
   "GET /api/catalog/workspaces/": {
@@ -401,24 +382,28 @@
   "GET /api/catalog/resources/{id}/profile/": {
     "200": {
       "resource": {
-        "id": "vector_survey_points_2026",
-        "name": "survey_points_2026",
-        "code": "vector_survey_points_2026",
+        "id": 3,
+        "name": "塔里木河胡杨样地监测点",
+        "code": "survey-points-2026",
         "dataType": "vector",
-        "layerType": "vector",
-        "geometryType": "point",
-        "bounds": [
-          87.6,
-          43.7951,
-          87.6428,
-          43.81245
-        ],
+        "category": {
+          "id": 101,
+          "type": "data_category",
+          "code": "monitoring",
+          "name": "长期监测"
+        },
+        "source": "2026 塔里木河野外调查",
+        "provider": "生态监测组",
+        "dataDate": "2026-06-01",
+        "spatialExtent": "87.600000,43.795100,87.642800,43.812450",
         "coordinateSystem": "EPSG:4326",
-        "featureCount": 3,
-        "source": "GeoPackage 实时读取",
+        "fileFormat": "GPKG",
+        "description": "由 Excel/CSV 导入的地理样地监测点数据。",
+        "qualityNote": "坐标有效 3/3 行。",
+        "status": "active",
         "isQueryable": true,
         "isRenderable": false,
-        "status": "active",
+        "updatedAt": "2026-06-18T12:30:00+08:00",
         "sizeBytes": 245760,
         "itemCount": 3
       },
@@ -463,8 +448,8 @@
   },
   "POST /api/catalog/resources/{id}/query/": {
     "200": {
-      "resourceId": "vector_survey_points_2026",
-      "resourceName": "survey_points_2026",
+      "resourceId": 3,
+      "resourceName": "塔里木河胡杨样地监测点",
       "totalCount": 3,
       "returnedCount": 3,
       "limit": 30000,
@@ -575,28 +560,6 @@
   "GET /api/layers/": {
     "200": {
       "items": [
-        {
-          "id": "vector_survey_points_2026",
-          "name": "survey_points_2026",
-          "code": "vector_survey_points_2026",
-          "dataType": "vector",
-          "layerType": "vector",
-          "geometryType": "point",
-          "bounds": [
-            87.6,
-            43.7951,
-            87.6428,
-            43.81245
-          ],
-          "coordinateSystem": "EPSG:4326",
-          "featureCount": 3,
-          "source": "GeoPackage 实时读取",
-          "isQueryable": true,
-          "isRenderable": false,
-          "status": "active",
-          "sizeBytes": 245760,
-          "itemCount": 3
-        },
         {
           "id": 1,
           "name": "Traim",
@@ -718,223 +681,6 @@
       ]
     }
   },
-  "GET /api/layers/{layer_name}/features/": {
-    "200": {
-      "type": "FeatureCollection",
-      "features": [
-        {
-          "id": "0",
-          "type": "Feature",
-          "properties": {
-            "sample_id": "TP-2026-001",
-            "health": "良好",
-            "dbh_cm": 32.5,
-            "canopy_m": 7.8
-          },
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              87.6,
-              43.8
-            ]
-          }
-        },
-        {
-          "id": "1",
-          "type": "Feature",
-          "properties": {
-            "sample_id": "TP-2026-002",
-            "health": "一般",
-            "dbh_cm": 28.1,
-            "canopy_m": 6.4
-          },
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              87.61532,
-              43.81245
-            ]
-          }
-        },
-        {
-          "id": "2",
-          "type": "Feature",
-          "properties": {
-            "sample_id": "TP-2026-003",
-            "health": "良好",
-            "dbh_cm": 35.7,
-            "canopy_m": 8.1
-          },
-          "geometry": {
-            "type": "Point",
-            "coordinates": [
-              87.6428,
-              43.7951
-            ]
-          }
-        }
-      ],
-      "warnings": []
-    }
-  },
-  "GET /api/layers/{layer_name}/profile/": {
-    "200": {
-      "resource": {
-        "id": "vector_survey_points_2026",
-        "name": "survey_points_2026",
-        "code": "vector_survey_points_2026",
-        "dataType": "vector",
-        "layerType": "vector",
-        "geometryType": "point",
-        "bounds": [
-          87.6,
-          43.7951,
-          87.6428,
-          43.81245
-        ],
-        "coordinateSystem": "EPSG:4326",
-        "featureCount": 3,
-        "source": "GeoPackage 实时读取",
-        "isQueryable": true,
-        "isRenderable": false,
-        "status": "active",
-        "sizeBytes": 245760,
-        "itemCount": 3
-      },
-      "fields": [
-        {
-          "name": "sample_id",
-          "type": "str",
-          "nullable": false,
-          "sampleValues": [
-            "TP-2026-001"
-          ],
-          "description": "样地编号"
-        },
-        {
-          "name": "health",
-          "type": "str",
-          "nullable": false,
-          "sampleValues": [
-            "良好"
-          ],
-          "description": "健康状况"
-        },
-        {
-          "name": "dbh_cm",
-          "type": "float",
-          "nullable": false,
-          "sampleValues": [
-            32.5
-          ],
-          "description": "胸径（厘米）"
-        }
-      ],
-      "featureCount": 3,
-      "geometryType": "Point",
-      "bounds": [
-        87.6,
-        43.7951,
-        87.6428,
-        43.81245
-      ]
-    }
-  },
-  "POST /api/layers/{layer_name}/query/": {
-    "200": {
-      "resourceId": "vector_survey_points_2026",
-      "resourceName": "survey_points_2026",
-      "totalCount": 3,
-      "returnedCount": 3,
-      "limit": 30000,
-      "fields": [
-        {
-          "name": "sample_id",
-          "type": "str",
-          "nullable": false,
-          "sampleValues": [
-            "TP-2026-001"
-          ],
-          "description": "样地编号"
-        },
-        {
-          "name": "health",
-          "type": "str",
-          "nullable": false,
-          "sampleValues": [
-            "良好"
-          ],
-          "description": "健康状况"
-        },
-        {
-          "name": "dbh_cm",
-          "type": "float",
-          "nullable": false,
-          "sampleValues": [
-            32.5
-          ],
-          "description": "胸径（厘米）"
-        }
-      ],
-      "geojson": {
-        "type": "FeatureCollection",
-        "features": [
-          {
-            "type": "Feature",
-            "geometry": {
-              "type": "Point",
-              "coordinates": [
-                87.6,
-                43.8
-              ]
-            },
-            "properties": {
-              "id": 1,
-              "name": "TP-2026-001",
-              "health": "良好",
-              "dbh_cm": 32.5,
-              "canopy_m": 7.8
-            }
-          },
-          {
-            "type": "Feature",
-            "geometry": {
-              "type": "Point",
-              "coordinates": [
-                87.61532,
-                43.81245
-              ]
-            },
-            "properties": {
-              "id": 2,
-              "name": "TP-2026-002",
-              "health": "一般",
-              "dbh_cm": 28.1,
-              "canopy_m": 6.4
-            }
-          },
-          {
-            "type": "Feature",
-            "geometry": {
-              "type": "Point",
-              "coordinates": [
-                87.6428,
-                43.7951
-              ]
-            },
-            "properties": {
-              "id": 3,
-              "name": "TP-2026-003",
-              "health": "良好",
-              "dbh_cm": 35.7,
-              "canopy_m": 8.1
-            }
-          }
-        ]
-      },
-      "warnings": []
-    }
-  },
   "GET /api/search/": {
     "200": {
       "resources": [
@@ -981,24 +727,28 @@
           "itemCount": 1
         },
         {
-          "id": "vector_survey_points_2026",
-          "name": "survey_points_2026",
-          "code": "vector_survey_points_2026",
+          "id": 3,
+          "name": "塔里木河胡杨样地监测点",
+          "code": "survey-points-2026",
           "dataType": "vector",
-          "layerType": "vector",
-          "geometryType": "point",
-          "bounds": [
-            87.6,
-            43.7951,
-            87.6428,
-            43.81245
-          ],
+          "category": {
+            "id": 101,
+            "type": "data_category",
+            "code": "monitoring",
+            "name": "长期监测"
+          },
+          "source": "2026 塔里木河野外调查",
+          "provider": "生态监测组",
+          "dataDate": "2026-06-01",
+          "spatialExtent": "87.600000,43.795100,87.642800,43.812450",
           "coordinateSystem": "EPSG:4326",
-          "featureCount": 3,
-          "source": "GeoPackage 实时读取",
+          "fileFormat": "GPKG",
+          "description": "由 Excel/CSV 导入的地理样地监测点数据。",
+          "qualityNote": "坐标有效 3/3 行。",
+          "status": "active",
           "isQueryable": true,
           "isRenderable": false,
-          "status": "active",
+          "updatedAt": "2026-06-18T12:30:00+08:00",
           "sizeBytes": 245760,
           "itemCount": 3
         }

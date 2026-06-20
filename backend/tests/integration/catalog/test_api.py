@@ -11,7 +11,7 @@ from shapely.geometry import Point
 
 from apps.audit.models import OperationLog
 from apps.catalog.models import DataResource, MapLayer, WorkspaceScene
-from apps.catalog.services import scan_catalog_sources, scan_vector_geopackage
+from apps.catalog.services import scan_catalog_sources
 from apps.core.initialization import (
     GUEST_GROUP_NAME,
     SUPERADMIN_GROUP_NAME,
@@ -102,9 +102,19 @@ class ResourceQueryApiTests(TestCase):
             crs="EPSG:4326",
         )
         gdf.to_file(self.path, layer=self.layer_name, driver="GPKG")
+        self.resource = DataResource.objects.create(
+            name="测试查询点",
+            code="test-query-points",
+            data_type=DataResource.DataType.VECTOR,
+            storage_path=self.layer_name,
+            status=DataResource.Status.ACTIVE,
+            maintainer=self.user,
+        )
 
-    def test_vector_layer_profile_returns_fields_and_metadata(self):
-        response = self.client.get(f"/api/layers/{self.layer_name}/profile/")
+    def test_resource_profile_returns_fields_and_metadata(self):
+        response = self.client.get(
+            f"/api/catalog/resources/{self.resource.id}/profile/"
+        )
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
@@ -112,9 +122,9 @@ class ResourceQueryApiTests(TestCase):
         self.assertEqual(payload["geometryType"], "Point")
         self.assertIn("height", [field["name"] for field in payload["fields"]])
 
-    def test_vector_layer_query_filters_by_attribute(self):
+    def test_resource_query_filters_by_attribute(self):
         response = self.client.post(
-            f"/api/layers/{self.layer_name}/query/",
+            f"/api/catalog/resources/{self.resource.id}/query/",
             data={
                 "attributeFilters": [
                     {"field": "height", "operator": "gte", "value": "8"}
@@ -132,9 +142,9 @@ class ResourceQueryApiTests(TestCase):
         )
         self.assertIn("warnings", payload)
 
-    def test_vector_layer_query_filters_by_spatial_polygon(self):
+    def test_resource_query_filters_by_spatial_polygon(self):
         response = self.client.post(
-            f"/api/layers/{self.layer_name}/query/",
+            f"/api/catalog/resources/{self.resource.id}/query/",
             data=json.dumps(
                 {
                     "spatialFilter": {
@@ -165,9 +175,9 @@ class ResourceQueryApiTests(TestCase):
             payload["geojson"]["features"][0]["properties"]["name"], "样点一"
         )
 
-    def test_vector_layer_query_rejects_unknown_attribute_operator(self):
+    def test_resource_query_rejects_unknown_attribute_operator(self):
         response = self.client.post(
-            f"/api/layers/{self.layer_name}/query/",
+            f"/api/catalog/resources/{self.resource.id}/query/",
             data=json.dumps(
                 {
                     "attributeFilters": [
@@ -185,9 +195,9 @@ class ResourceQueryApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("不支持的属性操作符", response.json()["detail"])
 
-    def test_vector_layer_query_rejects_invalid_json_body(self):
+    def test_resource_query_rejects_invalid_json_body(self):
         response = self.client.post(
-            f"/api/layers/{self.layer_name}/query/",
+            f"/api/catalog/resources/{self.resource.id}/query/",
             data="{",
             content_type="application/json",
         )
@@ -428,14 +438,6 @@ class CatalogScanTests(TestCase):
         )
         gdf.to_file(self.path, layer=self.layer_name, driver="GPKG")
 
-    def test_scan_vector_geopackage_returns_layer_info(self):
-        layers = scan_vector_geopackage()
-
-        self.assertEqual(len(layers), 1)
-        self.assertEqual(layers[0]["name"], self.layer_name)
-        self.assertEqual(layers[0]["geometryType"], "point")
-        self.assertEqual(layers[0]["featureCount"], 1)
-
     def test_scan_endpoint_requires_browse_permission(self):
         self.user.user_permissions.clear()
 
@@ -445,15 +447,15 @@ class CatalogScanTests(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-    def test_scan_endpoint_returns_layers(self):
+    def test_scan_endpoint_returns_no_temporary_layers(self):
         response = self.client.post(
             "/api/catalog/scan/", data={}, content_type="application/json"
         )
 
         self.assertEqual(response.status_code, 200)
         payload = response.json()
-        self.assertEqual(payload["count"], 1)
-        self.assertEqual(payload["items"][0]["name"], self.layer_name)
+        self.assertEqual(payload["count"], 0)
+        self.assertEqual(payload["items"], [])
         self.assertFalse(
             OperationLog.objects.filter(
                 module="数据管理", action="扫描数据目录"
@@ -468,6 +470,7 @@ class CatalogScanTests(TestCase):
             data_type=DataResource.DataType.VECTOR,
             storage_path="registered_points",
             status=DataResource.Status.ACTIVE,
+            maintainer=self.user,
         )
 
         response = self.client.get("/api/catalog/resources/?dataType=vector")
@@ -496,10 +499,7 @@ class CatalogScanTests(TestCase):
         self.addCleanup(gene_file.unlink, missing_ok=True)
         self.addCleanup(table_file.unlink, missing_ok=True)
 
-        vector_layers, nongeographic_resources = scan_catalog_sources()
-
-        self.assertEqual(len(vector_layers), 1)
-        self.assertEqual(vector_layers[0]["name"], self.layer_name)
+        nongeographic_resources = scan_catalog_sources()
 
         resource_types = {
             resource.storage_path: resource.data_type
@@ -1394,6 +1394,7 @@ class ExportApiTests(TestCase):
             code="export-test-data",
             data_type=DataResource.DataType.VECTOR,
             status=DataResource.Status.ACTIVE,
+            maintainer=self.user,
         )
         self.geojson = {
             "type": "FeatureCollection",

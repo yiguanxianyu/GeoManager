@@ -50,20 +50,5 @@ urlpatterns = [
         name="catalog-export-download",
     ),
     path("layers/", views.layers, name="layers"),
-    path(
-        "layers/<str:layer_name>/features/",
-        views.layer_features,
-        name="layer-features",
-    ),
-    path(
-        "layers/<str:layer_name>/profile/",
-        views.vector_layer_profile,
-        name="layer-profile",
-    ),
-    path(
-        "layers/<str:layer_name>/query/",
-        views.vector_layer_query,
-        name="layer-query",
-    ),
     path("search/", views.search, name="search"),
 ]

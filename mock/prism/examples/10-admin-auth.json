@@ -35,7 +35,6 @@
           "canLoadRasterLayer": true,
           "canUseCustomSymbolization": true,
           "canExportData": true,
-          "canMaintainData": true,
           "canManageRasterData": true,
           "canUploadData": true,
           "canViewDataOverview": true,
@@ -190,7 +189,6 @@
           "canLoadRasterLayer": true,
           "canUseCustomSymbolization": true,
           "canExportData": true,
-          "canMaintainData": true,
           "canManageRasterData": true,
           "canUploadData": true,
           "canViewDataOverview": true,
@@ -335,7 +333,6 @@
           "canLoadRasterLayer": true,
           "canUseCustomSymbolization": true,
           "canExportData": true,
-          "canMaintainData": true,
           "canManageRasterData": true,
           "canUploadData": true,
           "canViewDataOverview": true,
@@ -484,7 +481,6 @@
             "canLoadRasterLayer": true,
             "canUseCustomSymbolization": true,
             "canExportData": true,
-            "canMaintainData": true,
             "canManageRasterData": true,
             "canUploadData": true,
             "canViewDataOverview": true,
@@ -516,7 +512,6 @@
             "core.load_raster_layer",
             "core.custom_symbolization",
             "catalog.export_dataresource",
-            "catalog.maintain_dataresource",
             "raster.manage_rasterdataset",
             "catalog.add_dataresource",
             "core.view_data_overview"
@@ -540,7 +535,6 @@
             "core.load_raster_layer",
             "core.custom_symbolization",
             "catalog.export_dataresource",
-            "catalog.maintain_dataresource",
             "raster.manage_rasterdataset",
             "catalog.add_dataresource",
             "core.view_data_overview"
@@ -580,7 +574,6 @@
             "canLoadRasterLayer": true,
             "canUseCustomSymbolization": false,
             "canExportData": true,
-            "canMaintainData": false,
             "canManageRasterData": false,
             "canUploadData": true,
             "canViewDataOverview": true,
@@ -665,7 +658,6 @@
             "canLoadRasterLayer": true,
             "canUseCustomSymbolization": true,
             "canExportData": true,
-            "canMaintainData": true,
             "canManageRasterData": true,
             "canUploadData": true,
             "canViewDataOverview": true,
@@ -695,7 +687,6 @@
             "core.load_raster_layer",
             "core.custom_symbolization",
             "catalog.export_dataresource",
-            "catalog.maintain_dataresource",
             "raster.manage_rasterdataset",
             "catalog.add_dataresource",
             "core.view_data_overview"
@@ -715,7 +706,6 @@
             "core.load_raster_layer",
             "core.custom_symbolization",
             "catalog.export_dataresource",
-            "catalog.maintain_dataresource",
             "raster.manage_rasterdataset",
             "catalog.add_dataresource",
             "core.view_data_overview"
@@ -755,7 +745,6 @@
             "canLoadRasterLayer": true,
             "canUseCustomSymbolization": false,
             "canExportData": false,
-            "canMaintainData": false,
             "canManageRasterData": false,
             "canUploadData": true,
             "canViewDataOverview": true,
@@ -828,7 +817,6 @@
           "canLoadRasterLayer": true,
           "canUseCustomSymbolization": false,
           "canExportData": true,
-          "canMaintainData": false,
           "canManageRasterData": false,
           "canUploadData": true,
           "canViewDataOverview": true,
@@ -903,7 +891,6 @@
         "canLoadRasterLayer": true,
         "canUseCustomSymbolization": false,
         "canExportData": true,
-        "canMaintainData": false,
         "canManageRasterData": false,
         "canUploadData": true,
         "canViewDataOverview": true,
@@ -991,7 +978,6 @@
         "canLoadRasterLayer": true,
         "canUseCustomSymbolization": false,
         "canExportData": true,
-        "canMaintainData": false,
         "canManageRasterData": false,
         "canUploadData": true,
         "canViewDataOverview": true,
@@ -1085,7 +1071,6 @@
         "canLoadRasterLayer": true,
         "canUseCustomSymbolization": false,
         "canExportData": false,
-        "canMaintainData": false,
         "canManageRasterData": false,
         "canUploadData": true,
         "canViewDataOverview": true,
@@ -1144,7 +1129,6 @@
             "core.load_raster_layer",
             "core.custom_symbolization",
             "catalog.export_dataresource",
-            "catalog.maintain_dataresource",
             "raster.manage_rasterdataset",
             "core.view_data_overview",
             "catalog.add_dataresource"
@@ -1198,7 +1182,6 @@
             "core.load_raster_layer",
             "core.custom_symbolization",
             "catalog.export_dataresource",
-            "catalog.maintain_dataresource",
             "raster.manage_rasterdataset"
           ],
           "isProtected": false,
@@ -1284,11 +1267,6 @@
         {
           "id": "catalog.export_dataresource",
           "label": "导出数据资源",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.maintain_dataresource",
-          "label": "维护数据资源",
           "group": "数据权限"
         },
         {

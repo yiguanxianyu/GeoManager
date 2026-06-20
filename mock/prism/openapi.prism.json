@@ -371,7 +371,6 @@
                       "canLoadRasterLayer": true,
                       "canUseCustomSymbolization": true,
                       "canExportData": true,
-                      "canMaintainData": true,
                       "canManageRasterData": true,
                       "canUploadData": true,
                       "canViewDataOverview": true,
@@ -410,7 +409,6 @@
                       "core.load_raster_layer",
                       "core.custom_symbolization",
                       "catalog.export_dataresource",
-                      "catalog.maintain_dataresource",
                       "raster.manage_rasterdataset",
                       "catalog.add_dataresource",
                       "core.view_data_overview"
@@ -440,7 +438,6 @@
                       "core.load_raster_layer",
                       "core.custom_symbolization",
                       "catalog.export_dataresource",
-                      "catalog.maintain_dataresource",
                       "raster.manage_rasterdataset",
                       "catalog.add_dataresource",
                       "core.view_data_overview"
@@ -545,7 +542,6 @@
                       "canLoadRasterLayer": true,
                       "canUseCustomSymbolization": false,
                       "canExportData": false,
-                      "canMaintainData": false,
                       "canManageRasterData": false,
                       "canUploadData": true,
                       "canViewDataOverview": false,
@@ -679,7 +675,6 @@
                       "canLoadRasterLayer": true,
                       "canUseCustomSymbolization": true,
                       "canExportData": true,
-                      "canMaintainData": true,
                       "canManageRasterData": true,
                       "canUploadData": true,
                       "canViewDataOverview": true,
@@ -793,7 +788,6 @@
                       "canLoadRasterLayer": true,
                       "canUseCustomSymbolization": true,
                       "canExportData": true,
-                      "canMaintainData": true,
                       "canManageRasterData": true,
                       "canUploadData": true,
                       "canViewDataOverview": true,
@@ -989,7 +983,6 @@
                       "canLoadRasterLayer": true,
                       "canUseCustomSymbolization": true,
                       "canExportData": true,
-                      "canMaintainData": true,
                       "canManageRasterData": true,
                       "canUploadData": true,
                       "canViewDataOverview": true,
@@ -1175,7 +1168,6 @@
                       "canLoadRasterLayer": true,
                       "canUseCustomSymbolization": true,
                       "canExportData": true,
-                      "canMaintainData": true,
                       "canManageRasterData": true,
                       "canUploadData": true,
                       "canViewDataOverview": true,
@@ -1996,7 +1988,6 @@
                         "canLoadRasterLayer": true,
                         "canUseCustomSymbolization": true,
                         "canExportData": true,
-                        "canMaintainData": true,
                         "canManageRasterData": true,
                         "canUploadData": true,
                         "canViewDataOverview": true,
@@ -2028,7 +2019,6 @@
                         "core.load_raster_layer",
                         "core.custom_symbolization",
                         "catalog.export_dataresource",
-                        "catalog.maintain_dataresource",
                         "raster.manage_rasterdataset",
                         "catalog.add_dataresource",
                         "core.view_data_overview"
@@ -2052,7 +2042,6 @@
                         "core.load_raster_layer",
                         "core.custom_symbolization",
                         "catalog.export_dataresource",
-                        "catalog.maintain_dataresource",
                         "raster.manage_rasterdataset",
                         "catalog.add_dataresource",
                         "core.view_data_overview"
@@ -2092,7 +2081,6 @@
                         "canLoadRasterLayer": true,
                         "canUseCustomSymbolization": false,
                         "canExportData": true,
-                        "canMaintainData": false,
                         "canManageRasterData": false,
                         "canUploadData": true,
                         "canViewDataOverview": true,
@@ -2177,7 +2165,6 @@
                         "canLoadRasterLayer": true,
                         "canUseCustomSymbolization": true,
                         "canExportData": true,
-                        "canMaintainData": true,
                         "canManageRasterData": true,
                         "canUploadData": true,
                         "canViewDataOverview": true,
@@ -2207,7 +2194,6 @@
                         "core.load_raster_layer",
                         "core.custom_symbolization",
                         "catalog.export_dataresource",
-                        "catalog.maintain_dataresource",
                         "raster.manage_rasterdataset",
                         "catalog.add_dataresource",
                         "core.view_data_overview"
@@ -2227,7 +2213,6 @@
                         "core.load_raster_layer",
                         "core.custom_symbolization",
                         "catalog.export_dataresource",
-                        "catalog.maintain_dataresource",
                         "raster.manage_rasterdataset",
                         "catalog.add_dataresource",
                         "core.view_data_overview"
@@ -2267,7 +2252,6 @@
                         "canLoadRasterLayer": true,
                         "canUseCustomSymbolization": false,
                         "canExportData": false,
-                        "canMaintainData": false,
                         "canManageRasterData": false,
                         "canUploadData": true,
                         "canViewDataOverview": true,
@@ -2379,7 +2363,6 @@
                       "canLoadRasterLayer": true,
                       "canUseCustomSymbolization": false,
                       "canExportData": true,
-                      "canMaintainData": false,
                       "canManageRasterData": false,
                       "canUploadData": true,
                       "canViewDataOverview": true,
@@ -2509,7 +2492,6 @@
                     "canLoadRasterLayer": true,
                     "canUseCustomSymbolization": false,
                     "canExportData": true,
-                    "canMaintainData": false,
                     "canManageRasterData": false,
                     "canUploadData": true,
                     "canViewDataOverview": true,
@@ -2655,7 +2637,6 @@
                     "canLoadRasterLayer": true,
                     "canUseCustomSymbolization": false,
                     "canExportData": true,
-                    "canMaintainData": false,
                     "canManageRasterData": false,
                     "canUploadData": true,
                     "canViewDataOverview": true,
@@ -2881,7 +2862,6 @@
                     "canLoadRasterLayer": true,
                     "canUseCustomSymbolization": false,
                     "canExportData": false,
-                    "canMaintainData": false,
                     "canManageRasterData": false,
                     "canUploadData": true,
                     "canViewDataOverview": true,
@@ -2977,7 +2957,6 @@
                         "core.load_raster_layer",
                         "core.custom_symbolization",
                         "catalog.export_dataresource",
-                        "catalog.maintain_dataresource",
                         "raster.manage_rasterdataset",
                         "core.view_data_overview",
                         "catalog.add_dataresource"
@@ -3031,7 +3010,6 @@
                         "core.load_raster_layer",
                         "core.custom_symbolization",
                         "catalog.export_dataresource",
-                        "catalog.maintain_dataresource",
                         "raster.manage_rasterdataset"
                       ],
                       "isProtected": false,
@@ -3117,11 +3095,6 @@
                     {
                       "id": "catalog.export_dataresource",
                       "label": "导出数据资源",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.maintain_dataresource",
-                      "label": "维护数据资源",
                       "group": "数据权限"
                     },
                     {
@@ -4335,7 +4308,7 @@
                       "code": "vector",
                       "parentId": null,
                       "resourceIds": [
-                        "vector_survey_points_2026"
+                        3
                       ],
                       "children": []
                     },
@@ -4529,24 +4502,28 @@
                       "itemCount": 1
                     },
                     {
-                      "id": "vector_survey_points_2026",
-                      "name": "survey_points_2026",
-                      "code": "vector_survey_points_2026",
+                      "id": 3,
+                      "name": "塔里木河胡杨样地监测点",
+                      "code": "survey-points-2026",
                       "dataType": "vector",
-                      "layerType": "vector",
-                      "geometryType": "point",
-                      "bounds": [
-                        87.6,
-                        43.7951,
-                        87.6428,
-                        43.81245
-                      ],
+                      "category": {
+                        "id": 101,
+                        "type": "data_category",
+                        "code": "monitoring",
+                        "name": "长期监测"
+                      },
+                      "source": "2026 塔里木河野外调查",
+                      "provider": "生态监测组",
+                      "dataDate": "2026-06-01",
+                      "spatialExtent": "87.600000,43.795100,87.642800,43.812450",
                       "coordinateSystem": "EPSG:4326",
-                      "featureCount": 3,
-                      "source": "GeoPackage 实时读取",
+                      "fileFormat": "GPKG",
+                      "description": "由 Excel/CSV 导入的地理样地监测点数据。",
+                      "qualityNote": "坐标有效 3/3 行。",
+                      "status": "active",
                       "isQueryable": true,
                       "isRenderable": false,
-                      "status": "active",
+                      "updatedAt": "2026-06-18T12:30:00+08:00",
                       "sizeBytes": 245760,
                       "itemCount": 3
                     },
@@ -4610,31 +4587,8 @@
                   "$ref": "#/components/schemas/ScanResponse"
                 },
                 "example": {
-                  "items": [
-                    {
-                      "id": "vector_survey_points_2026",
-                      "name": "survey_points_2026",
-                      "code": "vector_survey_points_2026",
-                      "dataType": "vector",
-                      "layerType": "vector",
-                      "geometryType": "point",
-                      "bounds": [
-                        87.6,
-                        43.7951,
-                        87.6428,
-                        43.81245
-                      ],
-                      "coordinateSystem": "EPSG:4326",
-                      "featureCount": 3,
-                      "source": "GeoPackage 实时读取",
-                      "isQueryable": true,
-                      "isRenderable": false,
-                      "status": "active",
-                      "sizeBytes": 245760,
-                      "itemCount": 3
-                    }
-                  ],
-                  "count": 1
+                  "items": [],
+                  "count": 0
                 }
               }
             }
@@ -5264,24 +5218,28 @@
                 },
                 "example": {
                   "resource": {
-                    "id": "vector_survey_points_2026",
-                    "name": "survey_points_2026",
-                    "code": "vector_survey_points_2026",
+                    "id": 3,
+                    "name": "塔里木河胡杨样地监测点",
+                    "code": "survey-points-2026",
                     "dataType": "vector",
-                    "layerType": "vector",
-                    "geometryType": "point",
-                    "bounds": [
-                      87.6,
-                      43.7951,
-                      87.6428,
-                      43.81245
-                    ],
+                    "category": {
+                      "id": 101,
+                      "type": "data_category",
+                      "code": "monitoring",
+                      "name": "长期监测"
+                    },
+                    "source": "2026 塔里木河野外调查",
+                    "provider": "生态监测组",
+                    "dataDate": "2026-06-01",
+                    "spatialExtent": "87.600000,43.795100,87.642800,43.812450",
                     "coordinateSystem": "EPSG:4326",
-                    "featureCount": 3,
-                    "source": "GeoPackage 实时读取",
+                    "fileFormat": "GPKG",
+                    "description": "由 Excel/CSV 导入的地理样地监测点数据。",
+                    "qualityNote": "坐标有效 3/3 行。",
+                    "status": "active",
                     "isQueryable": true,
                     "isRenderable": false,
-                    "status": "active",
+                    "updatedAt": "2026-06-18T12:30:00+08:00",
                     "sizeBytes": 245760,
                     "itemCount": 3
                   },
@@ -5378,8 +5336,8 @@
                   "$ref": "#/components/schemas/QueryResponse"
                 },
                 "example": {
-                  "resourceId": "vector_survey_points_2026",
-                  "resourceName": "survey_points_2026",
+                  "resourceId": 3,
+                  "resourceName": "塔里木河胡杨样地监测点",
                   "totalCount": 3,
                   "returnedCount": 3,
                   "limit": 30000,
@@ -5669,28 +5627,6 @@
                 "example": {
                   "items": [
                     {
-                      "id": "vector_survey_points_2026",
-                      "name": "survey_points_2026",
-                      "code": "vector_survey_points_2026",
-                      "dataType": "vector",
-                      "layerType": "vector",
-                      "geometryType": "point",
-                      "bounds": [
-                        87.6,
-                        43.7951,
-                        87.6428,
-                        43.81245
-                      ],
-                      "coordinateSystem": "EPSG:4326",
-                      "featureCount": 3,
-                      "source": "GeoPackage 实时读取",
-                      "isQueryable": true,
-                      "isRenderable": false,
-                      "status": "active",
-                      "sizeBytes": 245760,
-                      "itemCount": 3
-                    },
-                    {
                       "id": 1,
                       "name": "Traim",
                       "code": "raster-91d2a5ecd116",
@@ -5822,367 +5758,6 @@
         }
       }
     },
-    "/api/layers/{layer_name}/features/": {
-      "get": {
-        "tags": [
-          "图层"
-        ],
-        "summary": "获取图层 GeoJSON 要素",
-        "description": "获取矢量图层的全部要素（GeoJSON FeatureCollection 格式）。\n返回前会忽略无几何、经度越界、纬度越界的数据，相关警告通过 `warnings` 字段返回。\n",
-        "operationId": "getLayerFeatures",
-        "security": [
-          {
-            "sessionAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/LayerName"
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer"
-            },
-            "description": "返回要素上限"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/LayerFeaturesResponse"
-                },
-                "example": {
-                  "type": "FeatureCollection",
-                  "features": [
-                    {
-                      "id": "0",
-                      "type": "Feature",
-                      "properties": {
-                        "sample_id": "TP-2026-001",
-                        "health": "良好",
-                        "dbh_cm": 32.5,
-                        "canopy_m": 7.8
-                      },
-                      "geometry": {
-                        "type": "Point",
-                        "coordinates": [
-                          87.6,
-                          43.8
-                        ]
-                      }
-                    },
-                    {
-                      "id": "1",
-                      "type": "Feature",
-                      "properties": {
-                        "sample_id": "TP-2026-002",
-                        "health": "一般",
-                        "dbh_cm": 28.1,
-                        "canopy_m": 6.4
-                      },
-                      "geometry": {
-                        "type": "Point",
-                        "coordinates": [
-                          87.61532,
-                          43.81245
-                        ]
-                      }
-                    },
-                    {
-                      "id": "2",
-                      "type": "Feature",
-                      "properties": {
-                        "sample_id": "TP-2026-003",
-                        "health": "良好",
-                        "dbh_cm": 35.7,
-                        "canopy_m": 8.1
-                      },
-                      "geometry": {
-                        "type": "Point",
-                        "coordinates": [
-                          87.6428,
-                          43.7951
-                        ]
-                      }
-                    }
-                  ],
-                  "warnings": []
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/layers/{layer_name}/profile/": {
-      "get": {
-        "tags": [
-          "图层"
-        ],
-        "summary": "获取统一 GeoPackage 矢量图层详情",
-        "description": "获取未登记为 DataResource 的 GeoPackage 图层元数据、字段信息及空间范围",
-        "operationId": "getLayerProfile",
-        "security": [
-          {
-            "sessionAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/LayerName"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ResourceProfileResponse"
-                },
-                "example": {
-                  "resource": {
-                    "id": "vector_survey_points_2026",
-                    "name": "survey_points_2026",
-                    "code": "vector_survey_points_2026",
-                    "dataType": "vector",
-                    "layerType": "vector",
-                    "geometryType": "point",
-                    "bounds": [
-                      87.6,
-                      43.7951,
-                      87.6428,
-                      43.81245
-                    ],
-                    "coordinateSystem": "EPSG:4326",
-                    "featureCount": 3,
-                    "source": "GeoPackage 实时读取",
-                    "isQueryable": true,
-                    "isRenderable": false,
-                    "status": "active",
-                    "sizeBytes": 245760,
-                    "itemCount": 3
-                  },
-                  "fields": [
-                    {
-                      "name": "sample_id",
-                      "type": "str",
-                      "nullable": false,
-                      "sampleValues": [
-                        "TP-2026-001"
-                      ],
-                      "description": "样地编号"
-                    },
-                    {
-                      "name": "health",
-                      "type": "str",
-                      "nullable": false,
-                      "sampleValues": [
-                        "良好"
-                      ],
-                      "description": "健康状况"
-                    },
-                    {
-                      "name": "dbh_cm",
-                      "type": "float",
-                      "nullable": false,
-                      "sampleValues": [
-                        32.5
-                      ],
-                      "description": "胸径（厘米）"
-                    }
-                  ],
-                  "featureCount": 3,
-                  "geometryType": "Point",
-                  "bounds": [
-                    87.6,
-                    43.7951,
-                    87.6428,
-                    43.81245
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/layers/{layer_name}/query/": {
-      "post": {
-        "tags": [
-          "图层"
-        ],
-        "summary": "查询统一 GeoPackage 矢量图层",
-        "description": "对未登记为 DataResource 的 GeoPackage 图层执行属性 + 空间联合查询",
-        "operationId": "queryLayer",
-        "security": [
-          {
-            "sessionAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/LayerName"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/QueryRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "查询成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/QueryResponse"
-                },
-                "example": {
-                  "resourceId": "vector_survey_points_2026",
-                  "resourceName": "survey_points_2026",
-                  "totalCount": 3,
-                  "returnedCount": 3,
-                  "limit": 30000,
-                  "fields": [
-                    {
-                      "name": "sample_id",
-                      "type": "str",
-                      "nullable": false,
-                      "sampleValues": [
-                        "TP-2026-001"
-                      ],
-                      "description": "样地编号"
-                    },
-                    {
-                      "name": "health",
-                      "type": "str",
-                      "nullable": false,
-                      "sampleValues": [
-                        "良好"
-                      ],
-                      "description": "健康状况"
-                    },
-                    {
-                      "name": "dbh_cm",
-                      "type": "float",
-                      "nullable": false,
-                      "sampleValues": [
-                        32.5
-                      ],
-                      "description": "胸径（厘米）"
-                    }
-                  ],
-                  "geojson": {
-                    "type": "FeatureCollection",
-                    "features": [
-                      {
-                        "type": "Feature",
-                        "geometry": {
-                          "type": "Point",
-                          "coordinates": [
-                            87.6,
-                            43.8
-                          ]
-                        },
-                        "properties": {
-                          "id": 1,
-                          "name": "TP-2026-001",
-                          "health": "良好",
-                          "dbh_cm": 32.5,
-                          "canopy_m": 7.8
-                        }
-                      },
-                      {
-                        "type": "Feature",
-                        "geometry": {
-                          "type": "Point",
-                          "coordinates": [
-                            87.61532,
-                            43.81245
-                          ]
-                        },
-                        "properties": {
-                          "id": 2,
-                          "name": "TP-2026-002",
-                          "health": "一般",
-                          "dbh_cm": 28.1,
-                          "canopy_m": 6.4
-                        }
-                      },
-                      {
-                        "type": "Feature",
-                        "geometry": {
-                          "type": "Point",
-                          "coordinates": [
-                            87.6428,
-                            43.7951
-                          ]
-                        },
-                        "properties": {
-                          "id": 3,
-                          "name": "TP-2026-003",
-                          "health": "良好",
-                          "dbh_cm": 35.7,
-                          "canopy_m": 8.1
-                        }
-                      }
-                    ]
-                  },
-                  "warnings": []
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
     "/api/search/": {
       "get": {
         "tags": [
@@ -6261,24 +5836,28 @@
                       "itemCount": 1
                     },
                     {
-                      "id": "vector_survey_points_2026",
-                      "name": "survey_points_2026",
-                      "code": "vector_survey_points_2026",
+                      "id": 3,
+                      "name": "塔里木河胡杨样地监测点",
+                      "code": "survey-points-2026",
                       "dataType": "vector",
-                      "layerType": "vector",
-                      "geometryType": "point",
-                      "bounds": [
-                        87.6,
-                        43.7951,
-                        87.6428,
-                        43.81245
-                      ],
+                      "category": {
+                        "id": 101,
+                        "type": "data_category",
+                        "code": "monitoring",
+                        "name": "长期监测"
+                      },
+                      "source": "2026 塔里木河野外调查",
+                      "provider": "生态监测组",
+                      "dataDate": "2026-06-01",
+                      "spatialExtent": "87.600000,43.795100,87.642800,43.812450",
                       "coordinateSystem": "EPSG:4326",
-                      "featureCount": 3,
-                      "source": "GeoPackage 实时读取",
+                      "fileFormat": "GPKG",
+                      "description": "由 Excel/CSV 导入的地理样地监测点数据。",
+                      "qualityNote": "坐标有效 3/3 行。",
+                      "status": "active",
                       "isQueryable": true,
                       "isRenderable": false,
-                      "status": "active",
+                      "updatedAt": "2026-06-18T12:30:00+08:00",
                       "sizeBytes": 245760,
                       "itemCount": 3
                     }
@@ -7396,15 +6975,6 @@
           "type": "string"
         },
         "description": "异步任务 ID"
-      },
-      "LayerName": {
-        "name": "layer_name",
-        "in": "path",
-        "required": true,
-        "schema": {
-          "type": "string"
-        },
-        "description": "统一 GeoPackage 中的矢量图层名称"
       }
     },
     "responses": {
@@ -8140,7 +7710,6 @@
           "canLoadRasterLayer",
           "canUseCustomSymbolization",
           "canExportData",
-          "canMaintainData",
           "canViewWorkspaces",
           "canCreateWorkspaces",
           "canChangeWorkspaces",
@@ -8255,10 +7824,6 @@
           "canExportData": {
             "type": "boolean",
             "description": "是否可导出数据"
-          },
-          "canMaintainData": {
-            "type": "boolean",
-            "description": "是否具备编辑或删除数据资源能力，用于兼容现有前端管理入口判断"
           },
           "canViewWorkspaces": {
             "type": "boolean",
@@ -9874,7 +9439,7 @@
           },
           "accessGroups": {
             "type": "array",
-            "description": "允许访问该数据资源的用户组；用户导入数据会强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。历史无上传者且无访问用户组的数据视为平台公共登记资源。",
+            "description": "允许访问该数据资源的用户组；用户导入、目录扫描和栅格导入会强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。",
             "items": {
               "$ref": "#/components/schemas/AdminDataResourceAccessGroup"
             }
@@ -9885,7 +9450,7 @@
           },
           "maintainer": {
             "type": "string",
-            "description": "维护人员显示名称；兼容旧前端字段"
+            "description": "维护人员显示名称"
           },
           "uploader": {
             "oneOf": [
@@ -10336,102 +9901,8 @@
           }
         }
       },
-      "VectorLayerResource": {
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "code",
-          "dataType",
-          "layerType",
-          "geometryType",
-          "bounds",
-          "coordinateSystem",
-          "featureCount",
-          "source",
-          "isQueryable",
-          "isRenderable",
-          "status"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "由 GeoPackage 图层名称生成的临时资源 ID"
-          },
-          "name": {
-            "type": "string",
-            "description": "GeoPackage 图层名称"
-          },
-          "code": {
-            "type": "string",
-            "description": "由 GeoPackage 图层名称生成的临时资源编码"
-          },
-          "dataType": {
-            "type": "string",
-            "enum": [
-              "vector"
-            ],
-            "description": "数据类型，统一 GeoPackage 图层固定为 vector"
-          },
-          "layerType": {
-            "type": "string",
-            "enum": [
-              "vector"
-            ],
-            "description": "图层类型，统一 GeoPackage 图层固定为 vector"
-          },
-          "geometryType": {
-            "type": "string",
-            "description": "几何类型"
-          },
-          "bounds": {
-            "type": "array",
-            "description": "WGS84 边界 [minLng, minLat, maxLng, maxLat]，无法计算时为空数组",
-            "items": {
-              "type": "number"
-            }
-          },
-          "coordinateSystem": {
-            "type": "string",
-            "description": "坐标系统描述"
-          },
-          "featureCount": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "要素数量"
-          },
-          "source": {
-            "type": "string",
-            "description": "数据来源说明"
-          },
-          "isQueryable": {
-            "type": "boolean",
-            "description": "是否支持查询"
-          },
-          "isRenderable": {
-            "type": "boolean",
-            "description": "是否支持栅格渲染"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "active"
-            ],
-            "description": "临时矢量资源状态"
-          }
-        }
-      },
       "ResourceListItem": {
-        "oneOf": [
-          {
-            "$ref": "#/components/schemas/DataResource"
-          },
-          {
-            "$ref": "#/components/schemas/VectorLayerResource"
-          }
-        ]
+        "$ref": "#/components/schemas/DataResource"
       },
       "MapLayer": {
         "type": "object",
@@ -10992,9 +10463,9 @@
         "properties": {
           "items": {
             "type": "array",
-            "description": "数据资源列表，可能包含统一 GeoPackage 中的临时矢量资源",
+            "description": "数据资源列表",
             "items": {
-              "$ref": "#/components/schemas/ResourceListItem"
+              "$ref": "#/components/schemas/DataResource"
             }
           }
         }
@@ -11010,7 +10481,7 @@
             "type": "array",
             "description": "本次扫描发现或同步的资源",
             "items": {
-              "$ref": "#/components/schemas/ResourceListItem"
+              "$ref": "#/components/schemas/DataResource"
             }
           },
           "count": {
@@ -11465,7 +10936,7 @@
         ],
         "properties": {
           "resource": {
-            "$ref": "#/components/schemas/ResourceListItem"
+            "$ref": "#/components/schemas/DataResource"
           },
           "fields": {
             "type": "array",
@@ -11658,15 +11129,8 @@
         ],
         "properties": {
           "resourceId": {
-            "oneOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "string"
-              }
-            ],
-            "description": "查询资源 ID；临时 GeoPackage 图层查询时为字符串 ID"
+            "type": "integer",
+            "description": "查询资源 ID"
           },
           "resourceName": {
             "type": "string",
@@ -11773,7 +11237,7 @@
               "integer",
               "null"
             ],
-            "description": "数据资源 ID；临时 GeoPackage 查询结果没有业务资源 ID，可省略或传 null"
+            "description": "数据资源 ID"
           },
           "geojson": {
             "oneOf": [
@@ -11784,7 +11248,7 @@
                 "type": "null"
               }
             ],
-            "description": "前端临时矢量查询结果"
+            "description": "矢量图层查询结果"
           },
           "datasetId": {
             "type": [
@@ -11819,14 +11283,7 @@
             "type": "array",
             "description": "可加载图层列表",
             "items": {
-              "oneOf": [
-                {
-                  "$ref": "#/components/schemas/VectorLayerResource"
-                },
-                {
-                  "$ref": "#/components/schemas/MapLayer"
-                }
-              ]
+              "$ref": "#/components/schemas/MapLayer"
             }
           }
         }
@@ -11841,7 +11298,7 @@
             "type": "array",
             "description": "匹配的数据资源",
             "items": {
-              "$ref": "#/components/schemas/ResourceListItem"
+              "$ref": "#/components/schemas/DataResource"
             }
           }
         }
@@ -12111,29 +11568,6 @@
             "description": "GeoJSON 坐标数组"
           }
         }
-      },
-      "LayerFeaturesResponse": {
-        "description": "矢量图层要素响应，包含 GeoJSON FeatureCollection 和校验警告",
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/GeoJSONFeatureCollection"
-          },
-          {
-            "type": "object",
-            "required": [
-              "warnings"
-            ],
-            "properties": {
-              "warnings": {
-                "type": "array",
-                "description": "地理坐标校验警告",
-                "items": {
-                  "$ref": "#/components/schemas/ValidationWarning"
-                }
-              }
-            }
-          }
-        ]
       },
       "ValidationWarning": {
         "type": "object",

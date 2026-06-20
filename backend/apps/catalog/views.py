@@ -2,7 +2,6 @@ import json
 from datetime import datetime
 from typing import Any
 
-from django.conf import settings
 from django.contrib.auth.models import Group
 from django.core.exceptions import RequestDataTooBig
 from django.db import IntegrityError
@@ -15,8 +14,8 @@ from apps.audit.service import log_operation
 from apps.core.api import api_login_required
 from apps.catalog.data_query import (
     DataQueryError,
-    get_vector_resource_profile,
-    query_vector_resource,
+    get_resource_profile,
+    query_resource as query_data_resource,
 )
 from apps.catalog.export import ExportError, export_layers_zip, validate_epsg
 from apps.catalog.importer import (
@@ -36,14 +35,10 @@ from apps.catalog.serializers import (
     serialize_catalog,
     serialize_layer,
     serialize_resource,
-    serialize_vector_layer,
 )
 from apps.catalog.services import (
-    get_vector_layer_info,
-    get_vector_layers_from_geopackage,
     scan_catalog_sources,
 )
-from apps.catalog.vector_store import layer_features_geojson
 from apps.core.permissions import feature_denied_response, has_feature_perm
 from apps.raster.services import (
     RasterJobError,
@@ -81,8 +76,6 @@ def resources(request):
     data_type = request.GET.get("dataType", "").strip()
     query = request.GET.get("q", "").strip()
 
-    items = []
-
     queryset = DataResource.objects.filter(
         status=DataResource.Status.ACTIVE
     ).select_related("category")
@@ -105,22 +98,9 @@ def resources(request):
     date_to = request.GET.get("dateTo", "").strip()
     if date_to:
         queryset = queryset.filter(data_date__lte=date_to)
-    resources_qs = filter_accessible(queryset, request.user)
-    items.extend(serialize_resource(item) for item in resources_qs)
-
-    if not data_type or data_type == DataResource.DataType.VECTOR:
-        metadata_filters = [category, provider, date_from, date_to]
-        if not any(metadata_filters):
-            registered_layers = _registered_vector_layer_names()
-            for layer_info in get_vector_layers_from_geopackage():
-                layer_name = layer_info["name"]
-                if layer_name in registered_layers:
-                    continue
-                if query and query.lower() not in layer_name.lower():
-                    continue
-                if source and source.lower() not in "geopackage 实时读取".lower():
-                    continue
-                items.append(serialize_vector_layer(layer_info))
+    items = [
+        serialize_resource(item) for item in filter_accessible(queryset, request.user)
+    ]
 
     return JsonResponse({"items": items})
 
@@ -130,14 +110,12 @@ def resources(request):
 def scan_sources(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
-    vector_layers, nongeographic_resources = scan_catalog_sources()
-    registered_layers = _registered_vector_layer_names()
+    resources = scan_catalog_sources()
     items = [
-        serialize_vector_layer(layer)
-        for layer in vector_layers
-        if layer["name"] not in registered_layers
+        serialize_resource(item)
+        for item in resources
+        if user_can_access(item, request.user)
     ]
-    items.extend(serialize_resource(item) for item in nongeographic_resources)
     return JsonResponse({"items": items, "count": len(items)})
 
 
@@ -769,7 +747,7 @@ def resource_profile(request, pk: int):
     if not user_can_access(resource, request.user):
         return JsonResponse({"detail": "无权访问该数据资源"}, status=403)
     try:
-        profile = get_vector_resource_profile(resource)
+        profile = get_resource_profile(resource)
     except DataQueryError as exc:
         return JsonResponse({"detail": str(exc)}, status=400)
     log_operation(
@@ -796,32 +774,6 @@ def resource_profile(request, pk: int):
     )
 
 
-@require_GET
-@api_login_required
-def vector_layer_profile(request, layer_name: str):
-    if not has_feature_perm(request.user, "core.browse_data"):
-        return feature_denied_response(request.user)
-
-    layer_info = get_vector_layer_info(layer_name)
-    if not layer_info:
-        return JsonResponse({"detail": f"矢量图层不存在：{layer_name}"}, status=404)
-
-    try:
-        profile = get_vector_resource_profile(layer_name=layer_name)
-    except DataQueryError as exc:
-        return JsonResponse({"detail": str(exc)}, status=400)
-
-    return JsonResponse(
-        {
-            "resource": serialize_vector_layer(layer_info),
-            "fields": profile.fields,
-            "featureCount": profile.feature_count,
-            "geometryType": profile.geometry_type,
-            "bounds": profile.bounds,
-        }
-    )
-
-
 @require_POST
 @api_login_required
 def resource_query(request, pk: int):
@@ -841,7 +793,7 @@ def resource_query(request, pk: int):
     except json.JSONDecodeError:
         return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
     try:
-        result = query_vector_resource(resource, payload)
+        result = query_data_resource(resource, payload)
     except DataQueryError as exc:
         log_operation(
             request.user,
@@ -867,45 +819,6 @@ def resource_query(request, pk: int):
         target_id=resource.id,
         target_code=resource.code,
         target_name=resource.name,
-    )
-    return JsonResponse(result)
-
-
-@require_POST
-@api_login_required
-def vector_layer_query(request, layer_name: str):
-    can_query = has_feature_perm(request.user, "core.query_data")
-    can_load_vector = has_feature_perm(request.user, "core.load_vector_layer")
-    if not can_query or not can_load_vector:
-        return feature_denied_response(request.user)
-
-    layer_info = get_vector_layer_info(layer_name)
-    if not layer_info:
-        return JsonResponse({"detail": f"矢量图层不存在：{layer_name}"}, status=404)
-
-    try:
-        payload = json.loads(request.body.decode("utf-8"))
-    except json.JSONDecodeError:
-        return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
-    try:
-        result = query_vector_resource(layer_name=layer_name, payload=payload)
-    except DataQueryError as exc:
-        log_operation(
-            request.user,
-            "数据查询",
-            "查询矢量图层",
-            "failed",
-            f"{layer_name}：{exc}",
-            request,
-        )
-        return JsonResponse({"detail": str(exc)}, status=400)
-    log_operation(
-        request.user,
-        "数据查询",
-        "查询矢量图层",
-        "success",
-        f"{layer_name}：返回 {result.get('returnedCount', 0)} 条",
-        request,
     )
     return JsonResponse(result)
 
@@ -1065,48 +978,13 @@ def layers(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
 
-    items = []
-
-    registered_layers = _registered_vector_layer_names()
-    vector_layers = get_vector_layers_from_geopackage()
-    for layer_info in vector_layers:
-        if layer_info["name"] in registered_layers:
-            continue
-        items.append(serialize_vector_layer(layer_info))
-
-    queryset = MapLayer.objects.filter(
-        is_active=True, layer_type=MapLayer.LayerType.RASTER
-    ).select_related("category", "data_resource")
+    queryset = MapLayer.objects.filter(is_active=True).select_related(
+        "category", "data_resource"
+    )
     layers_qs = filter_accessible(queryset, request.user)
-    items.extend(serialize_layer(item) for item in layers_qs)
+    items = [serialize_layer(item) for item in layers_qs]
 
     return JsonResponse({"items": items})
-
-
-@require_GET
-@api_login_required
-def layer_features(request, layer_name: str):
-    if not has_feature_perm(request.user, "core.load_vector_layer"):
-        return feature_denied_response(request.user)
-
-    layer_info = get_vector_layer_info(layer_name)
-    if not layer_info:
-        return JsonResponse({"detail": f"矢量图层不存在：{layer_name}"}, status=404)
-
-    try:
-        limit = int(
-            request.GET.get("limit", settings.PROJECT_CONFIG.limits.query_result_limit)
-        )
-    except ValueError:
-        limit = settings.PROJECT_CONFIG.limits.query_result_limit
-    limit = min(max(limit, 1), settings.PROJECT_CONFIG.limits.query_result_limit)
-
-    try:
-        geojson = layer_features_geojson(layer_name, limit)
-    except DataQueryError as exc:
-        return JsonResponse({"detail": str(exc)}, status=500)
-
-    return JsonResponse(geojson)
 
 
 @require_GET
@@ -1118,22 +996,13 @@ def search(request):
     if not query:
         return JsonResponse({"resources": []})
 
-    items = []
-    registered_layers = _registered_vector_layer_names()
-    vector_layers = get_vector_layers_from_geopackage()
-    for layer_info in vector_layers:
-        if layer_info["name"] in registered_layers:
-            continue
-        if query.lower() in layer_info["name"].lower():
-            items.append(serialize_vector_layer(layer_info))
-
     resource_qs = DataResource.objects.filter(
         status=DataResource.Status.ACTIVE, name__icontains=query
     ).select_related("category")
-    items.extend(
+    items = [
         serialize_resource(item)
         for item in filter_accessible(resource_qs, request.user)
-    )
+    ]
 
     return JsonResponse({"resources": items})
 
@@ -1158,14 +1027,3 @@ def _positive_query_int(value: Any, *, default: int) -> int | JsonResponse:
     if parsed < 1:
         return JsonResponse({"detail": "分页参数必须是正整数"}, status=400)
     return parsed
-
-
-def _registered_vector_layer_names() -> set[str]:
-    return set(
-        DataResource.objects.filter(
-            status=DataResource.Status.ACTIVE,
-            data_type=DataResource.DataType.VECTOR,
-        )
-        .exclude(storage_path="")
-        .values_list("storage_path", flat=True)
-    )
