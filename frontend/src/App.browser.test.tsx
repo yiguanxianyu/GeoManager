@@ -39,7 +39,6 @@ const { MockApiError, mockApi } = vi.hoisted(() => {
       resourceProfile: vi.fn(),
       queryResource: vi.fn(),
       workspaces: vi.fn(),
-      achievements: vi.fn(),
       scanCatalogSources: vi.fn(),
       scanRasterSources: vi.fn(),
       rasterJob: vi.fn(),
@@ -108,10 +107,6 @@ const basePermissions = {
   canCreateWorkspaces: false,
   canChangeWorkspaces: false,
   canDeleteWorkspaces: false,
-  canViewAchievements: false,
-  canCreateAchievements: false,
-  canChangeAchievements: false,
-  canDeleteAchievements: false,
   canManageRasterData: false,
 };
 
@@ -260,7 +255,6 @@ describe("application critical flows", () => {
     mockApi.resourceProfile.mockResolvedValue(tarimVectorProfile);
     mockApi.queryResource.mockResolvedValue(tarimQueryResult);
     mockApi.workspaces.mockResolvedValue({ items: [] });
-    mockApi.achievements.mockResolvedValue({ items: [] });
     mockApi.scanCatalogSources.mockResolvedValue({ detail: "ok" });
     mockApi.scanRasterSources.mockResolvedValue({
       id: "scan-job",

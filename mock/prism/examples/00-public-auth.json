@@ -95,11 +95,7 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true,
-          "canViewAchievements": true,
-          "canCreateAchievements": true,
-          "canChangeAchievements": true,
-          "canDeleteAchievements": true
+          "canDeleteWorkspaces": true
         },
         "groupIds": [
           1
@@ -213,11 +209,7 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true,
-          "canViewAchievements": true,
-          "canCreateAchievements": false,
-          "canChangeAchievements": false,
-          "canDeleteAchievements": false
+          "canDeleteWorkspaces": true
         },
         "groupIds": [
           2
@@ -295,11 +287,7 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true,
-          "canViewAchievements": true,
-          "canCreateAchievements": true,
-          "canChangeAchievements": true,
-          "canDeleteAchievements": true
+          "canDeleteWorkspaces": true
         },
         "groupIds": [
           1

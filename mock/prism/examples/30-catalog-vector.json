@@ -935,29 +935,6 @@
       "warnings": []
     }
   },
-  "GET /api/achievements/": {
-    "200": {
-      "items": [
-        {
-          "id": 1,
-          "title": "中亚胡杨林生态保护年度监测报告",
-          "code": "ACH-2026-REPORT",
-          "category": {
-            "id": 4,
-            "type": "achievement",
-            "code": "report",
-            "name": "研究报告"
-          },
-          "summary": "汇总 2026 年样地监测和遥感反演结果。",
-          "source": "生态监测组",
-          "relatedLayerId": 21,
-          "displayOrder": 1,
-          "status": "published",
-          "updatedAt": "2026-06-14T09:20:00+08:00"
-        }
-      ]
-    }
-  },
   "GET /api/search/": {
     "200": {
       "resources": [
@@ -1024,25 +1001,6 @@
           "status": "active",
           "sizeBytes": 245760,
           "itemCount": 3
-        }
-      ],
-      "achievements": [
-        {
-          "id": 1,
-          "title": "中亚胡杨林生态保护年度监测报告",
-          "code": "ACH-2026-REPORT",
-          "category": {
-            "id": 4,
-            "type": "achievement",
-            "code": "report",
-            "name": "研究报告"
-          },
-          "summary": "汇总 2026 年样地监测和遥感反演结果。",
-          "source": "生态监测组",
-          "relatedLayerId": 21,
-          "displayOrder": 1,
-          "status": "published",
-          "updatedAt": "2026-06-14T09:20:00+08:00"
         }
       ]
     }

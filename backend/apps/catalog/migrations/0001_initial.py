@@ -223,7 +223,6 @@ class Migration(migrations.Migration):
                         choices=[
                             ("data_category", "数据分类"),
                             ("layer_category", "图层分类"),
-                            ("achievement_category", "成果分类"),
                             ("data_source", "数据来源"),
                             ("region", "空间范围"),
                             ("public_scope", "公开范围"),
@@ -394,107 +393,6 @@ class Migration(migrations.Migration):
                 "verbose_name_plural": "地图图层",
                 "ordering": ("sort_order", "id"),
                 "permissions": [("load_maplayer", "可加载地图图层")],
-            },
-        ),
-        migrations.CreateModel(
-            name="Achievement",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("title", models.CharField(max_length=180, verbose_name="成果标题")),
-                (
-                    "code",
-                    models.SlugField(
-                        max_length=80, unique=True, verbose_name="成果编码"
-                    ),
-                ),
-                ("summary", models.TextField(blank=True, verbose_name="成果说明")),
-                (
-                    "source",
-                    models.CharField(
-                        blank=True, max_length=160, verbose_name="成果来源"
-                    ),
-                ),
-                (
-                    "image_path",
-                    models.CharField(
-                        blank=True, max_length=255, verbose_name="图片相对路径"
-                    ),
-                ),
-                (
-                    "attachment_path",
-                    models.CharField(
-                        blank=True, max_length=255, verbose_name="附件相对路径"
-                    ),
-                ),
-                (
-                    "display_order",
-                    models.PositiveIntegerField(default=100, verbose_name="展示排序"),
-                ),
-                (
-                    "status",
-                    models.CharField(
-                        choices=[
-                            ("draft", "草稿"),
-                            ("published", "已发布"),
-                            ("archived", "已下架"),
-                        ],
-                        default="draft",
-                        max_length=20,
-                        verbose_name="状态",
-                    ),
-                ),
-                (
-                    "updated_at",
-                    models.DateTimeField(auto_now=True, verbose_name="更新时间"),
-                ),
-                (
-                    "created_at",
-                    models.DateTimeField(auto_now_add=True, verbose_name="创建时间"),
-                ),
-                (
-                    "access_groups",
-                    models.ManyToManyField(
-                        blank=True,
-                        related_name="achievements",
-                        to="auth.group",
-                        verbose_name="访问角色",
-                    ),
-                ),
-                (
-                    "category",
-                    models.ForeignKey(
-                        blank=True,
-                        null=True,
-                        on_delete=django.db.models.deletion.SET_NULL,
-                        related_name="achievements",
-                        to="catalog.dictionaryitem",
-                        verbose_name="成果分类",
-                    ),
-                ),
-                (
-                    "related_layer",
-                    models.ForeignKey(
-                        blank=True,
-                        null=True,
-                        on_delete=django.db.models.deletion.SET_NULL,
-                        related_name="achievements",
-                        to="catalog.maplayer",
-                        verbose_name="关联图层",
-                    ),
-                ),
-            ],
-            options={
-                "verbose_name": "项目成果",
-                "verbose_name_plural": "项目成果",
-                "ordering": ("display_order", "-updated_at"),
             },
         ),
     ]

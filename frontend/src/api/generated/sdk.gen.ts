@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateAchievementData, CreateAchievementErrors, CreateAchievementResponses, CreateCatalogWorkspaceData, CreateCatalogWorkspaceErrors, CreateCatalogWorkspaceResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DownloadExportData, DownloadExportErrors, DownloadExportResponses, ExportAdminDataResourcesData, ExportAdminDataResourcesErrors, ExportAdminDataResourcesResponses, ExportLayersAsyncData, ExportLayersAsyncErrors, ExportLayersAsyncResponses, ExportLayersData, ExportLayersErrors, ExportLayersResponses, GetAchievementData, GetAchievementErrors, GetAchievementResponses, GetAchievementsData, GetAchievementsErrors, GetAchievementsResponses, GetAdminDashboardData, GetAdminDashboardErrors, GetAdminDashboardResponses, GetAdminDashboardServerData, GetAdminDashboardServerErrors, GetAdminDashboardServerResponses, GetAdminProfileData, GetAdminProfileErrors, GetAdminProfileResponses, GetAdminSettingsData, GetAdminSettingsErrors, GetAdminSettingsResponses, GetBootstrapData, GetBootstrapErrors, GetBootstrapResponses, GetCatalogWorkspaceData, GetCatalogWorkspaceErrors, GetCatalogWorkspaceResponses, GetCsrfCookieData, GetCsrfCookieErrors, GetCsrfCookieResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDirectoriesData, GetDirectoriesErrors, GetDirectoriesResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetJobStatusData, GetJobStatusErrors, GetJobStatusResponses, GetLayerFeaturesData, GetLayerFeaturesErrors, GetLayerFeaturesResponses, GetLayerProfileData, GetLayerProfileErrors, GetLayerProfileResponses, GetLayersData, GetLayersErrors, GetLayersResponses, GetLoginOverviewData, GetLoginOverviewErrors, GetLoginOverviewResponses, GetRasterDatasetsData, GetRasterDatasetsErrors, GetRasterDatasetsResponses, GetResourceProfileData, GetResourceProfileErrors, GetResourceProfileResponses, GetResourcesData, GetResourcesErrors, GetResourcesResponses, GetTileData, GetTileErrors, GetTileResponses, GetUniqueValuesData, GetUniqueValuesErrors, GetUniqueValuesResponses, GetUserAvatarData, GetUserAvatarErrors, GetUserAvatarResponses, GuestLoginData, GuestLoginErrors, GuestLoginResponses, ImportCommitData, ImportCommitErrors, ImportCommitResponses, ImportPreviewData, ImportPreviewErrors, ImportPreviewResponses, ImportRasterData, ImportRasterErrors, ImportRasterResponses, ImportValidateData, ImportValidateErrors, ImportValidateResponses, ListAdminAchievementsData, ListAdminAchievementsErrors, ListAdminAchievementsResponses, ListAdminDataResourcesData, ListAdminDataResourcesErrors, ListAdminDataResourcesResponses, ListAdminOperationLogsData, ListAdminOperationLogsErrors, ListAdminOperationLogsResponses, ListAdminSystemLogsData, ListAdminSystemLogsErrors, ListAdminSystemLogsResponses, ListAdminWorkspacesData, ListAdminWorkspacesErrors, ListAdminWorkspacesResponses, ListCatalogWorkspacesData, ListCatalogWorkspacesErrors, ListCatalogWorkspacesResponses, ListGroupsData, ListGroupsErrors, ListGroupsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, QueryLayerData, QueryLayerErrors, QueryLayerResponses, QueryResourceData, QueryResourceErrors, QueryResourceResponses, RegisterData, RegisterErrors, RegisterResponses, RenderRasterAsyncData, RenderRasterAsyncErrors, RenderRasterAsyncResponses, RenderRasterData, RenderRasterErrors, RenderRasterResponses, ResetUserPasswordData, ResetUserPasswordErrors, ResetUserPasswordResponses, ScanCatalogSourcesData, ScanCatalogSourcesErrors, ScanCatalogSourcesResponses, ScanRasterSourcesData, ScanRasterSourcesErrors, ScanRasterSourcesResponses, SearchData, SearchErrors, SearchResponses, UpdateAchievementData, UpdateAchievementErrors, UpdateAchievementResponses, UpdateAdminAchievementData, UpdateAdminAchievementErrors, UpdateAdminAchievementResponses, UpdateAdminDataResourceData, UpdateAdminDataResourceErrors, UpdateAdminDataResourceResponses, UpdateAdminProfileData, UpdateAdminProfileErrors, UpdateAdminProfilePasswordData, UpdateAdminProfilePasswordErrors, UpdateAdminProfilePasswordResponses, UpdateAdminProfilePermissionsData, UpdateAdminProfilePermissionsErrors, UpdateAdminProfilePermissionsResponses, UpdateAdminProfileResponses, UpdateAdminSettingsData, UpdateAdminSettingsErrors, UpdateAdminSettingsResponses, UpdateAdminWorkspaceData, UpdateAdminWorkspaceErrors, UpdateAdminWorkspaceResponses, UpdateCatalogWorkspaceData, UpdateCatalogWorkspaceErrors, UpdateCatalogWorkspaceResponses, UpdateOrDeleteGroupData, UpdateOrDeleteGroupErrors, UpdateOrDeleteGroupResponses, UpdateUserGroupsData, UpdateUserGroupsErrors, UpdateUserGroupsResponses, UpdateUserOrDeleteData, UpdateUserOrDeleteErrors, UpdateUserOrDeleteResponses, UpdateUserPermissionsData, UpdateUserPermissionsErrors, UpdateUserPermissionsResponses, UploadAdminProfileAvatarData, UploadAdminProfileAvatarErrors, UploadAdminProfileAvatarResponses } from './types.gen';
+import type { CreateCatalogWorkspaceData, CreateCatalogWorkspaceErrors, CreateCatalogWorkspaceResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DownloadExportData, DownloadExportErrors, DownloadExportResponses, ExportAdminDataResourcesData, ExportAdminDataResourcesErrors, ExportAdminDataResourcesResponses, ExportLayersAsyncData, ExportLayersAsyncErrors, ExportLayersAsyncResponses, ExportLayersData, ExportLayersErrors, ExportLayersResponses, GetAdminDashboardData, GetAdminDashboardErrors, GetAdminDashboardResponses, GetAdminDashboardServerData, GetAdminDashboardServerErrors, GetAdminDashboardServerResponses, GetAdminProfileData, GetAdminProfileErrors, GetAdminProfileResponses, GetAdminSettingsData, GetAdminSettingsErrors, GetAdminSettingsResponses, GetBootstrapData, GetBootstrapErrors, GetBootstrapResponses, GetCatalogWorkspaceData, GetCatalogWorkspaceErrors, GetCatalogWorkspaceResponses, GetCsrfCookieData, GetCsrfCookieErrors, GetCsrfCookieResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDirectoriesData, GetDirectoriesErrors, GetDirectoriesResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetJobStatusData, GetJobStatusErrors, GetJobStatusResponses, GetLayerFeaturesData, GetLayerFeaturesErrors, GetLayerFeaturesResponses, GetLayerProfileData, GetLayerProfileErrors, GetLayerProfileResponses, GetLayersData, GetLayersErrors, GetLayersResponses, GetLoginOverviewData, GetLoginOverviewErrors, GetLoginOverviewResponses, GetRasterDatasetsData, GetRasterDatasetsErrors, GetRasterDatasetsResponses, GetResourceProfileData, GetResourceProfileErrors, GetResourceProfileResponses, GetResourcesData, GetResourcesErrors, GetResourcesResponses, GetTileData, GetTileErrors, GetTileResponses, GetUniqueValuesData, GetUniqueValuesErrors, GetUniqueValuesResponses, GetUserAvatarData, GetUserAvatarErrors, GetUserAvatarResponses, GuestLoginData, GuestLoginErrors, GuestLoginResponses, ImportCommitData, ImportCommitErrors, ImportCommitResponses, ImportPreviewData, ImportPreviewErrors, ImportPreviewResponses, ImportRasterData, ImportRasterErrors, ImportRasterResponses, ImportValidateData, ImportValidateErrors, ImportValidateResponses, ListAdminDataResourcesData, ListAdminDataResourcesErrors, ListAdminDataResourcesResponses, ListAdminOperationLogsData, ListAdminOperationLogsErrors, ListAdminOperationLogsResponses, ListAdminSystemLogsData, ListAdminSystemLogsErrors, ListAdminSystemLogsResponses, ListAdminWorkspacesData, ListAdminWorkspacesErrors, ListAdminWorkspacesResponses, ListCatalogWorkspacesData, ListCatalogWorkspacesErrors, ListCatalogWorkspacesResponses, ListGroupsData, ListGroupsErrors, ListGroupsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, QueryLayerData, QueryLayerErrors, QueryLayerResponses, QueryResourceData, QueryResourceErrors, QueryResourceResponses, RegisterData, RegisterErrors, RegisterResponses, RenderRasterAsyncData, RenderRasterAsyncErrors, RenderRasterAsyncResponses, RenderRasterData, RenderRasterErrors, RenderRasterResponses, ResetUserPasswordData, ResetUserPasswordErrors, ResetUserPasswordResponses, ScanCatalogSourcesData, ScanCatalogSourcesErrors, ScanCatalogSourcesResponses, ScanRasterSourcesData, ScanRasterSourcesErrors, ScanRasterSourcesResponses, SearchData, SearchErrors, SearchResponses, UpdateAdminDataResourceData, UpdateAdminDataResourceErrors, UpdateAdminDataResourceResponses, UpdateAdminProfileData, UpdateAdminProfileErrors, UpdateAdminProfilePasswordData, UpdateAdminProfilePasswordErrors, UpdateAdminProfilePasswordResponses, UpdateAdminProfilePermissionsData, UpdateAdminProfilePermissionsErrors, UpdateAdminProfilePermissionsResponses, UpdateAdminProfileResponses, UpdateAdminSettingsData, UpdateAdminSettingsErrors, UpdateAdminSettingsResponses, UpdateAdminWorkspaceData, UpdateAdminWorkspaceErrors, UpdateAdminWorkspaceResponses, UpdateCatalogWorkspaceData, UpdateCatalogWorkspaceErrors, UpdateCatalogWorkspaceResponses, UpdateOrDeleteGroupData, UpdateOrDeleteGroupErrors, UpdateOrDeleteGroupResponses, UpdateUserGroupsData, UpdateUserGroupsErrors, UpdateUserGroupsResponses, UpdateUserOrDeleteData, UpdateUserOrDeleteErrors, UpdateUserOrDeleteResponses, UpdateUserPermissionsData, UpdateUserPermissionsErrors, UpdateUserPermissionsResponses, UploadAdminProfileAvatarData, UploadAdminProfileAvatarErrors, UploadAdminProfileAvatarResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -555,40 +555,6 @@ export const updateAdminWorkspace = <ThrowOnError extends boolean = false>(optio
 });
 
 /**
- * 获取成果管理列表
- *
- * 返回研究成果管理列表，支持状态、分类、来源和关键词筛选。需要 `catalog.view_achievement`、`catalog.change_achievement` 或 `catalog.delete_achievement`，接口返回可配置访问用户组。
- */
-export const listAdminAchievements = <ThrowOnError extends boolean = false>(options?: Options<ListAdminAchievementsData, ThrowOnError>): RequestResult<ListAdminAchievementsResponses, ListAdminAchievementsErrors, ThrowOnError> => (options?.client ?? client).get<ListAdminAchievementsResponses, ListAdminAchievementsErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'sessionid',
-            type: 'apiKey'
-        }],
-    url: '/api/admin/achievements/',
-    ...options
-});
-
-/**
- * 操作单个成果
- *
- * 支持更新成果发布状态、基础信息、访问用户组和删除确认。发布状态、基础信息和访问用户组修改需要 `catalog.change_achievement`；删除需要 `catalog.delete_achievement`。成功操作会写入审计日志。
- */
-export const updateAdminAchievement = <ThrowOnError extends boolean = false>(options: Options<UpdateAdminAchievementData, ThrowOnError>): RequestResult<UpdateAdminAchievementResponses, UpdateAdminAchievementErrors, ThrowOnError> => (options.client ?? client).post<UpdateAdminAchievementResponses, UpdateAdminAchievementErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'sessionid',
-            type: 'apiKey'
-        }],
-    url: '/api/admin/achievements/{achievementId}/',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * 获取数据目录树
  *
  * 返回所有已激活的数据目录及其关联的数据资源
@@ -917,77 +883,9 @@ export const queryLayer = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * 获取成果列表
- *
- * 返回当前用户可访问的成果列表。需要 `catalog.view_achievement`；普通查看只返回已发布成果，具备成果新增、编辑或删除权限的管理用户可通过 status 参数筛选草稿、已发布或已下架成果。
- */
-export const getAchievements = <ThrowOnError extends boolean = false>(options?: Options<GetAchievementsData, ThrowOnError>): RequestResult<GetAchievementsResponses, GetAchievementsErrors, ThrowOnError> => (options?.client ?? client).get<GetAchievementsResponses, GetAchievementsErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'sessionid',
-            type: 'apiKey'
-        }],
-    url: '/api/achievements/',
-    ...options
-});
-
-/**
- * 新增成果
- *
- * 新增项目成果。需要 `catalog.add_achievement`，成功操作会写入审计日志。
- */
-export const createAchievement = <ThrowOnError extends boolean = false>(options: Options<CreateAchievementData, ThrowOnError>): RequestResult<CreateAchievementResponses, CreateAchievementErrors, ThrowOnError> => (options.client ?? client).post<CreateAchievementResponses, CreateAchievementErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'sessionid',
-            type: 'apiKey'
-        }],
-    url: '/api/achievements/',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
- * 获取成果详情
- *
- * 返回当前用户可访问的单个成果。需要 `catalog.view_achievement`；非管理用户只能读取已发布成果。
- */
-export const getAchievement = <ThrowOnError extends boolean = false>(options: Options<GetAchievementData, ThrowOnError>): RequestResult<GetAchievementResponses, GetAchievementErrors, ThrowOnError> => (options.client ?? client).get<GetAchievementResponses, GetAchievementErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'sessionid',
-            type: 'apiKey'
-        }],
-    url: '/api/achievements/{achievementId}/',
-    ...options
-});
-
-/**
- * 更新或删除成果
- *
- * 更新成果字段需要 `catalog.change_achievement`；提交 `{"action":"delete"}` 删除成果需要 `catalog.delete_achievement`。成功操作会写入审计日志。
- */
-export const updateAchievement = <ThrowOnError extends boolean = false>(options: Options<UpdateAchievementData, ThrowOnError>): RequestResult<UpdateAchievementResponses, UpdateAchievementErrors, ThrowOnError> => (options.client ?? client).post<UpdateAchievementResponses, UpdateAchievementErrors, ThrowOnError>({
-    security: [{
-            in: 'cookie',
-            name: 'sessionid',
-            type: 'apiKey'
-        }],
-    url: '/api/achievements/{achievementId}/',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
-});
-
-/**
  * 全局搜索
  *
- * 同时搜索数据资源和研究成果。`q` 为空时返回空结果。
+ * 搜索数据资源。`q` 为空时返回空结果。
  */
 export const search = <ThrowOnError extends boolean = false>(options?: Options<SearchData, ThrowOnError>): RequestResult<SearchResponses, SearchErrors, ThrowOnError> => (options?.client ?? client).get<SearchResponses, SearchErrors, ThrowOnError>({
     security: [{

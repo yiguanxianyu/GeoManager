@@ -1,9 +1,4 @@
 import type {
-  Achievement,
-  AdminAchievement,
-  AdminAchievementFilters,
-  AdminAchievementList,
-  AdminAchievementUpdate,
   AdminDashboard,
   AdminDashboardServer,
   AdminDataResource,
@@ -376,18 +371,6 @@ export const api = {
         body: payload,
       }),
     ),
-  adminAchievements: (filters: AdminAchievementFilters = {}) =>
-    unwrap<AdminAchievementList>(sdk.listAdminAchievements({ query: filters })),
-  updateAdminAchievement: (
-    achievementId: number,
-    payload: AdminAchievementUpdate,
-  ) =>
-    unwrap<AdminAchievement | { detail: string }>(
-      sdk.updateAdminAchievement({
-        path: { achievementId },
-        body: payload,
-      }),
-    ),
   catalogs: () => unwrap<ListResponse<DataCatalog>>(sdk.getDirectories()),
   resources: (filters: ResourceFilters = {}) =>
     unwrap<ListResponse<ResourceListItem>>(
@@ -473,7 +456,6 @@ export const api = {
       }),
     ),
   layers: () => unwrap<ListResponse<MapLayerListItem>>(sdk.getLayers()),
-  achievements: () => unwrap<ListResponse<Achievement>>(sdk.getAchievements()),
   search: (query: string) =>
     unwrap<SearchResult>(sdk.search({ query: { q: query } })),
   renderRaster: (

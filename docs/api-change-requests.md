@@ -28,9 +28,9 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260619-002 | Verified | Multiple mock example endpoints | mock data consistency | N/A | Done | N/A | Done | Align representative auth, vector, raster, and non-geographic mock data |
 | API-20260619-003 | BackendReady | POST /api/catalog/import/preview/; POST /api/catalog/import/validate/; POST /api/catalog/import/commit/ | request body, response semantics, mock data | Done | Done | Done | Done | Import storage IDs unique; duplicate detection uses display name |
 | API-20260620-001 | BackendReady | GET /api/admin/system-logs/ | new endpoint, response fields, permission behavior, mock data | Done | Done | Done | Pending | System log file selector for admin logs page |
-| API-20260620-002 | BackendReady | Data/workspace/achievement CRUD endpoints | permission behavior, response fields, new endpoint, request body | Done | N/A | Done | Done | Fine-grained CRUD permissions for data, workspace scenes, and achievements |
-| API-20260620-003 | BackendReady | GET /api/admin/operation-logs/ | response fields, query parameters | Done | N/A | Done | Done | Structured audit target fields for data, workspace scenes, and achievements |
-| API-20260620-004 | BackendReady | GET/POST /api/admin/workspaces/; GET/POST /api/admin/achievements/ | new endpoints, request body, response fields, permission behavior, mock data | Done | Done | Done | Pending | Shared management UI for 工程、专题 and 成果 |
+| API-20260620-002 | BackendReady | Data/workspace CRUD endpoints | permission behavior, response fields, new endpoint, request body | Done | N/A | Done | Done | Fine-grained CRUD permissions for data and workspace scenes |
+| API-20260620-003 | BackendReady | GET /api/admin/operation-logs/ | response fields, query parameters | Done | N/A | Done | Done | Structured audit target fields for data and workspace scenes |
+| API-20260620-004 | BackendReady | GET/POST /api/admin/workspaces/ | new endpoints, request body, response fields, permission behavior, mock data | Done | Done | Done | Pending | Shared management UI for 工程、专题 |
 | API-20260620-005 | BackendReady | POST /api/admin/profile/avatar/; GET /api/users/{userId}/avatar/ | contract coverage | Done | N/A | Done | Pending | Existing avatar endpoints added to OpenAPI and generated SDK |
 
 ## Entry Template
@@ -144,11 +144,11 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 
 - Status: BackendReady
 - Owner: Frontend / Backend
-- Endpoints: `GET /api/auth/me/`, `GET /api/admin/data/resources/`, `POST /api/admin/data/resources/{id}/`, `POST /api/catalog/import/preview/`, `POST /api/catalog/import/validate/`, `POST /api/catalog/import/commit/`, `GET/POST /api/catalog/workspaces/`, `GET/POST /api/catalog/workspaces/{workspaceId}/`, `GET/POST /api/achievements/`, `GET/POST /api/achievements/{achievementId}/`
+- Endpoints: `GET /api/auth/me/`, `GET /api/admin/data/resources/`, `POST /api/admin/data/resources/{id}/`, `POST /api/catalog/import/preview/`, `POST /api/catalog/import/validate/`, `POST /api/catalog/import/commit/`, `GET/POST /api/catalog/workspaces/`, `GET/POST /api/catalog/workspaces/{workspaceId}/`
 - Change type: permission behavior, response fields, new endpoint, request body
-- OpenAPI change: Replaces coarse data maintenance checks with `catalog.add/view/change/delete_dataresource`, adds `catalog.add/view/change/delete_workspacescene` checks for project/topic snapshots, adds achievement create/detail/update/delete endpoints with `catalog.add/view/change/delete_achievement`, and exposes matching booleans in `UserPermissions`.
+- OpenAPI change: Replaces coarse data maintenance checks with `catalog.add/view/change/delete_dataresource`, adds `catalog.add/view/change/delete_workspacescene` checks for project/topic snapshots, adds workspace scene create/detail/update/delete permission fields in `UserPermissions`.
 - Mock examples: N/A
-- Frontend reason: UI needs separate add, view, edit, and delete capability checks for data, project/topic workspace snapshots, and achievements instead of one broad maintenance permission.
+- Frontend reason: UI needs separate add, view, edit, and delete capability checks for data and project/topic workspace snapshots instead of one broad maintenance permission.
 - Backend implementation notes: Keep object-level access groups and workspace ownership checks; allow uploaders to update only their own data visibility; continue writing operation logs for user-triggered create/update/delete actions.
 - Verification: run backend catalog/core permission tests plus `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check`.
 - Result: Backend implementation and focused tests completed in this change.
@@ -161,21 +161,21 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Change type: response fields, query parameters
 - OpenAPI change: `AdminOperationLog` now returns `targetType`, `targetId`, `targetCode`, and `targetName`; the operation log list accepts `targetType` and `targetId` query filters, and keyword search includes target fields.
 - Mock examples: N/A
-- Frontend reason: Audit log UI must trace create/read/update/delete operations to a specific data resource, project/topic workspace scene, or achievement by backend ID instead of relying on mutable names inside summary text.
-- Backend implementation notes: Store structured target fields on `OperationLog`; write `data_resource`, `workspace_scene`, and `achievement` targets from the relevant backend views, preserving target ID/name before delete.
+- Frontend reason: Audit log UI must trace create/read/update/delete operations to a specific data resource, project/topic workspace scene, by backend ID instead of relying on mutable names inside summary text.
+- Backend implementation notes: Store structured target fields on `OperationLog`; write `data_resource`, `workspace_scene`, targets from the relevant backend views, preserving target ID/name before delete.
 - Verification: run backend audit, catalog, and core operation-log tests plus `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check`.
 - Result: Backend implementation and focused tests completed in this change.
 
-## API-20260620-004 - Managed Workspaces and Achievements
+## API-20260620-004 - Managed Workspaces
 
 - Status: BackendReady
 - Owner: Frontend / Backend
-- Endpoints: `GET /api/admin/workspaces/`, `POST /api/admin/workspaces/{workspaceId}/`, `GET /api/admin/achievements/`, `POST /api/admin/achievements/{achievementId}/`
+- Endpoints: `GET /api/admin/workspaces/`, `POST /api/admin/workspaces/{workspaceId}/`
 - Change type: new endpoint, request body, response fields, permission behavior, mock data
-- OpenAPI change: Adds admin management responses for 工程/专题 and 成果 with pagination, status, owner, access groups, `canManageAccess`, and update actions for `update`, `setStatus`, `updateAccess`, and `delete`.
+- OpenAPI change: Adds admin management responses for 工程/专题 with pagination, status, owner, access groups, `canManageAccess`, and update actions for `update`, `setStatus`, `updateAccess`, and `delete`.
 - Mock examples: `mock/prism/examples/25-admin-managed-assets.json`
-- Frontend reason: The resource management area now needs 工程、专题 and 成果 management pages with the same interaction model as 存量数据: list, filter, status control, information editing, visibility group configuration, and deletion confirmation.
-- Backend implementation notes: Implement Django admin APIs that reuse `WorkspaceScene` ownership rules and the achievements model/service. Use `catalog.view/change/delete_workspacescene` for 工程/专题 list, update, and delete behavior, and `catalog.view/change/delete_achievement` for 成果 management. Owners may update access scope on their own 工程/专题 when `canManageAccess=true`. Enforce object-level access group filtering for normal browse/search/load endpoints and write all user-triggered changes to `OperationLog` with Chinese module/action text.
+- Frontend reason: The resource management area now needs 工程、专题 management pages with the same interaction model as 存量数据: list, filter, status control, information editing, visibility group configuration, and deletion confirmation.
+- Backend implementation notes: Implement Django admin APIs that reuse `WorkspaceScene` ownership rules. Use `catalog.view/change/delete_workspacescene` for 工程/专题 list, update, and delete behavior,. Owners may update access scope on their own 工程/专题 when `canManageAccess=true`. Enforce object-level access group filtering for normal browse/search/load endpoints and write all user-triggered changes to `OperationLog` with Chinese module/action text.
 - Verification: run `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check && pnpm run mock:build`, plus backend API tests for list filtering, update actions, owner-only access updates, permission denial, deletion confirmation, and audit log creation.
 - Result: Backend implementation and focused tests are covered by the current consistency repair; frontend verification still pending.
 

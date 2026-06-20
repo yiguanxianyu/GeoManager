@@ -71,7 +71,7 @@ def login_overview(request):
             "hero": {
                 "badge": "生态保护数据共享平台",
                 "summary": (
-                    "平台集成遥感影像、空间矢量、野外样方、长期监测与保护成果数据，"
+                    "平台集成遥感影像、空间矢量、野外样方、长期监测与生态专题数据，"
                     "提供统一编目、三维地理可视化、综合查询分析和共享服务。"
                 ),
                 "capabilityTags": [
@@ -79,7 +79,7 @@ def login_overview(request):
                     "矢量边界",
                     "野外样方",
                     "长期监测",
-                    "成果共享",
+                    "生态专题",
                 ],
             },
             "metrics": metrics,

@@ -1,7 +1,6 @@
 from typing import Any
 
 from apps.catalog.models import (
-    Achievement,
     DataCatalog,
     DataResource,
     DictionaryItem,
@@ -80,21 +79,6 @@ def serialize_layer(layer: MapLayer) -> dict:
         "rasterRules": layer.raster_rules,
         "isActive": layer.is_active,
         "updatedAt": layer.updated_at.isoformat(),
-    }
-
-
-def serialize_achievement(achievement: Achievement) -> dict:
-    return {
-        "id": achievement.id,
-        "title": achievement.title,
-        "code": achievement.code,
-        "category": serialize_dictionary(achievement.category),
-        "summary": achievement.summary,
-        "source": achievement.source,
-        "relatedLayerId": achievement.related_layer_id,
-        "displayOrder": achievement.display_order,
-        "status": achievement.status,
-        "updatedAt": achievement.updated_at.isoformat(),
     }
 
 

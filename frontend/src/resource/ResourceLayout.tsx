@@ -2,7 +2,6 @@ import {
   ApartmentOutlined,
   DashboardOutlined,
   DatabaseOutlined,
-  FileDoneOutlined,
   FolderOpenOutlined,
   ImportOutlined,
 } from "@ant-design/icons";
@@ -53,17 +52,6 @@ function resourceRouteFor(user: User | null) {
       icon: <ApartmentOutlined />,
     });
   }
-  if (
-    user?.permissions.canViewAchievements ||
-    user?.permissions.canChangeAchievements ||
-    user?.permissions.canDeleteAchievements
-  ) {
-    routes.push({
-      path: "/resources/manage/achievements",
-      name: "成果管理",
-      icon: <FileDoneOutlined />,
-    });
-  }
   if (user?.permissions.canUploadData) {
     routes.push({
       path: "/resources/data/import",
@@ -99,10 +87,6 @@ const pageMeta: Record<string, { title: string; subTitle: string }> = {
   "/resources/manage/topics": {
     title: "专题管理",
     subTitle: "维护专题信息、启用状态、可见范围与删除确认",
-  },
-  "/resources/manage/achievements": {
-    title: "成果管理",
-    subTitle: "维护成果信息、发布状态、可见范围与删除确认",
   },
 };
 

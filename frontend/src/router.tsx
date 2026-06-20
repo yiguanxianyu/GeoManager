@@ -59,19 +59,6 @@ export function RequireWorkspaceInventory() {
   return <Outlet />;
 }
 
-/** 需要成果查看、编辑或删除权限才能访问成果管理 */
-export function RequireAchievementInventory() {
-  const { user } = useAppContext();
-  if (
-    !user?.permissions.canViewAchievements &&
-    !user?.permissions.canChangeAchievements &&
-    !user?.permissions.canDeleteAchievements
-  ) {
-    return <Navigate to="/admin/profile" replace />;
-  }
-  return <Outlet />;
-}
-
 /** 需要查看操作日志权限才能访问的路由 */
 export function RequireViewOperationLogs() {
   const { user } = useAppContext();

@@ -46,11 +46,7 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true,
-          "canViewAchievements": true,
-          "canCreateAchievements": true,
-          "canChangeAchievements": true,
-          "canDeleteAchievements": true
+          "canDeleteWorkspaces": true
         },
         "groupIds": [
           1
@@ -149,26 +145,6 @@
           "id": "catalog.delete_workspacescene",
           "label": "删除工程专题",
           "group": "数据权限"
-        },
-        {
-          "id": "catalog.add_achievement",
-          "label": "新增成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.view_achievement",
-          "label": "查看成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.change_achievement",
-          "label": "编辑成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.delete_achievement",
-          "label": "删除成果",
-          "group": "数据权限"
         }
       ],
       "groupPermissions": [
@@ -225,11 +201,7 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true,
-          "canViewAchievements": true,
-          "canCreateAchievements": true,
-          "canChangeAchievements": true,
-          "canDeleteAchievements": true
+          "canDeleteWorkspaces": true
         },
         "groupIds": [
           1
@@ -318,26 +290,6 @@
           "id": "catalog.delete_workspacescene",
           "label": "删除工程专题",
           "group": "数据权限"
-        },
-        {
-          "id": "catalog.add_achievement",
-          "label": "新增成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.view_achievement",
-          "label": "查看成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.change_achievement",
-          "label": "编辑成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.delete_achievement",
-          "label": "删除成果",
-          "group": "数据权限"
         }
       ],
       "groupPermissions": [
@@ -394,11 +346,7 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true,
-          "canViewAchievements": true,
-          "canCreateAchievements": true,
-          "canChangeAchievements": true,
-          "canDeleteAchievements": true
+          "canDeleteWorkspaces": true
         },
         "groupIds": [
           1
@@ -486,26 +434,6 @@
           "id": "catalog.delete_workspacescene",
           "label": "删除工程专题",
           "group": "数据权限"
-        },
-        {
-          "id": "catalog.add_achievement",
-          "label": "新增成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.view_achievement",
-          "label": "查看成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.change_achievement",
-          "label": "编辑成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.delete_achievement",
-          "label": "删除成果",
-          "group": "数据权限"
         }
       ],
       "groupPermissions": [
@@ -567,11 +495,7 @@
             "canViewWorkspaces": true,
             "canCreateWorkspaces": true,
             "canChangeWorkspaces": true,
-            "canDeleteWorkspaces": true,
-            "canViewAchievements": true,
-            "canCreateAchievements": true,
-            "canChangeAchievements": true,
-            "canDeleteAchievements": true
+            "canDeleteWorkspaces": true
           },
           "groupIds": [
             1
@@ -667,11 +591,7 @@
             "canViewWorkspaces": true,
             "canCreateWorkspaces": true,
             "canChangeWorkspaces": true,
-            "canDeleteWorkspaces": true,
-            "canViewAchievements": true,
-            "canCreateAchievements": false,
-            "canChangeAchievements": false,
-            "canDeleteAchievements": false
+            "canDeleteWorkspaces": true
           },
           "groupIds": [
             3
@@ -756,11 +676,7 @@
             "canViewWorkspaces": true,
             "canCreateWorkspaces": true,
             "canChangeWorkspaces": true,
-            "canDeleteWorkspaces": true,
-            "canViewAchievements": true,
-            "canCreateAchievements": true,
-            "canChangeAchievements": true,
-            "canDeleteAchievements": true
+            "canDeleteWorkspaces": true
           },
           "groupIds": [
             4
@@ -850,11 +766,7 @@
             "canViewWorkspaces": true,
             "canCreateWorkspaces": true,
             "canChangeWorkspaces": true,
-            "canDeleteWorkspaces": true,
-            "canViewAchievements": true,
-            "canCreateAchievements": false,
-            "canChangeAchievements": false,
-            "canDeleteAchievements": false
+            "canDeleteWorkspaces": true
           },
           "groupIds": [
             2
@@ -927,11 +839,7 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true,
-          "canViewAchievements": true,
-          "canCreateAchievements": false,
-          "canChangeAchievements": false,
-          "canDeleteAchievements": false
+          "canDeleteWorkspaces": true
         },
         "groupIds": [
           3
@@ -1006,11 +914,7 @@
         "canViewWorkspaces": true,
         "canCreateWorkspaces": true,
         "canChangeWorkspaces": true,
-        "canDeleteWorkspaces": true,
-        "canViewAchievements": true,
-        "canCreateAchievements": false,
-        "canChangeAchievements": false,
-        "canDeleteAchievements": false
+        "canDeleteWorkspaces": true
       },
       "groupIds": [
         3,
@@ -1098,11 +1002,7 @@
         "canViewWorkspaces": true,
         "canCreateWorkspaces": true,
         "canChangeWorkspaces": true,
-        "canDeleteWorkspaces": true,
-        "canViewAchievements": true,
-        "canCreateAchievements": false,
-        "canChangeAchievements": false,
-        "canDeleteAchievements": false
+        "canDeleteWorkspaces": true
       },
       "groupIds": [
         3
@@ -1196,11 +1096,7 @@
         "canViewWorkspaces": true,
         "canCreateWorkspaces": true,
         "canChangeWorkspaces": true,
-        "canDeleteWorkspaces": true,
-        "canViewAchievements": true,
-        "canCreateAchievements": false,
-        "canChangeAchievements": false,
-        "canDeleteAchievements": false
+        "canDeleteWorkspaces": true
       },
       "groupIds": [
         2
@@ -1443,26 +1339,6 @@
         {
           "id": "catalog.delete_workspacescene",
           "label": "删除工程专题",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.add_achievement",
-          "label": "新增成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.view_achievement",
-          "label": "查看成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.change_achievement",
-          "label": "编辑成果",
-          "group": "数据权限"
-        },
-        {
-          "id": "catalog.delete_achievement",
-          "label": "删除成果",
           "group": "数据权限"
         }
       ]

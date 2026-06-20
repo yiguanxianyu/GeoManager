@@ -137,10 +137,6 @@ def serialize_user(user):
     can_view_workspace = has_feature_perm(user, "catalog.view_workspacescene")
     can_change_workspace = has_feature_perm(user, "catalog.change_workspacescene")
     can_delete_workspace = has_feature_perm(user, "catalog.delete_workspacescene")
-    can_create_achievement = has_feature_perm(user, "catalog.add_achievement")
-    can_view_achievement = has_feature_perm(user, "catalog.view_achievement")
-    can_change_achievement = has_feature_perm(user, "catalog.change_achievement")
-    can_delete_achievement = has_feature_perm(user, "catalog.delete_achievement")
     permissions = {
         "canAccessAdmin": True,
         "canManageFeaturePermissions": has_feature_perm(
@@ -198,10 +194,6 @@ def serialize_user(user):
         "canCreateWorkspaces": can_create_workspace,
         "canChangeWorkspaces": can_change_workspace,
         "canDeleteWorkspaces": can_delete_workspace,
-        "canViewAchievements": can_view_achievement,
-        "canCreateAchievements": can_create_achievement,
-        "canChangeAchievements": can_change_achievement,
-        "canDeleteAchievements": can_delete_achievement,
         "canManageRasterData": has_feature_perm(user, "raster.manage_raster_dataset")
         or can_change_data,
     }

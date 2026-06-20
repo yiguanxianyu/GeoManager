@@ -486,22 +486,6 @@ export type UserPermissions = {
      */
     canDeleteWorkspaces: boolean;
     /**
-     * 是否可查看成果，对应 `catalog.view_achievement`
-     */
-    canViewAchievements: boolean;
-    /**
-     * 是否可新增成果，对应 `catalog.add_achievement`
-     */
-    canCreateAchievements: boolean;
-    /**
-     * 是否可编辑成果，对应 `catalog.change_achievement`
-     */
-    canChangeAchievements: boolean;
-    /**
-     * 是否可删除成果，对应 `catalog.delete_achievement`
-     */
-    canDeleteAchievements: boolean;
-    /**
      * 是否可管理栅格数据集
      */
     canManageRasterData: boolean;
@@ -621,7 +605,7 @@ export type AdminOperationLog = {
      */
     result: 'success' | 'warning' | 'failed';
     /**
-     * 结构化操作目标类型；数据资源为 data_resource，工程/专题为 workspace_scene，成果为 achievement；无明确单一目标时为空字符串
+     * 结构化操作目标类型；数据资源为 data_resource，工程/专题为 workspace_scene；无明确单一目标时为空字符串
      */
     targetType: string;
     /**
@@ -629,7 +613,7 @@ export type AdminOperationLog = {
      */
     targetId: number | null;
     /**
-     * 操作目标编码；数据资源和成果为 code，工程/专题为 kind，无编码时为空字符串
+     * 操作目标编码；数据资源为 code，工程/专题为 kind，无编码时为空字符串
      */
     targetCode: string;
     /**
@@ -1876,170 +1860,6 @@ export type MapLayer = {
     updatedAt: string;
 };
 
-export type Achievement = {
-    /**
-     * 成果 ID
-     */
-    id: number;
-    /**
-     * 成果标题
-     */
-    title: string;
-    /**
-     * 成果编码
-     */
-    code: string;
-    /**
-     * 成果分类，未分类时为 null
-     */
-    category: DictionaryItem | null;
-    /**
-     * 成果摘要
-     */
-    summary: string;
-    /**
-     * 成果来源
-     */
-    source: string;
-    /**
-     * 关联图层 ID
-     */
-    relatedLayerId: number | null;
-    /**
-     * 展示排序值
-     */
-    displayOrder: number;
-    /**
-     * 成果发布状态
-     */
-    status: 'draft' | 'published' | 'archived';
-    /**
-     * 最后更新时间
-     */
-    updatedAt: string;
-};
-
-export type AchievementWriteRequest = {
-    /**
-     * 操作类型；提交 delete 时删除成果，其余情况下按字段更新或创建成果
-     */
-    action?: 'delete';
-    /**
-     * 成果标题；新增时必填
-     */
-    title?: string;
-    /**
-     * 成果编码；新增时必填且唯一
-     */
-    code?: string;
-    /**
-     * 成果分类 ID；为空表示不分类
-     */
-    categoryId?: number | null;
-    /**
-     * 成果摘要或说明
-     */
-    summary?: string;
-    /**
-     * 成果来源
-     */
-    source?: string;
-    /**
-     * 成果图片相对路径
-     */
-    imagePath?: string;
-    /**
-     * 成果附件相对路径
-     */
-    attachmentPath?: string;
-    /**
-     * 关联图层 ID；为空表示不关联图层
-     */
-    relatedLayerId?: number | null;
-    /**
-     * 可访问成果的用户组 ID；空数组表示不限制访问用户组
-     */
-    accessGroupIds?: Array<number>;
-    /**
-     * 展示排序值
-     */
-    displayOrder?: number;
-    /**
-     * 成果发布状态
-     */
-    status?: 'draft' | 'published' | 'archived';
-};
-
-export type AdminAchievement = Achievement & {
-    /**
-     * 允许访问该成果的用户组；成果维护人员和超级管理员始终可见
-     */
-    accessGroups: Array<AdminDataResourceAccessGroup>;
-    /**
-     * 当前用户是否可修改该成果的可见范围；当前版本由 `catalog.change_achievement` 控制
-     */
-    canManageAccess: boolean;
-    owner: UserReference;
-    /**
-     * 创建时间
-     */
-    createdAt: string;
-};
-
-export type AdminAchievementListResponse = {
-    /**
-     * 成果管理列表
-     */
-    items: Array<AdminAchievement>;
-    /**
-     * 符合筛选条件的成果总数
-     */
-    total: number;
-    /**
-     * 可用于配置成果访问范围的用户组列表
-     */
-    availableAccessGroups: Array<AdminDataResourceAccessGroup>;
-};
-
-export type AdminAchievementUpdateRequest = {
-    /**
-     * 操作类型
-     */
-    action: 'update' | 'setStatus' | 'updateAccess' | 'delete';
-    /**
-     * setStatus 或 update 时写入的成果发布状态
-     */
-    status?: 'draft' | 'published' | 'archived';
-    /**
-     * update 时写入的成果标题
-     */
-    title?: string;
-    /**
-     * update 时写入的成果摘要
-     */
-    summary?: string;
-    /**
-     * update 时写入的成果来源
-     */
-    source?: string;
-    /**
-     * update 时写入的展示排序值
-     */
-    displayOrder?: number;
-    /**
-     * update 时写入的关联图层 ID
-     */
-    relatedLayerId?: number | null;
-    /**
-     * updateAccess 或 update 时写入的额外可见用户组 ID 列表；后端会强制补齐超级管理员用户组。包含游客用户组时表示未登录用户可通过游客会话访问该成果。
-     */
-    accessGroupIds?: Array<number>;
-    /**
-     * delete 操作要求传入与成果标题完全一致的确认文本
-     */
-    confirmationName?: string;
-};
-
 export type RasterDataset = {
     /**
      * 栅格数据集 ID
@@ -2726,22 +2546,11 @@ export type LayerListResponse = {
     items: Array<VectorLayerResource | MapLayer>;
 };
 
-export type AchievementListResponse = {
-    /**
-     * 已发布成果列表
-     */
-    items: Array<Achievement>;
-};
-
 export type SearchResponse = {
     /**
      * 匹配的数据资源
      */
     resources: Array<ResourceListItem>;
-    /**
-     * 匹配的研究成果
-     */
-    achievements: Array<Achievement>;
 };
 
 export type RasterDatasetListResponse = {
@@ -3417,7 +3226,7 @@ export type ListAdminOperationLogsData = {
         /**
          * 按结构化操作目标类型筛选
          */
-        targetType?: 'data_resource' | 'workspace_scene' | 'achievement';
+        targetType?: 'data_resource' | 'workspace_scene';
         /**
          * 按结构化操作目标后台 ID 精确筛选
          */
@@ -4257,102 +4066,6 @@ export type UpdateAdminWorkspaceResponses = {
 
 export type UpdateAdminWorkspaceResponse = UpdateAdminWorkspaceResponses[keyof UpdateAdminWorkspaceResponses];
 
-export type ListAdminAchievementsData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * 按成果标题、编号、摘要或来源进行快速检索
-         */
-        q?: string;
-        /**
-         * 成果发布状态筛选
-         */
-        status?: 'draft' | 'published' | 'archived';
-        /**
-         * 成果分类编码筛选
-         */
-        category?: string;
-        /**
-         * 成果来源模糊匹配
-         */
-        source?: string;
-        /**
-         * 当前页码
-         */
-        current?: number;
-        /**
-         * 每页条数
-         */
-        pageSize?: number;
-    };
-    url: '/api/admin/achievements/';
-};
-
-export type ListAdminAchievementsErrors = {
-    /**
-     * 未认证
-     */
-    401: ErrorResponse;
-    /**
-     * 权限不足或 CSRF 校验失败
-     */
-    403: ErrorResponse;
-};
-
-export type ListAdminAchievementsError = ListAdminAchievementsErrors[keyof ListAdminAchievementsErrors];
-
-export type ListAdminAchievementsResponses = {
-    /**
-     * 成功
-     */
-    200: AdminAchievementListResponse;
-};
-
-export type ListAdminAchievementsResponse = ListAdminAchievementsResponses[keyof ListAdminAchievementsResponses];
-
-export type UpdateAdminAchievementData = {
-    body: AdminAchievementUpdateRequest;
-    path: {
-        /**
-         * 成果 ID
-         */
-        achievementId: number;
-    };
-    query?: never;
-    url: '/api/admin/achievements/{achievementId}/';
-};
-
-export type UpdateAdminAchievementErrors = {
-    /**
-     * 请求错误
-     */
-    400: ErrorResponse;
-    /**
-     * 未认证
-     */
-    401: ErrorResponse;
-    /**
-     * 权限不足或 CSRF 校验失败
-     */
-    403: ErrorResponse;
-    /**
-     * 资源不存在
-     */
-    404: ErrorResponse;
-};
-
-export type UpdateAdminAchievementError = UpdateAdminAchievementErrors[keyof UpdateAdminAchievementErrors];
-
-export type UpdateAdminAchievementResponses = {
-    /**
-     * 操作成功
-     */
-    200: AdminAchievement | DetailResponse;
-};
-
-export type UpdateAdminAchievementResponse = UpdateAdminAchievementResponses[keyof UpdateAdminAchievementResponses];
-
 export type GetDirectoriesData = {
     body?: never;
     path?: never;
@@ -5078,153 +4791,6 @@ export type QueryLayerResponses = {
 };
 
 export type QueryLayerResponse = QueryLayerResponses[keyof QueryLayerResponses];
-
-export type GetAchievementsData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * 成果状态筛选；仅具备成果管理权限时可用
-         */
-        status?: 'draft' | 'published' | 'archived';
-    };
-    url: '/api/achievements/';
-};
-
-export type GetAchievementsErrors = {
-    /**
-     * 未认证
-     */
-    401: ErrorResponse;
-    /**
-     * 权限不足或 CSRF 校验失败
-     */
-    403: ErrorResponse;
-};
-
-export type GetAchievementsError = GetAchievementsErrors[keyof GetAchievementsErrors];
-
-export type GetAchievementsResponses = {
-    /**
-     * 成功
-     */
-    200: AchievementListResponse;
-};
-
-export type GetAchievementsResponse = GetAchievementsResponses[keyof GetAchievementsResponses];
-
-export type CreateAchievementData = {
-    body: AchievementWriteRequest;
-    path?: never;
-    query?: never;
-    url: '/api/achievements/';
-};
-
-export type CreateAchievementErrors = {
-    /**
-     * 请求错误
-     */
-    400: ErrorResponse;
-    /**
-     * 未认证
-     */
-    401: ErrorResponse;
-    /**
-     * 权限不足或 CSRF 校验失败
-     */
-    403: ErrorResponse;
-};
-
-export type CreateAchievementError = CreateAchievementErrors[keyof CreateAchievementErrors];
-
-export type CreateAchievementResponses = {
-    /**
-     * 新增成功
-     */
-    201: Achievement;
-};
-
-export type CreateAchievementResponse = CreateAchievementResponses[keyof CreateAchievementResponses];
-
-export type GetAchievementData = {
-    body?: never;
-    path: {
-        /**
-         * 成果 ID
-         */
-        achievementId: number;
-    };
-    query?: never;
-    url: '/api/achievements/{achievementId}/';
-};
-
-export type GetAchievementErrors = {
-    /**
-     * 未认证
-     */
-    401: ErrorResponse;
-    /**
-     * 权限不足或 CSRF 校验失败
-     */
-    403: ErrorResponse;
-    /**
-     * 资源不存在
-     */
-    404: ErrorResponse;
-};
-
-export type GetAchievementError = GetAchievementErrors[keyof GetAchievementErrors];
-
-export type GetAchievementResponses = {
-    /**
-     * 成功
-     */
-    200: Achievement;
-};
-
-export type GetAchievementResponse = GetAchievementResponses[keyof GetAchievementResponses];
-
-export type UpdateAchievementData = {
-    body: AchievementWriteRequest;
-    path: {
-        /**
-         * 成果 ID
-         */
-        achievementId: number;
-    };
-    query?: never;
-    url: '/api/achievements/{achievementId}/';
-};
-
-export type UpdateAchievementErrors = {
-    /**
-     * 请求错误
-     */
-    400: ErrorResponse;
-    /**
-     * 未认证
-     */
-    401: ErrorResponse;
-    /**
-     * 权限不足或 CSRF 校验失败
-     */
-    403: ErrorResponse;
-    /**
-     * 资源不存在
-     */
-    404: ErrorResponse;
-};
-
-export type UpdateAchievementError = UpdateAchievementErrors[keyof UpdateAchievementErrors];
-
-export type UpdateAchievementResponses = {
-    /**
-     * 操作成功
-     */
-    200: Achievement | DetailResponse;
-};
-
-export type UpdateAchievementResponse = UpdateAchievementResponses[keyof UpdateAchievementResponses];
 
 export type SearchData = {
     body?: never;

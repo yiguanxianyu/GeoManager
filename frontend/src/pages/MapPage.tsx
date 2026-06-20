@@ -102,10 +102,6 @@ const emptyPermissions = {
   canCreateWorkspaces: false,
   canChangeWorkspaces: false,
   canDeleteWorkspaces: false,
-  canViewAchievements: false,
-  canCreateAchievements: false,
-  canChangeAchievements: false,
-  canDeleteAchievements: false,
   canManageRasterData: false,
 };
 

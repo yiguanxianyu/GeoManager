@@ -65,17 +65,5 @@ urlpatterns = [
         views.vector_layer_query,
         name="layer-query",
     ),
-    path("achievements/", views.achievements, name="achievements"),
-    path(
-        "achievements/<int:achievement_id>/",
-        views.achievement_detail,
-        name="achievement-detail",
-    ),
-    path("admin/achievements/", views.admin_achievements, name="admin-achievements"),
-    path(
-        "admin/achievements/<int:achievement_id>/",
-        views.admin_achievement_detail,
-        name="admin-achievement-detail",
-    ),
     path("search/", views.search, name="search"),
 ]

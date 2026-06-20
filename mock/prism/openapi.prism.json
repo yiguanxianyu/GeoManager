@@ -41,10 +41,6 @@
       "description": "地图图层接口"
     },
     {
-      "name": "成果",
-      "description": "研究成果接口"
-    },
-    {
       "name": "搜索",
       "description": "全局搜索接口"
     },
@@ -133,13 +129,13 @@
                   },
                   "hero": {
                     "badge": "生态保护数据共享平台",
-                    "summary": "平台集成遥感影像、空间矢量、野外样方、长期监测与保护成果数据，提供统一编目、三维地理可视化、综合查询分析和共享服务。",
+                    "summary": "平台集成遥感影像、空间矢量、野外样方、长期监测与生态专题数据，提供统一编目、三维地理可视化、综合查询分析和共享服务。",
                     "capabilityTags": [
                       "遥感影像",
                       "矢量边界",
                       "野外样方",
                       "长期监测",
-                      "成果共享"
+                      "生态专题"
                     ]
                   },
                   "metrics": [
@@ -386,11 +382,7 @@
                       "canViewWorkspaces": true,
                       "canCreateWorkspaces": true,
                       "canChangeWorkspaces": true,
-                      "canDeleteWorkspaces": true,
-                      "canViewAchievements": true,
-                      "canCreateAchievements": true,
-                      "canChangeAchievements": true,
-                      "canDeleteAchievements": true
+                      "canDeleteWorkspaces": true
                     },
                     "groupIds": [
                       1
@@ -564,11 +556,7 @@
                       "canViewWorkspaces": true,
                       "canCreateWorkspaces": true,
                       "canChangeWorkspaces": true,
-                      "canDeleteWorkspaces": true,
-                      "canViewAchievements": true,
-                      "canCreateAchievements": false,
-                      "canChangeAchievements": false,
-                      "canDeleteAchievements": false
+                      "canDeleteWorkspaces": true
                     },
                     "groupIds": [
                       2
@@ -702,11 +690,7 @@
                       "canViewWorkspaces": true,
                       "canCreateWorkspaces": true,
                       "canChangeWorkspaces": true,
-                      "canDeleteWorkspaces": true,
-                      "canViewAchievements": true,
-                      "canCreateAchievements": true,
-                      "canChangeAchievements": true,
-                      "canDeleteAchievements": true
+                      "canDeleteWorkspaces": true
                     },
                     "groupIds": [
                       1
@@ -820,11 +804,7 @@
                       "canViewWorkspaces": true,
                       "canCreateWorkspaces": true,
                       "canChangeWorkspaces": true,
-                      "canDeleteWorkspaces": true,
-                      "canViewAchievements": true,
-                      "canCreateAchievements": true,
-                      "canChangeAchievements": true,
-                      "canDeleteAchievements": true
+                      "canDeleteWorkspaces": true
                     },
                     "groupIds": [
                       1
@@ -923,26 +903,6 @@
                       "id": "catalog.delete_workspacescene",
                       "label": "删除工程专题",
                       "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.add_achievement",
-                      "label": "新增成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.view_achievement",
-                      "label": "查看成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.change_achievement",
-                      "label": "编辑成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.delete_achievement",
-                      "label": "删除成果",
-                      "group": "数据权限"
                     }
                   ],
                   "groupPermissions": [
@@ -1040,11 +1000,7 @@
                       "canViewWorkspaces": true,
                       "canCreateWorkspaces": true,
                       "canChangeWorkspaces": true,
-                      "canDeleteWorkspaces": true,
-                      "canViewAchievements": true,
-                      "canCreateAchievements": true,
-                      "canChangeAchievements": true,
-                      "canDeleteAchievements": true
+                      "canDeleteWorkspaces": true
                     },
                     "groupIds": [
                       1
@@ -1132,26 +1088,6 @@
                     {
                       "id": "catalog.delete_workspacescene",
                       "label": "删除工程专题",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.add_achievement",
-                      "label": "新增成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.view_achievement",
-                      "label": "查看成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.change_achievement",
-                      "label": "编辑成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.delete_achievement",
-                      "label": "删除成果",
                       "group": "数据权限"
                     }
                   ],
@@ -1250,11 +1186,7 @@
                       "canViewWorkspaces": true,
                       "canCreateWorkspaces": true,
                       "canChangeWorkspaces": true,
-                      "canDeleteWorkspaces": true,
-                      "canViewAchievements": true,
-                      "canCreateAchievements": true,
-                      "canChangeAchievements": true,
-                      "canDeleteAchievements": true
+                      "canDeleteWorkspaces": true
                     },
                     "groupIds": [
                       1
@@ -1341,26 +1273,6 @@
                     {
                       "id": "catalog.delete_workspacescene",
                       "label": "删除工程专题",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.add_achievement",
-                      "label": "新增成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.view_achievement",
-                      "label": "查看成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.change_achievement",
-                      "label": "编辑成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.delete_achievement",
-                      "label": "删除成果",
                       "group": "数据权限"
                     }
                   ],
@@ -1601,8 +1513,7 @@
               "type": "string",
               "enum": [
                 "data_resource",
-                "workspace_scene",
-                "achievement"
+                "workspace_scene"
               ]
             },
             "description": "按结构化操作目标类型筛选"
@@ -2096,11 +2007,7 @@
                         "canViewWorkspaces": true,
                         "canCreateWorkspaces": true,
                         "canChangeWorkspaces": true,
-                        "canDeleteWorkspaces": true,
-                        "canViewAchievements": true,
-                        "canCreateAchievements": true,
-                        "canChangeAchievements": true,
-                        "canDeleteAchievements": true
+                        "canDeleteWorkspaces": true
                       },
                       "groupIds": [
                         1
@@ -2196,11 +2103,7 @@
                         "canViewWorkspaces": true,
                         "canCreateWorkspaces": true,
                         "canChangeWorkspaces": true,
-                        "canDeleteWorkspaces": true,
-                        "canViewAchievements": true,
-                        "canCreateAchievements": false,
-                        "canChangeAchievements": false,
-                        "canDeleteAchievements": false
+                        "canDeleteWorkspaces": true
                       },
                       "groupIds": [
                         3
@@ -2285,11 +2188,7 @@
                         "canViewWorkspaces": true,
                         "canCreateWorkspaces": true,
                         "canChangeWorkspaces": true,
-                        "canDeleteWorkspaces": true,
-                        "canViewAchievements": true,
-                        "canCreateAchievements": true,
-                        "canChangeAchievements": true,
-                        "canDeleteAchievements": true
+                        "canDeleteWorkspaces": true
                       },
                       "groupIds": [
                         4
@@ -2379,11 +2278,7 @@
                         "canViewWorkspaces": true,
                         "canCreateWorkspaces": true,
                         "canChangeWorkspaces": true,
-                        "canDeleteWorkspaces": true,
-                        "canViewAchievements": true,
-                        "canCreateAchievements": false,
-                        "canChangeAchievements": false,
-                        "canDeleteAchievements": false
+                        "canDeleteWorkspaces": true
                       },
                       "groupIds": [
                         2
@@ -2495,11 +2390,7 @@
                       "canViewWorkspaces": true,
                       "canCreateWorkspaces": true,
                       "canChangeWorkspaces": true,
-                      "canDeleteWorkspaces": true,
-                      "canViewAchievements": true,
-                      "canCreateAchievements": false,
-                      "canChangeAchievements": false,
-                      "canDeleteAchievements": false
+                      "canDeleteWorkspaces": true
                     },
                     "groupIds": [
                       3
@@ -2629,11 +2520,7 @@
                     "canViewWorkspaces": true,
                     "canCreateWorkspaces": true,
                     "canChangeWorkspaces": true,
-                    "canDeleteWorkspaces": true,
-                    "canViewAchievements": true,
-                    "canCreateAchievements": false,
-                    "canChangeAchievements": false,
-                    "canDeleteAchievements": false
+                    "canDeleteWorkspaces": true
                   },
                   "groupIds": [
                     3,
@@ -2779,11 +2666,7 @@
                     "canViewWorkspaces": true,
                     "canCreateWorkspaces": true,
                     "canChangeWorkspaces": true,
-                    "canDeleteWorkspaces": true,
-                    "canViewAchievements": true,
-                    "canCreateAchievements": false,
-                    "canChangeAchievements": false,
-                    "canDeleteAchievements": false
+                    "canDeleteWorkspaces": true
                   },
                   "groupIds": [
                     3
@@ -3009,11 +2892,7 @@
                     "canViewWorkspaces": true,
                     "canCreateWorkspaces": true,
                     "canChangeWorkspaces": true,
-                    "canDeleteWorkspaces": true,
-                    "canViewAchievements": true,
-                    "canCreateAchievements": false,
-                    "canChangeAchievements": false,
-                    "canDeleteAchievements": false
+                    "canDeleteWorkspaces": true
                   },
                   "groupIds": [
                     2
@@ -3293,26 +3172,6 @@
                     {
                       "id": "catalog.delete_workspacescene",
                       "label": "删除工程专题",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.add_achievement",
-                      "label": "新增成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.view_achievement",
-                      "label": "查看成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.change_achievement",
-                      "label": "编辑成果",
-                      "group": "数据权限"
-                    },
-                    {
-                      "id": "catalog.delete_achievement",
-                      "label": "删除成果",
                       "group": "数据权限"
                     }
                   ]
@@ -4428,302 +4287,6 @@
                     }
                   ],
                   "canManageAccess": true
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
-    "/api/admin/achievements/": {
-      "get": {
-        "tags": [
-          "管理后台"
-        ],
-        "summary": "获取成果管理列表",
-        "description": "返回研究成果管理列表，支持状态、分类、来源和关键词筛选。需要 `catalog.view_achievement`、`catalog.change_achievement` 或 `catalog.delete_achievement`，接口返回可配置访问用户组。",
-        "operationId": "listAdminAchievements",
-        "security": [
-          {
-            "sessionAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "q",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "按成果标题、编号、摘要或来源进行快速检索"
-          },
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "published",
-                "archived"
-              ]
-            },
-            "description": "成果发布状态筛选"
-          },
-          {
-            "name": "category",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "成果分类编码筛选"
-          },
-          {
-            "name": "source",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            },
-            "description": "成果来源模糊匹配"
-          },
-          {
-            "name": "current",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "description": "当前页码"
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "description": "每页条数"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AdminAchievementListResponse"
-                },
-                "example": {
-                  "items": [
-                    {
-                      "id": 1,
-                      "title": "胡杨林冠层覆盖度年度评估图集",
-                      "code": "achievement-canopy-2026",
-                      "category": {
-                        "id": 31,
-                        "type": "achievement_category",
-                        "code": "atlas",
-                        "name": "图件成果"
-                      },
-                      "summary": "基于多期遥感影像生成的胡杨林冠层覆盖度变化评估成果。",
-                      "source": "中亚胡杨林生态系统保护项目组",
-                      "relatedLayerId": 12,
-                      "displayOrder": 10,
-                      "status": "published",
-                      "updatedAt": "2026-06-18T16:40:00+08:00",
-                      "accessGroups": [
-                        {
-                          "id": 1,
-                          "name": "超级管理员",
-                          "isGuest": false,
-                          "isSuperadmin": true
-                        },
-                        {
-                          "id": 2,
-                          "name": "普通用户",
-                          "isGuest": false,
-                          "isSuperadmin": false
-                        },
-                        {
-                          "id": 3,
-                          "name": "游客",
-                          "isGuest": true,
-                          "isSuperadmin": false
-                        }
-                      ],
-                      "canManageAccess": true,
-                      "owner": {
-                        "id": 1,
-                        "username": "admin",
-                        "displayName": "系统管理员"
-                      },
-                      "createdAt": "2026-06-12T11:20:00+08:00"
-                    },
-                    {
-                      "id": 2,
-                      "title": "样地长期监测阶段报告",
-                      "code": "achievement-monitoring-report-2026",
-                      "category": {
-                        "id": 32,
-                        "type": "achievement_category",
-                        "code": "report",
-                        "name": "报告材料"
-                      },
-                      "summary": "汇总 2024-2026 年样地长期监测、群落结构和水盐环境观测结论。",
-                      "source": "塔里木河样地监测团队",
-                      "relatedLayerId": null,
-                      "displayOrder": 20,
-                      "status": "draft",
-                      "updatedAt": "2026-06-19T09:10:00+08:00",
-                      "accessGroups": [
-                        {
-                          "id": 1,
-                          "name": "超级管理员",
-                          "isGuest": false,
-                          "isSuperadmin": true
-                        }
-                      ],
-                      "canManageAccess": true,
-                      "owner": {
-                        "id": 8,
-                        "username": "researcher_chen",
-                        "displayName": "陈研究员"
-                      },
-                      "createdAt": "2026-06-19T09:10:00+08:00"
-                    }
-                  ],
-                  "total": 2,
-                  "availableAccessGroups": [
-                    {
-                      "id": 1,
-                      "name": "超级管理员",
-                      "isGuest": false,
-                      "isSuperadmin": true
-                    },
-                    {
-                      "id": 2,
-                      "name": "普通用户",
-                      "isGuest": false,
-                      "isSuperadmin": false
-                    },
-                    {
-                      "id": 3,
-                      "name": "游客",
-                      "isGuest": true,
-                      "isSuperadmin": false
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/admin/achievements/{achievementId}/": {
-      "post": {
-        "tags": [
-          "管理后台"
-        ],
-        "summary": "操作单个成果",
-        "description": "支持更新成果发布状态、基础信息、访问用户组和删除确认。发布状态、基础信息和访问用户组修改需要 `catalog.change_achievement`；删除需要 `catalog.delete_achievement`。成功操作会写入审计日志。",
-        "operationId": "updateAdminAchievement",
-        "security": [
-          {
-            "sessionAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "achievementId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "成果 ID"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AdminAchievementUpdateRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "操作成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/AdminAchievement"
-                    },
-                    {
-                      "$ref": "#/components/schemas/DetailResponse"
-                    }
-                  ]
-                },
-                "example": {
-                  "id": 1,
-                  "title": "胡杨林冠层覆盖度年度评估图集",
-                  "code": "achievement-canopy-2026",
-                  "category": {
-                    "id": 31,
-                    "type": "achievement_category",
-                    "code": "atlas",
-                    "name": "图件成果"
-                  },
-                  "summary": "基于多期遥感影像生成的胡杨林冠层覆盖度变化评估成果。",
-                  "source": "中亚胡杨林生态系统保护项目组",
-                  "relatedLayerId": 12,
-                  "displayOrder": 10,
-                  "status": "published",
-                  "updatedAt": "2026-06-20T10:00:00+08:00",
-                  "accessGroups": [
-                    {
-                      "id": 1,
-                      "name": "超级管理员",
-                      "isGuest": false,
-                      "isSuperadmin": true
-                    },
-                    {
-                      "id": 2,
-                      "name": "普通用户",
-                      "isGuest": false,
-                      "isSuperadmin": false
-                    }
-                  ],
-                  "canManageAccess": true,
-                  "owner": {
-                    "id": 1,
-                    "username": "admin",
-                    "displayName": "系统管理员"
-                  },
-                  "createdAt": "2026-06-12T11:20:00+08:00"
                 }
               }
             }
@@ -6620,238 +6183,13 @@
         }
       }
     },
-    "/api/achievements/": {
-      "get": {
-        "tags": [
-          "成果"
-        ],
-        "summary": "获取成果列表",
-        "description": "返回当前用户可访问的成果列表。需要 `catalog.view_achievement`；普通查看只返回已发布成果，具备成果新增、编辑或删除权限的管理用户可通过 status 参数筛选草稿、已发布或已下架成果。",
-        "operationId": "getAchievements",
-        "security": [
-          {
-            "sessionAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "status",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "draft",
-                "published",
-                "archived"
-              ]
-            },
-            "description": "成果状态筛选；仅具备成果管理权限时可用"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AchievementListResponse"
-                },
-                "example": {
-                  "items": [
-                    {
-                      "id": 1,
-                      "title": "中亚胡杨林生态保护年度监测报告",
-                      "code": "ACH-2026-REPORT",
-                      "category": {
-                        "id": 4,
-                        "type": "achievement",
-                        "code": "report",
-                        "name": "研究报告"
-                      },
-                      "summary": "汇总 2026 年样地监测和遥感反演结果。",
-                      "source": "生态监测组",
-                      "relatedLayerId": 21,
-                      "displayOrder": 1,
-                      "status": "published",
-                      "updatedAt": "2026-06-14T09:20:00+08:00"
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "成果"
-        ],
-        "summary": "新增成果",
-        "description": "新增项目成果。需要 `catalog.add_achievement`，成功操作会写入审计日志。",
-        "operationId": "createAchievement",
-        "security": [
-          {
-            "sessionAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AchievementWriteRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "新增成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Achievement"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          }
-        }
-      }
-    },
-    "/api/achievements/{achievementId}/": {
-      "get": {
-        "tags": [
-          "成果"
-        ],
-        "summary": "获取成果详情",
-        "description": "返回当前用户可访问的单个成果。需要 `catalog.view_achievement`；非管理用户只能读取已发布成果。",
-        "operationId": "getAchievement",
-        "security": [
-          {
-            "sessionAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "achievementId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "成果 ID"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Achievement"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "成果"
-        ],
-        "summary": "更新或删除成果",
-        "description": "更新成果字段需要 `catalog.change_achievement`；提交 `{\"action\":\"delete\"}` 删除成果需要 `catalog.delete_achievement`。成功操作会写入审计日志。",
-        "operationId": "updateAchievement",
-        "security": [
-          {
-            "sessionAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "achievementId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            },
-            "description": "成果 ID"
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AchievementWriteRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "操作成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "oneOf": [
-                    {
-                      "$ref": "#/components/schemas/Achievement"
-                    },
-                    {
-                      "$ref": "#/components/schemas/DetailResponse"
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "403": {
-            "$ref": "#/components/responses/Forbidden"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          }
-        }
-      }
-    },
     "/api/search/": {
       "get": {
         "tags": [
           "搜索"
         ],
         "summary": "全局搜索",
-        "description": "同时搜索数据资源和研究成果。`q` 为空时返回空结果。",
+        "description": "搜索数据资源。`q` 为空时返回空结果。",
         "operationId": "search",
         "security": [
           {
@@ -6943,25 +6281,6 @@
                       "status": "active",
                       "sizeBytes": 245760,
                       "itemCount": 3
-                    }
-                  ],
-                  "achievements": [
-                    {
-                      "id": 1,
-                      "title": "中亚胡杨林生态保护年度监测报告",
-                      "code": "ACH-2026-REPORT",
-                      "category": {
-                        "id": 4,
-                        "type": "achievement",
-                        "code": "report",
-                        "name": "研究报告"
-                      },
-                      "summary": "汇总 2026 年样地监测和遥感反演结果。",
-                      "source": "生态监测组",
-                      "relatedLayerId": 21,
-                      "displayOrder": 1,
-                      "status": "published",
-                      "updatedAt": "2026-06-14T09:20:00+08:00"
                     }
                   ]
                 }
@@ -8287,7 +7606,7 @@
           "summary": {
             "type": "string",
             "description": "平台一句话概述，需高度概括平台数据集成、可视化、查询分析与共享服务能力。",
-            "example": "平台集成遥感影像、空间矢量、野外样方、长期监测与保护成果数据，提供统一编目、三维地理可视化、综合查询分析和共享服务。"
+            "example": "平台集成遥感影像、空间矢量、野外样方、长期监测与生态专题数据，提供统一编目、三维地理可视化、综合查询分析和共享服务。"
           },
           "capabilityTags": {
             "type": "array",
@@ -8302,7 +7621,7 @@
               "矢量边界",
               "野外样方",
               "长期监测",
-              "成果共享"
+              "生态专题"
             ]
           }
         }
@@ -8826,10 +8145,6 @@
           "canCreateWorkspaces",
           "canChangeWorkspaces",
           "canDeleteWorkspaces",
-          "canViewAchievements",
-          "canCreateAchievements",
-          "canChangeAchievements",
-          "canDeleteAchievements",
           "canManageRasterData"
         ],
         "properties": {
@@ -8960,22 +8275,6 @@
           "canDeleteWorkspaces": {
             "type": "boolean",
             "description": "是否可删除工程和专题，对应 `catalog.delete_workspacescene`"
-          },
-          "canViewAchievements": {
-            "type": "boolean",
-            "description": "是否可查看成果，对应 `catalog.view_achievement`"
-          },
-          "canCreateAchievements": {
-            "type": "boolean",
-            "description": "是否可新增成果，对应 `catalog.add_achievement`"
-          },
-          "canChangeAchievements": {
-            "type": "boolean",
-            "description": "是否可编辑成果，对应 `catalog.change_achievement`"
-          },
-          "canDeleteAchievements": {
-            "type": "boolean",
-            "description": "是否可删除成果，对应 `catalog.delete_achievement`"
           },
           "canManageRasterData": {
             "type": "boolean",
@@ -9176,7 +8475,7 @@
           },
           "targetType": {
             "type": "string",
-            "description": "结构化操作目标类型；数据资源为 data_resource，工程/专题为 workspace_scene，成果为 achievement；无明确单一目标时为空字符串"
+            "description": "结构化操作目标类型；数据资源为 data_resource，工程/专题为 workspace_scene；无明确单一目标时为空字符串"
           },
           "targetId": {
             "type": [
@@ -9187,7 +8486,7 @@
           },
           "targetCode": {
             "type": "string",
-            "description": "操作目标编码；数据资源和成果为 code，工程/专题为 kind，无编码时为空字符串"
+            "description": "操作目标编码；数据资源为 code，工程/专题为 kind，无编码时为空字符串"
           },
           "targetName": {
             "type": "string",
@@ -11259,275 +10558,6 @@
           }
         }
       },
-      "Achievement": {
-        "type": "object",
-        "required": [
-          "id",
-          "title",
-          "code",
-          "category",
-          "summary",
-          "source",
-          "relatedLayerId",
-          "displayOrder",
-          "status",
-          "updatedAt"
-        ],
-        "properties": {
-          "id": {
-            "type": "integer",
-            "description": "成果 ID"
-          },
-          "title": {
-            "type": "string",
-            "description": "成果标题"
-          },
-          "code": {
-            "type": "string",
-            "description": "成果编码"
-          },
-          "category": {
-            "oneOf": [
-              {
-                "$ref": "#/components/schemas/DictionaryItem"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "成果分类，未分类时为 null"
-          },
-          "summary": {
-            "type": "string",
-            "description": "成果摘要"
-          },
-          "source": {
-            "type": "string",
-            "description": "成果来源"
-          },
-          "relatedLayerId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "关联图层 ID"
-          },
-          "displayOrder": {
-            "type": "integer",
-            "description": "展示排序值"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "draft",
-              "published",
-              "archived"
-            ],
-            "description": "成果发布状态"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "description": "最后更新时间"
-          }
-        }
-      },
-      "AchievementWriteRequest": {
-        "type": "object",
-        "properties": {
-          "action": {
-            "type": "string",
-            "enum": [
-              "delete"
-            ],
-            "description": "操作类型；提交 delete 时删除成果，其余情况下按字段更新或创建成果"
-          },
-          "title": {
-            "type": "string",
-            "description": "成果标题；新增时必填"
-          },
-          "code": {
-            "type": "string",
-            "description": "成果编码；新增时必填且唯一"
-          },
-          "categoryId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "成果分类 ID；为空表示不分类"
-          },
-          "summary": {
-            "type": "string",
-            "description": "成果摘要或说明"
-          },
-          "source": {
-            "type": "string",
-            "description": "成果来源"
-          },
-          "imagePath": {
-            "type": "string",
-            "description": "成果图片相对路径"
-          },
-          "attachmentPath": {
-            "type": "string",
-            "description": "成果附件相对路径"
-          },
-          "relatedLayerId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "关联图层 ID；为空表示不关联图层"
-          },
-          "accessGroupIds": {
-            "type": "array",
-            "description": "可访问成果的用户组 ID；空数组表示不限制访问用户组",
-            "items": {
-              "type": "integer"
-            }
-          },
-          "displayOrder": {
-            "type": "integer",
-            "description": "展示排序值"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "draft",
-              "published",
-              "archived"
-            ],
-            "description": "成果发布状态"
-          }
-        }
-      },
-      "AdminAchievement": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/Achievement"
-          },
-          {
-            "type": "object",
-            "required": [
-              "accessGroups",
-              "canManageAccess",
-              "owner",
-              "createdAt"
-            ],
-            "properties": {
-              "accessGroups": {
-                "type": "array",
-                "description": "允许访问该成果的用户组；成果维护人员和超级管理员始终可见",
-                "items": {
-                  "$ref": "#/components/schemas/AdminDataResourceAccessGroup"
-                }
-              },
-              "canManageAccess": {
-                "type": "boolean",
-                "description": "当前用户是否可修改该成果的可见范围；当前版本由 `catalog.change_achievement` 控制"
-              },
-              "owner": {
-                "$ref": "#/components/schemas/UserReference"
-              },
-              "createdAt": {
-                "type": "string",
-                "format": "date-time",
-                "description": "创建时间"
-              }
-            }
-          }
-        ]
-      },
-      "AdminAchievementListResponse": {
-        "type": "object",
-        "required": [
-          "items",
-          "total",
-          "availableAccessGroups"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
-            "description": "成果管理列表",
-            "items": {
-              "$ref": "#/components/schemas/AdminAchievement"
-            }
-          },
-          "total": {
-            "type": "integer",
-            "description": "符合筛选条件的成果总数"
-          },
-          "availableAccessGroups": {
-            "type": "array",
-            "description": "可用于配置成果访问范围的用户组列表",
-            "items": {
-              "$ref": "#/components/schemas/AdminDataResourceAccessGroup"
-            }
-          }
-        }
-      },
-      "AdminAchievementUpdateRequest": {
-        "type": "object",
-        "required": [
-          "action"
-        ],
-        "properties": {
-          "action": {
-            "type": "string",
-            "enum": [
-              "update",
-              "setStatus",
-              "updateAccess",
-              "delete"
-            ],
-            "description": "操作类型"
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "draft",
-              "published",
-              "archived"
-            ],
-            "description": "setStatus 或 update 时写入的成果发布状态"
-          },
-          "title": {
-            "type": "string",
-            "description": "update 时写入的成果标题"
-          },
-          "summary": {
-            "type": "string",
-            "description": "update 时写入的成果摘要"
-          },
-          "source": {
-            "type": "string",
-            "description": "update 时写入的成果来源"
-          },
-          "displayOrder": {
-            "type": "integer",
-            "description": "update 时写入的展示排序值"
-          },
-          "relatedLayerId": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "update 时写入的关联图层 ID"
-          },
-          "accessGroupIds": {
-            "type": "array",
-            "description": "updateAccess 或 update 时写入的额外可见用户组 ID 列表；后端会强制补齐超级管理员用户组。包含游客用户组时表示未登录用户可通过游客会话访问该成果。",
-            "items": {
-              "type": "integer"
-            }
-          },
-          "confirmationName": {
-            "type": "string",
-            "description": "delete 操作要求传入与成果标题完全一致的确认文本"
-          }
-        }
-      },
       "RasterDataset": {
         "type": "object",
         "required": [
@@ -12801,26 +11831,10 @@
           }
         }
       },
-      "AchievementListResponse": {
-        "type": "object",
-        "required": [
-          "items"
-        ],
-        "properties": {
-          "items": {
-            "type": "array",
-            "description": "已发布成果列表",
-            "items": {
-              "$ref": "#/components/schemas/Achievement"
-            }
-          }
-        }
-      },
       "SearchResponse": {
         "type": "object",
         "required": [
-          "resources",
-          "achievements"
+          "resources"
         ],
         "properties": {
           "resources": {
@@ -12828,13 +11842,6 @@
             "description": "匹配的数据资源",
             "items": {
               "$ref": "#/components/schemas/ResourceListItem"
-            }
-          },
-          "achievements": {
-            "type": "array",
-            "description": "匹配的研究成果",
-            "items": {
-              "$ref": "#/components/schemas/Achievement"
             }
           }
         }

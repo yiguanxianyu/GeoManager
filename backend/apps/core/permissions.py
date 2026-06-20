@@ -171,18 +171,6 @@ FEATURE_PERMISSIONS: tuple[FeaturePermissionDef, ...] = (
         "catalog", "WorkspaceScene", "delete_workspacescene", "删除工程专题", "数据权限"
     ),
     FeaturePermissionDef(
-        "catalog", "Achievement", "add_achievement", "新增成果", "数据权限"
-    ),
-    FeaturePermissionDef(
-        "catalog", "Achievement", "view_achievement", "查看成果", "数据权限"
-    ),
-    FeaturePermissionDef(
-        "catalog", "Achievement", "change_achievement", "编辑成果", "数据权限"
-    ),
-    FeaturePermissionDef(
-        "catalog", "Achievement", "delete_achievement", "删除成果", "数据权限"
-    ),
-    FeaturePermissionDef(
         "raster",
         "RasterDataset",
         "manage_raster_dataset",

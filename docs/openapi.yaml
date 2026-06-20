@@ -40,8 +40,6 @@ tags:
     description: 数据资源管理接口
   - name: 图层
     description: 地图图层接口
-  - name: 成果
-    description: 研究成果接口
   - name: 搜索
     description: 全局搜索接口
   - name: 栅格数据
@@ -433,7 +431,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [data_resource, workspace_scene, achievement]
+            enum: [data_resource, workspace_scene]
           description: 按结构化操作目标类型筛选
         - name: targetId
           in: query
@@ -1183,99 +1181,6 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/admin/achievements/:
-    get:
-      tags: [管理后台]
-      summary: 获取成果管理列表
-      description: 返回研究成果管理列表，支持状态、分类、来源和关键词筛选。需要 `catalog.view_achievement`、`catalog.change_achievement` 或 `catalog.delete_achievement`，接口返回可配置访问用户组。
-      operationId: listAdminAchievements
-      security:
-        - sessionAuth: []
-      parameters:
-        - name: q
-          in: query
-          schema:
-            type: string
-          description: 按成果标题、编号、摘要或来源进行快速检索
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [draft, published, archived]
-          description: 成果发布状态筛选
-        - name: category
-          in: query
-          schema:
-            type: string
-          description: 成果分类编码筛选
-        - name: source
-          in: query
-          schema:
-            type: string
-          description: 成果来源模糊匹配
-        - name: current
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-          description: 当前页码
-        - name: pageSize
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-          description: 每页条数
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AdminAchievementListResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-
-  /api/admin/achievements/{achievementId}/:
-    post:
-      tags: [管理后台]
-      summary: 操作单个成果
-      description: 支持更新成果发布状态、基础信息、访问用户组和删除确认。发布状态、基础信息和访问用户组修改需要 `catalog.change_achievement`；删除需要 `catalog.delete_achievement`。成功操作会写入审计日志。
-      operationId: updateAdminAchievement
-      security:
-        - sessionAuth: []
-      parameters:
-        - name: achievementId
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 成果 ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AdminAchievementUpdateRequest'
-      responses:
-        '200':
-          description: 操作成功
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: '#/components/schemas/AdminAchievement'
-                  - $ref: '#/components/schemas/DetailResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
   /api/catalog/directories/:
     get:
       tags: [数据目录]
@@ -1862,130 +1767,11 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /api/achievements/:
-    get:
-      tags: [成果]
-      summary: 获取成果列表
-      description: 返回当前用户可访问的成果列表。需要 `catalog.view_achievement`；普通查看只返回已发布成果，具备成果新增、编辑或删除权限的管理用户可通过 status 参数筛选草稿、已发布或已下架成果。
-      operationId: getAchievements
-      security:
-        - sessionAuth: []
-      parameters:
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: [draft, published, archived]
-          description: 成果状态筛选；仅具备成果管理权限时可用
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AchievementListResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-    post:
-      tags: [成果]
-      summary: 新增成果
-      description: 新增项目成果。需要 `catalog.add_achievement`，成功操作会写入审计日志。
-      operationId: createAchievement
-      security:
-        - sessionAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AchievementWriteRequest'
-      responses:
-        '201':
-          description: 新增成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Achievement'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-
-  /api/achievements/{achievementId}/:
-    get:
-      tags: [成果]
-      summary: 获取成果详情
-      description: 返回当前用户可访问的单个成果。需要 `catalog.view_achievement`；非管理用户只能读取已发布成果。
-      operationId: getAchievement
-      security:
-        - sessionAuth: []
-      parameters:
-        - name: achievementId
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 成果 ID
-      responses:
-        '200':
-          description: 成功
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Achievement'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    post:
-      tags: [成果]
-      summary: 更新或删除成果
-      description: 更新成果字段需要 `catalog.change_achievement`；提交 `{"action":"delete"}` 删除成果需要 `catalog.delete_achievement`。成功操作会写入审计日志。
-      operationId: updateAchievement
-      security:
-        - sessionAuth: []
-      parameters:
-        - name: achievementId
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: 成果 ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/AchievementWriteRequest'
-      responses:
-        '200':
-          description: 操作成功
-          content:
-            application/json:
-              schema:
-                oneOf:
-                  - $ref: '#/components/schemas/Achievement'
-                  - $ref: '#/components/schemas/DetailResponse'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
   /api/search/:
     get:
       tags: [搜索]
       summary: 全局搜索
-      description: 同时搜索数据资源和研究成果。`q` 为空时返回空结果。
+      description: 搜索数据资源。`q` 为空时返回空结果。
       operationId: search
       security:
         - sessionAuth: []
@@ -2424,7 +2210,7 @@ components:
         summary:
           type: string
           description: 平台一句话概述，需高度概括平台数据集成、可视化、查询分析与共享服务能力。
-          example: 平台集成遥感影像、空间矢量、野外样方、长期监测与保护成果数据，提供统一编目、三维地理可视化、综合查询分析和共享服务。
+          example: 平台集成遥感影像、空间矢量、野外样方、长期监测与生态专题数据，提供统一编目、三维地理可视化、综合查询分析和共享服务。
         capabilityTags:
           type: array
           minItems: 1
@@ -2432,7 +2218,7 @@ components:
           items:
             type: string
             description: 单个能力标签文案。
-          example: [遥感影像, 矢量边界, 野外样方, 长期监测, 成果共享]
+          example: [遥感影像, 矢量边界, 野外样方, 长期监测, 生态专题]
 
     LoginOverviewMetric:
       type: object
@@ -2794,10 +2580,6 @@ components:
         - canCreateWorkspaces
         - canChangeWorkspaces
         - canDeleteWorkspaces
-        - canViewAchievements
-        - canCreateAchievements
-        - canChangeAchievements
-        - canDeleteAchievements
         - canManageRasterData
       properties:
         canAccessAdmin:
@@ -2896,18 +2678,6 @@ components:
         canDeleteWorkspaces:
           type: boolean
           description: 是否可删除工程和专题，对应 `catalog.delete_workspacescene`
-        canViewAchievements:
-          type: boolean
-          description: 是否可查看成果，对应 `catalog.view_achievement`
-        canCreateAchievements:
-          type: boolean
-          description: 是否可新增成果，对应 `catalog.add_achievement`
-        canChangeAchievements:
-          type: boolean
-          description: 是否可编辑成果，对应 `catalog.change_achievement`
-        canDeleteAchievements:
-          type: boolean
-          description: 是否可删除成果，对应 `catalog.delete_achievement`
         canManageRasterData:
           type: boolean
           description: 是否可管理栅格数据集
@@ -3058,7 +2828,7 @@ components:
           description: 操作结果
         targetType:
           type: string
-          description: 结构化操作目标类型；数据资源为 data_resource，工程/专题为 workspace_scene，成果为 achievement；无明确单一目标时为空字符串
+          description: 结构化操作目标类型；数据资源为 data_resource，工程/专题为 workspace_scene；无明确单一目标时为空字符串
         targetId:
           type:
             - integer
@@ -3066,7 +2836,7 @@ components:
           description: 操作目标的后台数据库 ID；删除后仍保留删除前 ID，无明确单一目标时为 null
         targetCode:
           type: string
-          description: 操作目标编码；数据资源和成果为 code，工程/专题为 kind，无编码时为空字符串
+          description: 操作目标编码；数据资源为 code，工程/专题为 kind，无编码时为空字符串
         targetName:
           type: string
           description: 操作目标名称；删除后仍保留删除前名称，无明确单一目标时为空字符串
@@ -4436,174 +4206,6 @@ components:
           format: date-time
           description: 最后更新时间
 
-    Achievement:
-      type: object
-      required:
-        - id
-        - title
-        - code
-        - category
-        - summary
-        - source
-        - relatedLayerId
-        - displayOrder
-        - status
-        - updatedAt
-      properties:
-        id:
-          type: integer
-          description: 成果 ID
-        title:
-          type: string
-          description: 成果标题
-        code:
-          type: string
-          description: 成果编码
-        category:
-          oneOf:
-            - $ref: '#/components/schemas/DictionaryItem'
-            - type: "null"
-          description: 成果分类，未分类时为 null
-        summary:
-          type: string
-          description: 成果摘要
-        source:
-          type: string
-          description: 成果来源
-        relatedLayerId:
-          type: [integer, "null"]
-          description: 关联图层 ID
-        displayOrder:
-          type: integer
-          description: 展示排序值
-        status:
-          type: string
-          enum: [draft, published, archived]
-          description: 成果发布状态
-        updatedAt:
-          type: string
-          format: date-time
-          description: 最后更新时间
-
-    AchievementWriteRequest:
-      type: object
-      properties:
-        action:
-          type: string
-          enum: [delete]
-          description: 操作类型；提交 delete 时删除成果，其余情况下按字段更新或创建成果
-        title:
-          type: string
-          description: 成果标题；新增时必填
-        code:
-          type: string
-          description: 成果编码；新增时必填且唯一
-        categoryId:
-          type: [integer, "null"]
-          description: 成果分类 ID；为空表示不分类
-        summary:
-          type: string
-          description: 成果摘要或说明
-        source:
-          type: string
-          description: 成果来源
-        imagePath:
-          type: string
-          description: 成果图片相对路径
-        attachmentPath:
-          type: string
-          description: 成果附件相对路径
-        relatedLayerId:
-          type: [integer, "null"]
-          description: 关联图层 ID；为空表示不关联图层
-        accessGroupIds:
-          type: array
-          description: 可访问成果的用户组 ID；空数组表示不限制访问用户组
-          items:
-            type: integer
-        displayOrder:
-          type: integer
-          description: 展示排序值
-        status:
-          type: string
-          enum: [draft, published, archived]
-          description: 成果发布状态
-
-    AdminAchievement:
-      allOf:
-        - $ref: '#/components/schemas/Achievement'
-        - type: object
-          required: [accessGroups, canManageAccess, owner, createdAt]
-          properties:
-            accessGroups:
-              type: array
-              description: 允许访问该成果的用户组；成果维护人员和超级管理员始终可见
-              items:
-                $ref: '#/components/schemas/AdminDataResourceAccessGroup'
-            canManageAccess:
-              type: boolean
-              description: 当前用户是否可修改该成果的可见范围；当前版本由 `catalog.change_achievement` 控制
-            owner:
-              $ref: '#/components/schemas/UserReference'
-            createdAt:
-              type: string
-              format: date-time
-              description: 创建时间
-
-    AdminAchievementListResponse:
-      type: object
-      required: [items, total, availableAccessGroups]
-      properties:
-        items:
-          type: array
-          description: 成果管理列表
-          items:
-            $ref: '#/components/schemas/AdminAchievement'
-        total:
-          type: integer
-          description: 符合筛选条件的成果总数
-        availableAccessGroups:
-          type: array
-          description: 可用于配置成果访问范围的用户组列表
-          items:
-            $ref: '#/components/schemas/AdminDataResourceAccessGroup'
-
-    AdminAchievementUpdateRequest:
-      type: object
-      required: [action]
-      properties:
-        action:
-          type: string
-          enum: [update, setStatus, updateAccess, delete]
-          description: 操作类型
-        status:
-          type: string
-          enum: [draft, published, archived]
-          description: setStatus 或 update 时写入的成果发布状态
-        title:
-          type: string
-          description: update 时写入的成果标题
-        summary:
-          type: string
-          description: update 时写入的成果摘要
-        source:
-          type: string
-          description: update 时写入的成果来源
-        displayOrder:
-          type: integer
-          description: update 时写入的展示排序值
-        relatedLayerId:
-          type: [integer, "null"]
-          description: update 时写入的关联图层 ID
-        accessGroupIds:
-          type: array
-          description: updateAccess 或 update 时写入的额外可见用户组 ID 列表；后端会强制补齐超级管理员用户组。包含游客用户组时表示未登录用户可通过游客会话访问该成果。
-          items:
-            type: integer
-        confirmationName:
-          type: string
-          description: delete 操作要求传入与成果标题完全一致的确认文本
-
     RasterDataset:
       type: object
       required:
@@ -5351,30 +4953,15 @@ components:
               - $ref: '#/components/schemas/VectorLayerResource'
               - $ref: '#/components/schemas/MapLayer'
 
-    AchievementListResponse:
-      type: object
-      required: [items]
-      properties:
-        items:
-          type: array
-          description: 已发布成果列表
-          items:
-            $ref: '#/components/schemas/Achievement'
-
     SearchResponse:
       type: object
-      required: [resources, achievements]
+      required: [resources]
       properties:
         resources:
           type: array
           description: 匹配的数据资源
           items:
             $ref: '#/components/schemas/ResourceListItem'
-        achievements:
-          type: array
-          description: 匹配的研究成果
-          items:
-            $ref: '#/components/schemas/Achievement'
 
     RasterDatasetListResponse:
       type: object

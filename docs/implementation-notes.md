@@ -19,12 +19,12 @@ backend/apps/
 │   ├── auth_views.py   # 登录/登出/当前用户（基于 Django auth）
 │   └── views.py        # bootstrap 端点
 ├── catalog/        # 数据目录、资源、图层、查询
-│   ├── models.py       # DataResource, MapLayer, DataCatalog, Achievement, DictionaryItem
+│   ├── models.py       # DataResource, MapLayer, DataCatalog, WorkspaceScene, DictionaryItem
 │   ├── serializers.py  # 模型 → JSON
 │   ├── permissions.py  # access_groups 基于 Django Group 的访问控制
 │   ├── vector_store.py # GeoPackage 矢量列表、profile、查询、字段元数据和要素读取
 │   ├── data_query.py   # 资源 profile/query 兼容门面，栅格 profile 桥接到 raster.profile
-│   └── views.py        # 目录、资源、图层、成果、搜索 HTTP API
+│   └── views.py        # 目录、资源、图层、工程专题、搜索 HTTP API
 ├── raster/         # 栅格数据全生命周期
 │   ├── models.py       # RasterDataset
 │   ├── permissions.py  # can_manage_raster_data
@@ -85,16 +85,16 @@ backend/apps/
 - 平台功能权限统一基于 Django `Permission + Group`，不引入独立角色表。用户通过所属用户组获得功能权限。
 - `apps.core.permissions.FEATURE_PERMISSIONS` 是统一注册表；后台用户组配置页只同步注册表内权限，保留用户组已有其他模型权限。
 - 功能权限元数据按 `后台权限`、`数据权限`、`人员权限` 三类返回，前端认证授权页按该分组展示和维护。
-- 迁移后初始化会先按注册表统一创建或更新 Django `Permission` 记录，再同步 `超级管理员` 用户组并补齐全部功能权限，同时创建 `普通用户` 用户组并授予浏览数据、查询数据、新增数据资源、工程/专题增删查改、成果查看、加载矢量图层和加载栅格图层权限；历史 `游客` 用户组会自动改名为 `普通用户`。
+- 迁移后初始化会先按注册表统一创建或更新 Django `Permission` 记录，再同步 `超级管理员` 用户组并补齐全部功能权限，同时创建 `普通用户` 用户组并授予浏览数据、查询数据、新增数据资源、工程/专题增删查改、加载矢量图层和加载栅格图层权限；历史 `游客` 用户组会自动改名为 `普通用户`。
 - 管理员新建普通用户和修改普通用户组归属时必须保留至少一个用户组；自助注册用户默认加入 `普通用户` 用户组。
 - 数据资源和图层的 `access_groups` 继续控制“能看见哪些对象”；功能权限控制“能对可见对象做什么”。
 - 首批平台功能权限包括：功能权限配置、数据浏览、数据查询、矢量加载、栅格加载、自定义符号化等后台内部功能权限。
-- 数据、工程/专题和成果的增删查改均使用 Django 模型 CRUD 权限并纳入同一用户组配置入口：`catalog.add/view/change/delete_dataresource`、`catalog.add/view/change/delete_workspacescene`、`catalog.add/view/change/delete_achievement`。`catalog.add_dataresource` 控制后台导入，`catalog.change_dataresource` 控制存量数据启停、默认可视化和访问范围配置，`catalog.delete_dataresource` 控制删除确认。历史 `core.upload_data` 和 `catalog.maintain_dataresource` 不再作为 CRUD 接口放行条件。
+- 数据和工程/专题的增删查改均使用 Django 模型 CRUD 权限并纳入同一用户组配置入口：`catalog.add/view/change/delete_dataresource`、`catalog.add/view/change/delete_workspacescene`。`catalog.add_dataresource` 控制后台导入，`catalog.change_dataresource` 控制存量数据启停、默认可视化和访问范围配置，`catalog.delete_dataresource` 控制删除确认。历史 `core.upload_data` 和 `catalog.maintain_dataresource` 不再作为 CRUD 接口放行条件。
 - `core.view_data_overview` 独立控制 Dashboard 总数据情况卡片；卡片包含资源总数、启用资源数、数据大小、条目数和类型聚合，超级管理员额外看到按 `DataResource.maintainer` 聚合的上传用户统计。
 - 前后端无权限提示统一为 `当前用户组“xxxx”无权限`；无用户组时显示 `未分组`。
 - `core.load_raster_layer` 控制按默认规则加载栅格和访问 XYZ；`core.custom_symbolization` 只控制用户打开符号化编辑器并提交自定义规则。
 - 栅格渲染 API 使用 `rulesMode` 区分默认/自定义：默认加载不传 `rules` 或传 `rulesMode: "default"`；自定义符号化传 `rulesMode: "custom"` 和 `rules`。
-- 游客访问使用专用系统账号 `guest` 和独立 `游客` 用户组实现，不再复用 `普通用户` 组。`普通用户` 继续用于自助注册和后台创建的常规账号，默认保留新增数据资源、工程/专题增删查改和成果查看权限；`游客` 默认只授予浏览、查询、成果查看、矢量加载和栅格加载权限。`guest` 账号密码不可用，只能通过 `/api/auth/guest-login/` 建立会话，并在后台管理中禁止删除、停用、重置密码、改组或单独授予直授权限。
+- 游客访问使用专用系统账号 `guest` 和独立 `游客` 用户组实现，不再复用 `普通用户` 组。`普通用户` 继续用于自助注册和后台创建的常规账号，默认保留新增数据资源、工程/专题增删查改权限；`游客` 默认只授予浏览、查询、矢量加载和栅格加载权限。`guest` 账号密码不可用，只能通过 `/api/auth/guest-login/` 建立会话，并在后台管理中禁止删除、停用、重置密码、改组或单独授予直授权限。
 
 ## 前端模块结构
 
@@ -185,7 +185,7 @@ frontend/src/
 - 属性查询基于后端读取到的字段列表构建过滤条件，后端在 GeoPackage 读取结果上执行过滤。
 - 后端资源能力边界：只有带 `storage_path` 的矢量 GeoPackage 资源可查询；元数据资源只可浏览和筛选。
 - 数据管理 `/resources/data/inventory` 是存量数据管理入口，使用 `/api/admin/data/resources/` 查询启用和禁用资源；常规业务目录 `/api/catalog/resources/`、搜索和资源 profile/query 仍只处理 `status=active` 的数据资源。
-- 工程、专题和成果管理归入数据管理区，前端入口为 `/resources/manage/projects`、`/resources/manage/topics` 和 `/resources/manage/achievements`。三者与存量数据管理复用同一管理组件结构：列表筛选、状态控制、信息抽屉、访问用户组配置和删除确认；后端契约分别为 `/api/admin/workspaces/` 与 `/api/admin/achievements/`。
+- 工程和专题管理归入数据管理区，前端入口为 `/resources/manage/projects` 和 `/resources/manage/topics`。二者与存量数据管理复用同一管理组件结构：列表筛选、状态控制、信息抽屉、访问用户组配置和删除确认；后端契约为 `/api/admin/workspaces/`。
 - `DataResource.maintainer` 同时作为上传用户和维护人员的来源；后台数据资源接口暴露结构化 `uploader`。`DataResource.size_bytes` 和 `DataResource.item_count` 记录数据大小与条目数：Excel/CSV 导入使用上传文件大小和导入行数，栅格资源使用源文件与预处理文件大小，扫描到的非地理文件使用文件大小。
 - Excel/CSV 导入的后台存储标识与前端显示名分离。预检每次生成不同的 `suggestedTableName`，提交时如已有资源或真实存储已占用同一 GeoPackage 图层名或 SQLite 表名，后端会再次改写为唯一值；每次提交都创建新的 `DataResource` 记录，不按后台存储标识更新旧资源。重复检测按前端显示名 `DataResource.name` 执行：预检使用 `suggestedName`，校验和提交使用 payload 的 `name`；同名显示数据提交必须由后端阻断，除非用户已在校验阶段确认重复名称并提交 `duplicateConfirmed=true`。确认后也只会新建资源，不覆盖旧数据。
 - `DataResource.default_visualization` 保存默认可视化方案 JSON；空间资源保存方案时会创建或更新关联 `MapLayer`，同步默认图层名称、默认显隐、既有默认透明度、矢量符号化和栅格规则。前端存量数据配置不再提供单独默认透明度控件；栅格色带和 PNG/XYZ 生成仍由后端栅格服务处理。
@@ -487,7 +487,7 @@ CREATE TABLE gpkg_data_columns (
 
 - 地图工具栏的“复位”按钮统一定义为定位到项目范围，使用项目范围边界 `[50, 35]` 至 `[100, 48]` 执行 `fitBounds`；原独立“定位到项目范围”按钮移除。
 - 鼠标经纬度状态显示并入地图工具栏左侧，不再作为单独悬浮状态块。
-- 顶部全局搜索不再提供独立搜索按钮。输入框聚焦后立即展开搜索面板，按“数据、工程/专题、成果”展示当前可用内容，分类标签放在面板底部；数据条目提供快速加载入口。
+- 顶部全局搜索不再提供独立搜索按钮。输入框聚焦后立即展开搜索面板，按“数据、工程/专题”展示当前可用内容，分类标签放在面板底部；数据条目提供快速加载入口。
 - 登录前界面和后台 Dashboard 卡片使用 Ant Design `BorderBeam` 组件，颜色采用 Ocean 渐变停靠点 `#1677ff 0%`、`#36cfc9 52%`、`#95de64 100%`。
 
 ## 代码结构与内置配置
@@ -500,6 +500,6 @@ CREATE TABLE gpkg_data_columns (
 
 ## 审计目标定位
 
-- `OperationLog` 除自由文本 `message` 外，使用 `target_type`、`target_id`、`target_code`、`target_name` 记录结构化操作目标。数据资源写 `data_resource + DataResource.id/code/name`，工程/专题写 `workspace_scene + WorkspaceScene.id/kind/name`，成果写 `achievement + Achievement.id/code/title`。
+- `OperationLog` 除自由文本 `message` 外，使用 `target_type`、`target_id`、`target_code`、`target_name` 记录结构化操作目标。数据资源写 `data_resource + DataResource.id/code/name`，工程/专题写 `workspace_scene + WorkspaceScene.id/kind/name`。
 - 删除操作必须在删除数据库对象前缓存目标 ID、编码和名称，并写入结构化目标字段；不能只依赖名称文本追溯。
 - 后台数据资源维护按操作类型授权：`update`、`setStatus`、`saveVisualization` 必须具备 `catalog.change_dataresource`；`updateAccess` 允许资源维护人或具备 `catalog.change_dataresource` 的用户执行；空更新不写成功日志。

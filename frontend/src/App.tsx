@@ -10,7 +10,6 @@ import {
 import { AppContext } from "./contexts/AppContext";
 import {
   RedirectIfAuth,
-  RequireAchievementInventory,
   RequireAuth,
   RequireDataInventory,
   RequireDataUpload,
@@ -22,9 +21,6 @@ import {
 import type { Bootstrap, User } from "./types";
 
 const AdminAuthPage = lazy(() => import("./admin/AdminAuthPage"));
-const AdminAchievementManagementPage = lazy(
-  () => import("./admin/AdminAchievementManagementPage"),
-);
 const AdminDashboardPage = lazy(() => import("./admin/AdminDashboardPage"));
 const AdminDataImportPage = lazy(() => import("./admin/AdminDataImportPage"));
 const AdminDataInventoryPage = lazy(
@@ -195,12 +191,6 @@ export default function App() {
                 <Route
                   path="manage/topics"
                   element={<AdminWorkspaceManagementPage kind="topic" />}
-                />
-              </Route>
-              <Route element={<RequireAchievementInventory />}>
-                <Route
-                  path="manage/achievements"
-                  element={<AdminAchievementManagementPage />}
                 />
               </Route>
               <Route element={<RequireDataUpload />}>

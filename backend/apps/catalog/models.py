@@ -7,7 +7,6 @@ class DictionaryItem(models.Model):
     class DictType(models.TextChoices):
         DATA_CATEGORY = "data_category", "数据分类"
         LAYER_CATEGORY = "layer_category", "图层分类"
-        ACHIEVEMENT_CATEGORY = "achievement_category", "成果分类"
         DATA_SOURCE = "data_source", "数据来源"
         REGION = "region", "空间范围"
         PUBLIC_SCOPE = "public_scope", "公开范围"
@@ -267,54 +266,3 @@ class MapLayer(models.Model):
 
     def __str__(self) -> str:
         return self.name
-
-
-class Achievement(models.Model):
-    class Status(models.TextChoices):
-        DRAFT = "draft", "草稿"
-        PUBLISHED = "published", "已发布"
-        ARCHIVED = "archived", "已下架"
-
-    title = models.CharField(max_length=180, verbose_name="成果标题")
-    code = models.SlugField(max_length=80, unique=True, verbose_name="成果编码")
-    category = models.ForeignKey(
-        DictionaryItem,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="achievements",
-        verbose_name="成果分类",
-    )
-    summary = models.TextField(blank=True, verbose_name="成果说明")
-    source = models.CharField(max_length=160, blank=True, verbose_name="成果来源")
-    image_path = models.CharField(
-        max_length=255, blank=True, verbose_name="图片相对路径"
-    )
-    attachment_path = models.CharField(
-        max_length=255, blank=True, verbose_name="附件相对路径"
-    )
-    related_layer = models.ForeignKey(
-        MapLayer,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="achievements",
-        verbose_name="关联图层",
-    )
-    access_groups = models.ManyToManyField(
-        Group, blank=True, related_name="achievements", verbose_name="访问角色"
-    )
-    display_order = models.PositiveIntegerField(default=100, verbose_name="展示排序")
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.DRAFT, verbose_name="状态"
-    )
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-
-    class Meta:
-        verbose_name = "项目成果"
-        verbose_name_plural = "项目成果"
-        ordering = ("display_order", "-updated_at")
-
-    def __str__(self) -> str:
-        return self.title
