@@ -60,7 +60,7 @@ interface WorkspaceHeaderProps {
   workspaceScenes?: WorkspaceScene[];
   searchKeyword?: string;
   onGlobalSearch?: (keyword: string) => void;
-  onQuickLoadResource?: (resource: ResourceListItem) => void;
+  onQuickLoadResource?: (resource: ResourceListItem) => Promise<void> | void;
   onLoadWorkspaceScene?: (scene: WorkspaceScene) => void;
   onSearchFocus?: () => void;
 }
@@ -81,6 +81,9 @@ export default function WorkspaceHeader({
   const navigate = useNavigate();
   const [searchText, setSearchText] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [quickLoadingResourceId, setQuickLoadingResourceId] = useState<
+    ResourceListItem["id"] | null
+  >(null);
   const [localResources, setLocalResources] = useState<ResourceListItem[]>([]);
   const [localWorkspaceScenes, setLocalWorkspaceScenes] = useState<
     WorkspaceScene[]
@@ -438,10 +441,17 @@ export default function WorkspaceHeader({
     closeSearchPanel();
   }
 
-  function quickLoadResource(resource: ResourceListItem) {
+  async function quickLoadResource(resource: ResourceListItem) {
     if (onQuickLoadResource) {
-      onQuickLoadResource(resource);
-      closeSearchPanel();
+      setQuickLoadingResourceId(resource.id);
+      try {
+        await onQuickLoadResource(resource);
+        closeSearchPanel();
+      } finally {
+        setQuickLoadingResourceId((current) =>
+          current === resource.id ? null : current,
+        );
+      }
       return;
     }
     navigate(`/map?resourceQ=${encodeURIComponent(resource.name)}`);
@@ -782,7 +792,8 @@ export default function WorkspaceHeader({
               type="primary"
               ghost
               disabled={!resource.isQueryable && !resource.isRenderable}
-              onClick={() => quickLoadResource(resource)}
+              loading={quickLoadingResourceId === resource.id}
+              onClick={() => void quickLoadResource(resource)}
             >
               快速加载
             </Button>

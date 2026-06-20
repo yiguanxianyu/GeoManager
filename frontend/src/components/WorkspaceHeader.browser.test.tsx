@@ -202,7 +202,7 @@ describe("WorkspaceHeader", () => {
     expect(onQuickLoadResource).not.toHaveBeenCalled();
 
     fireEvent.click(
-      within(projectSection).getByRole("button", { name: "加载" }),
+      within(projectSection).getByRole("button", { name: /加\s*载/ }),
     );
     expect(onLoadWorkspaceScene).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, kind: "project" }),

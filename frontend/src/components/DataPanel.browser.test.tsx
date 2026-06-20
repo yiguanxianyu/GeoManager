@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { App as AntApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { useState } from "react";
@@ -233,6 +233,40 @@ describe("DataPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "快速加载" }));
 
     expect(onQuickLoadResource).toHaveBeenCalledWith(vectorResource);
+  });
+
+  it("spins the clicked quick load button while loading", async () => {
+    let resolveQuickLoad: () => void = () => undefined;
+    const onQuickLoadResource = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveQuickLoad = resolve;
+        }),
+    );
+
+    renderWithAntd(
+      <DataPanel
+        resources={[vectorResource]}
+        profile={null}
+        selectedResourceId={null}
+        queryResult={null}
+        loadingProfile={false}
+        querying={false}
+        permissions={permissions}
+        onFilterResources={vi.fn()}
+        onSelectResource={vi.fn()}
+        onQuickLoadResource={onQuickLoadResource}
+        onQueryAndLoad={vi.fn()}
+        onLoadRaster={vi.fn()}
+      />,
+    );
+
+    const button = screen.getByRole("button", { name: "快速加载" });
+    fireEvent.click(button);
+
+    await waitFor(() => expect(button).toHaveClass("ant-btn-loading"));
+    resolveQuickLoad();
+    await waitFor(() => expect(button).not.toHaveClass("ant-btn-loading"));
   });
 
   it("hides vector query execution when the user lacks query permissions", () => {

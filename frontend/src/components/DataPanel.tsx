@@ -43,7 +43,7 @@ interface Props {
   searchKeyword?: string;
   onFilterResources: (filters: ResourceFilters) => void;
   onSelectResource: (resource: ResourceListItem) => void;
-  onQuickLoadResource: (resource: ResourceListItem) => void;
+  onQuickLoadResource: (resource: ResourceListItem) => Promise<void> | void;
   onQueryAndLoad: (filters: AttributeFilter[]) => void;
   onLoadRaster: () => void;
 }
@@ -82,6 +82,9 @@ export default function DataPanel({
     useState<AttributeFilter["operator"]>("contains");
   const [value, setValue] = useState("");
   const [valueTo, setValueTo] = useState("");
+  const [quickLoadingResourceId, setQuickLoadingResourceId] = useState<
+    ResourceListItem["id"] | null
+  >(null);
 
   const categoryOptions = useMemo(() => {
     const categories = new Map<string, string>();
@@ -139,6 +142,17 @@ export default function DataPanel({
 
   function removeAttributeFilter(id: string) {
     setAttributeFilters((current) => current.filter((item) => item.id !== id));
+  }
+
+  async function quickLoadResource(resource: ResourceListItem) {
+    setQuickLoadingResourceId(resource.id);
+    try {
+      await onQuickLoadResource(resource);
+    } finally {
+      setQuickLoadingResourceId((current) =>
+        current === resource.id ? null : current,
+      );
+    }
   }
 
   return (
@@ -252,7 +266,8 @@ export default function DataPanel({
                 ghost
                 className="resource-quick-load-button"
                 disabled={!resource.isQueryable && !resource.isRenderable}
-                onClick={() => onQuickLoadResource(resource)}
+                loading={quickLoadingResourceId === resource.id}
+                onClick={() => void quickLoadResource(resource)}
               >
                 快速加载
               </Button>
