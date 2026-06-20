@@ -80,12 +80,14 @@ pnpm run dev:with-mock
 - `backend/tests/integration/` 使用 Django test client 覆盖认证、权限、目录、图层、导入、导出、栅格和后台管理 API。
 - 需要文件、GeoPackage、SQLite 或上传样本时，测试必须使用临时目录或测试内创建的小样本，不依赖真实业务或科研数据目录。
 - 超级管理员隔离回归测试覆盖用户列表、角色列表、日志查询、日志角色范围、上传人脱敏和访问角色过滤；新增权限隔离问题时优先在 `backend/tests/integration/core/test_api.py` 或对应应用集成测试中补充后端断言，确保敏感主体不从 API 返回。
+- 权限安全回归需要覆盖组合入口，而不是只测单个接口。`FeaturePermissionTests::test_regular_admin_security_surfaces_do_not_serialize_superadmin_principals` 以非超级管理员身份连续读取用户、角色、操作日志和 Dashboard，断言响应集合中没有超级管理员账号、角色、Django superuser 或其日志摘要。
 
 前端测试使用 Vitest、Testing Library 和 happy-dom：
 
 - 工具函数、API 客户端、Mapbox 样式辅助函数和 hooks 走单元测试。
 - 关键登录、路由和权限门禁流程通过挂载完整 React 应用并 mock 后端 API 覆盖。
 - 后台认证授权和存量数据管理的权限隔离流程使用 `pnpm run test:browser -- src/admin/AdminRoutes.browser.test.tsx` 覆盖真实浏览器渲染，确认 API 已脱敏的超级管理员主体不会出现在 UI、抽屉或选择控件中。
+- 长程用户体验回归使用 `pnpm run test:browser -- src/App.browser.test.tsx -t "long research user journey"`，从普通科研用户视角覆盖进入地图、选择资源、查询加载图层、查看图层范围开关、进入后台日志，并确认认证授权、系统设置、系统日志和超级管理员主体均不可见。
 - 真实地图交互或 WebGL 行为需要独立引入 Playwright 等浏览器 E2E，不混入稳定 CI 测试。
 
 提交前至少运行：
