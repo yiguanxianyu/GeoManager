@@ -47,6 +47,7 @@
   --c-data-text: #315953;
   --c-data-muted: #5f7974;
   --c-data-border-rgb: 52 128 116;
+  --workspace-header-screen-edge: 8px;
 
   color: var(--c-text);
   background: var(--c-bg-page);
@@ -974,7 +975,7 @@ body:has(.login-shell),
 }
 
 .admin-workspace-shell {
-  --workspace-screen-edge: 14px;
+  --workspace-screen-edge: var(--workspace-header-screen-edge);
   min-height: 100vh;
   min-width: 1200px;
   position: relative;
@@ -3057,7 +3058,7 @@ body:has(.login-shell),
 }
 
 .workspace {
-  --workspace-screen-edge: 8px;
+  --workspace-screen-edge: var(--workspace-header-screen-edge);
   position: fixed;
   inset: 0;
   width: 100vw;
