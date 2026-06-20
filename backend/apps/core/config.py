@@ -82,6 +82,10 @@ class ProjectConfig:
         return self.research_data_root.joinpath(*parts)
 
 
+def metadata_database_path(config: ProjectConfig) -> Path:
+    return config.app_path("database", "meta.db")
+
+
 def persist_config_argument(argv: list[str], program_root: Path) -> Path | None:
     config_path: str | None = None
     index = 1

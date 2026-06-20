@@ -9,6 +9,7 @@ from apps.core.config import (
     APP_SUBDIRS,
     RESEARCH_SUBDIRS,
     load_project_config,
+    metadata_database_path,
     update_runtime_application_config,
 )
 from apps.core.initialization import (
@@ -1681,6 +1682,30 @@ class StoragePathTests(SimpleTestCase):
 
 
 class ConfigLoaderTests(TestCase):
+    def test_django_metadata_database_stays_under_app_data_database(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "app.toml"
+            business_root = root / "app"
+            research_root = root / "research"
+            config_path.write_text(
+                _minimal_config_text(business_root, research_root),
+                encoding="utf-8",
+            )
+
+            config = load_project_config(config_path, program_root=Path("/opt/app"))
+
+            self.assertEqual(
+                metadata_database_path(config),
+                config.app_path("database", "meta.db"),
+            )
+            self.assertTrue(
+                metadata_database_path(config).is_relative_to(business_root.resolve())
+            )
+            self.assertFalse(
+                metadata_database_path(config).is_relative_to(research_root.resolve())
+            )
+
     def test_loader_creates_fixed_data_subdirectories(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -1796,6 +1821,41 @@ symbolizer_timeout_seconds = 120
                 list(updated_document["application"]["map"]["default_center"]),
                 [82.0, 42.0],
             )
+
+
+def _minimal_config_text(business_root: Path, research_root: Path) -> str:
+    return f"""
+[runtime]
+debug = true
+allowed_hosts = ["*"]
+csrf_trusted_origins = []
+waitress_host = "127.0.0.1"
+waitress_port = 8000
+waitress_threads = 1
+disable_catalog_startup_scan = true
+disable_raster_startup_scan = true
+
+[application.system]
+name = "测试系统"
+allow_registration = true
+
+[application.storage]
+app_data = "{business_root}"
+research_data_root = "{research_root}"
+
+[application.map]
+default_center = [80.0, 41.5]
+default_zoom = 4.5
+default_basemap = "osm"
+mapbox_access_token = ""
+
+[application.limits]
+upload_max_mb = 512
+query_result_limit = 30000
+
+[application.raster]
+symbolizer_timeout_seconds = 120
+"""
 
 
 def grant(user, *specs):

@@ -498,7 +498,7 @@ CREATE TABLE gpkg_data_columns (
 ## 代码结构与内置配置
 
 - 项目结构维护说明见 `docs/project-structure.md`；移动前端或后端模块时必须同步更新该文档。
-- Django 运行元数据库使用研究数据根目录下的 `meta.db`，路径为 `settings.PROJECT_CONFIG.research_path("meta.db")`。这保证数据、工程和专题等元信息随研究数据根迁移；由于这些模型与 Django auth、权限和审计关系共用同一关系数据库，当前实现保持一个 SQLite 元数据库来维护外键和多对多关系完整性。
+- Django 运行元数据库使用业务数据根目录下的 `database/meta.db`，路径为 `settings.PROJECT_CONFIG.app_path("database", "meta.db")`。研究数据根只保存矢量、栅格、基因和表格等研究数据文件，不再混放 Django auth、权限、审计、目录登记、工程和专题等应用元信息。
 - 后端内置账号和内置用户组配置集中在 `backend/apps/core/configuration/builtins.py`，包括 `超级管理员`、`普通用户`、`游客`、`guest`、初始管理员环境变量名、初始密码文件名和默认权限集合。
 - 业务逻辑不得直接散落维护内置账号/用户组字符串；需要判断内置组或内置账号时，通过 `apps.core.initialization` 暴露的 helper 和常量引用配置。
 - `超级管理员`、`普通用户`、`游客` 都属于系统内置受保护用户组，不能删除或重命名。`超级管理员` 权限由系统强制补齐；`普通用户` 和 `游客` 的默认权限只在用户组首次创建时应用，后续后台调整应被保留。

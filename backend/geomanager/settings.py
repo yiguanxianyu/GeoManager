@@ -3,6 +3,7 @@ from pathlib import Path
 from apps.core.config import (
     ConfigValidationError,
     load_project_config,
+    metadata_database_path,
     resolve_config_path,
 )
 from django.core.exceptions import ImproperlyConfigured
@@ -101,7 +102,7 @@ WSGI_APPLICATION = "geomanager.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": PROJECT_CONFIG.research_path("meta.db"),
+        "NAME": metadata_database_path(PROJECT_CONFIG),
     }
 }
 
