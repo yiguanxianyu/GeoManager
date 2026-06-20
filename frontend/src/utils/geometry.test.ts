@@ -7,6 +7,7 @@ import {
   combinedFeatureBounds,
   delay,
   ellipseGeometry,
+  extractLayerToStandalone,
   extractCoordinates,
   geometryFromBoundsText,
   geometryFromPoints,
@@ -232,6 +233,30 @@ describe("moveLayerBetweenGroups", () => {
     ).toEqual([[], ["layer-1"], ["layer-2"]]);
     expect(result[0].id).toBe("manual");
     expect(result[0].isManual).toBe(true);
+    expect(result[1].id).toMatch(/^ungrouped-layer-1-/);
+    expect(result[2].id).toBe("target");
+  });
+});
+
+describe("extractLayerToStandalone", () => {
+  it("moves a grouped layer before a target top-level item", () => {
+    const groups = [
+      { ...testGroup("manual", [testLayer("layer-1")]), isManual: true },
+      testGroup("target", [testLayer("layer-2")]),
+    ];
+
+    const result = extractLayerToStandalone(
+      groups,
+      "manual",
+      "layer-1",
+      "target",
+      "before",
+    );
+
+    expect(
+      result.map((group) => group.children.map((layer) => layer.id)),
+    ).toEqual([[], ["layer-1"], ["layer-2"]]);
+    expect(result[0].id).toBe("manual");
     expect(result[1].id).toMatch(/^ungrouped-layer-1-/);
     expect(result[2].id).toBe("target");
   });

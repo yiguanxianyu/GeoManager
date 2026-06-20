@@ -701,6 +701,7 @@ export default function MapPage() {
     removeLayer: layerGroups.removeLayer,
     reorderGroups: layerGroups.reorderGroups,
     moveLayer: layerGroups.moveLayer,
+    extractLayer: layerGroups.extractLayer,
     startRasterRender: (groupId, layerId, symbolization, layer, rulesMode) =>
       void startRasterRender(groupId, layerId, symbolization, layer, rulesMode),
     locateLayer,

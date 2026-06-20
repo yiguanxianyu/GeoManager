@@ -260,43 +260,13 @@ export function moveLayerBetweenGroups(
       );
     }
 
-    const now = new Date();
-    const extractedGroup: LoadedLayerGroup = {
-      id: `ungrouped-${sourceLayer.id}-${now.getTime()}`,
-      name: sourceLayer.name,
-      sourceResource: sourceLayer.sourceResource,
-      visible: true,
-      summary: sourceLayer.summary,
-      createdAt: now.toISOString(),
-      metadata: sourceLayer.metadata,
-      symbolization: sourceGroup.symbolization,
-      children: [sourceLayer],
-    };
-    const targetIndex = groups.findIndex((group) => group.id === targetGroupId);
-    if (targetIndex < 0) return groups;
-    const withoutSourceLayer = groups
-      .map((group) =>
-        group.id === sourceGroupId
-          ? {
-              ...group,
-              children: group.children.filter(
-                (layer) => layer.id !== sourceLayerId,
-              ),
-            }
-          : group,
-      )
-      .filter((group) => group.children.length > 0 || group.isManual);
-    const adjustedTargetIndex = withoutSourceLayer.findIndex(
-      (group) => group.id === targetGroupId,
+    return extractLayerToStandalone(
+      groups,
+      sourceGroupId,
+      sourceLayerId,
+      targetGroupId,
+      placement,
     );
-    if (adjustedTargetIndex < 0) return groups;
-    const next = [...withoutSourceLayer];
-    next.splice(
-      placement === "before" ? adjustedTargetIndex : adjustedTargetIndex + 1,
-      0,
-      extractedGroup,
-    );
-    return next;
   }
 
   const withoutSource = groups
@@ -329,6 +299,64 @@ export function moveLayerBetweenGroups(
       return { ...group, children };
     })
     .filter((group) => group.children.length > 0 || group.isManual);
+}
+
+export function extractLayerToStandalone(
+  groups: LoadedLayerGroup[],
+  sourceGroupId: string,
+  sourceLayerId: string,
+  targetGroupId: string,
+  placement: "before" | "after",
+): LoadedLayerGroup[] {
+  const sourceGroup = groups.find((group) => group.id === sourceGroupId);
+  const sourceLayer = sourceGroup?.children.find(
+    (layer) => layer.id === sourceLayerId,
+  );
+  if (!sourceGroup || !sourceLayer) return groups;
+
+  const sourceIsStandalone =
+    !sourceGroup.isManual &&
+    sourceGroup.children.length === 1 &&
+    sourceGroup.children[0]?.id === sourceLayerId;
+  if (sourceIsStandalone) {
+    return reorderLayerGroups(groups, sourceGroupId, targetGroupId, placement);
+  }
+
+  const now = new Date();
+  const extractedGroup: LoadedLayerGroup = {
+    id: `ungrouped-${sourceLayer.id}-${now.getTime()}`,
+    name: sourceLayer.name,
+    sourceResource: sourceLayer.sourceResource,
+    visible: true,
+    summary: sourceLayer.summary,
+    createdAt: now.toISOString(),
+    metadata: sourceLayer.metadata,
+    symbolization: sourceGroup.symbolization,
+    children: [sourceLayer],
+  };
+  const withoutSourceLayer = groups
+    .map((group) =>
+      group.id === sourceGroupId
+        ? {
+            ...group,
+            children: group.children.filter(
+              (layer) => layer.id !== sourceLayerId,
+            ),
+          }
+        : group,
+    )
+    .filter((group) => group.children.length > 0 || group.isManual);
+  const adjustedTargetIndex = withoutSourceLayer.findIndex(
+    (group) => group.id === targetGroupId,
+  );
+  if (adjustedTargetIndex < 0) return groups;
+  const next = [...withoutSourceLayer];
+  next.splice(
+    placement === "before" ? adjustedTargetIndex : adjustedTargetIndex + 1,
+    0,
+    extractedGroup,
+  );
+  return next;
 }
 
 export function clamp(value: number, min: number, max: number): number {

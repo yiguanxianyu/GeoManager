@@ -315,6 +315,23 @@ export default function LayerPanel() {
     event: DragEvent<HTMLElement>,
     targetGroupId: string,
   ) {
+    const sourceLayer =
+      draggingLayer ??
+      layerPayloadFromDrag(event.dataTransfer.getData("text/plain"));
+    if (sourceLayer) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      const rect = event.currentTarget.getBoundingClientRect();
+      const placement =
+        event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+      setLayerDropTargetIfChanged({
+        groupId: targetGroupId,
+        layerId: null,
+        placement,
+      });
+      return;
+    }
+
     const sourceGroupId =
       draggingGroupId ??
       groupIdFromDrag(event.dataTransfer.getData("text/plain"));
@@ -327,6 +344,26 @@ export default function LayerPanel() {
   }
 
   function handleDrop(event: DragEvent<HTMLElement>, targetGroupId: string) {
+    const sourceLayer =
+      layerPayloadFromDrag(event.dataTransfer.getData("text/plain")) ||
+      draggingLayer;
+    if (sourceLayer) {
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = event.currentTarget.getBoundingClientRect();
+      const placement =
+        event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+      ctx.extractLayer(
+        sourceLayer.groupId,
+        sourceLayer.layerId,
+        targetGroupId,
+        placement,
+      );
+      setDraggingLayer(null);
+      setLayerDropTarget(null);
+      return;
+    }
+
     const sourceGroupId =
       groupIdFromDrag(event.dataTransfer.getData("text/plain")) ||
       draggingGroupId;
@@ -364,6 +401,7 @@ export default function LayerPanel() {
       layerPayloadFromDrag(event.dataTransfer.getData("text/plain"));
     if (!sourceLayer) return;
     event.preventDefault();
+    event.stopPropagation();
     event.dataTransfer.dropEffect = "move";
     setLayerDropTargetIfChanged({
       groupId: targetGroupId,
@@ -494,7 +532,11 @@ export default function LayerPanel() {
             const dropClass =
               dragTarget?.groupId === group.id
                 ? ` layer-group-drop-${dragTarget.placement}`
-                : "";
+                : layerDropTarget?.groupId === group.id &&
+                    layerDropTarget.layerId === null &&
+                    layerDropTarget.placement !== "inside"
+                  ? ` layer-group-drop-${layerDropTarget.placement}`
+                  : "";
             if (standaloneLayer) {
               return (
                 <div
@@ -586,7 +628,8 @@ export default function LayerPanel() {
                   <fieldset
                     className={
                       layerDropTarget?.groupId === group.id &&
-                      layerDropTarget.layerId === null
+                      layerDropTarget.layerId === null &&
+                      layerDropTarget.placement === "inside"
                         ? "layer-children layer-children-drop-inside"
                         : "layer-children"
                     }

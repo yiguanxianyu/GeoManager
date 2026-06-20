@@ -77,6 +77,12 @@ export interface LayerContextValue {
     targetLayerId: string | null,
     placement: LayerDropPlacement,
   ) => void;
+  extractLayer: (
+    sourceGroupId: string,
+    sourceLayerId: string,
+    targetGroupId: string,
+    placement: DropPlacement,
+  ) => void;
   startRasterRender: (
     groupId: string,
     layerId: string,

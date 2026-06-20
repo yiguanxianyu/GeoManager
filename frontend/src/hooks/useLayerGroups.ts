@@ -4,7 +4,11 @@ import type {
   LoadedLayerGroup,
   LoadedRasterLayer,
 } from "../types";
-import { moveLayerBetweenGroups, reorderLayerGroups } from "../utils/geometry";
+import {
+  extractLayerToStandalone,
+  moveLayerBetweenGroups,
+  reorderLayerGroups,
+} from "../utils/geometry";
 import { useCachedLayerGroups } from "./useCachedLayerGroups";
 
 export function useLayerGroups(cacheKey = "default") {
@@ -211,6 +215,26 @@ export function useLayerGroups(cacheKey = "default") {
     [setGroups],
   );
 
+  const extractLayer = useCallback(
+    (
+      sourceGroupId: string,
+      sourceLayerId: string,
+      targetGroupId: string,
+      placement: "before" | "after",
+    ) => {
+      setGroups((current) =>
+        extractLayerToStandalone(
+          current,
+          sourceGroupId,
+          sourceLayerId,
+          targetGroupId,
+          placement,
+        ),
+      );
+    },
+    [setGroups],
+  );
+
   const addGroup = useCallback(
     (group: LoadedLayerGroup) => {
       setGroups((current) => [group, ...current]);
@@ -242,5 +266,6 @@ export function useLayerGroups(cacheKey = "default") {
     removeLayer,
     reorderGroups,
     moveLayer,
+    extractLayer,
   };
 }
