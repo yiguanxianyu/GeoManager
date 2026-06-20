@@ -229,9 +229,9 @@ const adminSettings = {
   editable: true,
 };
 
-function renderAdminRoute(initialEntry: string) {
+function renderAdminRoute(initialEntry: string, user: User = adminUser) {
   return render(
-    <AdminTestProviders>
+    <AdminTestProviders user={user}>
       <MemoryRouter initialEntries={[initialEntry]}>
         <Routes>
           <Route path="/" element={<div>业务入口</div>} />
@@ -278,18 +278,24 @@ function renderAdminRoute(initialEntry: string) {
   );
 }
 
-function renderWithProviders(children: React.ReactNode) {
-  return render(<AdminTestProviders>{children}</AdminTestProviders>);
+function renderWithProviders(children: React.ReactNode, user: User = adminUser) {
+  return render(<AdminTestProviders user={user}>{children}</AdminTestProviders>);
 }
 
-function AdminTestProviders({ children }: { children: React.ReactNode }) {
+function AdminTestProviders({
+  children,
+  user = adminUser,
+}: {
+  children: React.ReactNode;
+  user?: User;
+}) {
   return (
     <ConfigProvider locale={zhCN} theme={appTheme}>
       <AntApp>
         <AppContext.Provider
           value={{
             bootstrap,
-            user: adminUser,
+            user,
             setUser: vi.fn(),
           }}
         >
@@ -681,6 +687,46 @@ describe("admin routes", () => {
 
     expect(await screen.findAllByText("基础配置")).not.toHaveLength(0);
     expect(screen.getAllByText(bootstrap.systemName).length).toBeGreaterThan(0);
+  });
+
+  it("keeps operation log UI scoped and hides system logs without permission", async () => {
+    const logOnlyUser: User = {
+      ...adminUser,
+      permissions: {
+        ...adminUser.permissions,
+        canViewSystemLogs: false,
+        canManageSystemSettings: false,
+        canManageAuth: false,
+      },
+    };
+    mockApi.adminOperationLogs.mockResolvedValue({
+      items: [
+        {
+          id: 18,
+          occurredAt: "2026-06-20 11:12:13",
+          operator: "李数据管理员",
+          module: "数据管理",
+          action: "导入数据",
+          result: "success",
+          targetType: "data_resource",
+          targetId: 9,
+          targetCode: "visible-resource",
+          targetName: "可见样地数据",
+          ipAddress: "203.0.113.8",
+          summary: "可见导入日志",
+        },
+      ],
+      total: 1,
+    });
+
+    renderAdminRoute("/admin/logs", logOnlyUser);
+
+    expect(await screen.findByText("日志列表")).toBeInTheDocument();
+    expect(await screen.findByText("可见导入日志")).toBeInTheDocument();
+    expect(screen.queryByText("系统日志")).not.toBeInTheDocument();
+    expect(screen.queryByText("超级管理员")).not.toBeInTheDocument();
+    expect(screen.queryByText("superadmin")).not.toBeInTheDocument();
+    expect(mockApi.adminSystemLogs).not.toHaveBeenCalled();
   });
 
   it("opens the user detail drawer from auth management", async () => {
