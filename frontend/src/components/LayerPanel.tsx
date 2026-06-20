@@ -11,7 +11,6 @@ import {
   PlusOutlined,
   RightOutlined,
   SaveOutlined,
-  SearchOutlined,
   TableOutlined,
 } from "@ant-design/icons";
 import {
@@ -83,7 +82,6 @@ export default function LayerPanel() {
   const { message } = App.useApp();
   const [saveForm] = Form.useForm<SaveWorkspaceFormValues>();
   const groups = ctx.groups;
-  const [query, setQuery] = useState("");
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -127,25 +125,6 @@ export default function LayerPanel() {
     () => saveTargetScenes.find((scene) => scene.id === selectedSaveTargetId),
     [saveTargetScenes, selectedSaveTargetId],
   );
-  const filteredGroups = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) {
-      return groups;
-    }
-    return groups
-      .map((group) => {
-        const groupMatched = `${group.name} ${group.sourceResource.name}`
-          .toLowerCase()
-          .includes(keyword);
-        const children = group.children.filter((layer) =>
-          `${layer.name} ${layer.sourceResource.name} ${layer.summary}`
-            .toLowerCase()
-            .includes(keyword),
-        );
-        return groupMatched ? group : { ...group, children };
-      })
-      .filter((group) => group.children.length > 0 || group.isManual);
-  }, [groups, query]);
   const layerTreeLabel = groups.some((group) => group.isManual)
     ? "已加载图层与图层组"
     : "已加载图层";
@@ -244,8 +223,6 @@ export default function LayerPanel() {
       }
     };
   }, []);
-
-  const keyword = query.trim();
 
   function toggleGroup(groupId: string) {
     setCollapsedGroupIds((current) => {
@@ -517,18 +494,11 @@ export default function LayerPanel() {
           新建图层组
         </Button>
       </div>
-      <Input
-        prefix={<SearchOutlined style={{ fontSize: 15 }} />}
-        placeholder="搜索图层或图层组"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        allowClear
-      />
-      {filteredGroups.length > 0 ? (
+      {groups.length > 0 ? (
         <div className="layer-tree" role="tree" aria-label={layerTreeLabel}>
-          {filteredGroups.map((group) => {
+          {groups.map((group) => {
             const standaloneLayer = standaloneLayerForGroup(group);
-            const expanded = keyword ? true : !collapsedGroupIds.has(group.id);
+            const expanded = !collapsedGroupIds.has(group.id);
             const dropClass =
               dragTarget?.groupId === group.id
                 ? ` layer-group-drop-${dragTarget.placement}`
