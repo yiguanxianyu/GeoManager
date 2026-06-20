@@ -18,7 +18,7 @@ import {
 import type { FeatureInfo, MapViewState } from "../types";
 import FeatureDetailPanel from "./FeatureDetailPanel";
 
-const thumbnailZoomOffset = 4;
+const thumbnailZoomOffset = 3.5;
 const thumbnailMinZoom = 0;
 const thumbnailMaxZoom = 17;
 const thumbnailExtentSourceId = "thumbnail-current-view-extent";
@@ -280,6 +280,14 @@ function zoomForThumbnail(mapZoom: number) {
 
 function updateThumbnailExtent(map: MapboxMap, bounds: MapViewState["bounds"]) {
   const [west, south, east, north] = bounds;
+  const centerLng = (west + east) / 2;
+  const centerLat = (south + north) / 2;
+  const halfWidth = ((east - west) * 0.75) / 2;
+  const halfHeight = ((north - south) * 0.75) / 2;
+  const insetWest = centerLng - halfWidth;
+  const insetEast = centerLng + halfWidth;
+  const insetSouth = centerLat - halfHeight;
+  const insetNorth = centerLat + halfHeight;
   const data: ThumbnailExtentGeoJson = {
     type: "FeatureCollection",
     features: [
@@ -290,11 +298,11 @@ function updateThumbnailExtent(map: MapboxMap, bounds: MapViewState["bounds"]) {
           type: "Polygon",
           coordinates: [
             [
-              [west, south],
-              [east, south],
-              [east, north],
-              [west, north],
-              [west, south],
+              [insetWest, insetSouth],
+              [insetEast, insetSouth],
+              [insetEast, insetNorth],
+              [insetWest, insetNorth],
+              [insetWest, insetSouth],
             ],
           ],
         },

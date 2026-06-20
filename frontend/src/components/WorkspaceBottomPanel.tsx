@@ -398,7 +398,7 @@ function DrawingPanel({
             icon={<UploadOutlined style={{ fontSize: 13 }} />}
             onClick={() => fileInputRef.current?.click()}
           >
-            导入
+            导入空间范围
           </Button>
           <Button
             size="small"
@@ -406,7 +406,7 @@ function DrawingPanel({
             disabled={!currentGeometry}
             onClick={handleExportGeojson}
           >
-            导出
+            导出空间范围
           </Button>
         </Space>
       </section>

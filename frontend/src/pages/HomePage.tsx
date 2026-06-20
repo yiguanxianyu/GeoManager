@@ -1,5 +1,7 @@
 import { Navigate } from "react-router-dom";
+import { useAppContext } from "../contexts/AppContext";
 
 export default function HomePage() {
-  return <Navigate to="/map" replace />;
+  const { user } = useAppContext();
+  return <Navigate to={user ? "/map" : "/login"} replace />;
 }

@@ -133,6 +133,15 @@ export default function App() {
     <AppContext.Provider value={{ bootstrap, user, setUser }}>
       <Suspense fallback={<RouteLoading />}>
         <Routes>
+          <Route
+            path="/"
+            element={
+              <RouteTransition>
+                <HomePage />
+              </RouteTransition>
+            }
+          />
+
           {/* 已登录用户访问登录页时重定向到首页 */}
           <Route element={<RedirectIfAuth />}>
             <Route
@@ -147,14 +156,6 @@ export default function App() {
 
           {/* 需要登录才能访问的页面 */}
           <Route element={<RequireAuth />}>
-            <Route
-              path="/"
-              element={
-                <RouteTransition>
-                  <HomePage />
-                </RouteTransition>
-              }
-            />
             <Route
               path="/map"
               element={
