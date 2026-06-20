@@ -19,13 +19,11 @@ import type { ReactNode } from "react";
 import { useCallback, useState } from "react";
 import { api } from "../api/client";
 import type {
-  Alignment,
   Anchor,
   CircleSymbolization,
   FillSymbolization,
   HeatmapSymbolization,
   LineSymbolization,
-  MapViewport,
   RasterSymbolization,
   SymbolLayerSymbolization,
   VectorSymbolization,
@@ -44,8 +42,6 @@ const anchorOptions: Anchor[] = [
   "bottom-right",
 ];
 
-const alignmentOptions: Alignment[] = ["auto", "map", "viewport"];
-const mapViewportOptions: MapViewport[] = ["map", "viewport"];
 const rgbBandLabels = ["R", "G", "B"] as const;
 const heatmapPalettes = [
   {
@@ -259,11 +255,13 @@ function displaySymbolizationOption(option: string) {
 export function VectorSymbolizationEditor({
   value,
   fields,
+  geometryType,
   onChange,
   onApply,
 }: {
   value: VectorSymbolization;
   fields: ResourceField[];
+  geometryType?: string;
   onChange: (value: VectorSymbolization) => void;
   onApply?: () => void;
 }) {
@@ -387,100 +385,464 @@ export function VectorSymbolizationEditor({
 
   const textFieldOptions = [
     { value: "", label: "不显示" },
-    ...fields.map((field) => ({ value: `{${field.name}}`, label: field.name })),
+    ...fields.map((field) => ({
+      value: "{" + field.name + "}",
+      label: field.name,
+    })),
   ];
+  const labelFieldOptions =
+    value.symbol.textField &&
+    !textFieldOptions.some((option) => option.value === value.symbol.textField)
+      ? [
+          { value: value.symbol.textField, label: value.symbol.textField },
+          ...textFieldOptions,
+        ]
+      : textFieldOptions;
+  const defaultLabelField =
+    labelFieldOptions.find((option) => option.value)?.value ?? "";
+  const labelEnabled = value.symbol.textField.trim().length > 0;
+  const normalizedGeometry = (geometryType ?? "").toLowerCase();
+  const geometryUnknown =
+    !normalizedGeometry ||
+    normalizedGeometry.includes("mixed") ||
+    normalizedGeometry.includes("geometrycollection");
+  const geometry = {
+    hasPoint: geometryUnknown || normalizedGeometry.includes("point"),
+    hasLine: geometryUnknown || normalizedGeometry.includes("line"),
+    hasPolygon: geometryUnknown || normalizedGeometry.includes("polygon"),
+  };
+  const geometrySummary = geometryUnknown
+    ? "自动识别可用表达方式"
+    : geometryType;
+  const iconOptions = [
+    { value: "marker-15", label: "定位标记" },
+    { value: "circle-15", label: "圆形标记" },
+    { value: "triangle-15", label: "三角标记" },
+    { value: "star-15", label: "星形标记" },
+    { value: "harbor-15", label: "站点标记" },
+  ];
+  const iconImageOptions = iconOptions.some(
+    (option) => option.value === value.symbol.iconImage,
+  )
+    ? iconOptions
+    : [{ value: value.symbol.iconImage, label: value.symbol.iconImage }, ...iconOptions];
+  const currentHeatmapColor = JSON.stringify(value.heatmap.heatmapColor);
+  const heatmapPaletteOptions: Array<{ label: string; value: string }> =
+    heatmapPalettes.map((palette) => ({
+    label: palette.label,
+    value: JSON.stringify(palette.value),
+  }));
+  if (
+    !heatmapPaletteOptions.some((option) => option.value === currentHeatmapColor)
+  ) {
+    heatmapPaletteOptions.unshift({
+      label: "当前自定义色带",
+      value: currentHeatmapColor,
+    });
+  }
+
+  type LinePattern = "solid" | "dash" | "dot";
+  const dashHead = value.line.lineDasharray[0] ?? 1;
+  const dashGap = value.line.lineDasharray[1] ?? 0;
+  const linePattern: LinePattern =
+    dashGap <= 0 ? "solid" : dashHead <= 1 ? "dot" : "dash";
+
+  function updateLinePattern(pattern: LinePattern) {
+    const nextDasharray: [number, number] =
+      pattern === "solid" ? [1, 0] : pattern === "dash" ? [3, 2] : [1, 2];
+    updateLine("lineDasharray", nextDasharray);
+  }
+
+  function updateLabelEnabled(enabled: boolean) {
+    updateSymbol("textField", enabled ? defaultLabelField : "");
+  }
+
+  function updateLabelCollision(mode: "avoid" | "overlap") {
+    const allowOverlap = mode === "overlap";
+    onChange({
+      ...value,
+      symbol: {
+        ...value.symbol,
+        textAllowOverlap: allowOverlap,
+        textIgnorePlacement: allowOverlap,
+      },
+    });
+  }
 
   return (
     <Card
-      className="symbolization-card"
+      className="symbolization-card symbolization-card-redesigned"
       size="small"
-      title={
-        <SymbolizationTitle
-          title="矢量符号化"
-          onApply={onApply}
-          onCopy={copyJson}
-        />
-      }
+      title={<SymbolizationTitle title="图层样式" onApply={onApply} />}
     >
-      <Tabs
-        size="small"
-        items={[
-          {
-            key: "common",
-            label: "通用",
-            children: (
-              <Space
-                orientation="vertical"
-                className="full-width symbolization-stack"
-              >
-                <ControlRow label="透明度">
-                  <Slider
-                    value={value.opacity}
-                    min={5}
-                    max={100}
-                    onChange={(opacity) => updateRoot("opacity", opacity)}
-                  />
-                </ControlRow>
-                <ControlRow label="点图层类型">
-                  <Segmented
-                    block
-                    value={value.pointMode}
-                    options={[
-                      { value: "circle", label: "圆点" },
-                      { value: "symbol", label: "图标" },
-                      { value: "heatmap", label: "热力图" },
-                    ]}
-                    onChange={(mode) =>
-                      updateRoot(
-                        "pointMode",
-                        mode as VectorSymbolization["pointMode"],
-                      )
-                    }
-                  />
-                </ControlRow>
-                <ControlRow label="样式预设">
-                  <Space wrap>
-                    <Button size="small" onClick={() => applyPreset("point")}>
-                      调查点
-                    </Button>
-                    <Button size="small" onClick={() => applyPreset("symbol")}>
-                      监测站
-                    </Button>
-                    <Button size="small" onClick={() => applyPreset("heatmap")}>
-                      密度热力
-                    </Button>
-                    <Button size="small" onClick={() => applyPreset("line")}>
-                      河流线
-                    </Button>
-                    <Button size="small" onClick={() => applyPreset("fill")}>
-                      保护区
-                    </Button>
-                  </Space>
-                </ControlRow>
-              </Space>
-            ),
-          },
-          {
-            key: "circle",
-            label: "圆点",
-            children: (
-              <Space
-                orientation="vertical"
-                className="full-width symbolization-stack"
-              >
+      <Space orientation="vertical" className="full-width symbolization-stack">
+        <section className="symbolization-section">
+          <div className="symbolization-section-head">
+            <div>
+              <Typography.Text strong>表达方式</Typography.Text>
+              <Typography.Text type="secondary">
+                {geometrySummary} · 先选择图层要如何被看见
+              </Typography.Text>
+            </div>
+          </div>
+          {geometry.hasPoint && (
+            <ControlRow label="点数据表达">
+              <Segmented
+                block
+                value={value.pointMode}
+                options={[
+                  { value: "circle", label: "单点符号" },
+                  { value: "symbol", label: "图标标记" },
+                  { value: "heatmap", label: "密度热力" },
+                ]}
+                onChange={(mode) =>
+                  updateRoot("pointMode", mode as VectorSymbolization["pointMode"])
+                }
+              />
+            </ControlRow>
+          )}
+          <div className="symbolization-preset-grid">
+            {geometry.hasPoint && (
+              <>
+                <Button
+                  className={
+                    value.pointMode === "circle"
+                      ? "symbolization-preset-button is-active"
+                      : "symbolization-preset-button"
+                  }
+                  onClick={() => applyPreset("point")}
+                >
+                  <span>调查点</span>
+                  <small>清晰展示单个采样点</small>
+                </Button>
+                <Button
+                  className={
+                    value.pointMode === "symbol"
+                      ? "symbolization-preset-button is-active"
+                      : "symbolization-preset-button"
+                  }
+                  onClick={() => applyPreset("symbol")}
+                >
+                  <span>监测站</span>
+                  <small>用图标强调站点类别</small>
+                </Button>
+                <Button
+                  className={
+                    value.pointMode === "heatmap"
+                      ? "symbolization-preset-button is-active"
+                      : "symbolization-preset-button"
+                  }
+                  onClick={() => applyPreset("heatmap")}
+                >
+                  <span>密度热力</span>
+                  <small>查看点位聚集强弱</small>
+                </Button>
+              </>
+            )}
+            {geometry.hasLine && (
+              <>
+                <Button
+                  className="symbolization-preset-button"
+                  onClick={() => applyPreset("line")}
+                >
+                  <span>河流线</span>
+                  <small>连续线条，适合河道边界</small>
+                </Button>
+                <Button
+                  className="symbolization-preset-button"
+                  onClick={() => {
+                    applyPreset("line");
+                    updateLinePattern("dash");
+                  }}
+                >
+                  <span>虚线辅助线</span>
+                  <small>适合规划线和参考线</small>
+                </Button>
+              </>
+            )}
+            {geometry.hasPolygon && (
+              <>
+                <Button
+                  className="symbolization-preset-button"
+                  onClick={() => applyPreset("fill")}
+                >
+                  <span>保护区</span>
+                  <small>半透明填充保留底图信息</small>
+                </Button>
+                <Button
+                  className="symbolization-preset-button"
+                  onClick={() =>
+                    onChange({
+                      ...value,
+                      fill: {
+                        ...value.fill,
+                        fillColor: "#8fb9d9",
+                        fillOpacity: 0.36,
+                        fillOutlineColor: "#174f46",
+                      },
+                    })
+                  }
+                >
+                  <span>分区填色</span>
+                  <small>弱化填充，突出边界</small>
+                </Button>
+              </>
+            )}
+          </div>
+        </section>
+
+        <section className="symbolization-section">
+          <div className="symbolization-section-head">
+            <div>
+              <Typography.Text strong>基础样式</Typography.Text>
+              <Typography.Text type="secondary">
+                只保留最常改、最容易判断效果的样式项
+              </Typography.Text>
+            </div>
+          </div>
+          <Space orientation="vertical" className="full-width symbolization-stack">
+            <ControlRow label="图层透明度">
+              <Slider
+                value={value.opacity}
+                min={5}
+                max={100}
+                onChange={(opacity) => updateRoot("opacity", opacity)}
+              />
+            </ControlRow>
+
+            {geometry.hasPoint && value.pointMode === "circle" && (
+              <>
                 <ColorField
-                  label="circle-color"
+                  label="点颜色"
                   value={value.circle.circleColor}
                   onChange={(next) => updateCircle("circleColor", next)}
                 />
                 <NumberField
-                  label="circle-radius"
+                  label="点大小"
                   value={value.circle.circleRadius}
-                  min={0}
+                  min={2}
                   max={80}
                   step={0.5}
                   onChange={(next) => updateCircle("circleRadius", next)}
                 />
+                <ColorField
+                  label="描边颜色"
+                  value={value.circle.circleStrokeColor}
+                  onChange={(next) => updateCircle("circleStrokeColor", next)}
+                />
+                <NumberField
+                  label="描边粗细"
+                  value={value.circle.circleStrokeWidth}
+                  min={0}
+                  max={20}
+                  step={0.2}
+                  onChange={(next) => updateCircle("circleStrokeWidth", next)}
+                />
+              </>
+            )}
+
+            {geometry.hasPoint && value.pointMode === "symbol" && (
+              <>
+                <ControlRow label="图标类型">
+                  <Select
+                    className="full-width"
+                    showSearch
+                    value={value.symbol.iconImage}
+                    options={iconImageOptions}
+                    onChange={(next) => updateSymbol("iconImage", next)}
+                  />
+                </ControlRow>
+                <ColorField
+                  label="图标颜色"
+                  value={value.symbol.iconColor}
+                  onChange={(next) => updateSymbol("iconColor", next)}
+                />
+                <NumberField
+                  label="图标大小"
+                  value={value.symbol.iconSize}
+                  min={0.2}
+                  max={5}
+                  step={0.05}
+                  onChange={(next) => updateSymbol("iconSize", next)}
+                />
+              </>
+            )}
+
+            {geometry.hasPoint && value.pointMode === "heatmap" && (
+              <>
+                <Alert
+                  type="info"
+                  showIcon
+                  message="密度热力用于显示点位聚集程度，当前按点位数量计算密度。"
+                />
+                <ControlRow label="热力色带">
+                  <Select
+                    className="full-width"
+                    value={currentHeatmapColor}
+                    options={heatmapPaletteOptions}
+                    onChange={(next) =>
+                      updateHeatmap("heatmapColor", JSON.parse(next))
+                    }
+                  />
+                </ControlRow>
+                <NumberField
+                  label="影响半径"
+                  value={value.heatmap.heatmapRadius}
+                  min={1}
+                  max={120}
+                  step={1}
+                  onChange={(next) => updateHeatmap("heatmapRadius", next)}
+                />
+                <NumberField
+                  label="热力强度"
+                  value={value.heatmap.heatmapIntensity}
+                  min={0}
+                  max={10}
+                  step={0.1}
+                  onChange={(next) => updateHeatmap("heatmapIntensity", next)}
+                />
+                <NumberField
+                  label="热力透明度"
+                  value={value.heatmap.heatmapOpacity}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  onChange={(next) => updateHeatmap("heatmapOpacity", next)}
+                />
+              </>
+            )}
+
+            {geometry.hasLine && (
+              <>
+                <Divider className="symbolization-divider" />
+                <ColorField
+                  label="线颜色"
+                  value={value.line.lineColor}
+                  onChange={(next) => updateLine("lineColor", next)}
+                />
+                <NumberField
+                  label="线宽"
+                  value={value.line.lineWidth}
+                  min={0}
+                  max={40}
+                  step={0.2}
+                  onChange={(next) => updateLine("lineWidth", next)}
+                />
+                <ControlRow label="线型">
+                  <Segmented
+                    block
+                    value={linePattern}
+                    options={[
+                      { value: "solid", label: "实线" },
+                      { value: "dash", label: "虚线" },
+                      { value: "dot", label: "点线" },
+                    ]}
+                    onChange={(next) => updateLinePattern(next as LinePattern)}
+                  />
+                </ControlRow>
+              </>
+            )}
+
+            {geometry.hasPolygon && (
+              <>
+                <Divider className="symbolization-divider" />
+                <ColorField
+                  label="填充颜色"
+                  value={value.fill.fillColor}
+                  onChange={(next) => updateFill("fillColor", next)}
+                />
+                <NumberField
+                  label="填充透明度"
+                  value={value.fill.fillOpacity}
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  onChange={(next) => updateFill("fillOpacity", next)}
+                />
+                <ColorField
+                  label="边界颜色"
+                  value={value.fill.fillOutlineColor}
+                  onChange={(next) => updateFill("fillOutlineColor", next)}
+                />
+              </>
+            )}
+          </Space>
+        </section>
+
+        {geometry.hasPoint && value.pointMode !== "heatmap" && (
+          <section className="symbolization-section">
+            <div className="symbolization-section-head">
+              <div>
+                <Typography.Text strong>标注</Typography.Text>
+                <Typography.Text type="secondary">
+                  点位名称、编号等文字信息在这里统一设置
+                </Typography.Text>
+              </div>
+            </div>
+            <Space orientation="vertical" className="full-width symbolization-stack">
+              <ControlRow label="显示标注">
+                <Switch
+                  checked={labelEnabled}
+                  disabled={!defaultLabelField && !labelEnabled}
+                  onChange={updateLabelEnabled}
+                />
+              </ControlRow>
+              <ControlRow label="标注字段">
+                <Select
+                  className="full-width"
+                  disabled={!labelEnabled}
+                  value={value.symbol.textField}
+                  options={labelFieldOptions}
+                  onChange={(next) => updateSymbol("textField", next)}
+                />
+              </ControlRow>
+              <NumberField
+                label="字号"
+                value={value.symbol.textSize}
+                min={8}
+                max={48}
+                step={1}
+                onChange={(next) => updateSymbol("textSize", next)}
+              />
+              <ColorField
+                label="文字颜色"
+                value={value.symbol.textColor}
+                onChange={(next) => updateSymbol("textColor", next)}
+              />
+              <ColorField
+                label="描边颜色"
+                value={value.symbol.textHaloColor}
+                onChange={(next) => updateSymbol("textHaloColor", next)}
+              />
+              <ControlRow label="避让策略">
+                <Segmented
+                  block
+                  value={value.symbol.textAllowOverlap ? "overlap" : "avoid"}
+                  options={[
+                    { value: "avoid", label: "自动避让" },
+                    { value: "overlap", label: "允许重叠" },
+                  ]}
+                  onChange={(next) =>
+                    updateLabelCollision(next as "avoid" | "overlap")
+                  }
+                />
+              </ControlRow>
+            </Space>
+          </section>
+        )}
+
+        <details className="symbolization-advanced">
+          <summary>
+            <span>高级设置</span>
+          </summary>
+          <Space orientation="vertical" className="full-width symbolization-stack">
+            <Button size="small" onClick={copyJson}>
+              复制符号化 JSON
+            </Button>
+
+            {geometry.hasPoint && value.pointMode === "circle" && (
+              <>
+                <Typography.Text strong>圆点高级</Typography.Text>
                 <NumberField
                   label="circle-blur"
                   value={value.circle.circleBlur}
@@ -497,82 +859,28 @@ export function VectorSymbolizationEditor({
                   step={0.05}
                   onChange={(next) => updateCircle("circleOpacity", next)}
                 />
-                <ColorField
-                  label="circle-stroke-color"
-                  value={value.circle.circleStrokeColor}
-                  onChange={(next) => updateCircle("circleStrokeColor", next)}
-                />
-                <NumberField
-                  label="circle-stroke-width"
-                  value={value.circle.circleStrokeWidth}
-                  min={0}
-                  max={20}
-                  step={0.2}
-                  onChange={(next) => updateCircle("circleStrokeWidth", next)}
-                />
-                <NumberField
-                  label="circle-stroke-opacity"
-                  value={value.circle.circleStrokeOpacity}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateCircle("circleStrokeOpacity", next)}
-                />
-                <SelectField
-                  label="circle-pitch-alignment"
-                  value={value.circle.circlePitchAlignment}
-                  options={mapViewportOptions}
-                  onChange={(next) =>
-                    updateCircle("circlePitchAlignment", next)
-                  }
-                />
-                <SelectField
-                  label="circle-pitch-scale"
-                  value={value.circle.circlePitchScale}
-                  options={mapViewportOptions}
-                  onChange={(next) => updateCircle("circlePitchScale", next)}
-                />
-                <Tuple2Field
-                  label="circle-translate"
-                  value={value.circle.circleTranslate}
-                  onChange={(next) => updateCircle("circleTranslate", next)}
-                />
-                <SelectField
-                  label="circle-translate-anchor"
-                  value={value.circle.circleTranslateAnchor}
-                  options={mapViewportOptions}
-                  onChange={(next) =>
-                    updateCircle("circleTranslateAnchor", next)
-                  }
-                />
-                <NumberField
-                  label="circle-emissive-strength"
-                  value={value.circle.circleEmissiveStrength}
-                  min={0}
-                  max={5}
-                  step={0.1}
-                  onChange={(next) =>
-                    updateCircle("circleEmissiveStrength", next)
-                  }
-                />
                 <NumberField
                   label="circle-sort-key"
                   value={value.circle.circleSortKey}
                   step={1}
                   onChange={(next) => updateCircle("circleSortKey", next)}
                 />
-              </Space>
-            ),
-          },
-          {
-            key: "symbol",
-            label: "图标",
-            children: (
-              <Space
-                orientation="vertical"
-                className="full-width symbolization-stack"
-              >
-                <Typography.Text strong>符号布局</Typography.Text>
+                <Tuple2Field
+                  label="circle-translate"
+                  value={value.circle.circleTranslate}
+                  onChange={(next) => updateCircle("circleTranslate", next)}
+                />
+              </>
+            )}
+
+            {geometry.hasPoint && value.pointMode === "symbol" && (
+              <>
+                <Typography.Text strong>图标高级</Typography.Text>
+                <TextField
+                  label="icon-image"
+                  value={value.symbol.iconImage}
+                  onChange={(next) => updateSymbol("iconImage", next)}
+                />
                 <SelectField
                   label="symbol-placement"
                   value={value.symbol.symbolPlacement}
@@ -585,54 +893,6 @@ export function VectorSymbolizationEditor({
                   min={1}
                   step={1}
                   onChange={(next) => updateSymbol("symbolSpacing", next)}
-                />
-                <NumberField
-                  label="symbol-sort-key"
-                  value={value.symbol.symbolSortKey}
-                  step={1}
-                  onChange={(next) => updateSymbol("symbolSortKey", next)}
-                />
-                <SelectField
-                  label="symbol-z-order"
-                  value={value.symbol.symbolZOrder}
-                  options={["auto", "viewport-y", "source"]}
-                  onChange={(next) => updateSymbol("symbolZOrder", next)}
-                />
-                <BooleanField
-                  label="symbol-avoid-edges"
-                  value={value.symbol.symbolAvoidEdges}
-                  onChange={(next) => updateSymbol("symbolAvoidEdges", next)}
-                />
-                <Divider className="symbolization-divider" />
-                <Typography.Text strong>图标布局</Typography.Text>
-                <TextField
-                  label="icon-image"
-                  value={value.symbol.iconImage}
-                  onChange={(next) => updateSymbol("iconImage", next)}
-                />
-                <NumberField
-                  label="icon-size"
-                  value={value.symbol.iconSize}
-                  min={0}
-                  max={10}
-                  step={0.05}
-                  onChange={(next) => updateSymbol("iconSize", next)}
-                />
-                <Tuple2Field
-                  label="icon-size-scale-range"
-                  value={value.symbol.iconSizeScaleRange}
-                  onChange={(next) => updateSymbol("iconSizeScaleRange", next)}
-                />
-                <SelectField
-                  label="icon-anchor"
-                  value={value.symbol.iconAnchor}
-                  options={anchorOptions}
-                  onChange={(next) => updateSymbol("iconAnchor", next)}
-                />
-                <Tuple2Field
-                  label="icon-offset"
-                  value={value.symbol.iconOffset}
-                  onChange={(next) => updateSymbol("iconOffset", next)}
                 />
                 <NumberField
                   label="icon-padding"
@@ -650,24 +910,15 @@ export function VectorSymbolizationEditor({
                   onChange={(next) => updateSymbol("iconRotate", next)}
                 />
                 <SelectField
-                  label="icon-pitch-alignment"
-                  value={value.symbol.iconPitchAlignment}
-                  options={alignmentOptions}
-                  onChange={(next) => updateSymbol("iconPitchAlignment", next)}
+                  label="icon-anchor"
+                  value={value.symbol.iconAnchor}
+                  options={anchorOptions}
+                  onChange={(next) => updateSymbol("iconAnchor", next)}
                 />
-                <SelectField
-                  label="icon-rotation-alignment"
-                  value={value.symbol.iconRotationAlignment}
-                  options={alignmentOptions}
-                  onChange={(next) =>
-                    updateSymbol("iconRotationAlignment", next)
-                  }
-                />
-                <SelectField
-                  label="icon-text-fit"
-                  value={value.symbol.iconTextFit}
-                  options={["none", "width", "height", "both"]}
-                  onChange={(next) => updateSymbol("iconTextFit", next)}
+                <Tuple2Field
+                  label="icon-offset"
+                  value={value.symbol.iconOffset}
+                  onChange={(next) => updateSymbol("iconOffset", next)}
                 />
                 <Tuple4Field
                   label="icon-text-fit-padding"
@@ -679,157 +930,31 @@ export function VectorSymbolizationEditor({
                   value={value.symbol.iconAllowOverlap}
                   onChange={(next) => updateSymbol("iconAllowOverlap", next)}
                 />
-                <BooleanField
-                  label="icon-ignore-placement"
-                  value={value.symbol.iconIgnorePlacement}
-                  onChange={(next) => updateSymbol("iconIgnorePlacement", next)}
-                />
-                <BooleanField
-                  label="icon-optional"
-                  value={value.symbol.iconOptional}
-                  onChange={(next) => updateSymbol("iconOptional", next)}
-                />
-                <BooleanField
-                  label="icon-keep-upright"
-                  value={value.symbol.iconKeepUpright}
-                  onChange={(next) => updateSymbol("iconKeepUpright", next)}
-                />
-                <Divider className="symbolization-divider" />
-                <Typography.Text strong>图标绘制</Typography.Text>
-                <ColorField
-                  label="icon-color"
-                  value={value.symbol.iconColor}
-                  onChange={(next) => updateSymbol("iconColor", next)}
-                />
+              </>
+            )}
+
+            {geometry.hasPoint && value.pointMode === "heatmap" && (
+              <>
+                <Typography.Text strong>热力高级</Typography.Text>
                 <NumberField
-                  label="icon-opacity"
-                  value={value.symbol.iconOpacity}
+                  label="heatmap-weight"
+                  value={value.heatmap.heatmapWeight}
                   min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateSymbol("iconOpacity", next)}
-                />
-                <ColorField
-                  label="icon-halo-color"
-                  value={value.symbol.iconHaloColor}
-                  onChange={(next) => updateSymbol("iconHaloColor", next)}
-                />
-                <NumberField
-                  label="icon-halo-width"
-                  value={value.symbol.iconHaloWidth}
-                  min={0}
-                  max={20}
-                  step={0.5}
-                  onChange={(next) => updateSymbol("iconHaloWidth", next)}
-                />
-                <NumberField
-                  label="icon-halo-blur"
-                  value={value.symbol.iconHaloBlur}
-                  min={0}
-                  max={20}
-                  step={0.5}
-                  onChange={(next) => updateSymbol("iconHaloBlur", next)}
-                />
-                <Tuple2Field
-                  label="icon-translate"
-                  value={value.symbol.iconTranslate}
-                  onChange={(next) => updateSymbol("iconTranslate", next)}
-                />
-                <SelectField
-                  label="icon-translate-anchor"
-                  value={value.symbol.iconTranslateAnchor}
-                  options={mapViewportOptions}
-                  onChange={(next) => updateSymbol("iconTranslateAnchor", next)}
-                />
-                <NumberField
-                  label="icon-emissive-strength"
-                  value={value.symbol.iconEmissiveStrength}
-                  min={0}
-                  max={5}
+                  max={10}
                   step={0.1}
-                  onChange={(next) =>
-                    updateSymbol("iconEmissiveStrength", next)
-                  }
+                  onChange={(next) => updateHeatmap("heatmapWeight", next)}
                 />
-                <NumberField
-                  label="icon-color-brightness-min"
-                  value={value.symbol.iconColorBrightnessMin}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) =>
-                    updateSymbol("iconColorBrightnessMin", next)
-                  }
-                />
-                <NumberField
-                  label="icon-color-brightness-max"
-                  value={value.symbol.iconColorBrightnessMax}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) =>
-                    updateSymbol("iconColorBrightnessMax", next)
-                  }
-                />
-                <NumberField
-                  label="icon-color-contrast"
-                  value={value.symbol.iconColorContrast}
-                  min={-1}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateSymbol("iconColorContrast", next)}
-                />
-                <NumberField
-                  label="icon-color-saturation"
-                  value={value.symbol.iconColorSaturation}
-                  min={-1}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateSymbol("iconColorSaturation", next)}
-                />
-                <NumberField
-                  label="icon-occlusion-opacity"
-                  value={value.symbol.iconOcclusionOpacity}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) =>
-                    updateSymbol("iconOcclusionOpacity", next)
-                  }
-                />
-              </Space>
-            ),
-          },
-          {
-            key: "text",
-            label: "标注",
-            children: (
-              <Space
-                orientation="vertical"
-                className="full-width symbolization-stack"
-              >
-                <Typography.Text strong>标注布局</Typography.Text>
-                <ControlRow label="text-field">
-                  <Select
-                    className="full-width"
-                    showSearch
-                    value={value.symbol.textField}
-                    options={textFieldOptions}
-                    onChange={(next) => updateSymbol("textField", next)}
-                  />
-                </ControlRow>
+              </>
+            )}
+
+            {geometry.hasPoint && value.pointMode !== "heatmap" && (
+              <>
+                <Divider className="symbolization-divider" />
+                <Typography.Text strong>标注高级</Typography.Text>
                 <TextListField
                   label="text-font"
                   value={value.symbol.textFont}
                   onChange={(next) => updateSymbol("textFont", next)}
-                />
-                <NumberField
-                  label="text-size"
-                  value={value.symbol.textSize}
-                  min={0}
-                  max={80}
-                  step={0.5}
-                  onChange={(next) => updateSymbol("textSize", next)}
                 />
                 <NumberField
                   label="text-max-width"
@@ -838,42 +963,10 @@ export function VectorSymbolizationEditor({
                   step={0.5}
                   onChange={(next) => updateSymbol("textMaxWidth", next)}
                 />
-                <NumberField
-                  label="text-line-height"
-                  value={value.symbol.textLineHeight}
-                  min={0}
-                  step={0.05}
-                  onChange={(next) => updateSymbol("textLineHeight", next)}
-                />
-                <NumberField
-                  label="text-letter-spacing"
-                  value={value.symbol.textLetterSpacing}
-                  min={0}
-                  step={0.01}
-                  onChange={(next) => updateSymbol("textLetterSpacing", next)}
-                />
-                <SelectField
-                  label="text-justify"
-                  value={value.symbol.textJustify}
-                  options={["auto", "left", "center", "right"]}
-                  onChange={(next) => updateSymbol("textJustify", next)}
-                />
-                <SelectField
-                  label="text-anchor"
-                  value={value.symbol.textAnchor}
-                  options={anchorOptions}
-                  onChange={(next) => updateSymbol("textAnchor", next)}
-                />
                 <Tuple2Field
                   label="text-offset"
                   value={value.symbol.textOffset}
                   onChange={(next) => updateSymbol("textOffset", next)}
-                />
-                <NumberField
-                  label="text-radial-offset"
-                  value={value.symbol.textRadialOffset}
-                  step={0.1}
-                  onChange={(next) => updateSymbol("textRadialOffset", next)}
                 />
                 <MultiSelectField
                   label="text-variable-anchor"
@@ -898,81 +991,6 @@ export function VectorSymbolizationEditor({
                   }
                 />
                 <NumberField
-                  label="text-padding"
-                  value={value.symbol.textPadding}
-                  min={0}
-                  step={1}
-                  onChange={(next) => updateSymbol("textPadding", next)}
-                />
-                <NumberField
-                  label="text-rotate"
-                  value={value.symbol.textRotate}
-                  min={-360}
-                  max={360}
-                  step={1}
-                  onChange={(next) => updateSymbol("textRotate", next)}
-                />
-                <SelectField
-                  label="text-pitch-alignment"
-                  value={value.symbol.textPitchAlignment}
-                  options={alignmentOptions}
-                  onChange={(next) => updateSymbol("textPitchAlignment", next)}
-                />
-                <SelectField
-                  label="text-rotation-alignment"
-                  value={value.symbol.textRotationAlignment}
-                  options={alignmentOptions}
-                  onChange={(next) =>
-                    updateSymbol("textRotationAlignment", next)
-                  }
-                />
-                <SelectField
-                  label="text-transform"
-                  value={value.symbol.textTransform}
-                  options={["none", "uppercase", "lowercase"]}
-                  onChange={(next) => updateSymbol("textTransform", next)}
-                />
-                <BooleanField
-                  label="text-allow-overlap"
-                  value={value.symbol.textAllowOverlap}
-                  onChange={(next) => updateSymbol("textAllowOverlap", next)}
-                />
-                <BooleanField
-                  label="text-ignore-placement"
-                  value={value.symbol.textIgnorePlacement}
-                  onChange={(next) => updateSymbol("textIgnorePlacement", next)}
-                />
-                <BooleanField
-                  label="text-optional"
-                  value={value.symbol.textOptional}
-                  onChange={(next) => updateSymbol("textOptional", next)}
-                />
-                <BooleanField
-                  label="text-keep-upright"
-                  value={value.symbol.textKeepUpright}
-                  onChange={(next) => updateSymbol("textKeepUpright", next)}
-                />
-                <Divider className="symbolization-divider" />
-                <Typography.Text strong>标注绘制</Typography.Text>
-                <ColorField
-                  label="text-color"
-                  value={value.symbol.textColor}
-                  onChange={(next) => updateSymbol("textColor", next)}
-                />
-                <NumberField
-                  label="text-opacity"
-                  value={value.symbol.textOpacity}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateSymbol("textOpacity", next)}
-                />
-                <ColorField
-                  label="text-halo-color"
-                  value={value.symbol.textHaloColor}
-                  onChange={(next) => updateSymbol("textHaloColor", next)}
-                />
-                <NumberField
                   label="text-halo-width"
                   value={value.symbol.textHaloWidth}
                   min={0}
@@ -980,125 +998,13 @@ export function VectorSymbolizationEditor({
                   step={0.5}
                   onChange={(next) => updateSymbol("textHaloWidth", next)}
                 />
-                <NumberField
-                  label="text-halo-blur"
-                  value={value.symbol.textHaloBlur}
-                  min={0}
-                  max={20}
-                  step={0.5}
-                  onChange={(next) => updateSymbol("textHaloBlur", next)}
-                />
-                <Tuple2Field
-                  label="text-translate"
-                  value={value.symbol.textTranslate}
-                  onChange={(next) => updateSymbol("textTranslate", next)}
-                />
-                <SelectField
-                  label="text-translate-anchor"
-                  value={value.symbol.textTranslateAnchor}
-                  options={mapViewportOptions}
-                  onChange={(next) => updateSymbol("textTranslateAnchor", next)}
-                />
-                <NumberField
-                  label="text-emissive-strength"
-                  value={value.symbol.textEmissiveStrength}
-                  min={0}
-                  max={5}
-                  step={0.1}
-                  onChange={(next) =>
-                    updateSymbol("textEmissiveStrength", next)
-                  }
-                />
-                <NumberField
-                  label="text-occlusion-opacity"
-                  value={value.symbol.textOcclusionOpacity}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) =>
-                    updateSymbol("textOcclusionOpacity", next)
-                  }
-                />
-              </Space>
-            ),
-          },
-          {
-            key: "heatmap",
-            label: "热力",
-            children: (
-              <Space
-                orientation="vertical"
-                className="full-width symbolization-stack"
-              >
-                <NumberField
-                  label="heatmap-weight"
-                  value={value.heatmap.heatmapWeight}
-                  min={0}
-                  max={10}
-                  step={0.1}
-                  onChange={(next) => updateHeatmap("heatmapWeight", next)}
-                />
-                <NumberField
-                  label="heatmap-intensity"
-                  value={value.heatmap.heatmapIntensity}
-                  min={0}
-                  max={10}
-                  step={0.1}
-                  onChange={(next) => updateHeatmap("heatmapIntensity", next)}
-                />
-                <NumberField
-                  label="heatmap-radius"
-                  value={value.heatmap.heatmapRadius}
-                  min={1}
-                  max={120}
-                  step={1}
-                  onChange={(next) => updateHeatmap("heatmapRadius", next)}
-                />
-                <NumberField
-                  label="heatmap-opacity"
-                  value={value.heatmap.heatmapOpacity}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateHeatmap("heatmapOpacity", next)}
-                />
-                <ControlRow label="heatmap-color">
-                  <Select
-                    className="full-width"
-                    value={JSON.stringify(value.heatmap.heatmapColor)}
-                    options={heatmapPalettes.map((palette) => ({
-                      label: palette.label,
-                      value: JSON.stringify(palette.value),
-                    }))}
-                    onChange={(next) =>
-                      updateHeatmap("heatmapColor", JSON.parse(next))
-                    }
-                  />
-                </ControlRow>
-              </Space>
-            ),
-          },
-          {
-            key: "line",
-            label: "线",
-            children: (
-              <Space
-                orientation="vertical"
-                className="full-width symbolization-stack"
-              >
-                <ColorField
-                  label="line-color"
-                  value={value.line.lineColor}
-                  onChange={(next) => updateLine("lineColor", next)}
-                />
-                <NumberField
-                  label="line-width"
-                  value={value.line.lineWidth}
-                  min={0}
-                  max={40}
-                  step={0.2}
-                  onChange={(next) => updateLine("lineWidth", next)}
-                />
+              </>
+            )}
+
+            {geometry.hasLine && (
+              <>
+                <Divider className="symbolization-divider" />
+                <Typography.Text strong>线高级</Typography.Text>
                 <NumberField
                   label="line-opacity"
                   value={value.line.lineOpacity}
@@ -1106,14 +1012,6 @@ export function VectorSymbolizationEditor({
                   max={1}
                   step={0.05}
                   onChange={(next) => updateLine("lineOpacity", next)}
-                />
-                <NumberField
-                  label="line-blur"
-                  value={value.line.lineBlur}
-                  min={0}
-                  max={10}
-                  step={0.2}
-                  onChange={(next) => updateLine("lineBlur", next)}
                 />
                 <SelectField
                   label="line-cap"
@@ -1127,33 +1025,6 @@ export function VectorSymbolizationEditor({
                   options={["bevel", "round", "miter", "none"]}
                   onChange={(next) => updateLine("lineJoin", next)}
                 />
-                <NumberField
-                  label="line-miter-limit"
-                  value={value.line.lineMiterLimit}
-                  min={0}
-                  step={0.1}
-                  onChange={(next) => updateLine("lineMiterLimit", next)}
-                />
-                <NumberField
-                  label="line-round-limit"
-                  value={value.line.lineRoundLimit}
-                  min={0}
-                  step={0.05}
-                  onChange={(next) => updateLine("lineRoundLimit", next)}
-                />
-                <NumberField
-                  label="line-offset"
-                  value={value.line.lineOffset}
-                  step={0.5}
-                  onChange={(next) => updateLine("lineOffset", next)}
-                />
-                <NumberField
-                  label="line-gap-width"
-                  value={value.line.lineGapWidth}
-                  min={0}
-                  step={0.5}
-                  onChange={(next) => updateLine("lineGapWidth", next)}
-                />
                 <Tuple2Field
                   label="line-dasharray"
                   value={value.line.lineDasharray}
@@ -1164,49 +1035,13 @@ export function VectorSymbolizationEditor({
                   value={value.line.lineTranslate}
                   onChange={(next) => updateLine("lineTranslate", next)}
                 />
-                <SelectField
-                  label="line-translate-anchor"
-                  value={value.line.lineTranslateAnchor}
-                  options={mapViewportOptions}
-                  onChange={(next) => updateLine("lineTranslateAnchor", next)}
-                />
-                <NumberField
-                  label="line-emissive-strength"
-                  value={value.line.lineEmissiveStrength}
-                  min={0}
-                  max={5}
-                  step={0.1}
-                  onChange={(next) => updateLine("lineEmissiveStrength", next)}
-                />
-              </Space>
-            ),
-          },
-          {
-            key: "fill",
-            label: "面",
-            children: (
-              <Space
-                orientation="vertical"
-                className="full-width symbolization-stack"
-              >
-                <ColorField
-                  label="fill-color"
-                  value={value.fill.fillColor}
-                  onChange={(next) => updateFill("fillColor", next)}
-                />
-                <NumberField
-                  label="fill-opacity"
-                  value={value.fill.fillOpacity}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateFill("fillOpacity", next)}
-                />
-                <ColorField
-                  label="fill-outline-color"
-                  value={value.fill.fillOutlineColor}
-                  onChange={(next) => updateFill("fillOutlineColor", next)}
-                />
+              </>
+            )}
+
+            {geometry.hasPolygon && (
+              <>
+                <Divider className="symbolization-divider" />
+                <Typography.Text strong>面高级</Typography.Text>
                 <BooleanField
                   label="fill-antialias"
                   value={value.fill.fillAntialias}
@@ -1223,27 +1058,14 @@ export function VectorSymbolizationEditor({
                   value={value.fill.fillTranslate}
                   onChange={(next) => updateFill("fillTranslate", next)}
                 />
-                <SelectField
-                  label="fill-translate-anchor"
-                  value={value.fill.fillTranslateAnchor}
-                  options={mapViewportOptions}
-                  onChange={(next) => updateFill("fillTranslateAnchor", next)}
-                />
-                <NumberField
-                  label="fill-emissive-strength"
-                  value={value.fill.fillEmissiveStrength}
-                  min={0}
-                  max={5}
-                  step={0.1}
-                  onChange={(next) => updateFill("fillEmissiveStrength", next)}
-                />
-              </Space>
-            ),
-          },
-        ]}
-      />
+              </>
+            )}
+          </Space>
+        </details>
+      </Space>
     </Card>
   );
+
 }
 
 export function RasterSymbolizationEditor({

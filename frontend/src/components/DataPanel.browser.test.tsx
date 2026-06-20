@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { App as AntApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { cloneDefaultVectorSymbolization } from "../symbolization";
 import { appTheme } from "../theme";
@@ -153,6 +154,23 @@ function renderWithAntd(node: React.ReactNode) {
   );
 }
 
+function StatefulVectorSymbolizationEditor({
+  geometryType = "Point",
+}: {
+  geometryType?: string;
+}) {
+  const [value, setValue] = useState(cloneDefaultVectorSymbolization());
+
+  return (
+    <VectorSymbolizationEditor
+      value={value}
+      fields={[{ name: "species", type: "string", description: "物种" }]}
+      geometryType={geometryType}
+      onChange={setValue}
+    />
+  );
+}
+
 describe("DataPanel", () => {
   it("submits metadata filters with the current keyword and source text", () => {
     const onFilterResources = vi.fn();
@@ -272,22 +290,33 @@ describe("DataPanel", () => {
 });
 
 describe("VectorSymbolizationEditor", () => {
-  it("shows vector symbolization controls with Chinese labels", () => {
+  it("shows streamlined point and heatmap symbolization controls", () => {
+    renderWithAntd(<StatefulVectorSymbolizationEditor geometryType="Point" />);
+
+    expect(screen.getByText("表达方式")).toBeInTheDocument();
+    expect(screen.getByText("基础样式")).toBeInTheDocument();
+    expect(screen.getByText("标注")).toBeInTheDocument();
+    expect(screen.getByText("单点符号")).toBeInTheDocument();
+    expect(screen.getByText("点颜色")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByText("密度热力")[0]!);
+
+    expect(screen.getByText("影响半径")).toBeInTheDocument();
+    expect(screen.getByText("热力强度")).toBeInTheDocument();
+    expect(screen.getByText(/当前按点位数量计算密度/)).toBeInTheDocument();
+    expect(screen.queryByText("点颜色")).not.toBeInTheDocument();
+    expect(screen.queryByText("circle-color")).not.toBeInTheDocument();
+  });
+
+  it("hides point heatmap choices for line layers", () => {
     renderWithAntd(
-      <VectorSymbolizationEditor
-        value={cloneDefaultVectorSymbolization()}
-        fields={[{ name: "species", type: "string", description: "物种" }]}
-        onChange={vi.fn()}
-      />,
+      <StatefulVectorSymbolizationEditor geometryType="LineString" />,
     );
 
-    expect(screen.getAllByText("圆点").length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("tab", { name: "圆点" }));
-    expect(screen.getByText("圆点颜色")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "图标" }));
-    expect(screen.getByText("图标布局")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("tab", { name: "标注" }));
-    expect(screen.getByText("标注字段")).toBeInTheDocument();
-    expect(screen.queryByText("circle-color")).not.toBeInTheDocument();
+    expect(screen.getByText("表达方式")).toBeInTheDocument();
+    expect(screen.getByText("线颜色")).toBeInTheDocument();
+    expect(screen.getByText("线型")).toBeInTheDocument();
+    expect(screen.queryByText("密度热力")).not.toBeInTheDocument();
+    expect(screen.queryByText("点数据表达")).not.toBeInTheDocument();
   });
 });

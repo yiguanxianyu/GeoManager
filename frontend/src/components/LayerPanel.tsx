@@ -862,6 +862,7 @@ function LayerItemNode({
           <NodeActions
             symbolization={layer.symbolization}
             fields={layer.fields}
+            geometryType={layer.geometryType}
             rasterBands={
               layer.layerType === "raster"
                 ? (layer.rasterMetadata?.bands ?? [])
@@ -938,6 +939,7 @@ function layerPayloadFromDrag(
 interface NodeActionProps {
   symbolization: GroupSymbolization | VectorSymbolization | RasterSymbolization;
   fields: ResourceField[];
+  geometryType?: string;
   rasterBands?: RasterBandMetadata[];
   rasterDatasetId?: number;
   subjectName: string;
@@ -955,6 +957,7 @@ interface NodeActionProps {
 function NodeActions({
   symbolization,
   fields,
+  geometryType,
   rasterBands = [],
   rasterDatasetId,
   subjectName,
@@ -1062,6 +1065,7 @@ function NodeActions({
         <VectorSymbolizationEditor
           value={draftSymbolization}
           fields={fields}
+          geometryType={geometryType}
           onChange={setDraftSymbolization}
           onApply={applyDraftSymbolization}
         />
@@ -1151,7 +1155,9 @@ function NodeActions({
         <Popover
           trigger="click"
           placement="leftTop"
-          classNames={{ root: "symbolization-popover" }}
+          align={{ offset: [0, -180] }}
+          autoAdjustOverflow
+          classNames={{ root: "symbolization-popover layer-symbolization-popover" }}
           open={symbolizationOpen}
           onOpenChange={handleSymbolizationOpenChange}
           content={

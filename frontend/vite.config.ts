@@ -69,6 +69,8 @@ export default defineConfig(({ mode }) => {
         "antd",
         "@ant-design/icons",
         "@ant-design/pro-components",
+        "react-router",
+        "react-router-dom",
       ],
     },
   };
