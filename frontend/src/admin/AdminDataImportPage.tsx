@@ -26,7 +26,7 @@ import {
   Typography,
   Upload,
 } from "antd";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ApiError, api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
@@ -57,6 +57,8 @@ export default function AdminDataImportPage() {
   const { user } = useAppContext();
   const location = useLocation();
   const navigate = useNavigate();
+  const allowNavigationRef = useRef(false);
+  const currentPathRef = useRef("");
   const [form] = Form.useForm<ImportFormValues>();
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
@@ -138,6 +140,10 @@ export default function AdminDataImportPage() {
   const selectableAccessGroups = availableAccessGroups;
 
   useEffect(() => {
+    currentPathRef.current = `${location.pathname}${location.search}${location.hash}`;
+  }, [location.hash, location.pathname, location.search]);
+
+  useEffect(() => {
     if (!user?.permissions.canUploadData) {
       return;
     }
@@ -177,6 +183,58 @@ export default function AdminDataImportPage() {
     if (!hasUnfinishedImport) {
       return;
     }
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
+
+    function shouldBlockUrl(url?: string | URL | null) {
+      if (allowNavigationRef.current || url == null) {
+        return false;
+      }
+      const nextUrl = new URL(String(url), window.location.href);
+      if (nextUrl.origin !== window.location.origin) {
+        return false;
+      }
+      const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+      const currentPath = currentPathRef.current;
+      if (nextPath === currentPath) {
+        return false;
+      }
+      setPendingNavigationPath(nextPath);
+      return true;
+    }
+
+    window.history.pushState = function pushState(data, unused, url) {
+      if (shouldBlockUrl(url)) {
+        return;
+      }
+      return originalPushState.call(this, data, unused, url);
+    };
+
+    window.history.replaceState = function replaceState(data, unused, url) {
+      if (shouldBlockUrl(url)) {
+        return;
+      }
+      return originalReplaceState.call(this, data, unused, url);
+    };
+
+    const handlePopState = () => {
+      if (allowNavigationRef.current) {
+        return;
+      }
+      const nextPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const currentPath = currentPathRef.current;
+      if (nextPath === currentPath) {
+        return;
+      }
+      setPendingNavigationPath(nextPath);
+      originalPushState.call(
+        window.history,
+        window.history.state,
+        "",
+        currentPath,
+      );
+    };
+
     const handleDocumentClick = (event: MouseEvent) => {
       if (
         event.defaultPrevented ||
@@ -212,8 +270,12 @@ export default function AdminDataImportPage() {
       event.stopPropagation();
       setPendingNavigationPath(nextPath);
     };
+    window.addEventListener("popstate", handlePopState);
     document.addEventListener("click", handleDocumentClick, true);
     return () => {
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+      window.removeEventListener("popstate", handlePopState);
       document.removeEventListener("click", handleDocumentClick, true);
     };
   }, [hasUnfinishedImport, location.hash, location.pathname, location.search]);
@@ -901,6 +963,7 @@ export default function AdminDataImportPage() {
           const nextPath = pendingNavigationPath;
           setPendingNavigationPath(null);
           if (nextPath) {
+            allowNavigationRef.current = true;
             navigate(nextPath);
           }
         }}

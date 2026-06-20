@@ -855,6 +855,25 @@ describe("admin routes", () => {
     expect(await screen.findByText("胡杨林样地点")).toBeInTheDocument();
   }, 30000);
 
+  it("warns before programmatic navigation leaves an unfinished data import", async () => {
+    renderAdminRoute("/resources/data/import");
+
+    const input = document.querySelector(
+      "input[type='file']",
+    ) as HTMLInputElement;
+    const file = new File(["plot_id,longitude,latitude\nP001,87.6,41.7"], {
+      type: "text/csv",
+    });
+
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(await screen.findByText("导入配置")).toBeInTheDocument();
+
+    window.history.pushState({}, "", "/resources/dashboard");
+
+    expect(await screen.findByText("当前导入尚未完成")).toBeInTheDocument();
+    expect(screen.getByText("导入配置")).toBeInTheDocument();
+  }, 30000);
+
   it("loads the inventory data management page", async () => {
     renderAdminRoute("/resources/data/inventory");
 
