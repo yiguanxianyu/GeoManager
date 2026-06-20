@@ -17,7 +17,6 @@ import {
   Modal,
   Select,
   Space,
-  Tag,
   Table,
   Tooltip,
   Typography,
@@ -129,29 +128,6 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
   const tableColumns = useMemo<ColumnsType<TItem>>(
     () => [
       ...columns,
-      {
-        title: "访问范围",
-        key: "accessGroups",
-        width: 180,
-        render: (_, record) => {
-          const visibleAccessGroups = record.accessGroups.filter(
-            (group) => !isSuperadminGroup(group),
-          );
-          return visibleAccessGroups.length ? (
-            <Space size={[4, 4]} wrap>
-              {visibleAccessGroups.map((group) => (
-                <Tag key={group.id} color="blue">
-                  {group.name}
-                </Tag>
-              ))}
-            </Space>
-          ) : record.accessGroups.length === 0 ? (
-            <Tag>全部可见</Tag>
-          ) : (
-            <Tag>{ownerScopeLabel}</Tag>
-          );
-        },
-      },
       {
         title: "更新时间",
         dataIndex: "updatedAt",
@@ -373,12 +349,10 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
                       label: ownerScopeLabel,
                       disabled: true,
                     },
-                    ...accessGroups
-                      .filter((group) => !isSuperadminGroup(group))
-                      .map((group) => ({
-                        value: group.id,
-                        label: group.name,
-                      })),
+                    ...accessGroups.map((group) => ({
+                      value: group.id,
+                      label: group.name,
+                    })),
                   ]}
                 />
               </Form.Item>
@@ -434,10 +408,6 @@ export function withFixedAccessScopes(
 
 export function realAccessGroupIds(values: AccessScopeId[] = []): number[] {
   return values.filter((value): value is number => typeof value === "number");
-}
-
-export function isSuperadminGroup(group: AccessGroup) {
-  return group.isSuperadmin === true || group.name === "超级管理员";
 }
 
 function isGuestGroup(group: AccessGroup) {

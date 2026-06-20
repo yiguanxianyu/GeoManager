@@ -10,7 +10,7 @@ from django.test import TestCase
 from shapely.geometry import Point
 
 from apps.audit.models import OperationLog
-from apps.catalog.models import DataResource, MapLayer, WorkspaceScene
+from apps.catalog.models import DataCatalog, DataResource, MapLayer, WorkspaceScene
 from apps.catalog.services import scan_catalog_sources
 from apps.core.initialization import (
     GUEST_GROUP_NAME,
@@ -60,6 +60,29 @@ class LayerApiTests(TestCase):
         items = response.json()["items"]
         raster_items = [item for item in items if item.get("layerType") == "raster"]
         self.assertEqual(raster_items, [])
+
+    def test_layers_endpoint_hides_layers_for_inaccessible_resources(self):
+        restricted_group = Group.objects.create(name="保密资源组")
+        resource = DataResource.objects.create(
+            name="受限资源",
+            code="restricted-layer-resource",
+            data_type=DataResource.DataType.VECTOR,
+            status=DataResource.Status.ACTIVE,
+        )
+        resource.access_groups.add(restricted_group)
+        MapLayer.objects.create(
+            name="资源受限图层",
+            code="resource-restricted-layer",
+            layer_type=MapLayer.LayerType.VECTOR,
+            data_resource=resource,
+            is_active=True,
+        )
+
+        response = self.client.get("/api/layers/")
+
+        self.assertEqual(response.status_code, 200)
+        layer_codes = {item["code"] for item in response.json()["items"]}
+        self.assertNotIn("resource-restricted-layer", layer_codes)
 
 
 class ResourceQueryApiTests(TestCase):
@@ -395,6 +418,7 @@ class CatalogBusinessScenarioTests(TestCase):
         self.client.force_login(self.other_user)
 
         list_response = self.client.get("/api/catalog/resources/?dataType=vector")
+        layer_response = self.client.get("/api/layers/")
         profile_response = self.client.get(
             f"/api/catalog/resources/{self.resource.id}/profile/"
         )
@@ -411,10 +435,32 @@ class CatalogBusinessScenarioTests(TestCase):
             if isinstance(item["id"], int)
         }
         self.assertNotIn(self.resource.id, listed_ids)
+        layer_ids = {item["dataResourceId"] for item in layer_response.json()["items"]}
+        self.assertNotIn(self.resource.id, layer_ids)
         self.assertEqual(profile_response.status_code, 403)
         self.assertEqual(profile_response.json()["detail"], "无权访问该数据资源")
         self.assertEqual(query_response.status_code, 403)
         self.assertEqual(query_response.json()["detail"], "无权访问该数据资源")
+
+    def test_directory_response_hides_inaccessible_resources(self):
+        public_resource = DataResource.objects.create(
+            name="公开目录资源",
+            code="public-catalog-resource",
+            data_type=DataResource.DataType.TABLE,
+            status=DataResource.Status.ACTIVE,
+            maintainer=self.other_user,
+        )
+        catalog = DataCatalog.objects.create(name="监测目录", code="monitoring")
+        catalog.resources.add(public_resource, self.resource)
+        self.client.force_login(self.other_user)
+
+        response = self.client.get("/api/catalog/directories/")
+
+        self.assertEqual(response.status_code, 200)
+        resources = response.json()["items"][0]["resources"]
+        resource_ids = {item["id"] for item in resources}
+        self.assertIn(public_resource.id, resource_ids)
+        self.assertNotIn(self.resource.id, resource_ids)
 
 
 class CatalogScanTests(TestCase):
@@ -798,6 +844,41 @@ class WorkspaceSceneApiTests(TestCase):
                 target_name="退化监测专题",
             ).exists()
         )
+
+    def test_admin_workspace_management_hides_inaccessible_project_and_topic(self):
+        other = get_user_model().objects.create_user(
+            username="other-managed-workspace-owner", password="pass12345"
+        )
+        restricted_group = Group.objects.create(name="工程专题保密组")
+        project = WorkspaceScene.objects.create(
+            owner=other,
+            kind=WorkspaceScene.Kind.PROJECT,
+            name="不可见工程",
+            snapshot={"groups": []},
+        )
+        topic = WorkspaceScene.objects.create(
+            owner=other,
+            kind=WorkspaceScene.Kind.TOPIC,
+            name="不可见专题",
+            snapshot={"groups": []},
+        )
+        project.access_groups.add(restricted_group)
+        topic.access_groups.add(restricted_group)
+
+        list_response = self.client.get("/api/admin/workspaces/")
+        update_response = self.client.post(
+            f"/api/admin/workspaces/{project.id}/",
+            data=json.dumps({"action": "setStatus", "status": "inactive"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        names = {item["name"] for item in list_response.json()["items"]}
+        self.assertNotIn("不可见工程", names)
+        self.assertNotIn("不可见专题", names)
+        self.assertEqual(update_response.status_code, 404)
+        project.refresh_from_db()
+        self.assertEqual(project.status, WorkspaceScene.Status.ACTIVE)
 
 
 class DataImportApiTests(TestCase):
@@ -1470,6 +1551,7 @@ class AdminDataResourceApiTests(TestCase):
             file_format="GPKG",
             storage_path="inventory_plots",
             status=DataResource.Status.ACTIVE,
+            maintainer=self.user,
         )
 
     def test_admin_data_resource_list_includes_active_and_inactive_resources(self):
@@ -1589,6 +1671,73 @@ class AdminDataResourceApiTests(TestCase):
         self.assertEqual(xlsx_response.status_code, 200)
         self.assertIn("spreadsheetml", xlsx_response["Content-Type"])
 
+    def test_admin_data_resource_list_hides_inaccessible_resources(self):
+        restricted_group = Group.objects.create(name="保密数据组")
+        other_user = get_user_model().objects.create_user(
+            username="restricted-owner", password="pass12345"
+        )
+        restricted_resource = DataResource.objects.create(
+            name="不可见样地数据",
+            code="restricted-inventory-plots",
+            data_type=DataResource.DataType.VECTOR,
+            storage_path="restricted_inventory_plots",
+            maintainer=other_user,
+        )
+        restricted_resource.access_groups.add(restricted_group)
+
+        response = self.client.get("/api/admin/data/resources/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        item_ids = {item["id"] for item in payload["items"]}
+        self.assertIn(self.resource.id, item_ids)
+        self.assertNotIn(restricted_resource.id, item_ids)
+
+    def test_admin_data_export_hides_inaccessible_resources(self):
+        restricted_group = Group.objects.create(name="导出保密数据组")
+        other_user = get_user_model().objects.create_user(
+            username="restricted-export-owner", password="pass12345"
+        )
+        restricted_resource = DataResource.objects.create(
+            name="导出不可见样地数据",
+            code="restricted-export-inventory-plots",
+            data_type=DataResource.DataType.VECTOR,
+            storage_path="restricted_export_inventory_plots",
+            maintainer=other_user,
+        )
+        restricted_resource.access_groups.add(restricted_group)
+
+        response = self.client.get("/api/admin/data/resources/export/?format=csv")
+
+        self.assertEqual(response.status_code, 200)
+        body = response.content.decode("utf-8-sig")
+        self.assertIn("存量样地数据", body)
+        self.assertNotIn("导出不可见样地数据", body)
+
+    def test_admin_data_resource_update_hides_inaccessible_resource(self):
+        restricted_group = Group.objects.create(name="修改保密数据组")
+        other_user = get_user_model().objects.create_user(
+            username="restricted-change-owner", password="pass12345"
+        )
+        restricted_resource = DataResource.objects.create(
+            name="修改不可见样地数据",
+            code="restricted-change-inventory-plots",
+            data_type=DataResource.DataType.VECTOR,
+            storage_path="restricted_change_inventory_plots",
+            maintainer=other_user,
+        )
+        restricted_resource.access_groups.add(restricted_group)
+
+        response = self.client.post(
+            f"/api/admin/data/resources/{restricted_resource.id}/",
+            data=json.dumps({"action": "setStatus", "status": "inactive"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 404)
+        restricted_resource.refresh_from_db()
+        self.assertEqual(restricted_resource.status, DataResource.Status.ACTIVE)
+
     def test_uploader_can_list_own_resources_and_update_access_only(self):
         uploader = get_user_model().objects.create_user(
             username="resource-uploader", password="pass12345"
@@ -1623,12 +1772,10 @@ class AdminDataResourceApiTests(TestCase):
         self.assertEqual(payload["total"], 1)
         self.assertEqual(payload["items"][0]["id"], own_resource.id)
         self.assertTrue(payload["items"][0]["canManageAccess"])
-        superadmin_options = [
-            item
-            for item in payload["availableAccessGroups"]
-            if item["name"] == SUPERADMIN_GROUP_NAME
-        ]
-        self.assertEqual(superadmin_options[0]["isSuperadmin"], True)
+        self.assertNotIn(
+            SUPERADMIN_GROUP_NAME,
+            {item["name"] for item in payload["availableAccessGroups"]},
+        )
 
         access_response = self.client.post(
             f"/api/admin/data/resources/{own_resource.id}/",
@@ -1655,6 +1802,8 @@ class AdminDataResourceApiTests(TestCase):
         user = get_user_model().objects.create_user(
             username="no-data-change", password="pass12345"
         )
+        user.groups.add(self.group)
+        self.resource.access_groups.add(self.group)
         self.client.force_login(user)
 
         response = self.client.post(

@@ -64,6 +64,14 @@ def filter_accessible(queryset, user):
     return queryset.filter(access_filter(user)).distinct()
 
 
+def filter_accessible_layers(queryset, user):
+    if user.is_superuser or user_is_superadmin_group_member(user):
+        return queryset
+    return queryset.filter(
+        access_filter(user) & related_access_filter(user, "data_resource")
+    ).distinct()
+
+
 def user_can_access(obj, user) -> bool:
     if user.is_superuser or user_is_superadmin_group_member(user):
         return True

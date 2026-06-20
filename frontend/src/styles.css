@@ -5682,6 +5682,22 @@ body {
   overflow: visible;
 }
 
+.workspace-save-overwrite-alert.ant-alert {
+  color: #f7fbf9;
+  background: #1b3f38;
+  border-color: rgb(105 191 166 / 0.48);
+
+  & .ant-alert-message,
+  & .ant-alert-description,
+  & .ant-alert-icon {
+    color: #f7fbf9;
+  }
+
+  & .ant-alert-description {
+    color: rgb(247 251 249 / 0.78);
+  }
+}
+
 .symbolization-card {
   width: 100%;
   border-radius: 8px;

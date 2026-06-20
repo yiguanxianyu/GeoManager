@@ -17,6 +17,7 @@ const permissions: User["permissions"] = {
   canViewAllOperationLogs: false,
   canViewOwnOperationLogs: false,
   canViewGroupOperationLogs: false,
+  canViewSystemLogs: false,
   canManageSystemSettings: false,
   canManageAuth: false,
   canViewDashboardResourceCard: false,

@@ -28,7 +28,7 @@ from apps.audit.models import OperationLog
 from apps.audit.service import log_operation
 from apps.catalog.models import DataResource, MapLayer
 from apps.catalog.importer import ImportDataError, set_resource_access_groups
-from apps.catalog.permissions import filter_accessible
+from apps.catalog.permissions import filter_accessible, user_can_access
 from apps.core.api import (
     api_login_required,
     api_permission_required,
@@ -65,6 +65,14 @@ from apps.core.permissions import (
     feature_permission_queryset,
     granted_feature_permissions,
     has_feature_perm,
+)
+from apps.core.principal_visibility import (
+    group_is_visible_to,
+    user_is_visible_to,
+    visible_group_ids_for,
+    visible_groups_for,
+    visible_operation_logs_for,
+    visible_users_for,
 )
 from apps.core.storage import (
     StoragePathError,
@@ -343,7 +351,10 @@ def group_list(request):
         ensure_guest_user()
         return JsonResponse(
             {
-                "items": [_serialize_group(group) for group in _groups()],
+                "items": [
+                    _serialize_group(group)
+                    for group in visible_groups_for(_groups(), request.user)
+                ],
                 "availablePermissions": _available_permissions(),
             }
         )
@@ -376,6 +387,8 @@ def group_detail(request, group_id: int):
     try:
         group = Group.objects.get(pk=group_id)
     except Group.DoesNotExist:
+        return JsonResponse({"detail": "角色不存在"}, status=404)
+    if not group_is_visible_to(request.user, group):
         return JsonResponse({"detail": "角色不存在"}, status=404)
 
     payload = _json_payload(request)
@@ -455,7 +468,7 @@ def user_list(request):
         payload = _json_payload(request)
         if isinstance(payload, JsonResponse):
             return payload
-        result = _create_admin_user(User, payload)
+        result = _create_admin_user(User, payload, request.user)
         if isinstance(result, JsonResponse):
             return result
         created, generated_password = result
@@ -467,17 +480,22 @@ def user_list(request):
             created.get_username(),
             request,
         )
-        response_data = _serialize_admin_user(created)
+        response_data = _serialize_admin_user(created, request.user)
         response_data["generatedPassword"] = generated_password
         return JsonResponse(response_data, status=201)
 
-    users = User.objects.prefetch_related(
-        "groups",
-        "user_permissions__content_type",
-        "groups__permissions__content_type",
-        "profile",
-    ).order_by("id")
-    return JsonResponse({"items": [_serialize_admin_user(user) for user in users]})
+    users = visible_users_for(
+        User.objects.prefetch_related(
+            "groups",
+            "user_permissions__content_type",
+            "groups__permissions__content_type",
+            "profile",
+        ).order_by("id"),
+        request.user,
+    )
+    return JsonResponse(
+        {"items": [_serialize_admin_user(user, request.user) for user in users]}
+    )
 
 
 @require_http_methods(["POST"])
@@ -487,6 +505,8 @@ def user_detail(request, user_id: int):
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
+        return JsonResponse({"detail": "用户不存在"}, status=404)
+    if not user_is_visible_to(request.user, user):
         return JsonResponse({"detail": "用户不存在"}, status=404)
 
     payload = _json_payload(request)
@@ -537,7 +557,7 @@ def user_detail(request, user_id: int):
         f"{user.get_username()} {'启用' if is_active else '停用'}",
         request,
     )
-    return JsonResponse(_serialize_admin_user(user))
+    return JsonResponse(_serialize_admin_user(user, request.user))
 
 
 @require_http_methods(["POST"])
@@ -547,6 +567,8 @@ def reset_user_password(request, user_id: int):
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
+        return JsonResponse({"detail": "用户不存在"}, status=404)
+    if not user_is_visible_to(request.user, user):
         return JsonResponse({"detail": "用户不存在"}, status=404)
     if user.pk == request.user.pk:
         return JsonResponse({"detail": "不能重置当前登录用户密码"}, status=400)
@@ -566,7 +588,7 @@ def reset_user_password(request, user_id: int):
         user.get_username(),
         request,
     )
-    response_data = _serialize_admin_user(user)
+    response_data = _serialize_admin_user(user, request.user)
     response_data["generatedPassword"] = password
     return JsonResponse(response_data)
 
@@ -585,6 +607,8 @@ def update_user_groups(request, user_id: int):
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
+        return JsonResponse({"detail": "用户不存在"}, status=404)
+    if not user_is_visible_to(request.user, user):
         return JsonResponse({"detail": "用户不存在"}, status=404)
     if user.pk == request.user.pk:
         return JsonResponse({"detail": "不能修改当前登录用户的角色"}, status=400)
@@ -607,7 +631,11 @@ def update_user_groups(request, user_id: int):
     elif not normalized_group_ids:
         return JsonResponse({"detail": "角色为必选项"}, status=400)
 
-    groups = list(Group.objects.filter(id__in=normalized_group_ids))
+    groups = list(
+        visible_groups_for(
+            Group.objects.filter(id__in=normalized_group_ids), request.user
+        )
+    )
     if len(groups) != len(normalized_group_ids):
         return JsonResponse({"detail": "包含不存在的角色"}, status=400)
     if not is_initial_superadmin_user(user) and any(
@@ -628,7 +656,7 @@ def update_user_groups(request, user_id: int):
         user.get_username(),
         request,
     )
-    return JsonResponse(_serialize_admin_user(user))
+    return JsonResponse(_serialize_admin_user(user, request.user))
 
 
 @require_http_methods(["POST"])
@@ -646,7 +674,7 @@ def update_user_permissions(request, user_id: int):
     if isinstance(permissions, JsonResponse):
         return permissions
     operation_log_group_ids = _operation_log_group_ids_payload(
-        payload.get("operationLogGroupIds", [])
+        payload.get("operationLogGroupIds", []), request.user
     )
     if isinstance(operation_log_group_ids, JsonResponse):
         return operation_log_group_ids
@@ -658,6 +686,8 @@ def update_user_permissions(request, user_id: int):
     try:
         user = User.objects.get(pk=user_id)
     except User.DoesNotExist:
+        return JsonResponse({"detail": "用户不存在"}, status=404)
+    if not user_is_visible_to(request.user, user):
         return JsonResponse({"detail": "用户不存在"}, status=404)
     if user.pk == request.user.pk:
         return JsonResponse({"detail": "请到用户设置中修改自己的权限"}, status=400)
@@ -677,7 +707,7 @@ def update_user_permissions(request, user_id: int):
         user.get_username(),
         request,
     )
-    return JsonResponse(_serialize_admin_user(user))
+    return JsonResponse(_serialize_admin_user(user, request.user))
 
 
 @require_http_methods(["GET", "POST"])
@@ -745,12 +775,14 @@ def admin_data_resources(request):
         .order_by("-updated_at", "name"),
         request.GET,
     )
-    if not (
+    if (
         has_feature_perm(request.user, "catalog.view_dataresource")
         or has_feature_perm(request.user, "catalog.change_dataresource")
         or has_feature_perm(request.user, "catalog.delete_dataresource")
         or has_feature_perm(request.user, "catalog.export_dataresource")
     ):
+        queryset = filter_accessible(queryset, request.user)
+    else:
         queryset = queryset.filter(maintainer=request.user)
     total = queryset.count()
     current = _positive_query_int(request.GET.get("current"), default=1)
@@ -770,7 +802,9 @@ def admin_data_resources(request):
             "total": total,
             "availableAccessGroups": [
                 _serialize_access_group(group)
-                for group in Group.objects.order_by("name")
+                for group in visible_groups_for(
+                    Group.objects.order_by("name"), request.user
+                )
             ],
         }
     )
@@ -789,6 +823,8 @@ def admin_data_resource_detail(request, resource_id: int):
             .get(pk=resource_id)
         )
     except DataResource.DoesNotExist:
+        return JsonResponse({"detail": "数据资源不存在"}, status=404)
+    if not user_can_access(resource, request.user):
         return JsonResponse({"detail": "数据资源不存在"}, status=404)
 
     action = str(payload.get("action", "update")).strip()
@@ -882,6 +918,7 @@ def admin_data_resources_export(request):
         .order_by("-updated_at", "name"),
         request.GET,
     )
+    queryset = filter_accessible(queryset, request.user)
     rows = [
         _serialize_admin_data_resource(resource, request.user) for resource in queryset
     ]
@@ -905,7 +942,7 @@ def admin_data_resources_export(request):
 
 
 @require_GET
-@api_permission_required("core.view_operation_logs")
+@api_login_required
 def admin_operation_logs(request):
     logs = OperationLog.objects.select_related("user").order_by("-created_at")
     logs = _scope_operation_logs(logs, request.user)
@@ -928,7 +965,7 @@ def admin_operation_logs(request):
 
 
 @require_GET
-@api_permission_required("core.view_operation_logs")
+@api_permission_required("core.view_system_logs")
 def admin_system_logs(request):
     lines = _positive_query_int(request.GET.get("lines"), default=500)
     if isinstance(lines, JsonResponse):
@@ -985,11 +1022,13 @@ def admin_dashboard(request):
         }
     if has_feature_perm(request.user, "core.view_dashboard_user_card"):
         User = get_user_model()
+        users = visible_users_for(User.objects.all(), request.user)
+        groups = visible_groups_for(Group.objects.all(), request.user)
         cards["users"] = {
-            "total": User.objects.count(),
-            "active": User.objects.filter(is_active=True).count(),
-            "disabled": User.objects.filter(is_active=False).count(),
-            "groups": Group.objects.count(),
+            "total": users.count(),
+            "active": users.filter(is_active=True).count(),
+            "disabled": users.filter(is_active=False).count(),
+            "groups": groups.count(),
             "vectorResources": DataResource.objects.filter(
                 data_type=DataResource.DataType.VECTOR
             ).count(),
@@ -999,13 +1038,16 @@ def admin_dashboard(request):
         }
     if has_feature_perm(request.user, "core.view_dashboard_active_users_card"):
         period_start, period_end = _active_period_bounds(period)
-        login_logs = OperationLog.objects.filter(
-            module="认证授权",
-            action="用户登录",
-            status=OperationLog.Status.SUCCESS,
-            created_at__gte=period_start,
-            created_at__lt=period_end,
-            user_id__isnull=False,
+        login_logs = visible_operation_logs_for(
+            OperationLog.objects.filter(
+                module="认证授权",
+                action="用户登录",
+                status=OperationLog.Status.SUCCESS,
+                created_at__gte=period_start,
+                created_at__lt=period_end,
+                user_id__isnull=False,
+            ),
+            request.user,
         )
         cards["activeUsers"] = {
             "period": period,
@@ -1259,7 +1301,8 @@ def _serialize_admin_data_resource(
         "itemCount": resource.item_count,
         "status": resource.status,
         "accessGroups": [
-            _serialize_access_group(group) for group in resource.access_groups.all()
+            _serialize_access_group(group)
+            for group in visible_groups_for(resource.access_groups.all(), request_user)
         ],
         "canManageAccess": bool(
             has_feature_perm(request_user, "catalog.change_dataresource")
@@ -1903,7 +1946,7 @@ def _serialize_profile(user) -> dict[str, Any]:
     }
 
 
-def _serialize_admin_user(user) -> dict[str, Any]:
+def _serialize_admin_user(user, request_user=None) -> dict[str, Any]:
     serialized = serialize_user(user)
     serialized["groupIds"] = list(user.groups.values_list("id", flat=True))
     serialized["isActive"] = user.is_active
@@ -1911,7 +1954,9 @@ def _serialize_admin_user(user) -> dict[str, Any]:
     serialized["directPermissions"] = sorted(direct_feature_permissions(user))
     serialized["disabledPermissions"] = sorted(disabled_feature_permissions(user))
     serialized["effectivePermissions"] = sorted(effective_feature_permissions(user))
-    serialized["operationLogGroupIds"] = _operation_log_group_ids(user)
+    serialized["operationLogGroupIds"] = _operation_log_group_ids(
+        user, request_user or user
+    )
     return serialized
 
 
@@ -2104,21 +2149,17 @@ def _filter_operation_logs(queryset, params):
 
 def _scope_operation_logs(queryset, user):
     if has_feature_perm(user, "core.view_all_operation_logs"):
-        return queryset
+        return visible_operation_logs_for(queryset, user)
 
-    scope = Q()
-    if has_feature_perm(user, "core.view_own_operation_logs"):
-        scope |= Q(user_id=user.id)
+    scope = Q(user_id=user.id)
     if has_feature_perm(user, "core.view_group_operation_logs"):
         group_ids = _operation_log_group_ids(user)
         if group_ids:
             scope |= Q(user__groups__id__in=group_ids)
-    if not scope:
-        return queryset.none()
-    return queryset.filter(scope).distinct()
+    return visible_operation_logs_for(queryset.filter(scope), user).distinct()
 
 
-def _operation_log_group_ids(user) -> list[int]:
+def _operation_log_group_ids(user, viewer=None) -> list[int]:
     try:
         profile = user.profile
     except ObjectDoesNotExist:
@@ -2132,10 +2173,10 @@ def _operation_log_group_ids(user) -> list[int]:
             normalized.append(int(group_id))
         except (TypeError, ValueError):
             continue
-    return normalized
+    return visible_group_ids_for(normalized, viewer or user)
 
 
-def _operation_log_group_ids_payload(value: Any) -> list[int] | JsonResponse:
+def _operation_log_group_ids_payload(value: Any, viewer) -> list[int] | JsonResponse:
     if not isinstance(value, list):
         return JsonResponse({"detail": "operationLogGroupIds 必须是数组"}, status=400)
     try:
@@ -2147,7 +2188,9 @@ def _operation_log_group_ids_payload(value: Any) -> list[int] | JsonResponse:
     if not normalized_group_ids:
         return []
     existing_ids = set(
-        Group.objects.filter(id__in=normalized_group_ids).values_list("id", flat=True)
+        visible_groups_for(
+            Group.objects.filter(id__in=normalized_group_ids), viewer
+        ).values_list("id", flat=True)
     )
     missing_ids = set(normalized_group_ids) - existing_ids
     if missing_ids:
@@ -2200,7 +2243,7 @@ def _positive_query_int(value: Any, *, default: int) -> int | JsonResponse:
     return parsed
 
 
-def _create_admin_user(User, payload: dict[str, Any]):
+def _create_admin_user(User, payload: dict[str, Any], request_user=None):
     username = _required_string(payload.get("username"), "username")
     if isinstance(username, JsonResponse):
         return username
@@ -2222,7 +2265,12 @@ def _create_admin_user(User, payload: dict[str, Any]):
     if not normalized_group_ids:
         return JsonResponse({"detail": "角色为必选项"}, status=400)
 
-    groups = list(Group.objects.filter(id__in=normalized_group_ids))
+    groups = list(
+        visible_groups_for(
+            Group.objects.filter(id__in=normalized_group_ids),
+            request_user,
+        )
+    )
     if len(groups) != len(normalized_group_ids):
         return JsonResponse({"detail": "包含不存在的角色"}, status=400)
     if any(is_superadmin_group(group) for group in groups):

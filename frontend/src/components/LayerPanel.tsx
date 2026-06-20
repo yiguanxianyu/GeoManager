@@ -665,6 +665,7 @@ export default function LayerPanel() {
               </Form.Item>
               {selectedSaveTarget ? (
                 <Alert
+                  className="workspace-save-overwrite-alert"
                   type="warning"
                   showIcon
                   message={`将覆盖“${selectedSaveTarget.name}”`}

@@ -8,7 +8,7 @@ import {
 import { App as AntApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { MemoryRouter, useLocation } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppContext } from "../contexts/AppContext";
 import { appTheme } from "../theme";
 import type {
@@ -18,6 +18,21 @@ import type {
   WorkspaceScene,
 } from "../types";
 import WorkspaceHeader from "./WorkspaceHeader";
+
+const { clearCachedLayerGroupsMock, mockApi } = vi.hoisted(() => ({
+  clearCachedLayerGroupsMock: vi.fn(),
+  mockApi: {
+    logout: vi.fn(),
+  },
+}));
+
+vi.mock("../api/client", () => ({
+  api: mockApi,
+}));
+
+vi.mock("../utils/layerWorkspaceStorage", () => ({
+  clearCachedLayerGroups: clearCachedLayerGroupsMock,
+}));
 
 const bootstrap: Bootstrap = {
   systemName: "中亚胡杨林生态系统保护数据共享平台",
@@ -42,6 +57,7 @@ const permissions: User["permissions"] = {
   canViewAllOperationLogs: false,
   canViewOwnOperationLogs: false,
   canViewGroupOperationLogs: false,
+  canViewSystemLogs: false,
   canManageSystemSettings: false,
   canManageAuth: false,
   canViewDashboardResourceCard: false,
@@ -129,6 +145,7 @@ function scene(
 function renderHeader(
   props: Partial<React.ComponentProps<typeof WorkspaceHeader>> = {},
   contextUser: User = user,
+  setUser: (user: User | null) => void = vi.fn(),
 ) {
   window.localStorage.setItem(
     `huyang-system.workspace-tour.v1.${contextUser.id}.${contextUser.username}`,
@@ -138,9 +155,7 @@ function renderHeader(
   return render(
     <ConfigProvider locale={zhCN} theme={appTheme}>
       <AntApp>
-        <AppContext.Provider
-          value={{ bootstrap, user: contextUser, setUser: vi.fn() }}
-        >
+        <AppContext.Provider value={{ bootstrap, user: contextUser, setUser }}>
           <MemoryRouter>
             <WorkspaceHeader
               activeTab="map"
@@ -172,6 +187,13 @@ function sectionByTitle(title: string) {
 }
 
 describe("WorkspaceHeader", () => {
+  beforeEach(() => {
+    mockApi.logout.mockReset();
+    clearCachedLayerGroupsMock.mockReset();
+    mockApi.logout.mockResolvedValue({ detail: "已退出" });
+    clearCachedLayerGroupsMock.mockResolvedValue(undefined);
+  });
+
   it("separates projects and topics and loads them only from the load button", async () => {
     const onLoadWorkspaceScene = vi.fn();
     const onQuickLoadResource = vi.fn();
@@ -221,5 +243,25 @@ describe("WorkspaceHeader", () => {
 
     expect(container.querySelector(".data-import-shortcut")).toBeNull();
     expect(screen.getByTestId("location-path")).toHaveTextContent("/");
+  });
+
+  it("clears cached layer state when the user logs out", async () => {
+    const setUser = vi.fn();
+    renderHeader({}, user, setUser);
+
+    fireEvent.click(screen.getByRole("button", { name: "用户信息" }));
+    fireEvent.click(await screen.findByRole("button", { name: /安全退出/ }));
+
+    await waitFor(() => {
+      expect(clearCachedLayerGroupsMock).toHaveBeenCalledOnce();
+    });
+    expect(mockApi.logout).toHaveBeenCalledOnce();
+    expect(setUser).toHaveBeenCalledWith(null);
+    expect(mockApi.logout.mock.invocationCallOrder[0]).toBeLessThan(
+      clearCachedLayerGroupsMock.mock.invocationCallOrder[0],
+    );
+    expect(clearCachedLayerGroupsMock.mock.invocationCallOrder[0]).toBeLessThan(
+      setUser.mock.invocationCallOrder[0],
+    );
   });
 });

@@ -45,6 +45,7 @@ import {
   resourceFormatLabel,
   resourceProvider,
 } from "../utils/resources";
+import { clearCachedLayerGroups } from "../utils/layerWorkspaceStorage";
 
 export type WorkspaceTab = "map" | "nongeo" | "resources" | "admin";
 
@@ -412,6 +413,11 @@ export default function WorkspaceHeader({
         error instanceof Error ? error.message : "退出接口异常，本地会话已清空",
       );
     } finally {
+      try {
+        await clearCachedLayerGroups();
+      } catch (error) {
+        console.warn("清理本地图层缓存失败", error);
+      }
       setUser(null);
     }
   }
@@ -566,7 +572,10 @@ export default function WorkspaceHeader({
         onClick: () => navigateFromHeader("/admin/profile"),
       },
     ];
-    if (user?.permissions.canViewOperationLogs) {
+    if (
+      user?.permissions.canViewOperationLogs ||
+      user?.permissions.canViewOwnOperationLogs
+    ) {
       items.push({
         key: "admin-logs",
         label: "日志管理",
@@ -600,6 +609,7 @@ export default function WorkspaceHeader({
     user?.permissions.canManageAuth,
     user?.permissions.canManageSystemSettings,
     user?.permissions.canViewOperationLogs,
+    user?.permissions.canViewOwnOperationLogs,
   ]);
 
   const finishTour = useCallback(() => {

@@ -98,6 +98,7 @@ const adminUser: User = {
     canViewAllOperationLogs: true,
     canViewOwnOperationLogs: true,
     canViewGroupOperationLogs: true,
+    canViewSystemLogs: true,
     canManageSystemSettings: true,
     canManageAuth: true,
     canViewDashboardResourceCard: true,
@@ -134,6 +135,7 @@ const availablePermissions = [
   },
   { id: "core.create_user", label: "新建用户", group: "人员权限" },
   { id: "core.view_operation_logs", label: "查看操作日志", group: "后台权限" },
+  { id: "core.view_system_logs", label: "查看系统日志", group: "后台权限" },
   {
     id: "core.view_all_operation_logs",
     label: "查看所有用户日志",
@@ -505,9 +507,7 @@ describe("admin routes", () => {
           qualityNote: "",
           defaultVisualization: {},
           status: "active",
-          accessGroups: [
-            { id: 1, name: "超级管理员", isGuest: false, isSuperadmin: true },
-          ],
+          accessGroups: [],
           canManageAccess: true,
           maintainer: "系统管理员",
           createdAt: "2026-06-01T10:00:00+08:00",
@@ -517,7 +517,6 @@ describe("admin routes", () => {
       ],
       total: 1,
       availableAccessGroups: [
-        { id: 1, name: "超级管理员", isGuest: false, isSuperadmin: true },
         { id: 2, name: "科研用户", isGuest: false, isSuperadmin: false },
         { id: 3, name: "游客", isGuest: true, isSuperadmin: false },
       ],
@@ -540,9 +539,7 @@ describe("admin routes", () => {
         qualityNote: "",
         defaultVisualization: payload.visualization ?? {},
         status: payload.status ?? "active",
-        accessGroups: [
-          { id: 1, name: "超级管理员", isGuest: false, isSuperadmin: true },
-        ],
+        accessGroups: [],
         canManageAccess: true,
         maintainer: "系统管理员",
         createdAt: "2026-06-01T10:00:00+08:00",
@@ -573,15 +570,12 @@ describe("admin routes", () => {
             createdAt: "2026-06-01T10:00:00+08:00",
             updatedAt: "2026-06-01T10:00:00+08:00",
             status: "active",
-            accessGroups: [
-              { id: 1, name: "超级管理员", isGuest: false, isSuperadmin: true },
-            ],
+            accessGroups: [],
             canManageAccess: true,
           },
         ],
         total: 1,
         availableAccessGroups: [
-          { id: 1, name: "超级管理员", isGuest: false, isSuperadmin: true },
           { id: 2, name: "科研用户", isGuest: false, isSuperadmin: false },
         ],
       });
@@ -601,9 +595,7 @@ describe("admin routes", () => {
         createdAt: "2026-06-01T10:00:00+08:00",
         updatedAt: "2026-06-01T10:00:00+08:00",
         status: payload.status ?? "active",
-        accessGroups: [
-          { id: 1, name: "超级管理员", isGuest: false, isSuperadmin: true },
-        ],
+        accessGroups: [],
         canManageAccess: true,
       }),
     );
@@ -708,14 +700,7 @@ describe("admin routes", () => {
     expect(within(drawer).getByText("平台运维组")).toBeInTheDocument();
   }, 30000);
 
-  it("puts current user first and disables protected auth actions", async () => {
-    const superadminGroup = {
-      ...adminGroup,
-      id: 2,
-      name: "超级管理员",
-      userCount: 1,
-      lockedPermissions: ["core.manage_auth"],
-    };
+  it("puts current user first in auth management", async () => {
     const researcher = {
       ...adminApiUser,
       id: 2,
@@ -723,18 +708,11 @@ describe("admin routes", () => {
       displayName: "科研用户",
       groupIds: [],
     };
-    const superadminUser = {
-      ...adminApiUser,
-      id: 3,
-      username: "root-admin",
-      displayName: "超级管理员",
-      groupIds: [superadminGroup.id],
-    };
     mockApi.adminUsers.mockResolvedValue({
-      items: [researcher, superadminUser, adminApiUser],
+      items: [researcher, adminApiUser],
     });
     mockApi.adminGroups.mockResolvedValue({
-      items: [adminGroup, superadminGroup],
+      items: [adminGroup],
       availablePermissions,
     });
 
@@ -755,17 +733,6 @@ describe("admin routes", () => {
     expect(ownPermissionItem).toHaveAttribute("aria-disabled", "true");
     expect(
       within(ownPermissionItem).getByTitle("请到用户设置中修改自己的权限"),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getAllByRole("button", { name: /操作/ })[2]);
-    const superadminGroupItems = await screen.findAllByRole("menuitem", {
-      name: /更改角色/,
-    });
-    const superadminGroupItem =
-      superadminGroupItems[superadminGroupItems.length - 1];
-    expect(superadminGroupItem).toHaveAttribute("aria-disabled", "true");
-    expect(
-      within(superadminGroupItem).getByTitle("不能修改系统锁定角色"),
     ).toBeInTheDocument();
   }, 30000);
 

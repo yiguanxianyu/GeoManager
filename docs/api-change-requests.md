@@ -35,6 +35,8 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260620-006 | BackendReady | Multiple catalog/auth endpoints | removed endpoints, response fields, permission behavior | Done | Done | Done | Pending | Remove previous temporary GeoPackage resources and broad maintenance flag |
 | API-20260620-007 | BackendReady | POST /api/users/{userId}/permissions/; POST /api/catalog/export/; POST /api/catalog/export/async/ | request body, response fields, permission behavior | Done | Done | Done | Pending | User permission close overrides and vector export format selection |
 | API-20260620-008 | BackendReady | GET /api/admin/dashboard/ | response fields | Done | N/A | Done | Pending | Split data overview into own uploads and visible resources |
+| API-20260620-009 | BackendReady | GET /api/admin/data/resources/; GET /api/admin/data/resources/export/; POST /api/admin/data/resources/{id}/; GET /api/layers/; GET /api/catalog/directories/ | permission behavior | Done | N/A | Done | Done | Admin inventory and catalog object visibility scope |
+| API-20260620-010 | BackendReady | Auth/admin principal endpoints and operation logs | response fields, permission behavior | Done | N/A | Done | Done | Hide superadmin principals from non-superadmin users and always allow own operation logs |
 
 ## Entry Template
 
@@ -65,6 +67,32 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Backend implementation notes: Store closed permissions on `UserProfile.disabled_permissions`, filter them against granted permissions, preserve server-side permission checks, and package Shapefile component files into the ZIP when requested.
 - Verification: run backend core/catalog export tests plus `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check && pnpm run mock:build`.
 - Result: Backend and frontend implementation included in this change; full verification pending.
+
+## API-20260620-009 - Admin Inventory Object Visibility Scope
+
+- Status: BackendReady
+- Owner: Frontend / Backend
+- Endpoints: `GET /api/admin/data/resources/`, `GET /api/admin/data/resources/export/`, `POST /api/admin/data/resources/{id}/`, `GET /api/layers/`, `GET /api/catalog/directories/`
+- Change type: permission behavior
+- OpenAPI change: Admin inventory list, export, and single-resource actions now apply data object visibility: non-superadmin users only see or operate resources visible to their groups or uploaded by themselves; inaccessible resources are treated as not found for single-resource actions. Catalog layer lists also hide layers whose associated data resource is not visible, and catalog directory resources are trimmed to the current user's data visibility. Superadmin visibility remains unrestricted.
+- Mock examples: N/A
+- Frontend reason: The backend inventory page, layer panel, and catalog tree must not reveal data that the current user cannot load or access in catalog workflows.
+- Backend implementation notes: Apply `filter_accessible` to admin inventory list/export querysets and check `user_can_access` before action-specific permissions in single-resource updates. Use combined MapLayer and related DataResource access filtering for layer lists; trim directory resource arrays by `user_can_access`.
+- Verification: run focused backend admin data resource tests and frontend API contract checks.
+- Result: Backend behavior and regression tests included in this change.
+
+## API-20260620-010 - Principal Visibility And Own Operation Logs
+
+- Status: BackendReady
+- Owner: Frontend / Backend
+- Endpoints: `GET /api/auth/me/`, `GET /api/users/`, `POST /api/users/{userId}/`, `POST /api/users/{userId}/groups/`, `POST /api/users/{userId}/permissions/`, `GET /api/groups/`, `POST /api/groups/{groupId}/`, `GET /api/admin/operation-logs/`, `GET /api/admin/system-logs/`, admin data/workspace access-group responses
+- Change type: response fields, permission behavior
+- OpenAPI change: `UserPermissions` adds `canViewSystemLogs`; non-superadmin subjects no longer receive superadmin users, groups, access groups, or logs; operation logs are available to every authenticated user for their own records; system logs are controlled by `core.view_system_logs`.
+- Mock examples: N/A
+- Frontend reason: Ordinary users must not be able to infer that a superadmin account or role exists, while still being able to audit their own actions.
+- Backend implementation notes: Centralize principal visibility through backend queryset helpers, apply it to user/group/log/access-group responses, and keep forced superadmin access in storage/permission internals.
+- Verification: run backend core/catalog API tests and frontend API generation/type checks.
+- Result: Backend and frontend implementation included in this change.
 
 ## API-20260615-001 - Initial Mock Separation Contract
 

@@ -44,7 +44,10 @@ const authRoute: MenuDataItem = {
 
 function adminRouteFor(user: User | null) {
   const routes = [...baseAdminRoutes];
-  if (user?.permissions.canViewOperationLogs) {
+  if (
+    user?.permissions.canViewOperationLogs ||
+    user?.permissions.canViewOwnOperationLogs
+  ) {
     routes.push({
       path: "/admin/logs",
       name: "日志管理",
@@ -80,7 +83,7 @@ const pageMeta: Record<string, { title: string; subTitle: string }> = {
   },
   "/admin/logs": {
     title: "日志管理",
-    subTitle: "查询操作记录并查看后台运行日志",
+    subTitle: "查询授权范围内的操作记录",
   },
   "/admin/settings": {
     title: "系统设置",

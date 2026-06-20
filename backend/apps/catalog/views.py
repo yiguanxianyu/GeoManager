@@ -35,7 +35,11 @@ from apps.catalog.models import (
     MapLayer,
     WorkspaceScene,
 )
-from apps.catalog.permissions import filter_accessible, user_can_access
+from apps.catalog.permissions import (
+    filter_accessible,
+    filter_accessible_layers,
+    user_can_access,
+)
 from apps.catalog.serializers import (
     serialize_catalog,
     serialize_layer,
@@ -45,6 +49,7 @@ from apps.catalog.services import (
     scan_catalog_sources,
 )
 from apps.core.permissions import feature_denied_response, has_feature_perm
+from apps.core.principal_visibility import visible_groups_for
 from apps.raster.services import (
     RasterJobError,
     get_job,
@@ -69,7 +74,13 @@ def directories(request):
         "resources", "resources__category"
     )
     catalogs = filter_accessible(queryset, request.user)
-    return JsonResponse({"items": [serialize_catalog(item) for item in catalogs]})
+    return JsonResponse(
+        {
+            "items": [
+                _serialize_catalog_for_user(item, request.user) for item in catalogs
+            ]
+        }
+    )
 
 
 @require_GET
@@ -272,6 +283,16 @@ def import_commit(request):
 
 def _can_create_data_resource(user) -> bool:
     return has_feature_perm(user, "catalog.add_dataresource")
+
+
+def _serialize_catalog_for_user(catalog: DataCatalog, user) -> dict:
+    payload = serialize_catalog(catalog)
+    payload["resources"] = [
+        serialize_resource(resource)
+        for resource in catalog.resources.all()
+        if user_can_access(resource, user)
+    ]
+    return payload
 
 
 @require_http_methods(["GET", "POST"])
@@ -495,7 +516,7 @@ def admin_workspaces(request):
                 for scene in queryset[start : start + page_size]
             ],
             "total": total,
-            "availableAccessGroups": _available_access_groups(),
+            "availableAccessGroups": _available_access_groups(request.user),
         }
     )
 
@@ -660,7 +681,8 @@ def _serialize_admin_workspace(scene: WorkspaceScene, request_user) -> dict[str,
         {
             "status": scene.status,
             "accessGroups": [
-                _serialize_access_group(group) for group in scene.access_groups.all()
+                _serialize_access_group(group)
+                for group in visible_groups_for(scene.access_groups.all(), request_user)
             ],
             "canManageAccess": bool(
                 has_feature_perm(request_user, "catalog.change_workspacescene")
@@ -671,8 +693,11 @@ def _serialize_admin_workspace(scene: WorkspaceScene, request_user) -> dict[str,
     return payload
 
 
-def _available_access_groups() -> list[dict[str, Any]]:
-    return [_serialize_access_group(group) for group in Group.objects.order_by("name")]
+def _available_access_groups(request_user) -> list[dict[str, Any]]:
+    return [
+        _serialize_access_group(group)
+        for group in visible_groups_for(Group.objects.order_by("name"), request_user)
+    ]
 
 
 def _serialize_access_group(group: Group) -> dict[str, Any]:
@@ -1020,7 +1045,7 @@ def layers(request):
     queryset = MapLayer.objects.filter(is_active=True).select_related(
         "category", "data_resource"
     )
-    layers_qs = filter_accessible(queryset, request.user)
+    layers_qs = filter_accessible_layers(queryset, request.user)
     items = [serialize_layer(item) for item in layers_qs]
 
     return JsonResponse({"items": items})

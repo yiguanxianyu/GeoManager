@@ -59,10 +59,13 @@ export function RequireWorkspaceInventory() {
   return <Outlet />;
 }
 
-/** 需要查看操作日志权限才能访问的路由 */
+/** 登录用户均可查看自己的操作日志，更高日志范围由后端裁剪 */
 export function RequireViewOperationLogs() {
   const { user } = useAppContext();
-  if (!user?.permissions.canViewOperationLogs) {
+  if (
+    !user?.permissions.canViewOperationLogs &&
+    !user?.permissions.canViewOwnOperationLogs
+  ) {
     return <Navigate to="/admin/profile" replace />;
   }
   return <Outlet />;

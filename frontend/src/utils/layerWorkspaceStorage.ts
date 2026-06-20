@@ -54,6 +54,20 @@ export async function writeCachedLayerGroups(
   }
 }
 
+export async function clearCachedLayerGroups(): Promise<void> {
+  if (!hasIndexedDb()) {
+    return;
+  }
+  const db = await openLayerWorkspaceDb();
+  try {
+    await requestToPromise(
+      db.transaction(STORE_NAME, "readwrite").objectStore(STORE_NAME).clear(),
+    );
+  } finally {
+    db.close();
+  }
+}
+
 function hasIndexedDb(): boolean {
   return typeof globalThis.indexedDB !== "undefined";
 }

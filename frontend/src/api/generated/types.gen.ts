@@ -386,6 +386,10 @@ export type UserPermissions = {
      */
     canViewGroupOperationLogs: boolean;
     /**
+     * 是否可查看后台运行日志，由 `core.view_system_logs` 权限控制
+     */
+    canViewSystemLogs: boolean;
+    /**
      * 是否可修改系统设置
      */
     canManageSystemSettings: boolean;
@@ -762,7 +766,7 @@ export type AdminDashboardDataOverviewCard = {
      */
     visibleResources: AdminDashboardDataOverviewScope;
     /**
-     * 超级管理员可见的上传用户统计；普通用户无该字段
+     * 超级管理员主体可见的上传用户统计；普通用户无该字段
      */
     uploaders?: Array<AdminDashboardUploaderOverview>;
 };
@@ -1368,7 +1372,7 @@ export type AdminDataResourceAccessGroup = {
      */
     isGuest: boolean;
     /**
-     * 是否为系统内置超级管理员用户组；数据可见范围会强制包含该组
+     * 是否为系统内置超级管理员用户组；仅超级管理员主体会收到该组，数据可见范围会在后台强制包含该组
      */
     isSuperadmin: boolean;
 };
@@ -1496,7 +1500,7 @@ export type AdminDataResource = {
      */
     status: 'active' | 'inactive';
     /**
-     * 允许访问该数据资源的用户组；用户导入、目录扫描和栅格导入会强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。
+     * 允许访问该数据资源且对当前主体可见的用户组；用户导入、目录扫描和栅格导入会在后台强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。
      */
     accessGroups: Array<AdminDataResourceAccessGroup>;
     /**
@@ -1550,7 +1554,7 @@ export type AdminDataResourceListResponse = {
      */
     total: number;
     /**
-     * 可用于配置数据访问范围的用户组列表；前端应隐藏或锁定超级管理员组，因为后端会强制包含
+     * 可用于配置数据访问范围且对当前主体可见的用户组列表；非超级管理员主体不会收到超级管理员用户组，后端仍会强制保留超级管理员访问范围
      */
     availableAccessGroups: Array<AdminDataResourceAccessGroup>;
 };
@@ -1593,7 +1597,7 @@ export type AdminDataResourceUpdateRequest = {
     status?: 'active' | 'inactive';
     visualization?: AdminDataResourceVisualization;
     /**
-     * updateAccess 或 update 时写入的额外可见用户组 ID 列表；后端会强制补齐超级管理员用户组，上传者本人不依赖用户组也始终可见。包含游客用户组时表示未登录用户可通过游客会话访问该数据。
+     * updateAccess 或 update 时写入的额外可见用户组 ID 列表；非超级管理员主体不能选择超级管理员用户组，后端会强制补齐超级管理员用户组，上传者本人不依赖用户组也始终可见。包含游客用户组时表示未登录用户可通过游客会话访问该数据。
      */
     accessGroupIds?: Array<number>;
     /**
@@ -1608,7 +1612,7 @@ export type AdminWorkspaceScene = WorkspaceScene & {
      */
     status: 'active' | 'inactive';
     /**
-     * 允许访问该工程专题的用户组；所属用户本人和超级管理员始终可见
+     * 允许访问该工程专题且对当前主体可见的用户组；所属用户本人和超级管理员始终可见
      */
     accessGroups: Array<AdminDataResourceAccessGroup>;
     /**
@@ -1654,7 +1658,7 @@ export type AdminWorkspaceSceneUpdateRequest = {
      */
     description?: string;
     /**
-     * updateAccess 或 update 时写入的额外可见用户组 ID 列表；后端会强制补齐超级管理员用户组，所属用户本人始终可见。包含游客用户组时表示未登录用户可通过游客会话访问该工程专题。
+     * updateAccess 或 update 时写入的额外可见用户组 ID 列表；非超级管理员主体不能选择超级管理员用户组，后端会强制补齐超级管理员用户组，所属用户本人始终可见。包含游客用户组时表示未登录用户可通过游客会话访问该工程专题。
      */
     accessGroupIds?: Array<number>;
     /**

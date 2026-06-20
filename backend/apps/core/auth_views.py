@@ -21,6 +21,7 @@ from apps.core.permissions import (
     feature_permission_queryset,
     has_feature_perm,
 )
+from apps.core.principal_visibility import visible_group_ids_for
 from apps.core.views import registration_allowed
 
 
@@ -153,6 +154,7 @@ def serialize_user(user):
         "canViewGroupOperationLogs": has_feature_perm(
             user, "core.view_group_operation_logs"
         ),
+        "canViewSystemLogs": has_feature_perm(user, "core.view_system_logs"),
         "canManageSystemSettings": has_feature_perm(
             user, "core.manage_system_settings"
         ),
@@ -211,7 +213,9 @@ def serialize_user(user):
         "groupPermissions": sorted(group_feature_permissions(user)),
         "directPermissions": sorted(direct_feature_permissions(user)),
         "effectivePermissions": sorted(effective_feature_permissions(user)),
-        "operationLogGroupIds": profile["operation_log_group_ids"],
+        "operationLogGroupIds": visible_group_ids_for(
+            profile["operation_log_group_ids"], user
+        ),
         "permissions": permissions,
     }
 

@@ -18,8 +18,10 @@ import {
   Tag,
   Typography,
 } from "antd";
+import type { TabsProps } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
+import { useAppContext } from "../contexts/AppContext";
 import type {
   AdminOperationLog,
   AdminOperationLogQuery,
@@ -53,6 +55,7 @@ export default function AdminOperationLogsPage() {
   const actionRef = useRef<ActionType>(null);
   const formRef = useRef<ProFormInstance | undefined>(undefined);
   const { message } = App.useApp();
+  const { user } = useAppContext();
   const [exporting, setExporting] = useState(false);
   const [hints, setHints] = useState<OperationLogHints>({
     operators: [],
@@ -164,23 +167,22 @@ export default function AdminOperationLogsPage() {
     />
   );
 
-  return (
-    <Tabs
-      className="admin-logs-tabs"
-      items={[
-        {
-          key: "operations",
-          label: "操作日志",
-          children: operationLogTable,
-        },
-        {
-          key: "system",
-          label: "系统日志",
-          children: <AdminSystemLogsPanel />,
-        },
-      ]}
-    />
-  );
+  const tabItems: TabsProps["items"] = [
+    {
+      key: "operations",
+      label: "操作日志",
+      children: operationLogTable,
+    },
+  ];
+  if (user?.permissions.canViewSystemLogs) {
+    tabItems.push({
+      key: "system",
+      label: "系统日志",
+      children: <AdminSystemLogsPanel />,
+    });
+  }
+
+  return <Tabs className="admin-logs-tabs" items={tabItems} />;
 }
 
 function AdminSystemLogsPanel() {

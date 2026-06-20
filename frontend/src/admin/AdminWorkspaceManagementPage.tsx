@@ -23,7 +23,6 @@ import ManagedCollectionPage, {
   type AccessScopeId,
   type FilterField,
   type ManagedFormValues,
-  isSuperadminGroup,
   realAccessGroupIds,
   withFixedAccessScopes,
 } from "./ManagedCollectionPage";
@@ -311,9 +310,7 @@ export default function AdminWorkspaceManagementPage({
         description: item.description,
         kind: item.kind,
         accessGroupIds: withFixedAccessScopes(
-          item.accessGroups
-            .filter((group) => !isSuperadminGroup(group))
-            .map((group) => group.id as AccessScopeId),
+          item.accessGroups.map((group) => group.id as AccessScopeId),
         ),
       })}
       renderFormItems={(_, maintainable) => (

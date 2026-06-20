@@ -44,6 +44,13 @@ FEATURE_PERMISSIONS: tuple[FeaturePermissionDef, ...] = (
     FeaturePermissionDef(
         "core",
         "FeaturePermission",
+        "view_system_logs",
+        "查看系统日志",
+        "后台权限",
+    ),
+    FeaturePermissionDef(
+        "core",
+        "FeaturePermission",
         "view_all_operation_logs",
         "查看所有用户日志",
         "日志权限",
@@ -177,11 +184,14 @@ FEATURE_PERMISSIONS: tuple[FeaturePermissionDef, ...] = (
 )
 
 FEATURE_PERMISSION_NAMES = tuple(item.perm_name for item in FEATURE_PERMISSIONS)
+ALWAYS_GRANTED_FEATURE_PERMISSIONS = frozenset({"core.view_own_operation_logs"})
 
 
 def has_feature_perm(user, perm_name: str) -> bool:
     if not user.is_authenticated:
         return False
+    if perm_name in ALWAYS_GRANTED_FEATURE_PERMISSIONS:
+        return True
     if user.is_superuser:
         return perm_name not in disabled_feature_permissions(user)
     return user.has_perm(perm_name) and perm_name not in disabled_feature_permissions(
@@ -194,7 +204,7 @@ def granted_feature_permissions(user) -> set[str]:
         return set()
     if user.is_superuser:
         return set(FEATURE_PERMISSION_NAMES)
-    return {
+    return ALWAYS_GRANTED_FEATURE_PERMISSIONS | {
         permission
         for permission in FEATURE_PERMISSION_NAMES
         if user.has_perm(permission)
@@ -211,7 +221,7 @@ def disabled_feature_permissions(user) -> set[str]:
         permission
         for permission in profile.disabled_permissions
         if permission in FEATURE_PERMISSION_NAMES
-    }
+    } - ALWAYS_GRANTED_FEATURE_PERMISSIONS
     from apps.core.initialization import (
         is_superadmin_user,
         superadmin_group_locked_permissions,
@@ -225,7 +235,9 @@ def disabled_feature_permissions(user) -> set[str]:
 def effective_feature_permissions(user) -> set[str]:
     if user.is_superuser:
         return set(FEATURE_PERMISSION_NAMES)
-    return granted_feature_permissions(user) - disabled_feature_permissions(user)
+    return (
+        granted_feature_permissions(user) - disabled_feature_permissions(user)
+    ) | ALWAYS_GRANTED_FEATURE_PERMISSIONS
 
 
 def direct_feature_permissions(user) -> set[str]:

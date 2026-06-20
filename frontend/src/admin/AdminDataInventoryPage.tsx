@@ -26,7 +26,6 @@ import ManagedCollectionPage, {
   type ManagedFormValues,
   realAccessGroupIds,
   withFixedAccessScopes,
-  isSuperadminGroup,
 } from "./ManagedCollectionPage";
 
 type VisualizationFormValues = ManagedFormValues & {
@@ -353,16 +352,6 @@ export default function AdminDataInventoryPage() {
       width: 120,
       render: (value: string | null) => value || "-",
     },
-    {
-      title: "可视化方案",
-      key: "visualization",
-      width: 160,
-      render: (_, record) => (
-        <Tag color={record.defaultLayer ? "green" : "default"}>
-          {record.defaultLayer ? "已配置" : "未配置"}
-        </Tag>
-      ),
-    },
   ];
 
   return (
@@ -498,9 +487,7 @@ function initialVisualizationValues(
     symbolizationJson: JSON.stringify(symbolization, null, 2),
     rasterRulesJson: JSON.stringify(rasterRules, null, 2),
     accessGroupIds: withFixedAccessScopes(
-      resource.accessGroups
-        .filter((group) => !isSuperadminGroup(group))
-        .map((group) => group.id as AccessScopeId),
+      resource.accessGroups.map((group) => group.id as AccessScopeId),
     ),
   };
 }

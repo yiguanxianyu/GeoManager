@@ -197,6 +197,14 @@ class RegistrationApiTests(TestCase):
         self.assertTrue(permissions["canUploadData"])
         self.assertTrue(permissions["canCreateDataResources"])
         self.assertTrue(permissions["canViewDataOverview"])
+        self.assertTrue(permissions["canViewOwnOperationLogs"])
+        self.assertFalse(permissions["canViewOperationLogs"])
+        self.assertFalse(permissions["canViewSystemLogs"])
+
+        grant(user, ("core", "view_system_logs"))
+        response = self.client.get("/api/auth/me/")
+
+        self.assertTrue(response.json()["user"]["permissions"]["canViewSystemLogs"])
 
     def test_registered_user_after_initialization_is_standard_user(self):
         SystemSetting.objects.update_or_create(
@@ -438,10 +446,7 @@ class FeaturePermissionTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.json()["detail"],
-            "不能将普通用户加入超级管理员角色",
-        )
+        self.assertEqual(response.json()["detail"], "包含不存在的角色")
 
     def test_regular_user_cannot_be_assigned_to_superadmin_group(self):
         manager = get_user_model().objects.create_user(
@@ -462,10 +467,7 @@ class FeaturePermissionTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(
-            response.json()["detail"],
-            "不能将普通用户加入超级管理员角色",
-        )
+        self.assertEqual(response.json()["detail"], "包含不存在的角色")
 
     def test_current_user_cannot_update_own_groups_from_auth_management(self):
         manager = get_user_model().objects.create_user(
@@ -502,8 +504,8 @@ class FeaturePermissionTests(TestCase):
             content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "不能修改超级管理员的角色")
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["detail"], "用户不存在")
 
     def test_manage_auth_can_toggle_user_status(self):
         manager = get_user_model().objects.create_user(
@@ -633,6 +635,19 @@ class FeaturePermissionTests(TestCase):
         protected_items = [
             item for item in payload["items"] if item["name"] == SUPERADMIN_GROUP_NAME
         ]
+        self.assertEqual(protected_items, [])
+
+    def test_superadmin_group_list_includes_superadmin_role(self):
+        manager, _ = ensure_superadmin_defaults()
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/groups/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        protected_items = [
+            item for item in payload["items"] if item["name"] == SUPERADMIN_GROUP_NAME
+        ]
         self.assertEqual(protected_items[0]["isProtected"], True)
         self.assertEqual(
             protected_items[0]["lockedPermissions"],
@@ -706,11 +721,7 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(guest.user_permissions.count(), 0)
 
     def test_superadmin_group_cannot_be_deleted_and_keeps_protected_permissions(self):
-        manager = get_user_model().objects.create_user(
-            username="superadmin-guard-manager", password="pass12345"
-        )
-        grant(manager, ("core", "manage_auth"), ("core", "manage_feature_permissions"))
-        _, group = ensure_superadmin_defaults(create_account=False)
+        manager, group = ensure_superadmin_defaults()
         self.client.force_login(manager)
 
         delete_response = self.client.post(
@@ -779,7 +790,7 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(patch_response.status_code, 200)
         self.assertEqual(patch_response.json()["permissions"], ["core.query_data"])
 
-    def test_superadmin_user_groups_cannot_be_updated(self):
+    def test_superadmin_user_is_hidden_from_regular_auth_manager(self):
         manager = get_user_model().objects.create_user(
             username="superadmin-user-group-manager", password="pass12345"
         )
@@ -788,14 +799,18 @@ class FeaturePermissionTests(TestCase):
         normal_group = Group.objects.create(name="普通后台组")
         self.client.force_login(manager)
 
+        list_response = self.client.get("/api/users/")
         response = self.client.post(
             f"/api/users/{protected_user.id}/groups/",
             data=json.dumps({"groupIds": [normal_group.id]}),
             content_type="application/json",
         )
 
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "不能修改超级管理员的角色")
+        self.assertEqual(list_response.status_code, 200)
+        usernames = {item["username"] for item in list_response.json()["items"]}
+        self.assertNotIn(protected_user.username, usernames)
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.json()["detail"], "用户不存在")
 
     def test_regular_user_cannot_be_left_without_group(self):
         manager = get_user_model().objects.create_user(
@@ -847,7 +862,11 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(target_payload["groupPermissions"], ["core.browse_data"])
         self.assertEqual(
             set(target_payload["effectivePermissions"]),
-            {"core.browse_data", "core.query_data"},
+            {
+                "core.browse_data",
+                "core.query_data",
+                "core.view_own_operation_logs",
+            },
         )
 
     def test_manage_feature_permissions_can_update_user_direct_permissions(self):
@@ -1040,6 +1059,16 @@ class FeaturePermissionTests(TestCase):
             status="failed",
             message="用户名重复",
         )
+        superadmin, _ = ensure_superadmin_defaults()
+        OperationLog.objects.create(
+            user=superadmin,
+            module="系统设置",
+            action="保存配置",
+            status="success",
+            message="超级管理员日志",
+            target_type="data_resource",
+            target_id=123,
+        )
         self.client.force_login(manager)
 
         response = self.client.get(
@@ -1056,6 +1085,7 @@ class FeaturePermissionTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["total"], 1)
         self.assertEqual(payload["items"][0]["action"], "保存配置")
+        self.assertNotEqual(payload["items"][0]["summary"], "超级管理员日志")
         self.assertEqual(payload["items"][0]["targetType"], "data_resource")
         self.assertEqual(payload["items"][0]["targetId"], 123)
         self.assertEqual(payload["items"][0]["targetCode"], "resource-123")
@@ -1138,6 +1168,36 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["total"], 0)
 
+    def test_admin_operation_logs_always_allows_current_user_own_logs(self):
+        user = get_user_model().objects.create_user(
+            username="plain-own-log-user", password="pass12345"
+        )
+        other = get_user_model().objects.create_user(
+            username="plain-other-log-user", password="pass12345"
+        )
+        OperationLog.objects.create(
+            user=user,
+            module="个人设置",
+            action="修改资料",
+            status="success",
+            message="自己的普通日志",
+        )
+        OperationLog.objects.create(
+            user=other,
+            module="个人设置",
+            action="修改资料",
+            status="success",
+            message="其他普通日志",
+        )
+        self.client.force_login(user)
+
+        response = self.client.get("/api/admin/operation-logs/")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["total"], 1)
+        self.assertEqual(payload["items"][0]["summary"], "自己的普通日志")
+
     def test_admin_operation_logs_group_scope_uses_configured_groups(self):
         manager = get_user_model().objects.create_user(
             username="group-log-manager", password="pass12345"
@@ -1185,10 +1245,7 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(payload["items"][0]["summary"], "目标组日志")
 
     def test_admin_system_logs_lists_files_and_returns_tail_content(self):
-        manager = get_user_model().objects.create_user(
-            username="system-log-manager", password="pass12345"
-        )
-        grant(manager, ("core", "view_operation_logs"))
+        manager, _ = ensure_superadmin_defaults()
         log_dir = app_path("logs")
         log_dir.mkdir(parents=True, exist_ok=True)
         (log_dir / "application.log").write_text(
@@ -1215,10 +1272,7 @@ class FeaturePermissionTests(TestCase):
         self.assertTrue(all(not Path(name).is_absolute() for name in file_names))
 
     def test_admin_system_logs_rejects_unknown_or_traversal_file(self):
-        manager = get_user_model().objects.create_user(
-            username="system-log-traversal-manager", password="pass12345"
-        )
-        grant(manager, ("core", "view_operation_logs"))
+        manager, _ = ensure_superadmin_defaults()
         log_dir = app_path("logs")
         log_dir.mkdir(parents=True, exist_ok=True)
         (log_dir / "application.log").write_text("可读日志\n", encoding="utf-8")
@@ -1230,6 +1284,31 @@ class FeaturePermissionTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 404)
+
+    def test_admin_system_logs_requires_system_log_permission(self):
+        manager = get_user_model().objects.create_user(
+            username="regular-system-log-manager", password="pass12345"
+        )
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/admin/system-logs/")
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_admin_system_logs_allows_user_with_system_log_permission(self):
+        manager = get_user_model().objects.create_user(
+            username="delegated-system-log-manager", password="pass12345"
+        )
+        grant(manager, ("core", "view_system_logs"))
+        log_dir = app_path("logs")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        (log_dir / "application.log").write_text("授权日志\n", encoding="utf-8")
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/admin/system-logs/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["selectedFile"], "application.log")
 
     def test_update_user_permissions_saves_operation_log_groups(self):
         manager = get_user_model().objects.create_user(
@@ -1261,6 +1340,35 @@ class FeaturePermissionTests(TestCase):
         payload = response.json()
         self.assertEqual(payload["operationLogGroupIds"], [log_group.id])
         self.assertIn("core.view_group_operation_logs", payload["directPermissions"])
+
+    def test_update_user_permissions_rejects_hidden_superadmin_log_group(self):
+        manager = get_user_model().objects.create_user(
+            username="hidden-log-scope-admin", password="pass12345"
+        )
+        target = get_user_model().objects.create_user(
+            username="hidden-log-scope-target", password="pass12345"
+        )
+        _, superadmin_group = ensure_superadmin_defaults(create_account=False)
+        grant(
+            manager,
+            ("core", "manage_auth"),
+            ("core", "manage_feature_permissions"),
+        )
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            f"/api/users/{target.id}/permissions/",
+            data=json.dumps(
+                {
+                    "directPermissions": ["core.view_group_operation_logs"],
+                    "operationLogGroupIds": [superadmin_group.id],
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "包含不存在的日志角色")
 
     def test_admin_dashboard_counts_data_and_daily_active_users(self):
         manager = get_user_model().objects.create_user(
@@ -1327,18 +1435,20 @@ class FeaturePermissionTests(TestCase):
         self.assertEqual(payload["cards"]["layers"]["total"], 1)
         self.assertEqual(payload["cards"]["rasters"]["resources"], 1)
         self.assertEqual(payload["cards"]["rasters"]["datasets"], 1)
-        self.assertEqual(
-            payload["cards"]["users"]["total"], get_user_model().objects.count()
+        visible_users = get_user_model().objects.exclude(
+            groups__name=SUPERADMIN_GROUP_NAME
         )
+        visible_groups = Group.objects.exclude(name=SUPERADMIN_GROUP_NAME)
+        self.assertEqual(payload["cards"]["users"]["total"], visible_users.count())
         self.assertEqual(
             payload["cards"]["users"]["active"],
-            get_user_model().objects.filter(is_active=True).count(),
+            visible_users.filter(is_active=True).count(),
         )
         self.assertEqual(
             payload["cards"]["users"]["disabled"],
-            get_user_model().objects.filter(is_active=False).count(),
+            visible_users.filter(is_active=False).count(),
         )
-        self.assertEqual(payload["cards"]["users"]["groups"], Group.objects.count())
+        self.assertEqual(payload["cards"]["users"]["groups"], visible_groups.count())
         self.assertEqual(payload["cards"]["activeUsers"]["period"], "day")
         self.assertEqual(payload["cards"]["activeUsers"]["count"], 1)
         self.assertEqual(payload["cards"]["activeUsers"]["loginCount"], 2)

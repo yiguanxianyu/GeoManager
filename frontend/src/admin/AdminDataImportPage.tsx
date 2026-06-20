@@ -129,9 +129,7 @@ export default function AdminDataImportPage() {
     selectedAccessGroupIds.includes(group.id),
   );
   const hasGuestVisible = selectedGroups.some(isGuestGroup);
-  const selectableAccessGroups = availableAccessGroups.filter(
-    (group) => !isSuperadminGroup(group),
-  );
+  const selectableAccessGroups = availableAccessGroups;
 
   useEffect(() => {
     if (!user?.permissions.canUploadData) {
@@ -909,8 +907,4 @@ type ImportAccessGroup = {
 
 function isGuestGroup(group: ImportAccessGroup) {
   return group.isGuest === true || group.name === "游客";
-}
-
-function isSuperadminGroup(group: ImportAccessGroup) {
-  return group.isSuperadmin === true || group.name === "超级管理员";
 }

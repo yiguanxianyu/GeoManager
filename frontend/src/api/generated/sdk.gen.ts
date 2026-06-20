@@ -211,7 +211,7 @@ export const getUserAvatar = <ThrowOnError extends boolean = false>(options: Opt
 /**
  * 查询操作日志
  *
- * 基于真实操作日志表返回可分页、可筛选的后台操作日志。需要 `core.view_operation_logs`，实际返回范围由 `core.view_all_operation_logs`、`core.view_own_operation_logs`、`core.view_group_operation_logs` 和当前用户配置的 `operationLogGroupIds` 共同裁剪。可通过 `userId` 精确筛选授权范围内的指定用户日志。
+ * 基于真实操作日志表返回可分页、可筛选的后台操作日志。登录用户始终可查看自己的操作日志；更大范围由 `core.view_all_operation_logs`、`core.view_group_operation_logs` 和当前用户配置的 `operationLogGroupIds` 共同裁剪。非超级管理员主体无法看到超级管理员用户产生的日志。可通过 `userId` 精确筛选授权范围内的指定用户日志。
  */
 export const listAdminOperationLogs = <ThrowOnError extends boolean = false>(options?: Options<ListAdminOperationLogsData, ThrowOnError>): RequestResult<ListAdminOperationLogsResponses, ListAdminOperationLogsErrors, ThrowOnError> => (options?.client ?? client).get<ListAdminOperationLogsResponses, ListAdminOperationLogsErrors, ThrowOnError>({
     security: [{
@@ -226,7 +226,7 @@ export const listAdminOperationLogs = <ThrowOnError extends boolean = false>(opt
 /**
  * 查询系统日志
  *
- * 返回业务数据根目录 `logs/` 下的后台运行日志文件列表，并读取指定日志文件的尾部内容。需要 `core.view_operation_logs` 权限。接口只接受文件名选择，不暴露服务器绝对路径，也不允许访问日志目录之外的文件。
+ * 返回业务数据根目录 `logs/` 下的后台运行日志文件列表，并读取指定日志文件的尾部内容。需要 `core.view_system_logs` 权限；接口只接受文件名选择，不暴露服务器绝对路径，也不允许访问日志目录之外的文件。
  */
 export const listAdminSystemLogs = <ThrowOnError extends boolean = false>(options?: Options<ListAdminSystemLogsData, ThrowOnError>): RequestResult<ListAdminSystemLogsResponses, ListAdminSystemLogsErrors, ThrowOnError> => (options?.client ?? client).get<ListAdminSystemLogsResponses, ListAdminSystemLogsErrors, ThrowOnError>({
     security: [{
@@ -271,7 +271,7 @@ export const getAdminDashboardServer = <ThrowOnError extends boolean = false>(op
 /**
  * 获取用户列表
  *
- * 返回可配置用户及其用户组归属。需要 `core.manage_auth`。
+ * 返回可配置用户及其用户组归属。非超级管理员主体不会返回超级管理员用户。需要 `core.manage_auth`。
  */
 export const listUsers = <ThrowOnError extends boolean = false>(options?: Options<ListUsersData, ThrowOnError>): RequestResult<ListUsersResponses, ListUsersErrors, ThrowOnError> => (options?.client ?? client).get<ListUsersResponses, ListUsersErrors, ThrowOnError>({
     security: [{
@@ -305,7 +305,7 @@ export const createUser = <ThrowOnError extends boolean = false>(options: Option
 /**
  * 更新用户所属用户组
  *
- * 为指定用户设置所属用户组。普通用户必须保留至少一个用户组，不能加入超级管理员用户组；当前登录用户和超级管理员用户的用户组不能在认证授权页修改。需要 `core.manage_auth`。
+ * 为指定用户设置所属用户组。普通用户必须保留至少一个用户组，非超级管理员主体不能看到或选择超级管理员用户组，不能修改超级管理员用户；当前登录用户的用户组不能在认证授权页修改。需要 `core.manage_auth`。
  */
 export const updateUserGroups = <ThrowOnError extends boolean = false>(options: Options<UpdateUserGroupsData, ThrowOnError>): RequestResult<UpdateUserGroupsResponses, UpdateUserGroupsErrors, ThrowOnError> => (options.client ?? client).post<UpdateUserGroupsResponses, UpdateUserGroupsErrors, ThrowOnError>({
     security: [{
@@ -324,7 +324,7 @@ export const updateUserGroups = <ThrowOnError extends boolean = false>(options: 
 /**
  * 更新用户功能权限
  *
- * 为指定用户设置单独授予权限和单独关闭权限。最终生效权限为角色权限与用户直授权限合并后，再扣除用户单独关闭权限；当前登录用户不能在认证授权页修改自己的权限，应通过用户设置调整主动关闭权限。需要 `core.manage_auth` 和 `core.manage_feature_permissions`。
+ * 为指定用户设置单独授予权限和单独关闭权限。最终生效权限为角色权限与用户直授权限合并后，再扣除用户单独关闭权限；当前登录用户不能在认证授权页修改自己的权限，应通过用户设置调整主动关闭权限。非超级管理员主体不能看到或配置超级管理员用户，也不能将超级管理员角色配置为可查看日志角色。需要 `core.manage_auth` 和 `core.manage_feature_permissions`。
  */
 export const updateUserPermissions = <ThrowOnError extends boolean = false>(options: Options<UpdateUserPermissionsData, ThrowOnError>): RequestResult<UpdateUserPermissionsResponses, UpdateUserPermissionsErrors, ThrowOnError> => (options.client ?? client).post<UpdateUserPermissionsResponses, UpdateUserPermissionsErrors, ThrowOnError>({
     security: [{
@@ -343,7 +343,7 @@ export const updateUserPermissions = <ThrowOnError extends boolean = false>(opti
 /**
  * 重置用户密码
  *
- * 为指定用户生成随机新密码并立即生效。新密码规则与后台创建用户时一致，响应中的 `generatedPassword` 仅返回一次。不能重置当前登录用户密码。需要 `core.manage_auth`。
+ * 为指定用户生成随机新密码并立即生效。新密码规则与后台创建用户时一致，响应中的 `generatedPassword` 仅返回一次。不能重置当前登录用户密码；非超级管理员主体不能看到或重置超级管理员用户。需要 `core.manage_auth`。
  */
 export const resetUserPassword = <ThrowOnError extends boolean = false>(options: Options<ResetUserPasswordData, ThrowOnError>): RequestResult<ResetUserPasswordResponses, ResetUserPasswordErrors, ThrowOnError> => (options.client ?? client).post<ResetUserPasswordResponses, ResetUserPasswordErrors, ThrowOnError>({
     security: [{
@@ -362,7 +362,7 @@ export const resetUserPassword = <ThrowOnError extends boolean = false>(options:
  * - 不提供 `action`：启用或停用指定用户账号
  * - `delete`：删除指定用户账号
  *
- * 不能操作当前登录用户或初始化管理员。需要 `core.manage_auth`。
+ * 不能操作当前登录用户或初始化管理员；非超级管理员主体不能看到或操作超级管理员用户。需要 `core.manage_auth`。
  *
  */
 export const updateUserOrDelete = <ThrowOnError extends boolean = false>(options: Options<UpdateUserOrDeleteData, ThrowOnError>): RequestResult<UpdateUserOrDeleteResponses, UpdateUserOrDeleteErrors, ThrowOnError> => (options.client ?? client).post<UpdateUserOrDeleteResponses, UpdateUserOrDeleteErrors, ThrowOnError>({
@@ -382,7 +382,7 @@ export const updateUserOrDelete = <ThrowOnError extends boolean = false>(options
 /**
  * 获取用户组列表
  *
- * 返回全部 Django 用户组及其功能权限配置。需要 `core.manage_auth`。
+ * 返回当前主体可见的 Django 用户组及其功能权限配置。非超级管理员主体不会返回超级管理员用户组。需要 `core.manage_auth`。
  */
 export const listGroups = <ThrowOnError extends boolean = false>(options?: Options<ListGroupsData, ThrowOnError>): RequestResult<ListGroupsResponses, ListGroupsErrors, ThrowOnError> => (options?.client ?? client).get<ListGroupsResponses, ListGroupsErrors, ThrowOnError>({
     security: [{
@@ -420,7 +420,7 @@ export const createGroup = <ThrowOnError extends boolean = false>(options: Optio
  * - 不提供 `action`：更新用户组名称和功能权限
  * - `delete`：删除空用户组（仅当用户组没有任何关联用户时允许）
  *
- * 需要 `core.manage_auth`。
+ * 非超级管理员主体不能看到、更新或删除超级管理员用户组。需要 `core.manage_auth`。
  *
  */
 export const updateOrDeleteGroup = <ThrowOnError extends boolean = false>(options: Options<UpdateOrDeleteGroupData, ThrowOnError>): RequestResult<UpdateOrDeleteGroupResponses, UpdateOrDeleteGroupErrors, ThrowOnError> => (options.client ?? client).post<UpdateOrDeleteGroupResponses, UpdateOrDeleteGroupErrors, ThrowOnError>({
@@ -474,7 +474,7 @@ export const updateAdminSettings = <ThrowOnError extends boolean = false>(option
 /**
  * 获取存量数据管理列表
  *
- * 返回已导入或已登记的数据资源列表，支持启用和停用数据、多条件检索、访问用户组和默认可视化方案查看。具备 `catalog.view_dataresource`、`catalog.change_dataresource`、`catalog.delete_dataresource` 或 `catalog.export_dataresource` 时返回符合筛选条件的全部资源；仅具备 `catalog.add_dataresource` 时只返回当前用户上传的数据资源，用于管理自己的数据可见范围。
+ * 返回已导入或已登记的数据资源列表，支持启用和停用数据、多条件检索、访问用户组和默认可视化方案查看。具备 `catalog.view_dataresource`、`catalog.change_dataresource`、`catalog.delete_dataresource` 或 `catalog.export_dataresource` 时，仅返回当前用户可见或本人上传且符合筛选条件的资源；超级管理员可查看全部资源；仅具备 `catalog.add_dataresource` 时只返回当前用户上传的数据资源，用于管理自己的数据可见范围。非超级管理员主体的响应不会返回超级管理员访问角色。
  */
 export const listAdminDataResources = <ThrowOnError extends boolean = false>(options?: Options<ListAdminDataResourcesData, ThrowOnError>): RequestResult<ListAdminDataResourcesResponses, ListAdminDataResourcesErrors, ThrowOnError> => (options?.client ?? client).get<ListAdminDataResourcesResponses, ListAdminDataResourcesErrors, ThrowOnError>({
     security: [{
@@ -489,7 +489,7 @@ export const listAdminDataResources = <ThrowOnError extends boolean = false>(opt
 /**
  * 导出存量数据清单
  *
- * 按当前筛选条件导出存量数据清单，支持 CSV 和 Excel。需要 `catalog.export_dataresource`，操作会写入审计日志。
+ * 按当前筛选条件导出当前用户可见或本人上传的数据资源清单，支持 CSV 和 Excel；超级管理员可导出全部资源。需要 `catalog.export_dataresource`，操作会写入审计日志。
  */
 export const exportAdminDataResources = <ThrowOnError extends boolean = false>(options?: Options<ExportAdminDataResourcesData, ThrowOnError>): RequestResult<ExportAdminDataResourcesResponses, ExportAdminDataResourcesErrors, ThrowOnError> => (options?.client ?? client).get<ExportAdminDataResourcesResponses, ExportAdminDataResourcesErrors, ThrowOnError>({
     security: [{
@@ -504,7 +504,7 @@ export const exportAdminDataResources = <ThrowOnError extends boolean = false>(o
 /**
  * 操作单个存量数据
  *
- * 支持更新启停状态、保存默认可视化方案、配置访问用户组和删除确认。启停、默认可视化和普通编辑需要 `catalog.change_dataresource`；删除需要 `catalog.delete_dataresource`；数据上传者本人或具备 `catalog.change_dataresource` 的用户可以通过 `updateAccess` 修改可见范围。成功操作会写入审计日志。
+ * 支持更新启停状态、保存默认可视化方案、配置访问用户组和删除确认。目标数据必须对当前用户可见或由当前用户上传；不可见数据按不存在处理；超级管理员不受对象可见范围限制。启停、默认可视化和普通编辑需要 `catalog.change_dataresource`；删除需要 `catalog.delete_dataresource`；数据上传者本人或具备 `catalog.change_dataresource` 的用户可以通过 `updateAccess` 修改可见范围。非超级管理员主体的响应不会返回超级管理员访问角色。成功操作会写入审计日志。
  */
 export const updateAdminDataResource = <ThrowOnError extends boolean = false>(options: Options<UpdateAdminDataResourceData, ThrowOnError>): RequestResult<UpdateAdminDataResourceResponses, UpdateAdminDataResourceErrors, ThrowOnError> => (options.client ?? client).post<UpdateAdminDataResourceResponses, UpdateAdminDataResourceErrors, ThrowOnError>({
     security: [{
@@ -820,6 +820,8 @@ export const downloadExport = <ThrowOnError extends boolean = false>(options: Op
 
 /**
  * 获取图层列表
+ *
+ * 返回当前用户可见且可浏览的启用地图图层；若图层关联的数据资源对当前用户不可见，该图层也不会返回，避免用户看到无法加载的数据。
  */
 export const getLayers = <ThrowOnError extends boolean = false>(options?: Options<GetLayersData, ThrowOnError>): RequestResult<GetLayersResponses, GetLayersErrors, ThrowOnError> => (options?.client ?? client).get<GetLayersResponses, GetLayersErrors, ThrowOnError>({
     security: [{
