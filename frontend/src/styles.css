@@ -5785,6 +5785,37 @@ body:has(.login-shell),
   }
 }
 
+.layer-extent-switch {
+  min-width: 30px;
+  flex-shrink: 0;
+  background: rgba(66, 76, 82, 0.58);
+
+  &.ant-switch:hover:not(.ant-switch-disabled) {
+    background: rgba(82, 92, 96, 0.68);
+  }
+
+  &.ant-switch-checked {
+    background: rgba(198, 138, 45, 0.84);
+  }
+
+  &.ant-switch-checked:hover:not(.ant-switch-disabled) {
+    background: rgba(215, 154, 54, 0.92);
+  }
+
+  & .ant-switch-inner .ant-switch-inner-checked,
+  & .ant-switch-inner .ant-switch-inner-unchecked {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+  }
+
+  & .ant-switch-inner svg {
+    display: block;
+    color: rgba(255, 250, 238, 0.9);
+  }
+}
+
 .metadata-card {
   width: 300px;
   border-radius: 8px;

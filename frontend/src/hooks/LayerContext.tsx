@@ -57,6 +57,8 @@ export interface LayerContextValue {
     layerId: string,
     visible: boolean,
   ) => void;
+  isLayerExtentVisible: (layerId: string) => boolean;
+  setLayerExtentVisibility: (layerId: string, visible: boolean) => void;
   setLayerName: (groupId: string, layerId: string, name: string) => void;
   setLayerSymbolization: (
     groupId: string,

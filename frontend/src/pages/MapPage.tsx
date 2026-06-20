@@ -132,7 +132,9 @@ export default function MapPage() {
   );
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
   const [tableLayer, setTableLayer] = useState<LoadedLayer | null>(null);
-  const [layerExtentVisible, setLayerExtentVisible] = useState(false);
+  const [visibleLayerExtentIds, setVisibleLayerExtentIds] = useState<
+    Set<string>
+  >(() => new Set());
   const [currentMapView, setCurrentMapView] = useState<MapViewState | null>(
     null,
   );
@@ -198,27 +200,83 @@ export default function MapPage() {
     [layerGroups.groups],
   );
 
+  const allLayers = useMemo(
+    () => layerGroups.groups.flatMap((group) => group.children),
+    [layerGroups.groups],
+  );
+
   const selectedLayer = useMemo(() => {
-    const allLayers = layerGroups.groups.flatMap((group) => group.children);
     return (
       allLayers.find((layer) => layer.id === selectedLayerId) ??
       allLayers.find((layer) => layer.layerType === "vector") ??
       allLayers[0] ??
       null
     );
-  }, [layerGroups.groups, selectedLayerId]);
+  }, [allLayers, selectedLayerId]);
 
-  const selectedLayerExtentGeometry = useMemo(() => {
-    if (!layerExtentVisible || !selectedLayer) {
-      return null;
-    }
-    return geometryFromBoundsText(
-      selectedLayer.metadata.空间范围 ??
-        resourceSpatialExtent(selectedLayer.sourceResource),
-    );
-  }, [layerExtentVisible, selectedLayer]);
+  const setLayerExtentVisibility = useCallback(
+    (layerId: string, visible: boolean) => {
+      setVisibleLayerExtentIds((current) => {
+        if (current.has(layerId) === visible) {
+          return current;
+        }
+        const next = new Set(current);
+        if (visible) {
+          next.add(layerId);
+        } else {
+          next.delete(layerId);
+        }
+        return next;
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const activeLayerIds = new Set(allLayers.map((layer) => layer.id));
+    setVisibleLayerExtentIds((current) => {
+      const next = new Set(
+        [...current].filter((layerId) => activeLayerIds.has(layerId)),
+      );
+      return next.size === current.size ? current : next;
+    });
+  }, [allLayers]);
+
+  const selectedLayerExtentVisible = selectedLayer
+    ? visibleLayerExtentIds.has(selectedLayer.id)
+    : false;
+
+  const setSelectedLayerExtentVisible = useCallback(
+    (visible: boolean) => {
+      if (selectedLayer) {
+        setLayerExtentVisibility(selectedLayer.id, visible);
+      }
+    },
+    [selectedLayer, setLayerExtentVisibility],
+  );
+
+  const layerExtentOverlays = useMemo(() => {
+    return allLayers.flatMap((layer) => {
+      if (!visibleLayerExtentIds.has(layer.id)) {
+        return [];
+      }
+      const geometry = layerExtentGeometryFor(layer);
+      return geometry ? [{ layer, geometry }] : [];
+    });
+  }, [allLayers, visibleLayerExtentIds]);
+
+  const isLayerExtentVisible = useCallback(
+    (layerId: string) => visibleLayerExtentIds.has(layerId),
+    [visibleLayerExtentIds],
+  );
 
   const sharedSpatialGeometry = spatialFilter?.geometry ?? null;
+
+  function layerExtentGeometryFor(layer: LoadedLayer) {
+    return geometryFromBoundsText(
+      layer.metadata.空间范围 ?? resourceSpatialExtent(layer.sourceResource),
+    );
+  }
 
   const loadResources = useCallback(
     async (filters: ResourceFilters) => {
@@ -695,6 +753,8 @@ export default function MapPage() {
     setGroupName: layerGroups.setGroupName,
     setGroupSymbolization: layerGroups.setGroupSymbolization,
     setLayerVisibility: layerGroups.setLayerVisibility,
+    isLayerExtentVisible,
+    setLayerExtentVisibility,
     setLayerName: layerGroups.setLayerName,
     setLayerSymbolization: layerGroups.setLayerSymbolization,
     removeGroup: layerGroups.removeGroup,
@@ -767,8 +827,7 @@ export default function MapPage() {
               loadedLayers={mapLayers}
               drawMode={activeDraw?.mode ?? null}
               spatialFilter={spatialFilter}
-              layerExtentGeometry={selectedLayerExtentGeometry}
-              layerExtentTargetLayer={selectedLayer}
+              layerExtentOverlays={layerExtentOverlays}
               onDrawComplete={handleDrawComplete}
               onFeatureSelect={setSelectedFeature}
               onMapReady={handleMapReady}
@@ -880,10 +939,10 @@ export default function MapPage() {
               selectedLayer={selectedLayer}
               exportClipGeometry={sharedSpatialGeometry}
               spatialFilter={spatialFilter}
-              layerExtentVisible={layerExtentVisible}
+              layerExtentVisible={selectedLayerExtentVisible}
               activeDraw={activeDraw}
               onStartQueryDraw={setQueryDrawMode}
-              onLayerExtentVisibleChange={setLayerExtentVisible}
+              onLayerExtentVisibleChange={setSelectedLayerExtentVisible}
               onClearSpatialFilter={() => setSpatialFilter(null)}
               onImportSpatialFilter={setSpatialFilter}
             />

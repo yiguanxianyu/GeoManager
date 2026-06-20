@@ -55,9 +55,6 @@ import {
 const spatialFilterSourceId = "query-spatial-filter";
 const spatialFilterFillId = "query-spatial-filter-fill";
 const spatialFilterLineId = "query-spatial-filter-line";
-const layerExtentSourceId = "selected-layer-extent";
-const layerExtentFillId = "selected-layer-extent-fill";
-const layerExtentLineId = "selected-layer-extent-line";
 const spatialRangeStyle = {
   fillColor: "#ef4444",
   fillOpacity: 0.16,
@@ -73,6 +70,11 @@ const layerExtentStyle = {
   lineWidth: 2,
 };
 
+export interface LayerExtentOverlay {
+  layer: LoadedLayer;
+  geometry: GeoJsonGeometry;
+}
+
 disableMapboxEventRequests();
 
 interface Props {
@@ -80,8 +82,7 @@ interface Props {
   loadedLayers: LoadedLayer[];
   drawMode: DrawMode | null;
   spatialFilter: SpatialFilter | null;
-  layerExtentGeometry: GeoJsonGeometry | null;
-  layerExtentTargetLayer: LoadedLayer | null;
+  layerExtentOverlays: LayerExtentOverlay[];
   onDrawComplete: (mode: DrawMode, geometry: GeoJsonGeometry) => void;
   onFeatureSelect?: (feature: FeatureInfo | null) => void;
   onMapReady?: (map: MapboxMap) => void;
@@ -94,8 +95,7 @@ export default function MapCanvas({
   loadedLayers,
   drawMode,
   spatialFilter,
-  layerExtentGeometry,
-  layerExtentTargetLayer,
+  layerExtentOverlays,
   onDrawComplete,
   onFeatureSelect,
   onMapReady,
@@ -107,6 +107,7 @@ export default function MapCanvas({
   const coordinatePanelRef = useRef<HTMLDivElement | null>(null);
   const pointerUpdateFrameRef = useRef<number | null>(null);
   const resizeFrameRef = useRef<number | null>(null);
+  const activeLayerExtentSourceIdsRef = useRef<Set<string>>(new Set());
   const mapConfig = bootstrap.map;
   const mapboxToken = mapConfig.mapboxAccessToken;
   const shouldUseMapboxStyle = shouldUseMapboxBasemap(mapConfig);
@@ -256,28 +257,22 @@ export default function MapCanvas({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map?.isStyleLoaded()) return;
-    if (layerExtentGeometry) {
-      const beforeId = layerExtentTargetLayer
-        ? firstStyleLayerIdForLayer(map, layerExtentTargetLayer)
-        : undefined;
-      upsertPolygonLayer(
+    if (!map) return;
+    const sync = () =>
+      syncLayerExtentOverlays(
         map,
-        layerExtentSourceId,
-        layerExtentFillId,
-        layerExtentLineId,
-        layerExtentGeometry,
-        { ...layerExtentStyle, beforeId },
+        layerExtentOverlays,
+        activeLayerExtentSourceIdsRef.current,
       );
-    } else {
-      removeLayerGroup(
-        map,
-        layerExtentSourceId,
-        [layerExtentFillId, layerExtentLineId],
-        { cleanInteraction: false },
-      );
+    if (map.isStyleLoaded()) {
+      sync();
+      return;
     }
-  }, [layerExtentGeometry, layerExtentTargetLayer]);
+    map.once("load", sync);
+    return () => {
+      map.off("load", sync);
+    };
+  }, [layerExtentOverlays]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -357,6 +352,42 @@ function disableMapboxEventRequests() {
     enumerable: descriptor?.enumerable ?? true,
     value: null,
   });
+}
+
+function layerExtentSourceIdFor(layerId: string) {
+  return `layer-extent-${sourceIdFor(layerId)}`;
+}
+
+function syncLayerExtentOverlays(
+  map: MapboxMap,
+  overlays: LayerExtentOverlay[],
+  activeSourceIds: Set<string>,
+) {
+  const nextSourceIds = new Set<string>();
+  for (const overlay of overlays) {
+    const sourceId = layerExtentSourceIdFor(overlay.layer.id);
+    const fillId = `${sourceId}-fill`;
+    const lineId = `${sourceId}-line`;
+    const beforeId = firstStyleLayerIdForLayer(map, overlay.layer);
+    nextSourceIds.add(sourceId);
+    upsertPolygonLayer(map, sourceId, fillId, lineId, overlay.geometry, {
+      ...layerExtentStyle,
+      beforeId,
+    });
+  }
+
+  for (const sourceId of activeSourceIds) {
+    if (!nextSourceIds.has(sourceId)) {
+      removeLayerGroup(map, sourceId, [`${sourceId}-fill`, `${sourceId}-line`], {
+        cleanInteraction: false,
+      });
+    }
+  }
+
+  activeSourceIds.clear();
+  for (const sourceId of nextSourceIds) {
+    activeSourceIds.add(sourceId);
+  }
 }
 
 function firstStyleLayerIdForLayer(map: MapboxMap, layer: LoadedLayer) {

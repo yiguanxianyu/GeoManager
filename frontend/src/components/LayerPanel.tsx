@@ -6,7 +6,6 @@ import {
   DownOutlined,
   EyeInvisibleOutlined,
   EyeOutlined,
-  FileOutlined,
   FolderOpenOutlined,
   HolderOutlined,
   PlusOutlined,
@@ -1004,7 +1003,23 @@ function LayerItemNode({
               onVisibilityChange(groupId, layer.id, checked)
             }
           />
-          <FileOutlined style={{ fontSize: 14 }} />
+          <LayerTooltip
+            title={
+              ctx.isLayerExtentVisible(layer.id) ? "隐藏图层范围" : "显示图层范围"
+            }
+          >
+            <Switch
+              className="layer-extent-switch"
+              checked={ctx.isLayerExtentVisible(layer.id)}
+              size="small"
+              checkedChildren={<AimOutlined style={{ fontSize: 10 }} />}
+              unCheckedChildren={<AimOutlined style={{ fontSize: 10 }} />}
+              aria-label={`${ctx.isLayerExtentVisible(layer.id) ? "隐藏" : "显示"}${layer.name}范围`}
+              onChange={(checked) =>
+                ctx.setLayerExtentVisibility(layer.id, checked)
+              }
+            />
+          </LayerTooltip>
         </div>
         <div className="layer-row-tools">
           <NodeActions
