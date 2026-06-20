@@ -22,7 +22,6 @@ import {
   Typography,
 } from "antd";
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import capfedLogoWhite from "../assets/capfed-logo-white.svg";
 import { oceanBorderBeam } from "../components/oceanBorderBeam";
@@ -106,7 +105,6 @@ const serviceStatusSummary = [
 export default function LoginPage() {
   const { bootstrap, setUser } = useAppContext();
   const { message } = App.useApp();
-  const navigate = useNavigate();
   const [submittingAction, setSubmittingAction] = useState<
     "login" | "register" | "guest" | null
   >(null);
@@ -123,11 +121,8 @@ export default function LoginPage() {
         Boolean(values.remember),
       );
       setUser(response.user);
-      message.success("登录成功");
-      navigate("/map", { replace: true });
     } catch (error) {
       message.error(error instanceof Error ? error.message : "登录失败");
-    } finally {
       setSubmittingAction(null);
     }
   }
@@ -143,11 +138,8 @@ export default function LoginPage() {
         values.passwordConfirm,
       );
       setUser(response.user);
-      message.success(response.detail);
-      navigate("/map", { replace: true });
     } catch (error) {
       message.error(error instanceof Error ? error.message : "注册失败");
-    } finally {
       setSubmittingAction(null);
     }
   }
@@ -158,11 +150,8 @@ export default function LoginPage() {
       await api.csrf();
       const response = await api.guestLogin();
       setUser(response.user);
-      message.success("游客登录成功");
-      navigate("/map", { replace: true });
     } catch (error) {
       message.error(error instanceof Error ? error.message : "游客登录失败");
-    } finally {
       setSubmittingAction(null);
     }
   }

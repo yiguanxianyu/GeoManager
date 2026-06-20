@@ -87,6 +87,11 @@ body {
   animation: route-fade-in 0.2s ease-out;
 }
 
+.route-enter:has(> .workspace) {
+  height: 100vh;
+  overflow: hidden;
+}
+
 .boot-screen {
   min-height: 100vh;
   display: grid;
@@ -2929,10 +2934,11 @@ body {
 }
 
 .workspace {
-  --workspace-screen-edge: 14px;
+  --workspace-screen-edge: 10px;
   width: 100vw;
   max-width: 100vw;
   height: 100vh;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }
@@ -2953,12 +2959,12 @@ body {
   left: var(--workspace-screen-edge);
   right: var(--workspace-screen-edge);
   z-index: 9;
-  min-height: 66px;
+  min-height: 58px;
   display: flex;
   align-items: center;
   column-gap: var(--workspace-module-gap);
-  row-gap: 10px;
-  padding: 10px 14px;
+  row-gap: 8px;
+  padding: 8px 12px;
   color: var(--c-bg-surface);
   background: rgba(7, 12, 17, 0.9);
   border: 1px solid rgba(180, 228, 221, 0.32);
@@ -2971,7 +2977,7 @@ body {
   & .brand-block h4.ant-typography {
     margin: 0;
     color: var(--c-white);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     line-height: 1.18;
   }
@@ -2991,22 +2997,22 @@ body {
 }
 
 .brand-block {
-  gap: 10px;
+  gap: 8px;
   flex: 0 0 auto;
   min-width: max-content;
   padding-right: 0;
 }
 
 .brand-logo-frame {
-  width: 2.625rem;
-  height: 2.625rem;
+  width: 2.375rem;
+  height: 2.375rem;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
 
   & img {
-    width: 2.625rem;
-    height: 2.625rem;
+    width: 2.375rem;
+    height: 2.375rem;
     object-fit: contain;
     display: block;
   }
@@ -3019,7 +3025,7 @@ body {
 
   & strong {
     color: var(--c-white);
-    font-size: 18px;
+    font-size: 17px;
     line-height: 1;
     letter-spacing: 0;
   }
@@ -3650,10 +3656,11 @@ body {
 
 .workspace-body {
   --workspace-edge: var(--workspace-screen-edge);
-  --workspace-gap: 14px;
-  --side-panel-width: clamp(300px, 22vw, 360px);
-  --bottom-panel-height: clamp(230px, 24vh, 270px);
+  --workspace-gap: 10px;
+  --side-panel-width: clamp(292px, 21vw, 340px);
+  --bottom-panel-height: clamp(210px, 21vh, 240px);
   height: 100vh;
+  min-height: 0;
   position: relative;
   overflow: hidden;
   background: var(--c-workspace-dark);
@@ -4219,7 +4226,7 @@ body {
 
 .floating-panel {
   position: absolute;
-  top: 90px;
+  top: 78px;
   bottom: var(--workspace-edge);
   z-index: 5;
   width: var(--side-panel-width);
@@ -4307,7 +4314,7 @@ body {
 }
 
 .panel-section {
-  padding: 14px;
+  padding: 12px;
 }
 
 .feature-detail-panel {
@@ -5029,7 +5036,7 @@ body {
 
 .data-panel {
   display: grid;
-  gap: 14px;
+  gap: 10px;
 }
 
 .workspace-side-tabs {
@@ -5039,11 +5046,11 @@ body {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  padding: 12px;
+  padding: 10px;
 
   & .ant-tabs-nav {
     flex: 0 0 auto;
-    margin: 0 0 10px;
+    margin: 0 0 8px;
   }
 
   & .ant-tabs-content-holder {
@@ -5140,8 +5147,8 @@ body {
 
 .panel-title {
   gap: 8px;
-  min-height: 28px;
-  margin-bottom: 12px;
+  min-height: 26px;
+  margin-bottom: 10px;
 }
 
 .subsection-title {
@@ -5153,7 +5160,7 @@ body {
 }
 
 .compact-stack.ant-space {
-  gap: 8px;
+  gap: 7px;
 }
 
 .compact-stack.ant-space,
@@ -5167,7 +5174,7 @@ body {
 .data-filter-row,
 .attribute-filter-row {
   display: grid;
-  gap: 8px;
+  gap: 7px;
   width: 100%;
 }
 
@@ -5182,13 +5189,13 @@ body {
 .attribute-action-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 8px;
+  gap: 7px;
   width: 100%;
 }
 
 .resource-list,
 .field-list {
-  max-height: 220px;
+  max-height: 190px;
   overflow: auto;
   padding: 0;
   margin: 0;
@@ -5201,8 +5208,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 10px 0;
+  gap: 7px;
+  padding: 8px 0;
 
   & .ant-tag {
     margin-left: 6px;
@@ -5237,8 +5244,8 @@ body {
 .field-row {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  padding: 7px 0;
+  gap: 10px;
+  padding: 6px 0;
 }
 
 .spatial-status,
@@ -6165,7 +6172,7 @@ body {
   position: relative;
   z-index: 1;
   height: 100%;
-  padding: 10px 12px 12px;
+  padding: 8px 10px 10px;
 
   &.ant-tabs {
     display: flex;
@@ -6174,7 +6181,7 @@ body {
 
   & .ant-tabs-nav {
     flex: 0 0 auto;
-    margin: 0 0 10px;
+    margin: 0 0 8px;
   }
 
   & .ant-tabs-content-holder {
@@ -6200,7 +6207,7 @@ body {
 }
 
 .bottom-panel-empty {
-  margin: 22px 0 0;
+  margin: 16px 0 0;
 }
 
 .bottom-card-panel {
@@ -6394,7 +6401,7 @@ body {
 .spatial-query-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: 10px;
   height: 100%;
   min-width: 0;
   min-height: 0;
@@ -6403,10 +6410,10 @@ body {
 .spatial-query-region {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
-  padding: 12px;
+  padding: 10px;
   background: rgb(var(--c-workspace-panel-soft-rgb) / 0.5);
   border: 1px solid rgb(var(--c-workspace-border-rgb) / 0.15);
   border-radius: 8px;
@@ -6541,11 +6548,11 @@ body {
 
 .bottom-placeholder-panel {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   align-content: start;
   height: 100%;
   min-height: 0;
-  padding: 14px;
+  padding: 12px;
   overflow: auto;
   background: rgb(var(--c-workspace-panel-soft-rgb) / 0.5);
   border: 1px solid rgb(var(--c-workspace-border-rgb) / 0.15);

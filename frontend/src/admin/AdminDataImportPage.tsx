@@ -27,7 +27,7 @@ import {
   Upload,
 } from "antd";
 import { useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ApiError, api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
 import type {
@@ -55,6 +55,8 @@ type AccessScopeId = number | typeof selfAccessScopeId;
 export default function AdminDataImportPage() {
   const { message } = AntApp.useApp();
   const { user } = useAppContext();
+  const location = useLocation();
+  const navigate = useNavigate();
   const [form] = Form.useForm<ImportFormValues>();
   const [currentStep, setCurrentStep] = useState(0);
   const [file, setFile] = useState<File | null>(null);
@@ -88,6 +90,10 @@ export default function AdminDataImportPage() {
   const [availableAccessGroups, setAvailableAccessGroups] = useState<
     ImportAccessGroup[]
   >([]);
+  const [pendingNavigationPath, setPendingNavigationPath] = useState<
+    string | null
+  >(null);
+  const hasUnfinishedImport = Boolean(file && !result);
 
   const columnOptions = useMemo(
     () =>
@@ -152,6 +158,65 @@ export default function AdminDataImportPage() {
       ignore = true;
     };
   }, [user?.permissions.canUploadData]);
+
+  useEffect(() => {
+    if (!hasUnfinishedImport) {
+      return;
+    }
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasUnfinishedImport]);
+
+  useEffect(() => {
+    if (!hasUnfinishedImport) {
+      return;
+    }
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.shiftKey
+      ) {
+        return;
+      }
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+      const link = target.closest("a[href]");
+      if (!(link instanceof HTMLAnchorElement)) {
+        return;
+      }
+      if (link.target && link.target !== "_self") {
+        return;
+      }
+      const nextUrl = new URL(link.href, window.location.href);
+      if (nextUrl.origin !== window.location.origin) {
+        return;
+      }
+      const nextPath = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+      const currentPath = `${location.pathname}${location.search}${location.hash}`;
+      if (nextPath === currentPath) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      setPendingNavigationPath(nextPath);
+    };
+    document.addEventListener("click", handleDocumentClick, true);
+    return () => {
+      document.removeEventListener("click", handleDocumentClick, true);
+    };
+  }, [hasUnfinishedImport, location.hash, location.pathname, location.search]);
 
   if (!user?.permissions.canUploadData) {
     return <Navigate to="/admin/profile" replace />;
@@ -490,7 +555,7 @@ export default function AdminDataImportPage() {
                     <Alert
                       type="warning"
                       showIcon
-                      message="游客可见后，无需登录账号即可浏览和查询该数据。"
+                      title="游客可见后，无需登录账号即可浏览和查询该数据。"
                     />
                   )}
                 </Space>
@@ -826,6 +891,28 @@ export default function AdminDataImportPage() {
           />
         )}
       </Modal>
+      <Modal
+        title="离开数据导入页面？"
+        open={pendingNavigationPath !== null}
+        okText="确认离开"
+        cancelText="继续导入"
+        okType="danger"
+        onOk={() => {
+          const nextPath = pendingNavigationPath;
+          setPendingNavigationPath(null);
+          if (nextPath) {
+            navigate(nextPath);
+          }
+        }}
+        onCancel={() => setPendingNavigationPath(null)}
+      >
+        <Alert
+          type="warning"
+          showIcon
+          title="当前导入尚未完成"
+          description="离开页面会丢失已选择的文件、导入配置、校验结果和字段元数据。"
+        />
+      </Modal>
     </div>
   );
 }
@@ -850,7 +937,7 @@ function DuplicateTargetAlert({
 }) {
   return (
     <Alert
-      type={confirmed ? "warning" : "error"}
+      type="warning"
       showIcon
       title={confirmed ? "已确认重复数据名称" : "数据名重复"}
       description={

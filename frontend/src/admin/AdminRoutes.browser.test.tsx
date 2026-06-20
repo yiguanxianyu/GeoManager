@@ -796,6 +796,65 @@ describe("admin routes", () => {
     });
   }, 30000);
 
+  it("shows duplicate data names as a warning during import validation", async () => {
+    mockApi.importValidate.mockResolvedValueOnce({
+      coordinateStats: {
+        totalRows: 1,
+        validRows: 1,
+        missingRows: 0,
+        quantizationErrorMeters: { min: 1.1, max: 1.1 },
+      },
+      validationIssues: [],
+      duplicateTarget: {
+        targetName: "样地调查点位",
+        message: "已存在同名数据资源",
+      },
+    });
+    renderAdminRoute("/resources/data/import");
+
+    const input = document.querySelector(
+      "input[type='file']",
+    ) as HTMLInputElement;
+    const file = new File(["plot_id,longitude,latitude\nP001,87.6,41.7"], {
+      type: "text/csv",
+    });
+
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(await screen.findByText("导入配置")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /数据校验并继续/ }));
+
+    await screen.findByText("确认重复数据名称");
+    const duplicateAlerts = screen
+      .getAllByText("数据名重复")
+      .map((title) => title.closest(".ant-alert"));
+    expect(duplicateAlerts.length).toBeGreaterThan(0);
+    for (const duplicateAlert of duplicateAlerts) {
+      expect(duplicateAlert).toHaveClass("ant-alert-warning");
+      expect(duplicateAlert).not.toHaveClass("ant-alert-error");
+    }
+  }, 30000);
+
+  it("warns before leaving an unfinished data import", async () => {
+    renderAdminRoute("/resources/data/import");
+
+    const input = document.querySelector(
+      "input[type='file']",
+    ) as HTMLInputElement;
+    const file = new File(["plot_id,longitude,latitude\nP001,87.6,41.7"], {
+      type: "text/csv",
+    });
+
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(await screen.findByText("导入配置")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("link", { name: /存量数据/ }));
+    expect(await screen.findByText("当前导入尚未完成")).toBeInTheDocument();
+    expect(screen.getByText("导入配置")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "确认离开" }));
+    expect(await screen.findByText("胡杨林样地点")).toBeInTheDocument();
+  }, 30000);
+
   it("loads the inventory data management page", async () => {
     renderAdminRoute("/resources/data/inventory");
 

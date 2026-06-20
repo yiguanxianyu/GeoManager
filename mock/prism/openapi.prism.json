@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "中亚胡杨林生态系统保护数据共享平台 API",
-    "description": "中亚胡杨林生态系统保护数据共享平台后端接口文档。\n\n## 认证方式\n本平台使用 Django Session 认证机制：\n1. `GET /api/auth/csrf/` 获取 CSRF Token\n2. `POST /api/auth/login/` 登录建立 Session\n3. 后续请求携带 `sessionid` Cookie 和 `X-CSRFToken` 请求头\n\n## 权限体系\n- **功能权限**：35 项细粒度功能权限，通过用户组分配，按后台权限、日志权限、概览权限、数据权限、人员权限分组管理\n- **数据访问权限**：基于 `access_groups` 的数据隔离\n\n## 错误处理\n所有错误响应包含 `detail` 字段描述错误原因。\nAPI 接口不会返回登录页 HTML：未认证请求返回 JSON `401`，CSRF 校验失败返回 JSON `403`。\n",
+    "description": "中亚胡杨林生态系统保护数据共享平台后端接口文档。\n\n## 认证方式\n本平台使用 Django Session 认证机制：\n1. `GET /api/auth/csrf/` 获取 CSRF Token\n2. `POST /api/auth/login/` 登录建立 Session\n3. 后续请求携带 `sessionid` Cookie 和 `X-CSRFToken` 请求头\n\n## 权限体系\n- **功能权限**：36 项细粒度功能权限，通过用户组分配，按后台权限、日志权限、概览权限、数据权限、人员权限分组管理\n- **数据访问权限**：基于 `access_groups` 的数据隔离\n\n## 错误处理\n所有错误响应包含 `detail` 字段描述错误原因。\nAPI 接口不会返回登录页 HTML：未认证请求返回 JSON `401`，CSRF 校验失败返回 JSON `403`。\n",
     "version": "0.1.0",
     "contact": {
       "name": "API Support",
@@ -1428,7 +1428,7 @@
           "管理后台"
         ],
         "summary": "查询操作日志",
-        "description": "基于真实操作日志表返回可分页、可筛选的后台操作日志。需要 `core.view_operation_logs`，实际返回范围由 `core.view_all_operation_logs`、`core.view_own_operation_logs`、`core.view_group_operation_logs` 和当前用户配置的 `operationLogGroupIds` 共同裁剪。可通过 `userId` 精确筛选授权范围内的指定用户日志。",
+        "description": "基于真实操作日志表返回可分页、可筛选的后台操作日志。登录用户始终可查看自己的操作日志；更大范围由 `core.view_all_operation_logs`、`core.view_group_operation_logs` 和当前用户配置的 `operationLogGroupIds` 共同裁剪。非超级管理员主体无法看到超级管理员用户产生的日志。可通过 `userId` 精确筛选授权范围内的指定用户日志。",
         "operationId": "listAdminOperationLogs",
         "security": [
           {
@@ -1630,7 +1630,7 @@
           "管理后台"
         ],
         "summary": "查询系统日志",
-        "description": "返回业务数据根目录 `logs/` 下的后台运行日志文件列表，并读取指定日志文件的尾部内容。需要 `core.view_operation_logs` 权限。接口只接受文件名选择，不暴露服务器绝对路径，也不允许访问日志目录之外的文件。",
+        "description": "返回业务数据根目录 `logs/` 下的后台运行日志文件列表，并读取指定日志文件的尾部内容。需要 `core.view_system_logs` 权限；接口只接受文件名选择，不暴露服务器绝对路径，也不允许访问日志目录之外的文件。",
         "operationId": "listAdminSystemLogs",
         "security": [
           {
@@ -1940,7 +1940,7 @@
           "用户管理"
         ],
         "summary": "获取用户列表",
-        "description": "返回可配置用户及其用户组归属。需要 `core.manage_auth`。",
+        "description": "返回可配置用户及其用户组归属。非超级管理员主体不会返回超级管理员用户。需要 `core.manage_auth`。",
         "operationId": "listUsers",
         "security": [
           {
@@ -2429,7 +2429,7 @@
           "用户管理"
         ],
         "summary": "更新用户所属用户组",
-        "description": "为指定用户设置所属用户组。普通用户必须保留至少一个用户组，不能加入超级管理员用户组；当前登录用户和超级管理员用户的用户组不能在认证授权页修改。需要 `core.manage_auth`。",
+        "description": "为指定用户设置所属用户组。普通用户必须保留至少一个用户组，非超级管理员主体不能看到或选择超级管理员用户组，不能修改超级管理员用户；当前登录用户的用户组不能在认证授权页修改。需要 `core.manage_auth`。",
         "operationId": "updateUserGroups",
         "security": [
           {
@@ -2576,7 +2576,7 @@
           "用户管理"
         ],
         "summary": "更新用户功能权限",
-        "description": "为指定用户设置单独授予权限和单独关闭权限。最终生效权限为角色权限与用户直授权限合并后，再扣除用户单独关闭权限；当前登录用户不能在认证授权页修改自己的权限，应通过用户设置调整主动关闭权限。需要 `core.manage_auth` 和 `core.manage_feature_permissions`。",
+        "description": "为指定用户设置单独授予权限和单独关闭权限。最终生效权限为角色权限与用户直授权限合并后，再扣除用户单独关闭权限；当前登录用户不能在认证授权页修改自己的权限，应通过用户设置调整主动关闭权限。非超级管理员主体不能看到或配置超级管理员用户，也不能将超级管理员角色配置为可查看日志角色。需要 `core.manage_auth` 和 `core.manage_feature_permissions`。",
         "operationId": "updateUserPermissions",
         "security": [
           {
@@ -2722,7 +2722,7 @@
           "用户管理"
         ],
         "summary": "重置用户密码",
-        "description": "为指定用户生成随机新密码并立即生效。新密码规则与后台创建用户时一致，响应中的 `generatedPassword` 仅返回一次。不能重置当前登录用户密码。需要 `core.manage_auth`。",
+        "description": "为指定用户生成随机新密码并立即生效。新密码规则与后台创建用户时一致，响应中的 `generatedPassword` 仅返回一次。不能重置当前登录用户密码；非超级管理员主体不能看到或重置超级管理员用户。需要 `core.manage_auth`。",
         "operationId": "resetUserPassword",
         "security": [
           {
@@ -2776,7 +2776,7 @@
           "用户管理"
         ],
         "summary": "更新用户状态或删除用户",
-        "description": "根据请求体中的 `action` 字段执行不同操作：\n- 不提供 `action`：启用或停用指定用户账号\n- `delete`：删除指定用户账号\n\n不能操作当前登录用户或初始化管理员。需要 `core.manage_auth`。\n",
+        "description": "根据请求体中的 `action` 字段执行不同操作：\n- 不提供 `action`：启用或停用指定用户账号\n- `delete`：删除指定用户账号\n\n不能操作当前登录用户或初始化管理员；非超级管理员主体不能看到或操作超级管理员用户。需要 `core.manage_auth`。\n",
         "operationId": "updateUserOrDelete",
         "security": [
           {
@@ -2930,7 +2930,7 @@
           "用户管理"
         ],
         "summary": "获取用户组列表",
-        "description": "返回全部 Django 用户组及其功能权限配置。需要 `core.manage_auth`。",
+        "description": "返回当前主体可见的 Django 用户组及其功能权限配置。非超级管理员主体不会返回超级管理员用户组。需要 `core.manage_auth`。",
         "operationId": "listGroups",
         "security": [
           {
@@ -3233,7 +3233,7 @@
           "用户管理"
         ],
         "summary": "更新或删除用户组",
-        "description": "根据请求体中的 `action` 字段执行不同操作：\n- 不提供 `action`：更新用户组名称和功能权限\n- `delete`：删除空用户组（仅当用户组没有任何关联用户时允许）\n\n需要 `core.manage_auth`。\n",
+        "description": "根据请求体中的 `action` 字段执行不同操作：\n- 不提供 `action`：更新用户组名称和功能权限\n- `delete`：删除空用户组（仅当用户组没有任何关联用户时允许）\n\n非超级管理员主体不能看到、更新或删除超级管理员用户组。需要 `core.manage_auth`。\n",
         "operationId": "updateOrDeleteGroup",
         "security": [
           {
@@ -3454,7 +3454,7 @@
           "管理后台"
         ],
         "summary": "获取存量数据管理列表",
-        "description": "返回已导入或已登记的数据资源列表，支持启用和停用数据、多条件检索、访问用户组和默认可视化方案查看。具备 `catalog.view_dataresource`、`catalog.change_dataresource`、`catalog.delete_dataresource` 或 `catalog.export_dataresource` 时返回符合筛选条件的全部资源；仅具备 `catalog.add_dataresource` 时只返回当前用户上传的数据资源，用于管理自己的数据可见范围。",
+        "description": "返回已导入或已登记的数据资源列表，支持启用和停用数据、多条件检索、访问用户组和默认可视化方案查看。具备 `catalog.view_dataresource`、`catalog.change_dataresource`、`catalog.delete_dataresource` 或 `catalog.export_dataresource` 时，仅返回当前用户可见或本人上传且符合筛选条件的资源；超级管理员可查看全部资源；仅具备 `catalog.add_dataresource` 时只返回当前用户上传的数据资源，用于管理自己的数据可见范围。非超级管理员主体的响应不会返回超级管理员访问角色。",
         "operationId": "listAdminDataResources",
         "security": [
           {
@@ -3803,7 +3803,7 @@
           "管理后台"
         ],
         "summary": "导出存量数据清单",
-        "description": "按当前筛选条件导出存量数据清单，支持 CSV 和 Excel。需要 `catalog.export_dataresource`，操作会写入审计日志。",
+        "description": "按当前筛选条件导出当前用户可见或本人上传的数据资源清单，支持 CSV 和 Excel；超级管理员可导出全部资源。需要 `catalog.export_dataresource`，操作会写入审计日志。",
         "operationId": "exportAdminDataResources",
         "security": [
           {
@@ -3939,7 +3939,7 @@
           "管理后台"
         ],
         "summary": "操作单个存量数据",
-        "description": "支持更新启停状态、保存默认可视化方案、配置访问用户组和删除确认。启停、默认可视化和普通编辑需要 `catalog.change_dataresource`；删除需要 `catalog.delete_dataresource`；数据上传者本人或具备 `catalog.change_dataresource` 的用户可以通过 `updateAccess` 修改可见范围。成功操作会写入审计日志。",
+        "description": "支持更新启停状态、保存默认可视化方案、配置访问用户组和删除确认。目标数据必须对当前用户可见或由当前用户上传；不可见数据按不存在处理；超级管理员不受对象可见范围限制。启停、默认可视化和普通编辑需要 `catalog.change_dataresource`；删除需要 `catalog.delete_dataresource`；数据上传者本人或具备 `catalog.change_dataresource` 的用户可以通过 `updateAccess` 修改可见范围。非超级管理员主体的响应不会返回超级管理员访问角色。成功操作会写入审计日志。",
         "operationId": "updateAdminDataResource",
         "security": [
           {
@@ -5621,6 +5621,7 @@
           "图层"
         ],
         "summary": "获取图层列表",
+        "description": "返回当前用户可见且可浏览的启用地图图层；若图层关联的数据资源对当前用户不可见，该图层也不会返回，避免用户看到无法加载的数据。",
         "operationId": "getLayers",
         "security": [
           {
@@ -7701,6 +7702,7 @@
           "canViewAllOperationLogs",
           "canViewOwnOperationLogs",
           "canViewGroupOperationLogs",
+          "canViewSystemLogs",
           "canManageSystemSettings",
           "canManageAuth",
           "canViewDashboardResourceCard",
@@ -7755,6 +7757,10 @@
           "canViewGroupOperationLogs": {
             "type": "boolean",
             "description": "是否可查看指定用户组日志"
+          },
+          "canViewSystemLogs": {
+            "type": "boolean",
+            "description": "是否可查看后台运行日志，由 `core.view_system_logs` 权限控制"
           },
           "canManageSystemSettings": {
             "type": "boolean",
@@ -8262,37 +8268,82 @@
           "activeResources",
           "totalSizeBytes",
           "totalItemCount",
+          "typeBreakdown",
+          "ownUploads",
+          "visibleResources"
+        ],
+        "properties": {
+          "totalResources": {
+            "type": "integer",
+            "description": "系统数据资源总数，用于兼容旧版概览卡片；新版界面优先展示分组统计"
+          },
+          "activeResources": {
+            "type": "integer",
+            "description": "系统启用状态数据资源数量，用于兼容旧版概览卡片；新版界面优先展示分组统计"
+          },
+          "totalSizeBytes": {
+            "type": "integer",
+            "description": "系统数据总大小，单位字节，用于兼容旧版概览卡片；新版界面优先展示分组统计"
+          },
+          "totalItemCount": {
+            "type": "integer",
+            "description": "系统数据条目总数，用于兼容旧版概览卡片；新版界面优先展示分组统计"
+          },
+          "typeBreakdown": {
+            "type": "array",
+            "description": "系统按数据类型聚合的数据情况，用于兼容旧版概览卡片；新版界面优先展示分组统计",
+            "items": {
+              "$ref": "#/components/schemas/AdminDashboardDataTypeOverview"
+            }
+          },
+          "ownUploads": {
+            "$ref": "#/components/schemas/AdminDashboardDataOverviewScope",
+            "description": "当前用户上传的数据资源聚合统计"
+          },
+          "visibleResources": {
+            "$ref": "#/components/schemas/AdminDashboardDataOverviewScope",
+            "description": "当前用户可见的数据资源聚合统计；后端按数据可见范围和上传者本人规则裁剪"
+          },
+          "uploaders": {
+            "type": "array",
+            "description": "超级管理员主体可见的上传用户统计；普通用户无该字段",
+            "items": {
+              "$ref": "#/components/schemas/AdminDashboardUploaderOverview"
+            }
+          }
+        }
+      },
+      "AdminDashboardDataOverviewScope": {
+        "type": "object",
+        "required": [
+          "totalResources",
+          "activeResources",
+          "totalSizeBytes",
+          "totalItemCount",
           "typeBreakdown"
         ],
         "properties": {
           "totalResources": {
             "type": "integer",
-            "description": "数据资源总数"
+            "description": "该统计范围内的数据资源总数"
           },
           "activeResources": {
             "type": "integer",
-            "description": "启用状态数据资源数量"
+            "description": "该统计范围内启用状态的数据资源数量"
           },
           "totalSizeBytes": {
             "type": "integer",
-            "description": "数据总大小，单位字节"
+            "description": "该统计范围内数据总大小，单位字节"
           },
           "totalItemCount": {
             "type": "integer",
-            "description": "数据条目总数"
+            "description": "该统计范围内数据条目总数"
           },
           "typeBreakdown": {
             "type": "array",
-            "description": "按数据类型聚合的数据情况",
+            "description": "该统计范围内按数据类型聚合的数据情况",
             "items": {
               "$ref": "#/components/schemas/AdminDashboardDataTypeOverview"
-            }
-          },
-          "uploaders": {
-            "type": "array",
-            "description": "超级管理员可见的上传用户统计；普通用户无该字段",
-            "items": {
-              "$ref": "#/components/schemas/AdminDashboardUploaderOverview"
             }
           }
         }
@@ -9262,7 +9313,7 @@
           },
           "isSuperadmin": {
             "type": "boolean",
-            "description": "是否为系统内置超级管理员用户组；数据可见范围会强制包含该组"
+            "description": "是否为系统内置超级管理员用户组；仅超级管理员主体会收到该组，数据可见范围会在后台强制包含该组"
           }
         }
       },
@@ -9465,7 +9516,7 @@
           },
           "accessGroups": {
             "type": "array",
-            "description": "允许访问该数据资源的用户组；用户导入、目录扫描和栅格导入会强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。",
+            "description": "允许访问该数据资源且对当前主体可见的用户组；用户导入、目录扫描和栅格导入会在后台强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。",
             "items": {
               "$ref": "#/components/schemas/AdminDataResourceAccessGroup"
             }
@@ -9555,7 +9606,7 @@
           },
           "availableAccessGroups": {
             "type": "array",
-            "description": "可用于配置数据访问范围的用户组列表；前端应隐藏或锁定超级管理员组，因为后端会强制包含",
+            "description": "可用于配置数据访问范围且对当前主体可见的用户组列表；非超级管理员主体不会收到超级管理员用户组，后端仍会强制保留超级管理员访问范围",
             "items": {
               "$ref": "#/components/schemas/AdminDataResourceAccessGroup"
             }
@@ -9621,7 +9672,7 @@
           },
           "accessGroupIds": {
             "type": "array",
-            "description": "updateAccess 或 update 时写入的额外可见用户组 ID 列表；后端会强制补齐超级管理员用户组，上传者本人不依赖用户组也始终可见。包含游客用户组时表示未登录用户可通过游客会话访问该数据。",
+            "description": "updateAccess 或 update 时写入的额外可见用户组 ID 列表；非超级管理员主体不能选择超级管理员用户组，后端会强制补齐超级管理员用户组，上传者本人不依赖用户组也始终可见。包含游客用户组时表示未登录用户可通过游客会话访问该数据。",
             "items": {
               "type": "integer"
             }
@@ -9655,7 +9706,7 @@
               },
               "accessGroups": {
                 "type": "array",
-                "description": "允许访问该工程专题的用户组；所属用户本人和超级管理员始终可见",
+                "description": "允许访问该工程专题且对当前主体可见的用户组；所属用户本人和超级管理员始终可见",
                 "items": {
                   "$ref": "#/components/schemas/AdminDataResourceAccessGroup"
                 }
@@ -9738,7 +9789,7 @@
           },
           "accessGroupIds": {
             "type": "array",
-            "description": "updateAccess 或 update 时写入的额外可见用户组 ID 列表；后端会强制补齐超级管理员用户组，所属用户本人始终可见。包含游客用户组时表示未登录用户可通过游客会话访问该工程专题。",
+            "description": "updateAccess 或 update 时写入的额外可见用户组 ID 列表；非超级管理员主体不能选择超级管理员用户组，后端会强制补齐超级管理员用户组，所属用户本人始终可见。包含游客用户组时表示未登录用户可通过游客会话访问该工程专题。",
             "items": {
               "type": "integer"
             }
