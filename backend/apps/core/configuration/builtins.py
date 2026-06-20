@@ -40,20 +40,21 @@ BUILTIN_GROUPS = BuiltinGroupConfig(
     default_user_permissions=(
         "core.browse_data",
         "core.query_data",
+        "core.custom_symbolization",
+        "catalog.export_dataresource",
         "catalog.add_dataresource",
+        "catalog.view_dataresource",
+        "catalog.change_dataresource",
+        "catalog.delete_dataresource",
         "catalog.add_workspacescene",
         "catalog.view_workspacescene",
         "catalog.change_workspacescene",
         "catalog.delete_workspacescene",
         "core.load_vector_layer",
         "core.load_raster_layer",
+        "raster.manage_raster_dataset",
     ),
-    guest_permissions=(
-        "core.browse_data",
-        "core.query_data",
-        "core.load_vector_layer",
-        "core.load_raster_layer",
-    ),
+    guest_permissions=(),
 )
 
 BUILTIN_ACCOUNTS = BuiltinAccountConfig(

@@ -170,8 +170,15 @@ class SuperadminInitializationTests(TestCase):
         }
         self.assertEqual(group_permissions, default_user_group_permissions())
         self.assertIn("catalog.add_dataresource", group_permissions)
+        self.assertIn("catalog.view_dataresource", group_permissions)
+        self.assertIn("catalog.change_dataresource", group_permissions)
+        self.assertIn("catalog.delete_dataresource", group_permissions)
+        self.assertIn("catalog.export_dataresource", group_permissions)
+        self.assertIn("core.custom_symbolization", group_permissions)
+        self.assertIn("raster.manage_raster_dataset", group_permissions)
+        self.assertNotIn("core.manage_auth", group_permissions)
 
-    def test_ensure_superadmin_defaults_creates_guest_group_without_data_create_permission(
+    def test_ensure_superadmin_defaults_creates_guest_group_without_permissions(
         self,
     ):
         ensure_superadmin_defaults(create_account=False)
@@ -182,7 +189,7 @@ class SuperadminInitializationTests(TestCase):
             for permission in group.permissions.select_related("content_type")
         }
         self.assertEqual(group_permissions, guest_group_permissions())
-        self.assertNotIn("catalog.add_dataresource", group_permissions)
+        self.assertEqual(group_permissions, set())
 
     def test_ensure_superadmin_defaults_preserves_guest_group_custom_permissions(
         self,
