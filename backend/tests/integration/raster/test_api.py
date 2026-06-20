@@ -29,7 +29,7 @@ class RasterPermissionApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
-        self.assertIn("当前用户组“未分组”无权限", response.json()["detail"])
+        self.assertIn("当前角色“未分配角色”无权限", response.json()["detail"])
 
     def test_default_render_does_not_require_custom_symbolization_permission(self):
         grant(self.user, ("core", "load_raster_layer"))
@@ -57,7 +57,7 @@ class RasterPermissionApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 403)
-        self.assertIn("当前用户组“未分组”无权限", response.json()["detail"])
+        self.assertIn("当前角色“未分配角色”无权限", response.json()["detail"])
 
     def test_render_async_denies_group_restricted_dataset_resource(self):
         grant(self.user, ("core", "load_raster_layer"))

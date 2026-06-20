@@ -229,7 +229,7 @@ class GroupNamesTests(TestCase):
         user = get_user_model().objects.create_user(
             username="no-group", password="pass12345"
         )
-        self.assertEqual(group_names(user), "未分组")
+        self.assertEqual(group_names(user), "未分配角色")
 
     def test_returns_group_name(self):
         user = get_user_model().objects.create_user(
@@ -257,7 +257,7 @@ class PermissionDeniedMessageTests(TestCase):
             username="denied-user", password="pass12345"
         )
         message = permission_denied_message(user)
-        self.assertIn("未分组", message)
+        self.assertIn("未分配角色", message)
         self.assertIn("无权限", message)
 
 
