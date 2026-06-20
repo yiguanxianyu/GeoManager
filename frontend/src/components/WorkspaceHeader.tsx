@@ -507,6 +507,33 @@ export default function WorkspaceHeader({
         onClick: () => navigateFromHeader("/resources/data/inventory"),
       });
     }
+    if (
+      user?.permissions.canViewWorkspaces ||
+      user?.permissions.canChangeWorkspaces ||
+      user?.permissions.canDeleteWorkspaces
+    ) {
+      items.push({
+        key: "resources-projects",
+        label: "工程管理",
+        onClick: () => navigateFromHeader("/resources/manage/projects"),
+      });
+      items.push({
+        key: "resources-topics",
+        label: "专题管理",
+        onClick: () => navigateFromHeader("/resources/manage/topics"),
+      });
+    }
+    if (
+      user?.permissions.canViewAchievements ||
+      user?.permissions.canChangeAchievements ||
+      user?.permissions.canDeleteAchievements
+    ) {
+      items.push({
+        key: "resources-achievements",
+        label: "成果管理",
+        onClick: () => navigateFromHeader("/resources/manage/achievements"),
+      });
+    }
     if (user?.permissions.canUploadData) {
       items.push({
         key: "resources-import",
@@ -519,9 +546,15 @@ export default function WorkspaceHeader({
     navigateFromHeader,
     user?.permissions.canExportData,
     user?.permissions.canChangeDataResources,
+    user?.permissions.canChangeAchievements,
+    user?.permissions.canChangeWorkspaces,
     user?.permissions.canDeleteDataResources,
+    user?.permissions.canDeleteAchievements,
+    user?.permissions.canDeleteWorkspaces,
     user?.permissions.canUploadData,
     user?.permissions.canViewDataResources,
+    user?.permissions.canViewAchievements,
+    user?.permissions.canViewWorkspaces,
   ]);
 
   const adminMenuItems = useMemo<MenuProps["items"]>(() => {

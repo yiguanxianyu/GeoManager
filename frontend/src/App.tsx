@@ -10,16 +10,21 @@ import {
 import { AppContext } from "./contexts/AppContext";
 import {
   RedirectIfAuth,
+  RequireAchievementInventory,
   RequireAuth,
   RequireDataInventory,
   RequireDataUpload,
   RequireManageAuth,
   RequireManageSystemSettings,
   RequireViewOperationLogs,
+  RequireWorkspaceInventory,
 } from "./router";
 import type { Bootstrap, User } from "./types";
 
 const AdminAuthPage = lazy(() => import("./admin/AdminAuthPage"));
+const AdminAchievementManagementPage = lazy(
+  () => import("./admin/AdminAchievementManagementPage"),
+);
 const AdminDashboardPage = lazy(() => import("./admin/AdminDashboardPage"));
 const AdminDataImportPage = lazy(() => import("./admin/AdminDataImportPage"));
 const AdminDataInventoryPage = lazy(
@@ -32,6 +37,9 @@ const AdminOperationLogsPage = lazy(
 const AdminProfilePage = lazy(() => import("./admin/AdminProfilePage"));
 const AdminSystemSettingsPage = lazy(
   () => import("./admin/AdminSystemSettingsPage"),
+);
+const AdminWorkspaceManagementPage = lazy(
+  () => import("./admin/AdminWorkspaceManagementPage"),
 );
 const HomePage = lazy(() => import("./pages/HomePage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
@@ -177,6 +185,22 @@ export default function App() {
                 <Route
                   path="data/inventory"
                   element={<AdminDataInventoryPage />}
+                />
+              </Route>
+              <Route element={<RequireWorkspaceInventory />}>
+                <Route
+                  path="manage/projects"
+                  element={<AdminWorkspaceManagementPage kind="project" />}
+                />
+                <Route
+                  path="manage/topics"
+                  element={<AdminWorkspaceManagementPage kind="topic" />}
+                />
+              </Route>
+              <Route element={<RequireAchievementInventory />}>
+                <Route
+                  path="manage/achievements"
+                  element={<AdminAchievementManagementPage />}
                 />
               </Route>
               <Route element={<RequireDataUpload />}>

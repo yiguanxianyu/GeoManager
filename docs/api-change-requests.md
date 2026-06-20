@@ -30,6 +30,7 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260620-001 | BackendReady | GET /api/admin/system-logs/ | new endpoint, response fields, permission behavior, mock data | Done | Done | Done | Pending | System log file selector for admin logs page |
 | API-20260620-002 | BackendReady | Data/workspace/achievement CRUD endpoints | permission behavior, response fields, new endpoint, request body | Done | N/A | Done | Done | Fine-grained CRUD permissions for data, workspace scenes, and achievements |
 | API-20260620-003 | BackendReady | GET /api/admin/operation-logs/ | response fields, query parameters | Done | N/A | Done | Done | Structured audit target fields for data, workspace scenes, and achievements |
+| API-20260620-004 | ContractReady | GET/POST /api/admin/workspaces/; GET/POST /api/admin/achievements/ | new endpoints, request body, response fields, permission behavior, mock data | Done | Done | Pending | Pending | Shared management UI for 工程、专题 and 成果 |
 
 ## Entry Template
 
@@ -163,6 +164,19 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Backend implementation notes: Store structured target fields on `OperationLog`; write `data_resource`, `workspace_scene`, and `achievement` targets from the relevant backend views, preserving target ID/name before delete.
 - Verification: run backend audit, catalog, and core operation-log tests plus `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check`.
 - Result: Backend implementation and focused tests completed in this change.
+
+## API-20260620-004 - Managed Workspaces and Achievements
+
+- Status: ContractReady
+- Owner: Frontend / Backend
+- Endpoints: `GET /api/admin/workspaces/`, `POST /api/admin/workspaces/{workspaceId}/`, `GET /api/admin/achievements/`, `POST /api/admin/achievements/{achievementId}/`
+- Change type: new endpoint, request body, response fields, permission behavior, mock data
+- OpenAPI change: Adds admin management responses for 工程/专题 and 成果 with pagination, status, owner, access groups, `canManageAccess`, and update actions for `update`, `setStatus`, `updateAccess`, and `delete`.
+- Mock examples: `mock/prism/examples/25-admin-managed-assets.json`
+- Frontend reason: The resource management area now needs 工程、专题 and 成果 management pages with the same interaction model as 存量数据: list, filter, status control, information editing, visibility group configuration, and deletion confirmation.
+- Backend implementation notes: Implement Django admin APIs that reuse `WorkspaceScene` ownership rules and the achievements model/service. Use `catalog.view/change/delete_workspacescene` for 工程/专题 list, update, and delete behavior, and `catalog.view/change/delete_achievement` for 成果 management. Owners may update access scope on their own 工程/专题 when `canManageAccess=true`. Enforce object-level access group filtering for normal browse/search/load endpoints and write all user-triggered changes to `OperationLog` with Chinese module/action text.
+- Verification: run `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check && pnpm run mock:build`, plus backend API tests for list filtering, update actions, owner-only access updates, permission denial, deletion confirmation, and audit log creation.
+- Result: Frontend contract and mock are ready; backend implementation pending.
 
 ## API-20260617-002 - Workspace Snapshot Raw Data Guard
 
