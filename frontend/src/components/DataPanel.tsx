@@ -164,7 +164,7 @@ export default function DataPanel({
       <Space orientation="vertical" className="full-width compact-stack">
         <Input
           prefix={<SearchOutlined style={{ fontSize: 15 }} />}
-          placeholder="数据名称或编号"
+          placeholder="数据名称、来源或单位"
           value={resourceFilters.q}
           onChange={(event) => updateResourceFilter("q", event.target.value)}
           allowClear

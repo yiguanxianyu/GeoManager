@@ -253,7 +253,7 @@ export default function AdminWorkspaceManagementPage({
       width: 160,
       render: (_, record) => (
         <Space orientation="vertical" size={0}>
-          <span>{record.owner.displayName}</span>
+          <span>{ownerDisplayName(record)}</span>
           <Typography.Text type="secondary" className="admin-table-subtext">
             {record.owner.username}
           </Typography.Text>
@@ -299,7 +299,7 @@ export default function AdminWorkspaceManagementPage({
             </Tag>
           ),
         },
-        { label: "所属用户", value: item.owner.displayName },
+        { label: "所属用户", value: ownerDisplayName(item) },
         {
           label: "创建时间",
           value: new Date(item.createdAt).toLocaleString("zh-CN"),
@@ -354,4 +354,8 @@ export default function AdminWorkspaceManagementPage({
       onDelete={deleteItem}
     />
   );
+}
+
+function ownerDisplayName(item: AdminWorkspaceScene): string {
+  return item.owner.displayName || item.owner.username;
 }

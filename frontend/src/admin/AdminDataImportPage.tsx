@@ -884,7 +884,7 @@ export default function AdminDataImportPage() {
               <Space orientation="vertical" size={4}>
                 <Typography.Text>{duplicateTarget.message}</Typography.Text>
                 <Typography.Text type="secondary">
-                  继续导入会创建新的后台 ID 和新的数据记录，不会覆盖已有数据。
+                  继续导入会创建新的数据记录，不会覆盖已有数据。
                 </Typography.Text>
               </Space>
             }
@@ -945,7 +945,7 @@ function DuplicateTargetAlert({
           <Typography.Text>{target.message}</Typography.Text>
           <Typography.Text type="secondary">
             {confirmed
-              ? "继续导入会新建后台 ID 和数据记录，不会覆盖已有数据。"
+              ? "继续导入会新建数据记录，不会覆盖已有数据。"
               : `数据名称：${target.targetName}`}
           </Typography.Text>
         </Space>

@@ -201,6 +201,9 @@ describe("DataPanel", () => {
       />,
     );
 
+    expect(
+      screen.getByPlaceholderText("数据名称、来源或单位"),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText("数据来源"), {
       target: { value: "野外调查" },
     });

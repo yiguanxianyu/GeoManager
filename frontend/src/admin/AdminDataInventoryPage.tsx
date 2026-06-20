@@ -268,14 +268,7 @@ export default function AdminDataInventoryPage() {
       dataIndex: "name",
       key: "name",
       width: 260,
-      render: (_, record) => (
-        <Space orientation="vertical" size={2}>
-          <Button type="link">{record.name}</Button>
-          <Typography.Text type="secondary" className="admin-table-subtext">
-            {record.code}
-          </Typography.Text>
-        </Space>
-      ),
+      render: (_, record) => <Button type="link">{record.name}</Button>,
     },
     {
       title: "类型",
@@ -334,9 +327,7 @@ export default function AdminDataInventoryPage() {
       width: 150,
       render: (_, record) => (
         <Space orientation="vertical" size={0}>
-          <span>
-            {record.uploader?.displayName || record.maintainer || "未记录"}
-          </span>
+          <span>{uploaderDisplayName(record)}</span>
           {record.uploader?.username && (
             <Typography.Text type="secondary" className="admin-table-subtext">
               {record.uploader.username}
@@ -395,12 +386,10 @@ export default function AdminDataInventoryPage() {
         },
         {
           label: "上传用户",
-          value:
-            resource.uploader?.displayName || resource.maintainer || "未记录",
+          value: uploaderDisplayName(resource),
         },
         { label: "数据大小", value: formatBytes(resource.sizeBytes ?? 0) },
         { label: "数据条目数", value: resource.itemCount ?? 0 },
-        { label: "存储位置", value: resource.storagePath || "-" },
       ]}
       formInitialValues={(resource) => initialVisualizationValues(resource)}
       renderFormItems={(resource, maintainable) => (
@@ -459,6 +448,15 @@ export default function AdminDataInventoryPage() {
       onDelete={deleteResource}
       onExport={exportInventory}
     />
+  );
+}
+
+function uploaderDisplayName(resource: AdminDataResource): string {
+  return (
+    resource.uploader?.displayName ||
+    resource.uploader?.username ||
+    resource.maintainer ||
+    "未记录"
   );
 }
 

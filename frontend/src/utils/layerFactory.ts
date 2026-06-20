@@ -36,7 +36,6 @@ export function createVectorLayerGroup(
   const summary = `${queryResult.returnedCount}/${queryResult.totalCount} 条 · ${profile.geometryType || "空间数据"}`;
   const metadata = {
     数据名称: resource.name,
-    数据编号: resource.code,
     数据类型: resource.dataType,
     数据分类: resourceCategoryName(resource),
     数据来源: resource.source,
@@ -95,11 +94,8 @@ export function createRasterLayerGroup(
   const summary = `${raster.bandCount} 波段 · ${raster.metadata.size.join(" x ") || "栅格"}`;
   const metadata = {
     数据名称: resource.name,
-    数据编号: resource.code,
     数据类型: "栅格",
     文件格式: resource.fileFormat,
-    源文件: raster.sourcePath,
-    预处理文件: raster.processedPath,
     坐标系统: resource.coordinateSystem,
     波段数: raster.bandCount,
     加载时间: now.toLocaleString("zh-CN", { hour12: false }),

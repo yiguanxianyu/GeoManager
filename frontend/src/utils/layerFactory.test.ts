@@ -76,6 +76,8 @@ describe("createVectorLayerGroup", () => {
     expect(group.children[0].layerType).toBe("vector");
     expect(group.children[0].visible).toBe(true);
     expect(group.visible).toBe(true);
+    expect(group.metadata).not.toHaveProperty("数据编号");
+    expect(group.children[0].metadata).not.toHaveProperty("数据编号");
   });
 
   it("includes resource name in group name", () => {
@@ -169,6 +171,12 @@ describe("createRasterLayerGroup", () => {
     expect(group).not.toBeNull();
     expect(group?.children).toHaveLength(1);
     expect(group?.children[0].layerType).toBe("raster");
+    expect(group?.metadata).not.toHaveProperty("数据编号");
+    expect(group?.metadata).not.toHaveProperty("源文件");
+    expect(group?.metadata).not.toHaveProperty("预处理文件");
+    expect(group?.children[0].metadata).not.toHaveProperty("数据编号");
+    expect(group?.children[0].metadata).not.toHaveProperty("源文件");
+    expect(group?.children[0].metadata).not.toHaveProperty("预处理文件");
   });
 });
 

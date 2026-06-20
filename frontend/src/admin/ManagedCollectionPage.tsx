@@ -223,7 +223,7 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
             <Form.Item name="q" className="inventory-search-item">
               <Input
                 allowClear
-                placeholder="按名称、编号、来源或所属用户快速检索"
+                placeholder="按名称、来源或所属用户快速检索"
                 onPressEnter={() => filterForm.submit()}
               />
             </Form.Item>

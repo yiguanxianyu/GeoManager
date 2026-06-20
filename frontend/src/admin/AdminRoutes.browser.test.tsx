@@ -861,12 +861,64 @@ describe("admin routes", () => {
     expect(await screen.findByText("胡杨林样地点")).toBeInTheDocument();
     expect(screen.getByText("CSV")).toBeInTheDocument();
     expect(screen.getByText("本页启用")).toBeInTheDocument();
+    expect(screen.queryByText("populus-plots")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "配置胡杨林样地点" }));
 
     expect(await screen.findByText("访问权限")).toBeInTheDocument();
     expect(screen.getAllByText("上传者本人可见").length).toBeGreaterThan(0);
     expect(screen.queryByText("超级管理员可见")).not.toBeInTheDocument();
+    expect(screen.queryByText("存储位置")).not.toBeInTheDocument();
+    expect(screen.queryByText("populus_plots")).not.toBeInTheDocument();
+  });
+
+  it("uses usernames when superadmin display names are empty in data management", async () => {
+    mockApi.adminDataResources.mockResolvedValueOnce({
+      items: [
+        {
+          id: 1,
+          name: "超级管理员上传数据",
+          code: "superadmin-resource",
+          dataType: "table",
+          category: null,
+          source: "用户导入",
+          provider: "平台组",
+          dataDate: null,
+          spatialExtent: "",
+          coordinateSystem: "",
+          fileFormat: "CSV",
+          storagePath: "superadmin_resource",
+          description: "",
+          qualityNote: "",
+          defaultVisualization: {},
+          status: "active",
+          accessGroups: [],
+          canManageAccess: true,
+          maintainer: "",
+          uploader: {
+            id: 1,
+            username: "superadmin",
+            displayName: "",
+          },
+          createdAt: "2026-06-01T10:00:00+08:00",
+          updatedAt: "2026-06-01T10:00:00+08:00",
+          defaultLayer: null,
+        },
+      ],
+      total: 1,
+      availableAccessGroups: [],
+    });
+
+    renderAdminRoute("/resources/data/inventory");
+
+    expect(await screen.findByText("超级管理员上传数据")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "配置超级管理员上传数据" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("superadmin").length).toBeGreaterThan(1);
+    });
   });
 
   it("loads the project and topic management pages", async () => {
@@ -879,5 +931,42 @@ describe("admin routes", () => {
 
     expect(await screen.findByText("胡杨退化专题")).toBeInTheDocument();
     expect(screen.getByText("当前专题")).toBeInTheDocument();
+  });
+
+  it("uses usernames when superadmin workspace owner display names are empty", async () => {
+    mockApi.adminWorkspaces.mockResolvedValue({
+      items: [
+        {
+          id: 1,
+          kind: "project",
+          name: "超级管理员保存工程",
+          description: "无显示名账号保存",
+          snapshot: { version: 1, groups: [] },
+          owner: {
+            id: 1,
+            username: "superadmin",
+            displayName: "",
+          },
+          createdAt: "2026-06-01T10:00:00+08:00",
+          updatedAt: "2026-06-01T10:00:00+08:00",
+          status: "active",
+          accessGroups: [],
+          canManageAccess: true,
+        },
+      ],
+      total: 1,
+      availableAccessGroups: [],
+    });
+
+    renderAdminRoute("/resources/manage/projects");
+
+    expect(await screen.findByText("超级管理员保存工程")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "配置超级管理员保存工程" }),
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText("superadmin").length).toBeGreaterThan(1);
+    });
   });
 });
