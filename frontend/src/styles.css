@@ -3233,28 +3233,6 @@ body {
   }
 }
 
-.header-account-actions .data-import-shortcut {
-  min-width: 6.5rem;
-  padding-inline: 0.875rem;
-  color: #1d1402;
-  background: linear-gradient(135deg, #ffd166, #ff9f1c);
-  border-color: #ffd166;
-  box-shadow:
-    0 0 0 1px rgb(255 255 255 / 0.14) inset,
-    0 10px 26px rgb(255 159 28 / 0.28);
-  font-weight: 800;
-
-  &:hover,
-  &:focus {
-    color: #1d1402;
-    background: linear-gradient(135deg, #ffe29a, #ffb02e);
-    border-color: #ffe29a;
-    box-shadow:
-      0 0 0 1px rgb(255 255 255 / 0.2) inset,
-      0 12px 30px rgb(255 159 28 / 0.34);
-  }
-}
-
 .header-account-actions .wechat-button {
   width: 2.125rem;
   min-width: 2.125rem;
@@ -3541,10 +3519,6 @@ body {
     width: 2rem;
     min-width: 2rem;
     padding-inline: 0;
-  }
-
-  .header-account-actions .data-import-shortcut .shortcut-text {
-    display: none;
   }
 
   .user-button-name {

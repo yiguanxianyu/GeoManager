@@ -5,7 +5,6 @@ import {
   DatabaseOutlined,
   FolderOpenOutlined,
   InfoCircleOutlined,
-  ImportOutlined,
   LogoutOutlined,
   QuestionCircleOutlined,
   QrcodeOutlined,
@@ -116,9 +115,6 @@ export default function WorkspaceHeader({
     user?.username === "guest" || Boolean(user?.roles.includes("游客"));
   const showAdminTab =
     Boolean(user?.permissions.canAccessAdmin) && !isGuestUser;
-  const canImportData = Boolean(
-    user?.permissions.canUploadData || user?.permissions.canMaintainData,
-  );
   const tourStorageKey = user
     ? `${workspaceTourStoragePrefix}.${user.id}.${user.username}`
     : null;
@@ -942,17 +938,6 @@ export default function WorkspaceHeader({
       </div>
 
       <div className="header-account-actions">
-        {canImportData && (
-          <Button
-            type="primary"
-            className="data-import-shortcut"
-            icon={<ImportOutlined />}
-            onClick={() => navigateFromHeader("/resources/data/import")}
-            title="数据导入"
-          >
-            <span className="shortcut-text">数据导入</span>
-          </Button>
-        )}
         <Popover
           trigger="click"
           placement="bottomRight"

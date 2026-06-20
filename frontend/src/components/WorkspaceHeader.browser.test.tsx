@@ -202,7 +202,7 @@ describe("WorkspaceHeader", () => {
     );
   });
 
-  it("shows a prominent data import shortcut for upload-capable users", async () => {
+  it("does not show a standalone data import shortcut for upload-capable users", () => {
     const uploadUser: User = {
       ...user,
       permissions: {
@@ -210,17 +210,9 @@ describe("WorkspaceHeader", () => {
         canUploadData: true,
       },
     };
-    renderHeader({}, uploadUser);
+    const { container } = renderHeader({}, uploadUser);
 
-    const importShortcut = screen.getByRole("button", { name: /数据导入/ });
-    expect(importShortcut).toHaveClass("data-import-shortcut");
-
-    fireEvent.click(importShortcut);
-
-    await waitFor(() => {
-      expect(screen.getByTestId("location-path")).toHaveTextContent(
-        "/resources/data/import",
-      );
-    });
+    expect(container.querySelector(".data-import-shortcut")).toBeNull();
+    expect(screen.getByTestId("location-path")).toHaveTextContent("/");
   });
 });
