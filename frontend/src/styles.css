@@ -87,8 +87,20 @@ body {
   animation: route-fade-in 0.2s ease-out;
 }
 
+html:has(.workspace),
+body:has(.workspace),
+#root:has(.workspace) {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 .route-enter:has(> .workspace) {
-  height: 100vh;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
   overflow: hidden;
 }
 
@@ -2934,13 +2946,14 @@ body {
 }
 
 .workspace {
-  --workspace-screen-edge: 10px;
+  --workspace-screen-edge: 8px;
+  position: fixed;
+  inset: 0;
   width: 100vw;
   max-width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   min-height: 0;
   overflow: hidden;
-  position: relative;
 }
 
 .workspace-header {
@@ -2959,12 +2972,12 @@ body {
   left: var(--workspace-screen-edge);
   right: var(--workspace-screen-edge);
   z-index: 9;
-  min-height: 58px;
+  min-height: 50px;
   display: flex;
   align-items: center;
   column-gap: var(--workspace-module-gap);
-  row-gap: 8px;
-  padding: 8px 12px;
+  row-gap: 6px;
+  padding: 6px 10px;
   color: var(--c-bg-surface);
   background: rgba(7, 12, 17, 0.9);
   border: 1px solid rgba(180, 228, 221, 0.32);
@@ -2997,22 +3010,22 @@ body {
 }
 
 .brand-block {
-  gap: 8px;
+  gap: 7px;
   flex: 0 0 auto;
   min-width: max-content;
   padding-right: 0;
 }
 
 .brand-logo-frame {
-  width: 2.375rem;
-  height: 2.375rem;
+  width: 2.125rem;
+  height: 2.125rem;
   flex: 0 0 auto;
   display: grid;
   place-items: center;
 
   & img {
-    width: 2.375rem;
-    height: 2.375rem;
+    width: 2.125rem;
+    height: 2.125rem;
     object-fit: contain;
     display: block;
   }
@@ -3025,7 +3038,7 @@ body {
 
   & strong {
     color: var(--c-white);
-    font-size: 17px;
+    font-size: 16px;
     line-height: 1;
     letter-spacing: 0;
   }
@@ -3039,7 +3052,7 @@ body {
 }
 
 .workspace-global-search {
-  --workspace-search-height: 2.125rem;
+  --workspace-search-height: 1.95rem;
   width: var(--workspace-search-expanded-dynamic);
   flex: 0 1 var(--workspace-search-expanded-dynamic);
   min-width: var(--workspace-search-compact-min);
@@ -3183,11 +3196,11 @@ body {
 
 .header-primary-actions,
 .header-account-actions {
-  gap: 8px;
+  gap: 6px;
 }
 
 .workspace-search-nav {
-  --workspace-search-icon: 2.125rem;
+  --workspace-search-icon: 1.95rem;
   --workspace-search-compact-min: clamp(3.75rem, 8cqw, 5rem);
   --workspace-search-collapsed-dynamic: clamp(
     var(--workspace-search-compact-min),
@@ -3238,7 +3251,7 @@ body {
 .user-button-content {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -3250,8 +3263,8 @@ body {
 }
 
 .role-tags {
-  gap: 6px;
-  margin-right: 4px;
+  gap: 4px;
+  margin-right: 2px;
 
   & .ant-tag {
     margin-inline-end: 0;
@@ -3259,7 +3272,7 @@ body {
 }
 
 .header-account-actions .ant-btn {
-  height: 2.125rem;
+  height: 1.95rem;
   border-color: rgb(var(--c-surface-rgb) / 0.22);
   background: rgb(var(--c-surface-rgb) / 0.1);
   color: var(--c-white);
@@ -3274,8 +3287,8 @@ body {
 }
 
 .header-account-actions .wechat-button {
-  width: 2.125rem;
-  min-width: 2.125rem;
+  width: 1.95rem;
+  min-width: 1.95rem;
   padding-inline: 0;
   background: #2f5df6;
   border-color: #2f5df6;
@@ -3283,12 +3296,12 @@ body {
 }
 
 .header-primary-actions .workspace-switch-card {
-  height: 2.125rem;
+  height: 1.95rem;
   max-width: min(100%, 12rem);
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 8px;
+  gap: 5px;
+  padding: 0 7px;
   color: var(--c-white);
   background: transparent;
   border: 1px solid transparent;
@@ -3402,7 +3415,7 @@ body {
 .workspace-header-nav-compressed
   .header-primary-actions
   .workspace-switch-card {
-  max-width: clamp(2.125rem, 11cqw, 6rem);
+  max-width: clamp(1.95rem, 11cqw, 5.5rem);
 }
 
 .workspace-header-nav-compressed .header-primary-actions .tab-text {
@@ -3426,8 +3439,8 @@ body {
 .workspace-header-nav-compressed.workspace-header-search-active
   .header-primary-actions
   .workspace-switch-card {
-  width: 2.125rem;
-  min-width: 2.125rem;
+  width: 1.95rem;
+  min-width: 1.95rem;
   justify-content: center;
   padding: 0;
   gap: 0;
@@ -3469,13 +3482,13 @@ body {
 
 @media (max-width: 760px) {
   .workspace {
-    --workspace-screen-edge: 10px;
+    --workspace-screen-edge: 6px;
   }
 
   .workspace-header {
     --workspace-module-gap: 6px;
-    min-height: 58px;
-    padding: 8px;
+    min-height: 48px;
+    padding: 6px;
     overflow: hidden;
   }
 
@@ -3656,10 +3669,10 @@ body {
 
 .workspace-body {
   --workspace-edge: var(--workspace-screen-edge);
-  --workspace-gap: 10px;
-  --side-panel-width: clamp(292px, 21vw, 340px);
-  --bottom-panel-height: clamp(210px, 21vh, 240px);
-  height: 100vh;
+  --workspace-gap: 8px;
+  --side-panel-width: clamp(278px, 20vw, 320px);
+  --bottom-panel-height: clamp(176px, 18vh, 210px);
+  height: 100dvh;
   min-height: 0;
   position: relative;
   overflow: hidden;
@@ -4226,7 +4239,7 @@ body {
 
 .floating-panel {
   position: absolute;
-  top: 78px;
+  top: 66px;
   bottom: var(--workspace-edge);
   z-index: 5;
   width: var(--side-panel-width);
@@ -4234,7 +4247,7 @@ body {
   overflow: hidden;
   color: var(--c-workspace-text);
   background:
-    linear-gradient(145deg, rgba(7, 27, 36, 0.9), rgba(11, 42, 45, 0.72)),
+    linear-gradient(145deg, rgba(6, 24, 32, 0.86), rgba(9, 38, 42, 0.68)),
     radial-gradient(
       circle at 18% 0,
       rgb(var(--c-workspace-accent-cyan-rgb) / 0.16),
@@ -4243,8 +4256,8 @@ body {
   border: 1px solid rgb(var(--c-workspace-border-rgb) / 0.28);
   border-radius: 8px;
   box-shadow:
-    0 18px 56px rgba(0, 7, 12, 0.42),
-    0 0 28px rgba(40, 211, 223, 0.14),
+    0 14px 44px rgba(0, 7, 12, 0.38),
+    0 0 22px rgba(40, 211, 223, 0.12),
     inset 0 1px 0 rgb(var(--c-surface-rgb) / 0.18);
   backdrop-filter: blur(22px) saturate(1.3);
 }
@@ -4293,13 +4306,13 @@ body {
   min-width: 0;
   color: var(--c-workspace-text);
   background:
-    linear-gradient(135deg, rgba(7, 26, 34, 0.88), rgba(9, 38, 42, 0.74)),
+    linear-gradient(135deg, rgba(6, 24, 32, 0.84), rgba(9, 38, 42, 0.68)),
     radial-gradient(circle at 50% 0, rgba(34, 197, 143, 0.14), transparent 46%);
   border: 1px solid rgba(95, 231, 221, 0.26);
   border-radius: 8px;
   box-shadow:
-    0 18px 54px rgba(0, 7, 12, 0.38),
-    0 0 26px rgba(40, 211, 223, 0.12),
+    0 14px 42px rgba(0, 7, 12, 0.34),
+    0 0 20px rgba(40, 211, 223, 0.1),
     inset 0 1px 0 rgb(var(--c-surface-rgb) / 0.16);
   backdrop-filter: blur(22px) saturate(1.24);
   overflow: hidden;
@@ -4314,7 +4327,7 @@ body {
 }
 
 .panel-section {
-  padding: 12px;
+  padding: 10px;
 }
 
 .feature-detail-panel {
@@ -4323,7 +4336,7 @@ body {
   min-height: 0;
 
   & .ant-descriptions-view {
-    max-height: calc(100vh - 230px);
+    max-height: calc(100dvh - 190px);
     overflow: auto;
   }
 
@@ -5036,7 +5049,7 @@ body {
 
 .data-panel {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .workspace-side-tabs {
@@ -5046,11 +5059,11 @@ body {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  padding: 10px;
+  padding: 8px;
 
   & .ant-tabs-nav {
     flex: 0 0 auto;
-    margin: 0 0 8px;
+    margin: 0 0 6px;
   }
 
   & .ant-tabs-content-holder {
@@ -5147,8 +5160,8 @@ body {
 
 .panel-title {
   gap: 8px;
-  min-height: 26px;
-  margin-bottom: 10px;
+  min-height: 24px;
+  margin-bottom: 8px;
 }
 
 .subsection-title {
@@ -5160,7 +5173,7 @@ body {
 }
 
 .compact-stack.ant-space {
-  gap: 7px;
+  gap: 6px;
 }
 
 .compact-stack.ant-space,
@@ -5174,7 +5187,7 @@ body {
 .data-filter-row,
 .attribute-filter-row {
   display: grid;
-  gap: 7px;
+  gap: 6px;
   width: 100%;
 }
 
@@ -5189,13 +5202,13 @@ body {
 .attribute-action-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 7px;
+  gap: 6px;
   width: 100%;
 }
 
 .resource-list,
 .field-list {
-  max-height: 190px;
+  max-height: 164px;
   overflow: auto;
   padding: 0;
   margin: 0;
@@ -5208,8 +5221,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 7px;
-  padding: 8px 0;
+  gap: 6px;
+  padding: 6px 0;
 
   & .ant-tag {
     margin-left: 6px;
@@ -5244,8 +5257,8 @@ body {
 .field-row {
   display: flex;
   justify-content: space-between;
-  gap: 10px;
-  padding: 6px 0;
+  gap: 8px;
+  padding: 5px 0;
 }
 
 .spatial-status,
@@ -5278,7 +5291,7 @@ body {
 .panel-section h5.ant-typography {
   margin: 0;
   color: var(--c-workspace-text-strong);
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .topic-workspace-panel {
@@ -6172,7 +6185,7 @@ body {
   position: relative;
   z-index: 1;
   height: 100%;
-  padding: 8px 10px 10px;
+  padding: 7px 8px 8px;
 
   &.ant-tabs {
     display: flex;
@@ -6181,7 +6194,7 @@ body {
 
   & .ant-tabs-nav {
     flex: 0 0 auto;
-    margin: 0 0 8px;
+    margin: 0 0 6px;
   }
 
   & .ant-tabs-content-holder {
@@ -6215,7 +6228,7 @@ body {
   min-height: 0;
   display: grid;
   grid-template-rows: auto auto;
-  gap: 8px;
+  gap: 6px;
   align-content: start;
   overflow: auto;
 }
@@ -6344,7 +6357,7 @@ body {
   grid-template-rows: auto auto;
   align-content: start;
   align-items: stretch;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -6360,15 +6373,15 @@ body {
 
 .spatial-range-control-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(176px, 0.28fr);
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.26fr);
+  gap: 8px;
   align-items: stretch;
   min-width: 0;
 }
 
 .spatial-range-mode-selector {
   width: 100%;
-  min-height: 38px;
+  min-height: 34px;
   padding: 2px;
   background: rgb(var(--c-workspace-panel-rgb) / 0.48);
 
@@ -6401,7 +6414,7 @@ body {
 .spatial-query-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 10px;
+  gap: 8px;
   height: 100%;
   min-width: 0;
   min-height: 0;
@@ -6410,10 +6423,10 @@ body {
 .spatial-query-region {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 8px;
+  gap: 7px;
   min-width: 0;
   min-height: 0;
-  padding: 10px;
+  padding: 8px;
   background: rgb(var(--c-workspace-panel-soft-rgb) / 0.5);
   border: 1px solid rgb(var(--c-workspace-border-rgb) / 0.15);
   border-radius: 8px;
@@ -6438,7 +6451,7 @@ body {
 .spatial-insight-grid {
   display: grid;
   grid-template-columns: 0.95fr 1fr 0.72fr;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
   min-height: 0;
 }
@@ -6447,7 +6460,7 @@ body {
   display: grid;
   gap: 7px;
   min-width: 0;
-  padding: 10px;
+  padding: 8px;
   background: rgb(var(--c-workspace-panel-rgb) / 0.46);
   border: 1px solid rgb(var(--c-workspace-border-rgb) / 0.14);
   border-radius: 8px;
@@ -6463,7 +6476,7 @@ body {
 }
 
 .spatial-range-layer-switch {
-  padding: 9px 10px;
+  padding: 7px 8px;
   background: rgb(var(--c-workspace-panel-rgb) / 0.46);
   border: 1px solid rgb(var(--c-workspace-border-rgb) / 0.14);
   border-radius: 8px;
@@ -6476,7 +6489,7 @@ body {
   gap: 8px;
   min-width: 0;
   min-height: 0;
-  padding: 14px 12px 12px;
+  padding: 10px 10px 9px;
   background:
     linear-gradient(rgba(223, 248, 238, 0.07) 1px, transparent 1px),
     rgb(var(--c-workspace-panel-rgb) / 0.44);
@@ -6500,9 +6513,9 @@ body {
 .spatial-symbol-list {
   display: grid;
   align-content: start;
-  gap: 9px;
+  gap: 7px;
   min-width: 0;
-  padding: 10px;
+  padding: 8px;
   color: rgb(var(--c-workspace-text-rgb) / 0.72);
   background: rgb(var(--c-workspace-panel-rgb) / 0.44);
   border: 1px solid rgb(var(--c-workspace-border-rgb) / 0.14);
@@ -6548,11 +6561,11 @@ body {
 
 .bottom-placeholder-panel {
   display: grid;
-  gap: 8px;
+  gap: 7px;
   align-content: start;
   height: 100%;
   min-height: 0;
-  padding: 12px;
+  padding: 10px;
   overflow: auto;
   background: rgb(var(--c-workspace-panel-soft-rgb) / 0.5);
   border: 1px solid rgb(var(--c-workspace-border-rgb) / 0.15);
