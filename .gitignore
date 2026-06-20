@@ -1,6 +1,11 @@
 .DS_Store
 .deploy/
 .runtime/
+.cache/
+.npm-cache/
+.pnpm-home/
+logs/
+runtime-data/
 .env
 __pycache__/
 *.py[cod]
@@ -9,6 +14,7 @@ __pycache__/
 .ruff_cache/
 *.sqlite3
 *.tsbuildinfo
+package-lock.json
 node_modules/
 .pnpm-store/
 dist/

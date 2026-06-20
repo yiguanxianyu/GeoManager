@@ -7,7 +7,7 @@ import {
 } from "@testing-library/react";
 import { App as AntApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { AppContext } from "../contexts/AppContext";
 import { appTheme } from "../theme";
@@ -121,16 +121,19 @@ function scene(
 
 function renderHeader(
   props: Partial<React.ComponentProps<typeof WorkspaceHeader>> = {},
+  contextUser: User = user,
 ) {
   window.localStorage.setItem(
-    `huyang-system.workspace-tour.v1.${user.id}.${user.username}`,
+    `huyang-system.workspace-tour.v1.${contextUser.id}.${contextUser.username}`,
     "completed",
   );
 
   return render(
     <ConfigProvider locale={zhCN} theme={appTheme}>
       <AntApp>
-        <AppContext.Provider value={{ bootstrap, user, setUser: vi.fn() }}>
+        <AppContext.Provider
+          value={{ bootstrap, user: contextUser, setUser: vi.fn() }}
+        >
           <MemoryRouter>
             <WorkspaceHeader
               activeTab="map"
@@ -142,11 +145,17 @@ function renderHeader(
               ]}
               {...props}
             />
+            <CurrentPath />
           </MemoryRouter>
         </AppContext.Provider>
       </AntApp>
     </ConfigProvider>,
   );
+}
+
+function CurrentPath() {
+  const location = useLocation();
+  return <span data-testid="location-path">{location.pathname}</span>;
 }
 
 function sectionByTitle(title: string) {
@@ -191,5 +200,27 @@ describe("WorkspaceHeader", () => {
     expect(onLoadWorkspaceScene).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, kind: "project" }),
     );
+  });
+
+  it("shows a prominent data import shortcut for upload-capable users", async () => {
+    const uploadUser: User = {
+      ...user,
+      permissions: {
+        ...permissions,
+        canUploadData: true,
+      },
+    };
+    renderHeader({}, uploadUser);
+
+    const importShortcut = screen.getByRole("button", { name: /数据导入/ });
+    expect(importShortcut).toHaveClass("data-import-shortcut");
+
+    fireEvent.click(importShortcut);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("location-path")).toHaveTextContent(
+        "/resources/data/import",
+      );
+    });
   });
 });
