@@ -354,7 +354,7 @@ def group_list(request):
         return JsonResponse(
             {
                 "items": [
-                    _serialize_group(group)
+                    _serialize_group(group, request.user)
                     for group in visible_groups_for(_groups(), request.user)
                 ],
                 "availablePermissions": _available_permissions(),
@@ -380,7 +380,7 @@ def group_list(request):
         return JsonResponse({"detail": "角色名称已存在"}, status=400)
 
     log_operation(request.user, "认证授权", "创建角色", "success", group.name, request)
-    return JsonResponse(_serialize_group(group), status=201)
+    return JsonResponse(_serialize_group(group, request.user), status=201)
 
 
 @require_http_methods(["POST"])
@@ -457,7 +457,7 @@ def group_detail(request, group_id: int):
     except IntegrityError:
         return JsonResponse({"detail": "角色名称已存在"}, status=400)
     log_operation(request.user, "认证授权", "更新角色", "success", group.name, request)
-    return JsonResponse(_serialize_group(group))
+    return JsonResponse(_serialize_group(group, request.user))
 
 
 @require_http_methods(["GET", "POST"])
@@ -1977,7 +1977,7 @@ def _group_feature_permissions(user) -> set[str]:
     }
 
 
-def _serialize_group(group: Group) -> dict[str, Any]:
+def _serialize_group(group: Group, viewer) -> dict[str, Any]:
     permissions = {
         f"{permission.content_type.app_label}.{permission.codename}"
         for permission in group.permissions.select_related("content_type").all()
@@ -1988,7 +1988,7 @@ def _serialize_group(group: Group) -> dict[str, Any]:
     return {
         "id": group.id,
         "name": group.name,
-        "userCount": group.user_set.count(),
+        "userCount": visible_users_for(group.user_set.all(), viewer).count(),
         "permissions": sorted(permissions & set(FEATURE_PERMISSION_NAMES)),
         "isProtected": is_superadmin or is_default_user or is_guest,
         "lockedPermissions": sorted(
