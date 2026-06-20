@@ -378,9 +378,14 @@ function syncLayerExtentOverlays(
 
   for (const sourceId of activeSourceIds) {
     if (!nextSourceIds.has(sourceId)) {
-      removeLayerGroup(map, sourceId, [`${sourceId}-fill`, `${sourceId}-line`], {
-        cleanInteraction: false,
-      });
+      removeLayerGroup(
+        map,
+        sourceId,
+        [`${sourceId}-fill`, `${sourceId}-line`],
+        {
+          cleanInteraction: false,
+        },
+      );
     }
   }
 

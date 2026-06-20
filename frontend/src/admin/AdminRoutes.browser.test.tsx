@@ -278,8 +278,13 @@ function renderAdminRoute(initialEntry: string, user: User = adminUser) {
   );
 }
 
-function renderWithProviders(children: React.ReactNode, user: User = adminUser) {
-  return render(<AdminTestProviders user={user}>{children}</AdminTestProviders>);
+function renderWithProviders(
+  children: React.ReactNode,
+  user: User = adminUser,
+) {
+  return render(
+    <AdminTestProviders user={user}>{children}</AdminTestProviders>,
+  );
 }
 
 function AdminTestProviders({
@@ -1077,7 +1082,9 @@ describe("admin routes", () => {
     renderAdminRoute("/resources/data/inventory");
 
     expect(await screen.findByText("无显示名上传数据")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "配置无显示名上传数据" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "配置无显示名上传数据" }),
+    );
 
     await waitFor(() => {
       expect(screen.getAllByText("data_operator").length).toBeGreaterThan(1);
