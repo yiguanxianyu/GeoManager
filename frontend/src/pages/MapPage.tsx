@@ -35,7 +35,12 @@ import { useLayerGroups } from "../hooks/useLayerGroups";
 import { useRasterRender } from "../hooks/useRasterRender";
 import { useWorkspaceScenes } from "../hooks/useWorkspaceScenes";
 import { clearFeatureState, getMapState } from "../map/mapState";
-import { exportMapRangePng, type MapPngExportOptions } from "../map/mapExport";
+import {
+  exportMapRangeImage,
+  inferBasemapTileZoomRange,
+  type MapImageExportOptions,
+  type TileZoomRange,
+} from "../map/mapExport";
 import type { DrawMode } from "../map/spatialDraw";
 import { workspacePanelTheme } from "../theme";
 import type {
@@ -141,6 +146,10 @@ export default function MapPage() {
   const [currentMapView, setCurrentMapView] = useState<MapViewState | null>(
     null,
   );
+  const [mapObject, setMapObject] = useState<MapboxMap | null>(null);
+  const [exportTileZoomRange, setExportTileZoomRange] = useState<TileZoomRange>(
+    { min: 0, max: 22 },
+  );
   const mapInstanceRef = useRef<MapboxMap | null>(null);
   const startupScanStartedRef = useRef(false);
   const loadedSceneIdRef = useRef<number | null>(null);
@@ -206,6 +215,31 @@ export default function MapPage() {
   const allLayers = useMemo(
     () => layerGroups.groups.flatMap((group) => group.children),
     [layerGroups.groups],
+  );
+  const loadedSourceIds = useMemo(
+    () => new Set(allLayers.map((layer) => sourceIdFor(layer.id))),
+    [allLayers],
+  );
+
+  const syncExportTileZoomRange = useCallback(
+    (map: MapboxMap | null = mapInstanceRef.current) => {
+      if (!map) {
+        setExportTileZoomRange({ min: 0, max: 22 });
+        return;
+      }
+      let nextRange: TileZoomRange;
+      try {
+        nextRange = inferBasemapTileZoomRange(map.getStyle(), loadedSourceIds);
+      } catch {
+        return;
+      }
+      setExportTileZoomRange((currentRange) =>
+        currentRange.min === nextRange.min && currentRange.max === nextRange.max
+          ? currentRange
+          : nextRange,
+      );
+    },
+    [loadedSourceIds],
   );
 
   const selectedLayer = useMemo(() => {
@@ -499,6 +533,7 @@ export default function MapPage() {
   const handleMapReady = useCallback(
     (map: MapboxMap) => {
       mapInstanceRef.current = map;
+      setMapObject(map);
       setMapInstance(map);
     },
     [setMapInstance],
@@ -506,8 +541,20 @@ export default function MapPage() {
 
   const handleMapDestroy = useCallback(() => {
     mapInstanceRef.current = null;
+    setMapObject(null);
     setMapInstance(null);
   }, [setMapInstance]);
+
+  useEffect(() => {
+    if (!mapObject) return;
+    const sync = () => syncExportTileZoomRange(mapObject);
+    mapObject.on("load", sync);
+    mapObject.on("idle", sync);
+    return () => {
+      mapObject.off("load", sync);
+      mapObject.off("idle", sync);
+    };
+  }, [mapObject, syncExportTileZoomRange]);
 
   const locateLayer = useCallback(
     async (groupId: string, layerId: string) => {
@@ -697,7 +744,7 @@ export default function MapPage() {
   );
 
   const exportCurrentMapPng = useCallback(
-    async (options: MapPngExportOptions) => {
+    async (options: MapImageExportOptions) => {
       if (!permissions.canExportData) {
         message.warning(permissionDeniedMessage);
         return;
@@ -707,26 +754,33 @@ export default function MapPage() {
         message.warning("地图尚未准备好");
         return;
       }
+      try {
+        map.getStyle();
+      } catch {
+        message.warning("底图尚未加载完成，请稍后再导出");
+        return;
+      }
       if (!sharedSpatialGeometry) {
         message.warning("请先使用范围工具划定导出范围");
         return;
       }
       try {
-        const blob = await exportMapRangePng(map, sharedSpatialGeometry, {
+        const blob = await exportMapRangeImage(map, sharedSpatialGeometry, {
           ...options,
           accessToken: bootstrap.map.mapboxAccessToken,
         });
+        const extension = options.format === "png" ? "png" : "jpg";
         downloadBlob(
           blob,
           `map-2d-z${options.tileZoom}-${options.dpi}dpi-${new Date()
             .toISOString()
             .slice(0, 19)
-            .replace(/[-:T]/g, "")}.png`,
+            .replace(/[-:T]/g, "")}.${extension}`,
         );
-        message.success("地图 PNG 已导出");
+        message.success(`地图 ${extension.toUpperCase()} 已导出`);
       } catch (error) {
         message.error(
-          error instanceof Error ? error.message : "地图 PNG 导出失败",
+          error instanceof Error ? error.message : "地图图片导出失败",
         );
       }
     },
@@ -975,6 +1029,7 @@ export default function MapPage() {
               activeDraw={activeDraw}
               canUseAiInterpretation={permissions.canUseAiInterpretation}
               canExportMap={permissions.canExportData}
+              exportTileZoomRange={exportTileZoomRange}
               onStartQueryDraw={setQueryDrawMode}
               onClearSpatialFilter={() => setSpatialFilter(null)}
               onImportSpatialFilter={setSpatialFilter}

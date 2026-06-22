@@ -5,26 +5,29 @@ import mapboxgl, {
 } from "mapbox-gl";
 import type { GeoJsonGeometry } from "../types";
 import { extractCoordinates } from "../utils/geometry";
-import { upsertPolygonLayer } from "./spatialDraw";
 import {
   bindPlatformSymbolImageFallback,
   registerPlatformSymbolImages,
 } from "./symbolImages";
 
 const webMercatorTileSize = 512;
-const exportPaddingCssPx = 32;
 const minExportCssDimension = 320;
 const maxExportDimension = 8192;
 const maxExportPixels = 36_000_000;
 const minMercatorLatitude = -85.05112878;
 const maxMercatorLatitude = 85.05112878;
-const exportRangeSourceId = "map-export-range";
-const exportRangeFillId = "map-export-range-fill";
-const exportRangeLineId = "map-export-range-line";
+const rangeOverlaySourcePrefixes = [
+  "query-spatial-filter",
+  "query-draw-preview",
+  "map-export-range",
+];
 
-export interface MapPngExportOptions {
+export type MapImageExportFormat = "png" | "jpg";
+
+export interface MapImageExportOptions {
   dpi: number;
   tileZoom: number;
+  format: MapImageExportFormat;
   accessToken?: string;
 }
 
@@ -38,14 +41,19 @@ export interface MapRangeExportPlan {
   tileZoom: number;
 }
 
-export async function exportMapRangePng(
+export interface TileZoomRange {
+  min: number;
+  max: number;
+}
+
+export async function exportMapRangeImage(
   map: MapboxMap,
   geometry: GeoJsonGeometry,
-  options: MapPngExportOptions,
+  options: MapImageExportOptions,
 ): Promise<Blob> {
   const plan = createMapRangeExportPlan(geometry, options);
   const container = createExportContainer(plan);
-  const exportStyle = cloneStyleFor2d(map.getStyle());
+  const exportStyle = createExportStyle(map.getStyle());
   let exportMap: MapboxMap | null = null;
   let unbindSymbolFallback: (() => void) | null = null;
 
@@ -81,23 +89,9 @@ export async function exportMapRangePng(
       pitch: 0,
       bearing: 0,
     });
-    upsertPolygonLayer(
-      exportMap,
-      exportRangeSourceId,
-      exportRangeFillId,
-      exportRangeLineId,
-      geometry,
-      {
-        fillColor: "#ef4444",
-        fillOpacity: 0.14,
-        lineColor: "#ef4444",
-        lineOpacity: 1,
-        lineWidth: 3,
-      },
-    );
     await waitForMapIdle(exportMap, 6000);
     await nextAnimationFrame();
-    return await mapCanvasToPngBlob(exportMap.getCanvas(), plan);
+    return await mapCanvasToImageBlob(exportMap.getCanvas(), plan, options);
   } finally {
     unbindSymbolFallback?.();
     exportMap?.remove();
@@ -107,7 +101,7 @@ export async function exportMapRangePng(
 
 export function createMapRangeExportPlan(
   geometry: GeoJsonGeometry,
-  options: MapPngExportOptions,
+  options: Pick<MapImageExportOptions, "dpi" | "tileZoom">,
 ): MapRangeExportPlan {
   const dpi = normalizeDpi(options.dpi);
   const tileZoom = normalizeTileZoom(options.tileZoom);
@@ -115,12 +109,8 @@ export function createMapRangeExportPlan(
   const projected = projectBounds(bounds, tileZoom);
   const contentWidth = Math.max(1, projected.maxX - projected.minX);
   const contentHeight = Math.max(1, projected.maxY - projected.minY);
-  const cssWidth = Math.ceil(
-    Math.max(minExportCssDimension, contentWidth + exportPaddingCssPx * 2),
-  );
-  const cssHeight = Math.ceil(
-    Math.max(minExportCssDimension, contentHeight + exportPaddingCssPx * 2),
-  );
+  const cssWidth = Math.ceil(Math.max(minExportCssDimension, contentWidth));
+  const cssHeight = Math.ceil(Math.max(minExportCssDimension, contentHeight));
   const outputWidth = Math.round((cssWidth * dpi) / 96);
   const outputHeight = Math.round((cssHeight * dpi) / 96);
   validateOutputSize(outputWidth, outputHeight);
@@ -141,6 +131,46 @@ export function createMapRangeExportPlan(
     dpi,
     tileZoom,
   };
+}
+
+export function inferBasemapTileZoomRange(
+  style: StyleSpecification,
+  excludedSourceIds: ReadonlySet<string> = new Set(),
+): TileZoomRange {
+  const ranges: TileZoomRange[] = [];
+  const sources = style.sources ?? {};
+  for (const [sourceId, source] of Object.entries(sources)) {
+    if (excludedSourceIds.has(sourceId) || isRangeOverlayId(sourceId)) {
+      continue;
+    }
+    const sourceRange = zoomRangeFromObject(source);
+    if (sourceRange) {
+      ranges.push(sourceRange);
+    }
+  }
+
+  for (const layer of style.layers ?? []) {
+    const sourceId = sourceIdForStyleLayer(layer);
+    if (
+      isRangeOverlayId(layer.id) ||
+      (sourceId && excludedSourceIds.has(sourceId))
+    ) {
+      continue;
+    }
+    const layerRange = zoomRangeFromObject(layer);
+    if (layerRange) {
+      ranges.push(layerRange);
+    }
+  }
+
+  if (ranges.length === 0) {
+    return { min: 0, max: 22 };
+  }
+
+  return normalizeTileZoomRangeBounds({
+    min: Math.min(...ranges.map((range) => range.min)),
+    max: Math.max(...ranges.map((range) => range.max)),
+  });
 }
 
 export function addPngDpiMetadata(bytes: Uint8Array, dpi: number): Uint8Array {
@@ -181,9 +211,49 @@ export function addPngDpiMetadata(bytes: Uint8Array, dpi: number): Uint8Array {
   return concatBytes(parts);
 }
 
-function cloneStyleFor2d(style: StyleSpecification): StyleSpecification {
+export function addJpegDpiMetadata(bytes: Uint8Array, dpi: number): Uint8Array {
+  if (!isJpeg(bytes)) {
+    return bytes;
+  }
+  const normalizedDpi = normalizeDpi(dpi);
+  let offset = 2;
+  while (offset + 4 <= bytes.length && bytes[offset] === 0xff) {
+    const marker = bytes[offset + 1];
+    const length = readUint16(bytes, offset + 2);
+    if (length < 2 || offset + 2 + length > bytes.length) {
+      break;
+    }
+    if (marker === 0xe0 && isJfifSegment(bytes, offset)) {
+      const output = bytes.slice();
+      output[offset + 11] = 1;
+      writeUint16(output, offset + 12, normalizedDpi);
+      writeUint16(output, offset + 14, normalizedDpi);
+      return output;
+    }
+    offset += 2 + length;
+  }
+  return concatBytes([
+    bytes.slice(0, 2),
+    createJfifChunk(normalizedDpi),
+    bytes.slice(2),
+  ]);
+}
+
+export function createExportStyle(
+  style: StyleSpecification,
+): StyleSpecification {
   const next = JSON.parse(JSON.stringify(style)) as StyleSpecification;
   next.projection = { name: "mercator" };
+  next.layers = (next.layers ?? []).filter(
+    (layer) => !isRangeOverlayId(layer.id),
+  );
+  if (next.sources) {
+    for (const sourceId of Object.keys(next.sources)) {
+      if (isRangeOverlayId(sourceId)) {
+        delete next.sources[sourceId];
+      }
+    }
+  }
   return next;
 }
 
@@ -264,9 +334,10 @@ function createExportContainer(plan: MapRangeExportPlan) {
   return container;
 }
 
-async function mapCanvasToPngBlob(
+async function mapCanvasToImageBlob(
   source: HTMLCanvasElement,
   plan: MapRangeExportPlan,
+  options: Pick<MapImageExportOptions, "dpi" | "format">,
 ) {
   const output = document.createElement("canvas");
   output.width = plan.outputWidth;
@@ -275,18 +346,26 @@ async function mapCanvasToPngBlob(
   if (!context) {
     throw new Error("浏览器不支持地图导出画布");
   }
+  if (options.format === "jpg") {
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, plan.outputWidth, plan.outputHeight);
+  }
   context.drawImage(source, 0, 0, plan.outputWidth, plan.outputHeight);
-  const blob = await canvasToPngBlob(output);
+  const blob = await canvasToImageBlob(output, options.format);
   const bytes = new Uint8Array(await blob.arrayBuffer());
-  const pngBytes = addPngDpiMetadata(bytes, plan.dpi);
-  const pngBuffer = new ArrayBuffer(pngBytes.byteLength);
-  new Uint8Array(pngBuffer).set(pngBytes);
-  return new Blob([pngBuffer], {
-    type: "image/png",
+  const metadataBytes =
+    options.format === "png"
+      ? addPngDpiMetadata(bytes, options.dpi)
+      : addJpegDpiMetadata(bytes, options.dpi);
+  return new Blob([bytesToArrayBuffer(metadataBytes)], {
+    type: imageMimeType(options.format),
   });
 }
 
-function canvasToPngBlob(canvas: HTMLCanvasElement) {
+function canvasToImageBlob(
+  canvas: HTMLCanvasElement,
+  format: MapImageExportFormat,
+) {
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (blob) {
@@ -294,7 +373,7 @@ function canvasToPngBlob(canvas: HTMLCanvasElement) {
       } else {
         reject(new Error("地图导出失败，请检查底图和瓦片服务是否允许导出"));
       }
-    }, "image/png");
+    }, imageMimeType(format));
   });
 }
 
@@ -345,6 +424,34 @@ function normalizeTileZoom(value: number) {
   return Math.round(clamp(value, 0, 22));
 }
 
+function normalizeTileZoomRangeBounds(range: TileZoomRange): TileZoomRange {
+  const min = Math.round(clamp(range.min, 0, 22));
+  const max = Math.round(clamp(range.max, min, 22));
+  return { min, max };
+}
+
+function zoomRangeFromObject(value: unknown): TileZoomRange | null {
+  if (typeof value !== "object" || value === null) {
+    return null;
+  }
+  const rangeSource = value as { minzoom?: unknown; maxzoom?: unknown };
+  const min =
+    typeof rangeSource.minzoom === "number" &&
+    Number.isFinite(rangeSource.minzoom)
+      ? rangeSource.minzoom
+      : 0;
+  const max =
+    typeof rangeSource.maxzoom === "number" &&
+    Number.isFinite(rangeSource.maxzoom)
+      ? rangeSource.maxzoom
+      : null;
+  return max === null ? null : normalizeTileZoomRangeBounds({ min, max });
+}
+
+function sourceIdForStyleLayer(layer: { source?: unknown }) {
+  return typeof layer.source === "string" ? layer.source : null;
+}
+
 function validateOutputSize(width: number, height: number) {
   if (
     width > maxExportDimension ||
@@ -370,6 +477,28 @@ function createPhysChunk(dpi: number) {
   return chunk;
 }
 
+function createJfifChunk(dpi: number) {
+  const chunk = new Uint8Array(18);
+  chunk[0] = 0xff;
+  chunk[1] = 0xe0;
+  writeUint16(chunk, 2, 16);
+  chunk.set(new TextEncoder().encode("JFIF\0"), 4);
+  chunk[9] = 1;
+  chunk[10] = 1;
+  chunk[11] = 1;
+  writeUint16(chunk, 12, dpi);
+  writeUint16(chunk, 14, dpi);
+  chunk[16] = 0;
+  chunk[17] = 0;
+  return chunk;
+}
+
+function isRangeOverlayId(id: string) {
+  return rangeOverlaySourcePrefixes.some(
+    (prefix) => id === prefix || id.startsWith(`${prefix}-`),
+  );
+}
+
 function isPng(bytes: Uint8Array) {
   return (
     bytes.length >= 8 &&
@@ -381,6 +510,20 @@ function isPng(bytes: Uint8Array) {
     bytes[5] === 0x0a &&
     bytes[6] === 0x1a &&
     bytes[7] === 0x0a
+  );
+}
+
+function isJpeg(bytes: Uint8Array) {
+  return bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8;
+}
+
+function isJfifSegment(bytes: Uint8Array, offset: number) {
+  return (
+    bytes[offset + 4] === 0x4a &&
+    bytes[offset + 5] === 0x46 &&
+    bytes[offset + 6] === 0x49 &&
+    bytes[offset + 7] === 0x46 &&
+    bytes[offset + 8] === 0x00
   );
 }
 
@@ -403,11 +546,30 @@ function readUint32(bytes: Uint8Array, offset: number) {
   );
 }
 
+function readUint16(bytes: Uint8Array, offset: number) {
+  return (((bytes[offset] ?? 0) << 8) + (bytes[offset + 1] ?? 0)) >>> 0;
+}
+
 function writeUint32(bytes: Uint8Array, offset: number, value: number) {
   bytes[offset] = (value >>> 24) & 0xff;
   bytes[offset + 1] = (value >>> 16) & 0xff;
   bytes[offset + 2] = (value >>> 8) & 0xff;
   bytes[offset + 3] = value & 0xff;
+}
+
+function writeUint16(bytes: Uint8Array, offset: number, value: number) {
+  bytes[offset] = (value >>> 8) & 0xff;
+  bytes[offset + 1] = value & 0xff;
+}
+
+function bytesToArrayBuffer(bytes: Uint8Array) {
+  const buffer = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(buffer).set(bytes);
+  return buffer;
+}
+
+function imageMimeType(format: MapImageExportFormat) {
+  return format === "png" ? "image/png" : "image/jpeg";
 }
 
 function concatBytes(parts: Uint8Array[]) {

@@ -4,37 +4,29 @@ import {
   RadarChartOutlined,
 } from "@ant-design/icons";
 import { Tabs, Tag, Typography } from "antd";
-import mapboxgl, {
-  type GeoJSONSource,
-  type Map as MapboxMap,
-  type MapboxOptions,
-} from "mapbox-gl";
-import { useEffect, useRef, useState } from "react";
-import {
-  applyChineseBasemapLanguage,
-  mapLabelLanguage,
-  osmChineseVectorStyle,
-} from "../map/basemapStyle";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureInfo, MapViewState } from "../types";
 import FeatureDetailPanel from "./FeatureDetailPanel";
 
-const thumbnailZoomOffset = 3.5;
+const thumbnailZoomOffset = 1.5;
 const thumbnailMinZoom = 0;
 const thumbnailMaxZoom = 17;
-const thumbnailMinIndicatorSizePx = 18;
-const thumbnailExtentSourceId = "thumbnail-current-view-extent";
-const thumbnailExtentLayerId = "thumbnail-current-view-extent-line";
-type ThumbnailExtentGeoJson = {
-  type: "FeatureCollection";
-  features: Array<{
-    type: "Feature";
-    properties: Record<string, never>;
-    geometry: {
-      type: "Polygon";
-      coordinates: number[][][];
-    };
-  }>;
-};
+const thumbnailMinIndicatorSizePx = 10;
+const thumbnailTileSize = 256;
+const thumbnailMaxMercatorLat = 85.05112878;
+const osmTileSubdomains = ["a", "b", "c"] as const;
+interface ThumbnailTile {
+  key: string;
+  url: string;
+  left: number;
+  top: number;
+}
+interface ThumbnailExtentBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
 const trendMonths = [
   "7",
   "8",
@@ -194,63 +186,41 @@ function FlatMapThumbnail({
   fixedZoom: number;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const mapRef = useRef<MapboxMap | null>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
-  const [mapUnavailable, setMapUnavailable] = useState(false);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!currentView || !container || mapRef.current || mapUnavailable) {
-      return;
-    }
-    const mapOptions: MapboxOptions = {
-      container,
-      style: osmChineseVectorStyle,
-      center: fixedCenter,
-      zoom: zoomForThumbnail(fixedZoom),
-      bearing: 0,
-      pitch: 0,
-      projection: "mercator",
-      language: mapLabelLanguage,
-      localIdeographFontFamily:
-        '"Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", sans-serif',
-      attributionControl: false,
-      interactive: false,
-      performanceMetricsCollection: false,
-    };
-    try {
-      const nextMap = new mapboxgl.Map(mapOptions);
-      nextMap.on("style.load", () => {
-        applyChineseBasemapLanguage(nextMap);
-        updateThumbnailExtent(nextMap, currentView.bounds);
+    if (!container) return;
+    const updateSize = () => {
+      const rect = container.getBoundingClientRect();
+      setContainerSize({
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
       });
-      nextMap.once("load", () => nextMap.resize());
-      mapRef.current = nextMap;
-      resizeObserverRef.current = new ResizeObserver(() => nextMap.resize());
-      resizeObserverRef.current.observe(container);
-    } catch {
-      setMapUnavailable(true);
-    }
-  }, [currentView, fixedCenter, fixedZoom, mapUnavailable]);
-
-  useEffect(() => {
-    return () => {
-      resizeObserverRef.current?.disconnect();
-      resizeObserverRef.current = null;
-      mapRef.current?.remove();
-      mapRef.current = null;
     };
+    updateSize();
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(container);
+    return () => resizeObserver.disconnect();
   }, []);
 
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !currentView) return;
-    if (map.isStyleLoaded()) {
-      updateThumbnailExtent(map, currentView.bounds);
-    } else {
-      map.once("load", () => updateThumbnailExtent(map, currentView.bounds));
-    }
-  }, [currentView]);
+  const thumbnail = useMemo(
+    () =>
+      buildThumbnail(
+        fixedCenter,
+        fixedZoom,
+        currentView,
+        containerSize.width,
+        containerSize.height,
+      ),
+    [
+      containerSize.height,
+      containerSize.width,
+      currentView,
+      fixedCenter,
+      fixedZoom,
+    ],
+  );
 
   return (
     <div className="right-map-mini">
@@ -259,12 +229,37 @@ function FlatMapThumbnail({
         className="right-map-mini-canvas"
         aria-label="当前范围二维地图缩略图"
         role="img"
-      />
-      {!currentView || mapUnavailable ? (
+      >
+        {thumbnail.tiles.map((tile) => (
+          <img
+            key={tile.key}
+            className="right-map-mini-tile"
+            src={tile.url}
+            alt=""
+            style={{
+              left: tile.left,
+              top: tile.top,
+              width: thumbnailTileSize,
+              height: thumbnailTileSize,
+            }}
+            draggable={false}
+          />
+        ))}
+        {thumbnail.extent ? (
+          <span
+            className="right-map-mini-extent"
+            style={{
+              left: thumbnail.extent.left,
+              top: thumbnail.extent.top,
+              width: thumbnail.extent.width,
+              height: thumbnail.extent.height,
+            }}
+          />
+        ) : null}
+      </div>
+      {!currentView ? (
         <div className="right-map-mini-empty">
-          <Typography.Text type="secondary">
-            {mapUnavailable ? "2D 地图不可用" : "等待地图视角"}
-          </Typography.Text>
+          <Typography.Text type="secondary">等待地图视角</Typography.Text>
         </div>
       ) : null}
     </div>
@@ -273,80 +268,110 @@ function FlatMapThumbnail({
 
 function zoomForThumbnail(mapZoom: number) {
   const zoom = Number.isFinite(mapZoom) ? mapZoom : thumbnailMinZoom;
-  return Math.min(
-    thumbnailMaxZoom,
-    Math.max(thumbnailMinZoom, zoom - thumbnailZoomOffset),
+  return Math.round(
+    Math.min(
+      thumbnailMaxZoom,
+      Math.max(thumbnailMinZoom, zoom - thumbnailZoomOffset),
+    ),
   );
 }
 
-function updateThumbnailExtent(map: MapboxMap, bounds: MapViewState["bounds"]) {
-  const [west, south, east, north] = bounds;
-  const centerLng = (west + east) / 2;
-  const centerLat = (south + north) / 2;
-  const halfWidth = ((east - west) * 0.75) / 2;
-  const halfHeight = ((north - south) * 0.75) / 2;
-  const extent = ensureMinimumThumbnailExtent(map, {
-    west: centerLng - halfWidth,
-    east: centerLng + halfWidth,
-    south: centerLat - halfHeight,
-    north: centerLat + halfHeight,
-  });
-  const data: ThumbnailExtentGeoJson = {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "Polygon",
-          coordinates: [
-            [
-              [extent.west, extent.south],
-              [extent.east, extent.south],
-              [extent.east, extent.north],
-              [extent.west, extent.north],
-              [extent.west, extent.south],
-            ],
-          ],
-        },
-      },
-    ],
+function buildThumbnail(
+  center: [number, number],
+  zoom: number,
+  currentView: MapViewState | null,
+  width: number,
+  height: number,
+) {
+  if (width <= 0 || height <= 0) {
+    return {
+      tiles: [] as ThumbnailTile[],
+      extent: null as ThumbnailExtentBox | null,
+    };
+  }
+  const tileZoom = zoomForThumbnail(zoom);
+  const centerPoint = lngLatToWorldPixel(center, tileZoom);
+  const viewportLeft = centerPoint.x - width / 2;
+  const viewportTop = centerPoint.y - height / 2;
+  return {
+    tiles: thumbnailTiles(tileZoom, viewportLeft, viewportTop, width, height),
+    extent: currentView
+      ? thumbnailExtentBox(
+          currentView.bounds,
+          tileZoom,
+          viewportLeft,
+          viewportTop,
+        )
+      : null,
   };
-  const source = map.getSource(thumbnailExtentSourceId) as
-    | GeoJSONSource
-    | undefined;
-  if (source) {
-    source.setData(data);
-  } else {
-    map.addSource(thumbnailExtentSourceId, {
-      type: "geojson",
-      data,
-    });
+}
+
+function thumbnailTiles(
+  zoom: number,
+  viewportLeft: number,
+  viewportTop: number,
+  width: number,
+  height: number,
+) {
+  const tileCount = 2 ** zoom;
+  const minTileX = Math.floor(viewportLeft / thumbnailTileSize);
+  const maxTileX = Math.floor((viewportLeft + width) / thumbnailTileSize);
+  const minTileY = Math.max(0, Math.floor(viewportTop / thumbnailTileSize));
+  const maxTileY = Math.min(
+    tileCount - 1,
+    Math.floor((viewportTop + height) / thumbnailTileSize),
+  );
+  const tiles: ThumbnailTile[] = [];
+  for (let tileY = minTileY; tileY <= maxTileY; tileY += 1) {
+    for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
+      const wrappedX = wrapTileX(tileX, tileCount);
+      const subdomain =
+        osmTileSubdomains[Math.abs(tileX + tileY) % osmTileSubdomains.length] ??
+        "a";
+      tiles.push({
+        key: `${zoom}-${tileX}-${tileY}`,
+        url: `https://${subdomain}.tile.openstreetmap.org/${zoom}/${wrappedX}/${tileY}.png`,
+        left: Math.round(tileX * thumbnailTileSize - viewportLeft),
+        top: Math.round(tileY * thumbnailTileSize - viewportTop),
+      });
+    }
   }
-  if (!map.getLayer(thumbnailExtentLayerId)) {
-    map.addLayer({
-      id: thumbnailExtentLayerId,
-      type: "line",
-      source: thumbnailExtentSourceId,
-      paint: {
-        "line-color": "#ef4444",
-        "line-width": 2,
-        "line-opacity": 0.96,
-      },
-    });
-  }
+  return tiles;
+}
+
+function thumbnailExtentBox(
+  bounds: MapViewState["bounds"],
+  zoom: number,
+  viewportLeft: number,
+  viewportTop: number,
+): ThumbnailExtentBox {
+  const [west, south, east, north] = bounds;
+  const extent = ensureMinimumThumbnailExtent(zoom, {
+    west,
+    east,
+    south,
+    north,
+  });
+  const northwest = lngLatToWorldPixel([extent.west, extent.north], zoom);
+  const southeast = lngLatToWorldPixel([extent.east, extent.south], zoom);
+  return {
+    left: Math.round(northwest.x - viewportLeft),
+    top: Math.round(northwest.y - viewportTop),
+    width: Math.round(Math.max(1, southeast.x - northwest.x)),
+    height: Math.round(Math.max(1, southeast.y - northwest.y)),
+  };
 }
 
 function ensureMinimumThumbnailExtent(
-  map: MapboxMap,
+  zoom: number,
   extent: { west: number; east: number; south: number; north: number },
 ) {
   const centerLng = (extent.west + extent.east) / 2;
   const centerLat = (extent.south + extent.north) / 2;
-  const westPoint = map.project([extent.west, centerLat]);
-  const eastPoint = map.project([extent.east, centerLat]);
-  const southPoint = map.project([centerLng, extent.south]);
-  const northPoint = map.project([centerLng, extent.north]);
+  const westPoint = lngLatToWorldPixel([extent.west, centerLat], zoom);
+  const eastPoint = lngLatToWorldPixel([extent.east, centerLat], zoom);
+  const southPoint = lngLatToWorldPixel([centerLng, extent.south], zoom);
+  const northPoint = lngLatToWorldPixel([centerLng, extent.north], zoom);
   const widthPx = Math.abs(eastPoint.x - westPoint.x);
   const heightPx = Math.abs(southPoint.y - northPoint.y);
   if (
@@ -356,23 +381,55 @@ function ensureMinimumThumbnailExtent(
     return extent;
   }
 
-  const centerPoint = map.project([centerLng, centerLat]);
+  const centerPoint = lngLatToWorldPixel([centerLng, centerLat], zoom);
   const halfWidthPx = Math.max(widthPx, thumbnailMinIndicatorSizePx) / 2;
   const halfHeightPx = Math.max(heightPx, thumbnailMinIndicatorSizePx) / 2;
-  const southwest = map.unproject([
+  const southwest = worldPixelToLngLat(
     centerPoint.x - halfWidthPx,
     centerPoint.y + halfHeightPx,
-  ]);
-  const northeast = map.unproject([
+    zoom,
+  );
+  const northeast = worldPixelToLngLat(
     centerPoint.x + halfWidthPx,
     centerPoint.y - halfHeightPx,
-  ]);
+    zoom,
+  );
   return {
-    west: Math.max(-180, southwest.lng),
-    east: Math.min(180, northeast.lng),
-    south: Math.max(-85, southwest.lat),
-    north: Math.min(85, northeast.lat),
+    west: Math.max(-180, southwest[0]),
+    east: Math.min(180, northeast[0]),
+    south: Math.max(-85, southwest[1]),
+    north: Math.min(85, northeast[1]),
   };
+}
+
+function lngLatToWorldPixel([lng, lat]: [number, number], zoom: number) {
+  const worldSize = thumbnailTileSize * 2 ** zoom;
+  const clampedLat = Math.max(
+    -thumbnailMaxMercatorLat,
+    Math.min(thumbnailMaxMercatorLat, lat),
+  );
+  const sinLat = Math.sin((clampedLat * Math.PI) / 180);
+  return {
+    x: ((lng + 180) / 360) * worldSize,
+    y:
+      (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * worldSize,
+  };
+}
+
+function worldPixelToLngLat(
+  x: number,
+  y: number,
+  zoom: number,
+): [number, number] {
+  const worldSize = thumbnailTileSize * 2 ** zoom;
+  const lng = (x / worldSize) * 360 - 180;
+  const mercatorY = Math.PI * (1 - (2 * y) / worldSize);
+  const lat = (Math.atan(Math.sinh(mercatorY)) * 180) / Math.PI;
+  return [lng, lat];
+}
+
+function wrapTileX(tileX: number, tileCount: number) {
+  return ((tileX % tileCount) + tileCount) % tileCount;
 }
 
 function EcologyOverviewPanel() {

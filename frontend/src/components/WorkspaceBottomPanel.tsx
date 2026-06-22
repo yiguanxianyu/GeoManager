@@ -23,8 +23,12 @@ import {
   Tag,
   Typography,
 } from "antd";
-import type { MapPngExportOptions } from "../map/mapExport";
-import { useRef, useState } from "react";
+import type {
+  MapImageExportFormat,
+  MapImageExportOptions,
+  TileZoomRange,
+} from "../map/mapExport";
+import { useEffect, useRef, useState } from "react";
 import type { DrawMode } from "../map/spatialDraw";
 import type { GeoJsonGeometry, LoadedLayer, SpatialFilter } from "../types";
 import { downloadBlob } from "../utils/download";
@@ -39,10 +43,11 @@ interface Props {
   activeDraw: { purpose: DrawPurpose; mode: NonNullable<DrawMode> } | null;
   canUseAiInterpretation: boolean;
   canExportMap: boolean;
+  exportTileZoomRange: TileZoomRange;
   onStartQueryDraw: (mode: DrawMode | null) => void;
   onClearSpatialFilter: () => void;
   onImportSpatialFilter: (filter: SpatialFilter) => void;
-  onExportMapPng: (options: MapPngExportOptions) => Promise<void>;
+  onExportMapPng: (options: MapImageExportOptions) => Promise<void>;
 }
 
 export default function WorkspaceBottomPanel({
@@ -52,6 +57,7 @@ export default function WorkspaceBottomPanel({
   activeDraw,
   canUseAiInterpretation,
   canExportMap,
+  exportTileZoomRange,
   onStartQueryDraw,
   onClearSpatialFilter,
   onImportSpatialFilter,
@@ -159,6 +165,7 @@ export default function WorkspaceBottomPanel({
                 children: (
                   <MapExportPanel
                     hasRange={Boolean(currentGeometry)}
+                    tileZoomRange={exportTileZoomRange}
                     onExportMapPng={onExportMapPng}
                   />
                 ),
@@ -179,7 +186,11 @@ function SpatialQueryPanel({
   onImportSpatialFilter,
 }: Omit<
   Props,
-  "selectedLayer" | "canUseAiInterpretation" | "canExportMap" | "onExportMapPng"
+  | "selectedLayer"
+  | "canUseAiInterpretation"
+  | "canExportMap"
+  | "exportTileZoomRange"
+  | "onExportMapPng"
 >) {
   const currentGeometry = spatialFilter?.geometry ?? exportClipGeometry;
   const rangeLabel = spatialFilter
@@ -323,7 +334,11 @@ function DrawingPanel({
   onImportSpatialFilter,
 }: Omit<
   Props,
-  "selectedLayer" | "canUseAiInterpretation" | "canExportMap" | "onExportMapPng"
+  | "selectedLayer"
+  | "canUseAiInterpretation"
+  | "canExportMap"
+  | "exportTileZoomRange"
+  | "onExportMapPng"
 >) {
   const { message } = App.useApp();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -487,19 +502,35 @@ function LegendPlaceholderPanel() {
 
 function MapExportPanel({
   hasRange,
+  tileZoomRange,
   onExportMapPng,
 }: {
   hasRange: boolean;
-  onExportMapPng: (options: MapPngExportOptions) => Promise<void>;
+  tileZoomRange: TileZoomRange;
+  onExportMapPng: (options: MapImageExportOptions) => Promise<void>;
 }) {
+  const [format, setFormat] = useState<MapImageExportFormat>("png");
   const [dpi, setDpi] = useState(150);
   const [tileZoom, setTileZoom] = useState(8);
   const [exporting, setExporting] = useState(false);
+  const tileZoomOptions = Array.from(
+    { length: tileZoomRange.max - tileZoomRange.min + 1 },
+    (_, index) => {
+      const zoom = tileZoomRange.min + index;
+      return { label: `Z${zoom}`, value: zoom };
+    },
+  );
+
+  useEffect(() => {
+    setTileZoom((currentZoom) =>
+      Math.min(tileZoomRange.max, Math.max(tileZoomRange.min, currentZoom)),
+    );
+  }, [tileZoomRange.max, tileZoomRange.min]);
 
   async function handleExport() {
     setExporting(true);
     try {
-      await onExportMapPng({ dpi, tileZoom });
+      await onExportMapPng({ dpi, tileZoom, format });
     } finally {
       setExporting(false);
     }
@@ -511,10 +542,22 @@ function MapExportPanel({
         <Typography.Text strong>导出 2D 地图图片</Typography.Text>
         <Typography.Text type="secondary">
           使用“空间查询”中的范围工具划定导出范围，按指定 DPI 与瓦片等级生成
-          PNG。
+          图片。
         </Typography.Text>
       </div>
       <div className="map-export-controls">
+        <label className="map-export-field">
+          <span>格式</span>
+          <Select
+            size="small"
+            value={format}
+            options={[
+              { label: "PNG", value: "png" },
+              { label: "JPG", value: "jpg" },
+            ]}
+            onChange={setFormat}
+          />
+        </label>
         <label className="map-export-field">
           <span>DPI</span>
           <InputNumber
@@ -535,10 +578,7 @@ function MapExportPanel({
           <Select
             size="small"
             value={tileZoom}
-            options={Array.from({ length: 23 }, (_, zoom) => ({
-              label: `Z${zoom}`,
-              value: zoom,
-            }))}
+            options={tileZoomOptions}
             onChange={setTileZoom}
           />
         </label>
@@ -552,7 +592,7 @@ function MapExportPanel({
           disabled={!hasRange}
           onClick={() => void handleExport()}
         >
-          导出 PNG
+          导出 {format.toUpperCase()}
         </Button>
       </div>
     </section>

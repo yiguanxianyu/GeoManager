@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { addPngDpiMetadata, createMapRangeExportPlan } from "./mapExport";
+import {
+  addJpegDpiMetadata,
+  addPngDpiMetadata,
+  createExportStyle,
+  createMapRangeExportPlan,
+  inferBasemapTileZoomRange,
+} from "./mapExport";
 
 const rectangleGeometry = {
   type: "Polygon",
@@ -41,6 +47,97 @@ describe("mapExport", () => {
     expect(readUint32(png, physOffset + 12)).toBe(11811);
     expect(png[physOffset + 16]).toBe(1);
   });
+
+  it("adds JPG JFIF metadata for the selected dpi", () => {
+    const jpg = addJpegDpiMetadata(minimalJpeg(), 300);
+    const jfifOffset = findJpegSegment(jpg, 0xe0);
+
+    expect(jfifOffset).toBe(2);
+    expect(readUint32(jpg, jfifOffset + 4)).toBe(0x4a464946);
+    expect(jpg[jfifOffset + 11]).toBe(1);
+    expect(readUint16(jpg, jfifOffset + 12)).toBe(300);
+    expect(readUint16(jpg, jfifOffset + 14)).toBe(300);
+  });
+
+  it("removes drawn range overlays while keeping loaded map layers", () => {
+    const style = createExportStyle({
+      version: 8,
+      sources: {
+        "query-spatial-filter": { type: "geojson", data: emptyFeatures() },
+        "query-draw-preview": { type: "geojson", data: emptyFeatures() },
+        "loaded-vector": { type: "geojson", data: emptyFeatures() },
+        "loaded-raster": {
+          type: "raster",
+          tiles: ["/api/raster/tiles/1/hash/{z}/{x}/{y}.png"],
+          tileSize: 256,
+        },
+      },
+      layers: [
+        {
+          id: "query-spatial-filter-fill",
+          type: "fill",
+          source: "query-spatial-filter",
+        },
+        {
+          id: "query-draw-preview-line",
+          type: "line",
+          source: "query-draw-preview",
+        },
+        { id: "loaded-vector-fill", type: "fill", source: "loaded-vector" },
+        { id: "loaded-raster-raster", type: "raster", source: "loaded-raster" },
+      ],
+    });
+
+    expect(style.sources).not.toHaveProperty("query-spatial-filter");
+    expect(style.sources).not.toHaveProperty("query-draw-preview");
+    expect(style.sources).toHaveProperty("loaded-vector");
+    expect(style.sources).toHaveProperty("loaded-raster");
+    expect(style.layers.map((layer) => layer.id)).toEqual([
+      "loaded-vector-fill",
+      "loaded-raster-raster",
+    ]);
+  });
+
+  it("infers tile zoom options from basemap layers and excludes loaded data", () => {
+    const range = inferBasemapTileZoomRange(
+      {
+        version: 8,
+        sources: {
+          "osm-raster": { type: "raster", tiles: [], tileSize: 256 },
+          "loaded-vector": { type: "geojson", data: emptyFeatures() },
+          "loaded-raster": {
+            type: "raster",
+            tiles: ["/api/raster/tiles/1/hash/{z}/{x}/{y}.png"],
+            tileSize: 256,
+          },
+        },
+        layers: [
+          {
+            id: "osm-raster",
+            type: "raster",
+            source: "osm-raster",
+            minzoom: 0,
+            maxzoom: 19,
+          },
+          {
+            id: "loaded-vector-fill",
+            type: "fill",
+            source: "loaded-vector",
+            maxzoom: 8,
+          },
+          {
+            id: "loaded-raster-raster",
+            type: "raster",
+            source: "loaded-raster",
+            maxzoom: 12,
+          },
+        ],
+      },
+      new Set(["loaded-vector", "loaded-raster"]),
+    );
+
+    expect(range).toEqual({ min: 0, max: 19 });
+  });
 });
 
 function minimalPng() {
@@ -52,6 +149,14 @@ function minimalPng() {
     chunk("IHDR", new Uint8Array(13)),
     chunk("IEND"),
   ]);
+}
+
+function minimalJpeg() {
+  return new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+}
+
+function emptyFeatures() {
+  return { type: "FeatureCollection", features: [] };
 }
 
 function chunk(type: string, data = new Uint8Array()) {
@@ -81,6 +186,22 @@ function findChunk(bytes: Uint8Array, type: string) {
   return -1;
 }
 
+function findJpegSegment(bytes: Uint8Array, marker: number) {
+  let offset = 2;
+  while (offset + 4 <= bytes.length && bytes[offset] === 0xff) {
+    const currentMarker = bytes[offset + 1];
+    const length = readUint16(bytes, offset + 2);
+    if (currentMarker === marker) {
+      return offset;
+    }
+    if (length < 2) {
+      break;
+    }
+    offset += 2 + length;
+  }
+  return -1;
+}
+
 function readUint32(bytes: Uint8Array, offset: number) {
   return (
     ((bytes[offset] ?? 0) * 0x1000000 +
@@ -89,6 +210,10 @@ function readUint32(bytes: Uint8Array, offset: number) {
       (bytes[offset + 3] ?? 0)) >>>
     0
   );
+}
+
+function readUint16(bytes: Uint8Array, offset: number) {
+  return (((bytes[offset] ?? 0) << 8) + (bytes[offset + 1] ?? 0)) >>> 0;
 }
 
 function writeUint32(bytes: Uint8Array, offset: number, value: number) {

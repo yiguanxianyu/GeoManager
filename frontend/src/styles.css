@@ -4646,10 +4646,6 @@ body:has(.login-shell),
       rgba(223, 248, 238, 0.05) 0 1px,
       transparent 1px 28px
     );
-
-  & .mapboxgl-control-container {
-    display: none;
-  }
 }
 
 .right-map-mini .right-map-mini-canvas {
@@ -4658,11 +4654,23 @@ body:has(.login-shell),
   width: 100%;
   height: 100%;
   pointer-events: none;
+}
 
-  & .mapboxgl-canvas {
-    width: 100%;
-    height: 100%;
-  }
+.right-map-mini-tile {
+  position: absolute;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+
+.right-map-mini-extent {
+  position: absolute;
+  z-index: 2;
+  box-sizing: border-box;
+  border: 2px solid #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+  pointer-events: none;
 }
 
 .right-map-mini::after {
@@ -6626,7 +6634,7 @@ body:has(.login-shell),
 
 .map-export-controls {
   display: grid;
-  grid-template-columns: 96px 112px auto auto;
+  grid-template-columns: 82px 96px 112px auto auto;
   align-items: end;
   gap: 8px;
 }
