@@ -1372,7 +1372,7 @@ A: 检查图层关联的数据资源的 `isQueryable` 字段。
 
 - 用户已登录
 - 用户具备 `raster.manage_raster_dataset` 或 `catalog.change_dataresource` 权限
-- 栅格文件已放置在研究数据目录中
+- 栅格文件可通过后台页面上传，或已放置在研究数据目录中供脚本按路径导入
 
 ### 集成流程
 
@@ -1390,10 +1390,28 @@ A: 检查图层关联的数据资源的 `isQueryable` 字段。
 
 #### Step 1: 导入栅格文件
 
-指定研究数据目录中的栅格文件路径，系统会自动进行预处理。
+支持两种导入方式。后台管理页面使用 `multipart/form-data` 上传本地文件；服务端保存到科研数据根目录 `raster/original/uploaded/` 后立即提交异步预处理任务。运维脚本也可以继续传入研究数据目录中已有栅格文件的 `sourcePath`。两种方式都通过 `/api/raster/jobs/{job_id}/` 轮询 `progressPercent`、`messages` 和最终状态。
 
 ```javascript
-// JavaScript
+// JavaScript - 浏览器上传本地栅格文件
+const formData = new FormData();
+formData.append("file", fileInput.files[0]);
+formData.append("name", "2026 胡杨林遥感影像");
+
+const response = await fetch("/api/raster/import/", {
+  method: "POST",
+  credentials: "include",
+  headers: {
+    "X-CSRFToken": getCookie("csrftoken"),
+  },
+  body: formData,
+});
+const job = await response.json();
+console.log("任务ID:", job.id);
+```
+
+```javascript
+// JavaScript - 导入研究数据目录中已有文件
 const response = await fetch("/api/raster/import/", {
   method: "POST",
   credentials: "include",
@@ -1412,7 +1430,7 @@ console.log("任务ID:", job.id);
 ```
 
 ```python
-# Python
+# Python - 导入研究数据目录中已有文件
 response = session.post(f"{base_url}/raster/import/", json={
     "sourcePath": "raw/new_dem.tif",
     "name": "新 DEM 数据",

@@ -456,7 +456,7 @@ function uploaderDisplayName(resource: AdminDataResource): string {
     resource.uploader?.displayName ||
     resource.uploader?.username ||
     resource.maintainer ||
-    "未记录"
+    "未知"
   );
 }
 

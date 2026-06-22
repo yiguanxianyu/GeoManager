@@ -40,6 +40,7 @@ from apps.raster.services.importer import (
     scan_unprocessed_source_files_safely,
     stable_code,
     store_source_file,
+    store_uploaded_source_file,
 )
 from apps.raster.services.jobs import (
     RasterJob,
@@ -100,6 +101,7 @@ __all__ = [
     "import_raster_file",
     "is_raster_file",
     "store_source_file",
+    "store_uploaded_source_file",
     "processed_relative_path",
     "metadata_relative_path",
     "stable_code",

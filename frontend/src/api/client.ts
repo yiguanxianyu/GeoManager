@@ -234,6 +234,31 @@ async function requestJson<T>(
   return data as T;
 }
 
+async function requestForm<T>(url: string, formData: FormData): Promise<T> {
+  const headers = new Headers();
+  headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
+  const response = await fetch(
+    new Request(url, {
+      method: "POST",
+      credentials: "include",
+      headers,
+      body: formData,
+    }),
+  );
+  const data = await parseResponseBody(response);
+  if (!response.ok) {
+    if (response.status === 403 && onForbiddenHandler) {
+      onForbiddenHandler();
+    }
+    throw new ApiError(
+      errorMessage(data, response.status),
+      response.status,
+      data,
+    );
+  }
+  return data as T;
+}
+
 async function parseResponseBody(response: Response) {
   if (response.status === 204) {
     return undefined;
@@ -414,6 +439,14 @@ export const api = {
     unwrap<ImportValidateResult>(
       sdk.importValidate({ body: { file, payload: JSON.stringify(payload) } }),
     ),
+  importRaster: (file: File, name: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (name.trim()) {
+      formData.append("name", name.trim());
+    }
+    return requestForm<RasterJob>("/api/raster/import/", formData);
+  },
   resourceProfile: (resource: ResourceListItem) =>
     unwrap<DataResourceProfile>(
       sdk.getResourceProfile({ path: { id: resource.id } }),

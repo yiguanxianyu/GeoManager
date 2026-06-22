@@ -1737,6 +1737,9 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/RasterImportRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/RasterImportUploadRequest'
       responses:
         '201':
           description: 同步导入成功
@@ -4873,6 +4876,18 @@ components:
           type: boolean
           default: true
           description: 是否异步执行
+
+    RasterImportUploadRequest:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+          description: 上传的栅格源文件，支持 GeoTIFF、IMG 和 VRT。后端保存到科研数据根目录的 raster/original/uploaded/ 后异步预处理。
+        name:
+          type: string
+          description: 数据集名称，默认取上传文件名
 
     RasterRenderRequest:
       type: object

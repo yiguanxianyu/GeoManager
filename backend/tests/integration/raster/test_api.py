@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
 from apps.audit.models import OperationLog
@@ -133,6 +134,50 @@ class RasterPermissionApiTests(TestCase):
             ).exists()
         )
 
+    def test_import_endpoint_accepts_uploaded_raster_and_starts_job(self):
+        grant(self.user, ("raster", "manage_raster_dataset"))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = self._config(Path(tmpdir))
+            job = SimpleNamespace(
+                id="import-job-1",
+                as_dict=lambda: {
+                    "id": "import-job-1",
+                    "kind": "import",
+                    "status": "queued",
+                    "progressPercent": 0,
+                    "messages": [],
+                    "result": None,
+                    "error": "",
+                    "startedAt": 1,
+                    "finishedAt": None,
+                },
+            )
+            with override_settings(PROJECT_CONFIG=config):
+                with patch(
+                    "apps.raster.views.start_import_job", return_value=job
+                ) as start_import_job:
+                    response = self.client.post(
+                        "/api/raster/import/",
+                        data={
+                            "name": "NDVI 影像",
+                            "file": SimpleUploadedFile(
+                                "ndvi.tif",
+                                b"fake raster bytes",
+                                content_type="image/tiff",
+                            ),
+                        },
+                    )
+
+            self.assertEqual(response.status_code, 202)
+            payload = response.json()
+            self.assertEqual(payload["id"], "import-job-1")
+            saved_path = Path(start_import_job.call_args.args[0])
+            self.assertTrue(saved_path.exists())
+            self.assertEqual(saved_path.read_bytes(), b"fake raster bytes")
+            self.assertEqual(saved_path.suffix, ".tif")
+            self.assertIn("raster/original/uploaded", saved_path.as_posix())
+            self.assertEqual(start_import_job.call_args.kwargs["name"], "NDVI 影像")
+
     def _dataset(self, code: str, resource: DataResource) -> RasterDataset:
         return RasterDataset.objects.create(
             name=code,
@@ -146,6 +191,49 @@ class RasterPermissionApiTests(TestCase):
             default_rules={"mode": "gray", "bands": [1]},
             band_count=1,
             status=RasterDataset.Status.READY,
+        )
+
+    def _config(self, root: Path):
+        config_path = root / "app.toml"
+        business_root = root / "app"
+        research_root = root / "research"
+        config_path.write_text(
+            f"""
+[runtime]
+debug = true
+allowed_hosts = ["*"]
+csrf_trusted_origins = []
+waitress_host = "127.0.0.1"
+waitress_port = 8000
+waitress_threads = 1
+disable_catalog_startup_scan = true
+disable_raster_startup_scan = true
+
+[application.system]
+name = "test"
+allow_registration = true
+
+[application.storage]
+app_data = "{business_root}"
+research_data_root = "{research_root}"
+
+[application.map]
+default_center = [80.0, 41.5]
+default_zoom = 4.5
+default_basemap = "osm"
+mapbox_access_token = ""
+
+[application.limits]
+upload_max_mb = 512
+query_result_limit = 30000
+
+[application.raster]
+symbolizer_timeout_seconds = 120
+""",
+            encoding="utf-8",
+        )
+        return load_project_config(
+            config_path, program_root=Path("/opt/data-sharing-platform")
         )
 
 

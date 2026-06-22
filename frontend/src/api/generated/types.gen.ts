@@ -2563,6 +2563,17 @@ export type RasterImportRequest = {
     async?: boolean;
 };
 
+export type RasterImportUploadRequest = {
+    /**
+     * 上传的栅格源文件，支持 GeoTIFF、IMG 和 VRT。后端保存到科研数据根目录的 raster/original/uploaded/ 后异步预处理。
+     */
+    file: Blob | File;
+    /**
+     * 数据集名称，默认取上传文件名
+     */
+    name?: string;
+};
+
 export type RasterRenderRequest = {
     /**
      * 栅格图层 ID

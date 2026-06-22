@@ -105,6 +105,7 @@ def upsert_vector_catalog_record(path, layer_name: str) -> DataResource:
             "quality_note": "",
             "size_bytes": path.stat().st_size,
             "item_count": metadata.feature_count,
+            "maintainer": None,
             "status": DataResource.Status.ACTIVE,
         },
     )
@@ -165,6 +166,7 @@ def upsert_nongeographic_catalog_record(
             "quality_note": "",
             "size_bytes": path.stat().st_size,
             "item_count": 0,
+            "maintainer": None,
             "status": DataResource.Status.ACTIVE,
         },
     )

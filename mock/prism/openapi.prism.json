@@ -6254,6 +6254,11 @@
               "schema": {
                 "$ref": "#/components/schemas/RasterImportRequest"
               }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/RasterImportUploadRequest"
+              }
             }
           }
         },
@@ -6281,8 +6286,9 @@
                   "status": "ready",
                   "progressPercent": 100,
                   "messages": [
-                    "栅格导入完成",
-                    "已生成 COG 预处理文件"
+                    "已保存上传文件：uploaded/poplar-2026.tif",
+                    "gdalwarp 预处理完成",
+                    "栅格导入完成，已生成 COG 预处理文件"
                   ],
                   "result": null,
                   "error": "",
@@ -6612,13 +6618,14 @@
                   "$ref": "#/components/schemas/AsyncJobResponse"
                 },
                 "example": {
-                  "id": "raster-scan-mock-001",
-                  "kind": "scan",
+                  "id": "raster-import-mock-001",
+                  "kind": "import",
                   "status": "ready",
                   "progressPercent": 100,
                   "messages": [
-                    "扫描完成",
-                    "新增 0 个数据集，更新 2 个数据集"
+                    "已保存上传文件：uploaded/poplar-2026.tif",
+                    "gdalwarp 预处理完成",
+                    "栅格导入完成，已生成 COG 预处理文件"
                   ],
                   "result": {
                     "items": [
@@ -11461,6 +11468,23 @@
             "type": "boolean",
             "default": true,
             "description": "是否异步执行"
+          }
+        }
+      },
+      "RasterImportUploadRequest": {
+        "type": "object",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "上传的栅格源文件，支持 GeoTIFF、IMG 和 VRT。后端保存到科研数据根目录的 raster/original/uploaded/ 后异步预处理。"
+          },
+          "name": {
+            "type": "string",
+            "description": "数据集名称，默认取上传文件名"
           }
         }
       },

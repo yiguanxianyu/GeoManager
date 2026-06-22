@@ -36,6 +36,7 @@ def upsert_catalog_records(
             "quality_note": "导入时使用 gdalwarp 统一投影到 EPSG:3857 并输出 COG。",
             "size_bytes": dataset.source_file_size + dataset.processed_file_size,
             "item_count": 1,
+            "maintainer": None,
             "status": DataResource.Status.ACTIVE,
         },
     )

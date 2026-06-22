@@ -41,6 +41,7 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260621-002 | Verified | GET /api/users/; GET /api/groups/; GET /api/admin/data/resources/ | mock data | N/A | Done | N/A | Done | Exercise non-superadmin admin responses without superadmin principals |
 | API-20260621-003 | BackendReady | GET /api/admin/data/resources/; POST /api/admin/data/resources/{id}/; POST /api/catalog/import/commit/ | permission behavior | Done | N/A | Done | Done | Hide superadmin from configurable access-role choices for every user |
 | API-20260621-004 | BackendReady | POST /api/auth/guest-login/ | permission behavior | Done | N/A | Done | Done | Clarify that guest starts with no default function permissions |
+| API-20260622-001 | BackendReady | POST /api/raster/import/; GET /api/raster/jobs/{job_id}/ | request body, mock data | Done | Done | Done | Pending | Browser raster upload starts async preprocessing and exposes progress through existing job polling |
 
 ## Entry Template
 
@@ -58,6 +59,19 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Verification: commands or response checks required before marking implemented
 - Result: current backend/frontend verification result
 ```
+
+## API-20260622-001 - Browser Raster Upload With Async Preprocessing
+
+- Status: BackendReady
+- Owner: Frontend / Backend
+- Endpoints: `POST /api/raster/import/`, `GET /api/raster/jobs/{job_id}/`
+- Change type: request body, mock data
+- OpenAPI change: `POST /api/raster/import/` now accepts `multipart/form-data` with binary `file` and optional `name` in addition to the existing JSON `sourcePath` request. Successful browser uploads return the existing `AsyncJobResponse` with `kind=import`; progress remains available from the existing job polling endpoint.
+- Mock examples: `mock/prism/examples/40-raster.json`
+- Frontend reason: The data import page needs direct raster file selection, automatic backend preprocessing, and realtime progress display without putting raster processing in React.
+- Backend implementation notes: Save uploaded source files under the TOML-driven `raster/original/uploaded/` directory, validate raster extensions, start the existing import job, and keep permission checks on `raster.manage_raster_dataset`.
+- Verification: run backend raster API tests plus `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check && pnpm run mock:build`.
+- Result: Backend endpoint, frontend upload UI, and browser test are included in this change; full verification pending.
 
 ## API-20260620-007 - User Permission Disable Overrides And Export Format
 

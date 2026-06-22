@@ -15,6 +15,7 @@ import {
   Form,
   Input,
   Modal,
+  Progress,
   Radio,
   Result,
   Select,
@@ -36,6 +37,7 @@ import type {
   ImportCoordinateStats,
   ImportDuplicateTarget,
   ImportPreview,
+  RasterJob,
   ImportValidatePayload,
   ImportValidationIssue,
 } from "../types";
@@ -97,7 +99,15 @@ export default function AdminDataImportPage() {
   const [pendingNavigationPath, setPendingNavigationPath] = useState<
     string | null
   >(null);
-  const hasUnfinishedImport = Boolean(file && !result);
+  const [rasterFile, setRasterFile] = useState<File | null>(null);
+  const [rasterName, setRasterName] = useState("");
+  const [rasterUploading, setRasterUploading] = useState(false);
+  const [rasterJob, setRasterJob] = useState<RasterJob | null>(null);
+  const hasUnfinishedImport = Boolean(
+    (file && !result) ||
+    (rasterFile && !rasterJob) ||
+    (rasterJob && isActiveRasterJob(rasterJob)),
+  );
 
   const columnOptions = useMemo(
     () =>
@@ -283,6 +293,39 @@ export default function AdminDataImportPage() {
     };
   }, [hasUnfinishedImport, location.hash, location.pathname, location.search]);
 
+  useEffect(() => {
+    if (!rasterJob || !isActiveRasterJob(rasterJob)) {
+      return;
+    }
+    let cancelled = false;
+    const timer = window.setInterval(() => {
+      void api
+        .rasterJob(rasterJob.id)
+        .then((nextJob) => {
+          if (!cancelled) {
+            setRasterJob(nextJob);
+          }
+        })
+        .catch((error) => {
+          if (cancelled) {
+            return;
+          }
+          const text =
+            error instanceof Error ? error.message : "栅格任务查询失败";
+          setRasterJob((current) =>
+            current?.id === rasterJob.id
+              ? { ...current, status: "failed", error: text }
+              : current,
+          );
+          message.error(text);
+        });
+    }, 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [message, rasterJob]);
+
   if (!user?.permissions.canUploadData) {
     return <Navigate to="/admin/profile" replace />;
   }
@@ -394,6 +437,31 @@ export default function AdminDataImportPage() {
 
   async function handleImport() {
     await submitImport(ignoreCoordinateUncertainty);
+  }
+
+  async function handleRasterImport() {
+    if (!rasterFile) {
+      message.warning("请先选择栅格文件");
+      return;
+    }
+    setRasterUploading(true);
+    setRasterJob(null);
+    try {
+      const job = await api.importRaster(rasterFile, rasterName);
+      setRasterJob(job);
+      message.success("栅格导入任务已提交，后台正在预处理");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "栅格导入失败");
+    } finally {
+      setRasterUploading(false);
+    }
+  }
+
+  function resetRasterImportState() {
+    setRasterFile(null);
+    setRasterName("");
+    setRasterJob(null);
+    setRasterUploading(false);
   }
 
   async function submitImport(ignoreUncertainty: boolean) {
@@ -838,6 +906,115 @@ export default function AdminDataImportPage() {
         </Form>
       </ProCard>
 
+      <ProCard title="栅格数据导入" className="admin-section-card">
+        <section className="import-step-pane raster-import-pane">
+          <Upload.Dragger
+            accept=".tif,.tiff,.img,.vrt"
+            disabled={
+              rasterUploading ||
+              Boolean(rasterJob && isActiveRasterJob(rasterJob))
+            }
+            beforeUpload={(selectedFile) => {
+              setRasterFile(selectedFile);
+              setRasterJob(null);
+              setRasterName(
+                (current) => current || fileStem(selectedFile.name),
+              );
+              return false;
+            }}
+            maxCount={1}
+            showUploadList={false}
+          >
+            <CloudUploadOutlined style={{ fontSize: 34 }} />
+            <Typography.Title level={4}>选择栅格文件</Typography.Title>
+            <Typography.Text type="secondary">
+              支持 GeoTIFF、IMG 和 VRT；上传后后台自动预处理为 EPSG:3857 COG。
+            </Typography.Text>
+            <div className="import-selected-file">
+              {rasterFile ? (
+                <Tag color="green">{rasterFile.name}</Tag>
+              ) : (
+                <Tag>尚未选择栅格文件</Tag>
+              )}
+            </div>
+          </Upload.Dragger>
+
+          <div className="raster-import-controls">
+            <Input
+              aria-label="栅格数据名称"
+              value={rasterName}
+              onChange={(event) => setRasterName(event.target.value)}
+              placeholder="栅格数据名称，默认取文件名"
+              disabled={
+                rasterUploading ||
+                Boolean(rasterJob && isActiveRasterJob(rasterJob))
+              }
+            />
+            <Space className="import-actions">
+              <Button
+                disabled={
+                  rasterUploading ||
+                  Boolean(rasterJob && isActiveRasterJob(rasterJob))
+                }
+                onClick={resetRasterImportState}
+              >
+                重新选择
+              </Button>
+              <Button
+                type="primary"
+                icon={<CloudUploadOutlined style={{ fontSize: 16 }} />}
+                loading={rasterUploading}
+                disabled={
+                  !rasterFile ||
+                  Boolean(rasterJob && isActiveRasterJob(rasterJob))
+                }
+                onClick={handleRasterImport}
+              >
+                上传并预处理
+              </Button>
+            </Space>
+          </div>
+
+          {rasterJob && (
+            <section className="raster-import-progress">
+              <Space>
+                <Tag color={rasterJobTagColor(rasterJob)}>
+                  {rasterJobStatusText(rasterJob)}
+                </Tag>
+                <Typography.Text type="secondary">
+                  任务 ID：{rasterJob.id}
+                </Typography.Text>
+              </Space>
+              <Progress
+                percent={rasterJob.progressPercent}
+                status={rasterJobProgressStatus(rasterJob)}
+              />
+              {rasterJob.status === "ready" && (
+                <Alert
+                  type="success"
+                  showIcon
+                  title="栅格预处理完成"
+                  description="数据资源和地图图层已在后台登记，可在存量数据或地图数据目录中查看。"
+                />
+              )}
+              {rasterJob.status === "failed" && (
+                <Alert
+                  type="error"
+                  showIcon
+                  title="栅格预处理失败"
+                  description={rasterJob.error || "后台任务执行失败"}
+                />
+              )}
+              {rasterJob.messages.length > 0 && (
+                <pre className="raster-import-log">
+                  {rasterJob.messages.slice(-12).join("\n")}
+                </pre>
+              )}
+            </section>
+          )}
+        </section>
+      </ProCard>
+
       <Modal
         title="上传数据校验结果"
         open={issuesOpen}
@@ -992,6 +1169,49 @@ function shouldBlockImport(
       issue.blocking ||
       (issue.code === "coordinate_uncertainty" && !ignoreCoordinateUncertainty),
   );
+}
+
+function isActiveRasterJob(job: RasterJob) {
+  return job.status === "queued" || job.status === "running";
+}
+
+function rasterJobStatusText(job: RasterJob) {
+  switch (job.status) {
+    case "queued":
+      return "等待处理";
+    case "running":
+      return "正在预处理";
+    case "ready":
+      return "处理完成";
+    case "failed":
+      return "处理失败";
+    default:
+      return job.status;
+  }
+}
+
+function rasterJobTagColor(job: RasterJob) {
+  if (job.status === "ready") {
+    return "green";
+  }
+  if (job.status === "failed") {
+    return "red";
+  }
+  return "processing";
+}
+
+function rasterJobProgressStatus(job: RasterJob) {
+  if (job.status === "ready") {
+    return "success";
+  }
+  if (job.status === "failed") {
+    return "exception";
+  }
+  return "active";
+}
+
+function fileStem(name: string) {
+  return name.replace(/\.[^.]+$/, "");
 }
 
 function DuplicateTargetAlert({

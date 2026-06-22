@@ -285,8 +285,9 @@
       "status": "ready",
       "progressPercent": 100,
       "messages": [
-        "栅格导入完成",
-        "已生成 COG 预处理文件"
+        "已保存上传文件：uploaded/poplar-2026.tif",
+        "gdalwarp 预处理完成",
+        "栅格导入完成，已生成 COG 预处理文件"
       ],
       "result": null,
       "error": "",
@@ -409,13 +410,14 @@
   },
   "GET /api/raster/jobs/{job_id}/": {
     "200": {
-      "id": "raster-scan-mock-001",
-      "kind": "scan",
+      "id": "raster-import-mock-001",
+      "kind": "import",
       "status": "ready",
       "progressPercent": 100,
       "messages": [
-        "扫描完成",
-        "新增 0 个数据集，更新 2 个数据集"
+        "已保存上传文件：uploaded/poplar-2026.tif",
+        "gdalwarp 预处理完成",
+        "栅格导入完成，已生成 COG 预处理文件"
       ],
       "result": {
         "items": [

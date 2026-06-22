@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import uuid
 from pathlib import Path
 from typing import Any, Callable
 
@@ -49,6 +50,20 @@ def store_source_file(input_path: Path) -> tuple[Path, str]:
         if input_path.resolve() != target_path.resolve():
             shutil.copy2(input_path, target_path)
         return target_path, target_relative
+
+
+def store_uploaded_source_file(uploaded_file) -> Path:
+    source_name = Path(uploaded_file.name or "uploaded-raster").name
+    suffix = Path(source_name).suffix.lower()
+    if suffix not in RASTER_EXTENSIONS:
+        raise RasterImportError(f"不支持的栅格文件格式：{suffix or source_name}")
+    target_relative = f"uploaded/{uuid.uuid4().hex}-{source_name}"
+    target_path = raster_source_path(target_relative)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    with target_path.open("wb") as output:
+        for chunk in uploaded_file.chunks():
+            output.write(chunk)
+    return target_path
 
 
 def processed_relative_path(source_relative: str) -> str:

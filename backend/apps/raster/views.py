@@ -26,6 +26,7 @@ from apps.raster.services import (
     start_import_job,
     start_render_job,
     start_scan_job,
+    store_uploaded_source_file,
 )
 
 
@@ -198,6 +199,33 @@ def unique_values(request):
 def import_raster(request):
     if not can_manage_raster_data(request.user):
         return feature_denied_response(request.user)
+    uploaded_file = request.FILES.get("file")
+    if uploaded_file is not None:
+        try:
+            source_path = store_uploaded_source_file(uploaded_file)
+            job = start_import_job(
+                str(source_path), name=str(request.POST.get("name") or "")
+            )
+        except (RasterImportError, OSError) as exc:
+            log_operation(
+                request.user,
+                "栅格管理",
+                "上传栅格文件",
+                "failed",
+                str(exc),
+                request,
+            )
+            return JsonResponse({"detail": str(exc)}, status=400)
+        log_operation(
+            request.user,
+            "栅格管理",
+            "发起栅格导入任务",
+            "success",
+            f"任务 {job.id}：{uploaded_file.name}",
+            request,
+        )
+        return JsonResponse(job.as_dict(), status=202)
+
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except json.JSONDecodeError:

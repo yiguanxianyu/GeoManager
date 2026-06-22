@@ -12,7 +12,7 @@ from shapely.geometry import Point
 
 from apps.audit.models import OperationLog
 from apps.catalog.models import DataCatalog, DataResource, MapLayer, WorkspaceScene
-from apps.catalog.services import scan_catalog_sources
+from apps.catalog.services import scan_catalog_sources, stable_catalog_code
 from apps.core.initialization import (
     GUEST_GROUP_NAME,
     SUPERADMIN_GROUP_NAME,
@@ -495,6 +495,16 @@ class CatalogScanTests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_scan_endpoint_registers_vector_geopackage_layers(self):
+        stale_group = Group.objects.create(name="旧访问角色")
+        stale_resource = DataResource.objects.create(
+            name="旧扫描资源",
+            code=stable_catalog_code("vector", self.layer_name),
+            data_type=DataResource.DataType.VECTOR,
+            storage_path=self.layer_name,
+            maintainer=self.user,
+        )
+        stale_resource.access_groups.add(stale_group)
+
         with patch("geopandas.read_file") as read_file:
             read_file.side_effect = AssertionError(
                 "目录扫描应通过 SQLite 读取 GeoPackage 元数据"
@@ -512,10 +522,19 @@ class CatalogScanTests(TestCase):
         self.assertEqual(resource.data_type, DataResource.DataType.VECTOR)
         self.assertEqual(resource.source, "矢量数据目录扫描")
         self.assertEqual(resource.item_count, 1)
+        self.assertIsNone(resource.maintainer)
+        self.assertEqual(
+            set(resource.access_groups.values_list("name", flat=True)),
+            {SUPERADMIN_GROUP_NAME},
+        )
         layer = MapLayer.objects.get(source_path=self.layer_name)
         self.assertEqual(layer.data_resource, resource)
         self.assertEqual(layer.geometry_type, MapLayer.GeometryType.POINT)
         self.assertEqual(layer.bounds, [87.6, 43.8, 87.6, 43.8])
+        self.assertEqual(
+            set(layer.access_groups.values_list("name", flat=True)),
+            {SUPERADMIN_GROUP_NAME},
+        )
         self.assertFalse(
             OperationLog.objects.filter(
                 module="数据管理", action="扫描数据目录"
@@ -565,6 +584,12 @@ class CatalogScanTests(TestCase):
             resource.storage_path: resource.data_type
             for resource in nongeographic_resources
         }
+        for resource in nongeographic_resources:
+            self.assertIsNone(resource.maintainer)
+            self.assertEqual(
+                set(resource.access_groups.values_list("name", flat=True)),
+                {SUPERADMIN_GROUP_NAME},
+            )
         self.assertEqual(
             resource_types["gene/populus.fasta"], DataResource.DataType.GENE
         )

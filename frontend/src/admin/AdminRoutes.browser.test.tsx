@@ -48,6 +48,8 @@ const mockApi = vi.hoisted(() => ({
   importPreview: vi.fn(),
   importValidate: vi.fn(),
   importCommit: vi.fn(),
+  importRaster: vi.fn(),
+  rasterJob: vi.fn(),
   adminDataResources: vi.fn(),
   updateAdminDataResource: vi.fn(),
   exportAdminDataResources: vi.fn(),
@@ -498,6 +500,28 @@ describe("admin routes", () => {
       resourceName: "样地调查点位",
       importedRows: 1,
       validationIssues: [],
+    });
+    mockApi.importRaster.mockResolvedValue({
+      id: "raster-job-1",
+      kind: "import",
+      status: "running",
+      progressPercent: 35,
+      messages: ["已上传栅格文件", "开始 gdalwarp 预处理"],
+      result: null,
+      error: "",
+      startedAt: 1782100000,
+      finishedAt: null,
+    });
+    mockApi.rasterJob.mockResolvedValue({
+      id: "raster-job-1",
+      kind: "import",
+      status: "ready",
+      progressPercent: 100,
+      messages: ["已上传栅格文件", "gdalwarp 预处理完成", "导入完成"],
+      result: null,
+      error: "",
+      startedAt: 1782100000,
+      finishedAt: 1782100005,
     });
     mockApi.adminDataResources.mockResolvedValue({
       items: [
@@ -971,6 +995,39 @@ describe("admin routes", () => {
     expect(await screen.findByText("胡杨林样地点")).toBeInTheDocument();
   }, 30000);
 
+  it("uploads a raster file and shows preprocessing progress", async () => {
+    renderAdminRoute("/resources/data/import");
+
+    expect(await screen.findByText("栅格数据导入")).toBeInTheDocument();
+    const fileInputs = document.querySelectorAll("input[type='file']");
+    const rasterInput = fileInputs[1] as HTMLInputElement;
+    const rasterFile = new File(["fake-raster"], "poplar-2026.tif", {
+      type: "image/tiff",
+    });
+
+    fireEvent.change(rasterInput, { target: { files: [rasterFile] } });
+
+    expect(screen.getByLabelText("栅格数据名称")).toHaveValue("poplar-2026");
+    fireEvent.click(screen.getByRole("button", { name: /上传并预处理/ }));
+
+    await waitFor(() => {
+      expect(mockApi.importRaster).toHaveBeenCalledWith(
+        rasterFile,
+        "poplar-2026",
+      );
+    });
+    expect(await screen.findByText("正在预处理")).toBeInTheDocument();
+
+    await waitFor(
+      () => {
+        expect(mockApi.rasterJob).toHaveBeenCalledWith("raster-job-1");
+        expect(screen.getByText("栅格预处理完成")).toBeInTheDocument();
+      },
+      { timeout: 5000 },
+    );
+    expect(screen.getByText(/gdalwarp 预处理完成/)).toBeInTheDocument();
+  }, 30000);
+
   it("blocks browser unload while an import is unfinished", async () => {
     renderAdminRoute("/resources/data/import");
 
@@ -1065,7 +1122,7 @@ describe("admin routes", () => {
     renderAdminRoute("/resources/data/inventory");
 
     expect(await screen.findByText("脱敏维护数据")).toBeInTheDocument();
-    expect(screen.getAllByText("未记录").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("未知").length).toBeGreaterThan(0);
     expect(screen.queryByText("超级管理员")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "配置脱敏维护数据" }));
