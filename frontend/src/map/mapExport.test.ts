@@ -1,0 +1,111 @@
+import { describe, expect, it } from "vitest";
+import { addPngDpiMetadata, createMapRangeExportPlan } from "./mapExport";
+
+const rectangleGeometry = {
+  type: "Polygon",
+  coordinates: [
+    [
+      [80, 40],
+      [90, 40],
+      [90, 45],
+      [80, 45],
+      [80, 40],
+    ],
+  ],
+} as const;
+
+describe("mapExport", () => {
+  it("uses tile zoom and dpi to calculate the 2D export size", () => {
+    const lowZoom = createMapRangeExportPlan(rectangleGeometry, {
+      dpi: 96,
+      tileZoom: 5,
+    });
+    const highZoom = createMapRangeExportPlan(rectangleGeometry, {
+      dpi: 192,
+      tileZoom: 6,
+    });
+
+    expect(highZoom.cssWidth).toBeGreaterThan(lowZoom.cssWidth);
+    expect(highZoom.outputWidth).toBe(highZoom.cssWidth * 2);
+    expect(highZoom.outputHeight).toBe(highZoom.cssHeight * 2);
+    expect(highZoom.center[0]).toBeGreaterThan(80);
+    expect(highZoom.center[0]).toBeLessThan(90);
+  });
+
+  it("adds PNG pHYs metadata for the selected dpi", () => {
+    const png = addPngDpiMetadata(minimalPng(), 300);
+    const physOffset = findChunk(png, "pHYs");
+
+    expect(physOffset).toBeGreaterThan(0);
+    expect(readUint32(png, physOffset + 8)).toBe(11811);
+    expect(readUint32(png, physOffset + 12)).toBe(11811);
+    expect(png[physOffset + 16]).toBe(1);
+  });
+});
+
+function minimalPng() {
+  const signature = new Uint8Array([
+    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  ]);
+  return concatBytes([
+    signature,
+    chunk("IHDR", new Uint8Array(13)),
+    chunk("IEND"),
+  ]);
+}
+
+function chunk(type: string, data = new Uint8Array()) {
+  const typeBytes = new TextEncoder().encode(type);
+  const bytes = new Uint8Array(4 + typeBytes.length + data.length + 4);
+  writeUint32(bytes, 0, data.length);
+  bytes.set(typeBytes, 4);
+  bytes.set(data, 8);
+  return bytes;
+}
+
+function findChunk(bytes: Uint8Array, type: string) {
+  let offset = 8;
+  while (offset + 12 <= bytes.length) {
+    const length = readUint32(bytes, offset);
+    const chunkType = String.fromCharCode(
+      bytes[offset + 4] ?? 0,
+      bytes[offset + 5] ?? 0,
+      bytes[offset + 6] ?? 0,
+      bytes[offset + 7] ?? 0,
+    );
+    if (chunkType === type) {
+      return offset;
+    }
+    offset += 12 + length;
+  }
+  return -1;
+}
+
+function readUint32(bytes: Uint8Array, offset: number) {
+  return (
+    ((bytes[offset] ?? 0) * 0x1000000 +
+      ((bytes[offset + 1] ?? 0) << 16) +
+      ((bytes[offset + 2] ?? 0) << 8) +
+      (bytes[offset + 3] ?? 0)) >>>
+    0
+  );
+}
+
+function writeUint32(bytes: Uint8Array, offset: number, value: number) {
+  bytes[offset] = (value >>> 24) & 0xff;
+  bytes[offset + 1] = (value >>> 16) & 0xff;
+  bytes[offset + 2] = (value >>> 8) & 0xff;
+  bytes[offset + 3] = value & 0xff;
+}
+
+function concatBytes(parts: Uint8Array[]) {
+  const output = new Uint8Array(
+    parts.reduce((sum, part) => sum + part.length, 0),
+  );
+  let offset = 0;
+  for (const part of parts) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+  return output;
+}

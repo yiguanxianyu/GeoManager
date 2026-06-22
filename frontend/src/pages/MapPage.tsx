@@ -35,7 +35,7 @@ import { useLayerGroups } from "../hooks/useLayerGroups";
 import { useRasterRender } from "../hooks/useRasterRender";
 import { useWorkspaceScenes } from "../hooks/useWorkspaceScenes";
 import { clearFeatureState, getMapState } from "../map/mapState";
-import { exportCurrentMapViewPng } from "../map/mapExport";
+import { exportMapRangePng, type MapPngExportOptions } from "../map/mapExport";
 import type { DrawMode } from "../map/spatialDraw";
 import { workspacePanelTheme } from "../theme";
 import type {
@@ -696,41 +696,48 @@ export default function MapPage() {
     [message, permissionDeniedMessage, permissions.canExportData],
   );
 
-  const exportCurrentMapPng = useCallback(async () => {
-    if (!permissions.canExportData) {
-      message.warning(permissionDeniedMessage);
-      return;
-    }
-    const map = mapInstanceRef.current;
-    if (!map) {
-      message.warning("地图尚未准备好");
-      return;
-    }
-    if (!sharedSpatialGeometry) {
-      message.warning("请先使用范围工具划定导出范围");
-      return;
-    }
-    try {
-      const blob = await exportCurrentMapViewPng(map, sharedSpatialGeometry);
-      downloadBlob(
-        blob,
-        `map-2d-${new Date()
-          .toISOString()
-          .slice(0, 19)
-          .replace(/[-:T]/g, "")}.png`,
-      );
-      message.success("地图 PNG 已导出");
-    } catch (error) {
-      message.error(
-        error instanceof Error ? error.message : "地图 PNG 导出失败",
-      );
-    }
-  }, [
-    message,
-    permissionDeniedMessage,
-    permissions.canExportData,
-    sharedSpatialGeometry,
-  ]);
+  const exportCurrentMapPng = useCallback(
+    async (options: MapPngExportOptions) => {
+      if (!permissions.canExportData) {
+        message.warning(permissionDeniedMessage);
+        return;
+      }
+      const map = mapInstanceRef.current;
+      if (!map) {
+        message.warning("地图尚未准备好");
+        return;
+      }
+      if (!sharedSpatialGeometry) {
+        message.warning("请先使用范围工具划定导出范围");
+        return;
+      }
+      try {
+        const blob = await exportMapRangePng(map, sharedSpatialGeometry, {
+          ...options,
+          accessToken: bootstrap.map.mapboxAccessToken,
+        });
+        downloadBlob(
+          blob,
+          `map-2d-z${options.tileZoom}-${options.dpi}dpi-${new Date()
+            .toISOString()
+            .slice(0, 19)
+            .replace(/[-:T]/g, "")}.png`,
+        );
+        message.success("地图 PNG 已导出");
+      } catch (error) {
+        message.error(
+          error instanceof Error ? error.message : "地图 PNG 导出失败",
+        );
+      }
+    },
+    [
+      bootstrap.map.mapboxAccessToken,
+      message,
+      permissionDeniedMessage,
+      permissions.canExportData,
+      sharedSpatialGeometry,
+    ],
+  );
 
   useEffect(() => {
     const sceneIdText = searchParams.get("sceneId")?.trim();

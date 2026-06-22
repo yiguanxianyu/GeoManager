@@ -15,12 +15,15 @@ import {
   Button,
   Descriptions,
   Empty,
+  InputNumber,
   Segmented,
+  Select,
   Space,
   Tabs,
   Tag,
   Typography,
 } from "antd";
+import type { MapPngExportOptions } from "../map/mapExport";
 import { useRef, useState } from "react";
 import type { DrawMode } from "../map/spatialDraw";
 import type { GeoJsonGeometry, LoadedLayer, SpatialFilter } from "../types";
@@ -39,7 +42,7 @@ interface Props {
   onStartQueryDraw: (mode: DrawMode | null) => void;
   onClearSpatialFilter: () => void;
   onImportSpatialFilter: (filter: SpatialFilter) => void;
-  onExportMapPng: () => Promise<void>;
+  onExportMapPng: (options: MapPngExportOptions) => Promise<void>;
 }
 
 export default function WorkspaceBottomPanel({
@@ -487,14 +490,16 @@ function MapExportPanel({
   onExportMapPng,
 }: {
   hasRange: boolean;
-  onExportMapPng: () => Promise<void>;
+  onExportMapPng: (options: MapPngExportOptions) => Promise<void>;
 }) {
+  const [dpi, setDpi] = useState(150);
+  const [tileZoom, setTileZoom] = useState(8);
   const [exporting, setExporting] = useState(false);
 
   async function handleExport() {
     setExporting(true);
     try {
-      await onExportMapPng();
+      await onExportMapPng({ dpi, tileZoom });
     } finally {
       setExporting(false);
     }
@@ -503,12 +508,40 @@ function MapExportPanel({
   return (
     <section className="bottom-placeholder-panel map-export-panel">
       <div className="map-export-copy">
-        <Typography.Text strong>导出当前视角 2D 地图</Typography.Text>
+        <Typography.Text strong>导出 2D 地图图片</Typography.Text>
         <Typography.Text type="secondary">
-          使用“空间查询”中的范围工具划定导出范围，导出结果保存为 PNG。
+          使用“空间查询”中的范围工具划定导出范围，按指定 DPI 与瓦片等级生成
+          PNG。
         </Typography.Text>
       </div>
-      <Space size={8} wrap>
+      <div className="map-export-controls">
+        <label className="map-export-field">
+          <span>DPI</span>
+          <InputNumber
+            size="small"
+            min={72}
+            max={600}
+            step={1}
+            value={dpi}
+            onChange={(nextValue) => {
+              if (typeof nextValue === "number") {
+                setDpi(nextValue);
+              }
+            }}
+          />
+        </label>
+        <label className="map-export-field">
+          <span>瓦片等级</span>
+          <Select
+            size="small"
+            value={tileZoom}
+            options={Array.from({ length: 23 }, (_, zoom) => ({
+              label: `Z${zoom}`,
+              value: zoom,
+            }))}
+            onChange={setTileZoom}
+          />
+        </label>
         <Tag color={hasRange ? "green" : "default"}>
           {hasRange ? "已划定范围" : "未划定范围"}
         </Tag>
@@ -521,7 +554,7 @@ function MapExportPanel({
         >
           导出 PNG
         </Button>
-      </Space>
+      </div>
     </section>
   );
 }

@@ -6612,9 +6612,9 @@ body:has(.login-shell),
 }
 
 .map-export-panel {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
   gap: 14px;
 }
 
@@ -6622,6 +6622,45 @@ body:has(.login-shell),
   display: grid;
   gap: 6px;
   min-width: 0;
+}
+
+.map-export-controls {
+  display: grid;
+  grid-template-columns: 96px 112px auto auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.map-export-field {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  color: var(--c-text-muted);
+  font-size: 12px;
+
+  & .ant-input-number,
+  & .ant-select {
+    width: 100%;
+  }
+}
+
+@media (max-width: 920px) {
+  .map-export-panel {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .map-export-controls {
+    grid-template-columns: repeat(2, minmax(96px, 1fr));
+    width: 100%;
+
+    & .ant-tag,
+    & .ant-btn {
+      width: 100%;
+      min-width: 0;
+      text-align: center;
+    }
+  }
 }
 
 .layer-table-modal-content {
