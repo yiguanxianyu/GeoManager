@@ -8,9 +8,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureInfo, MapViewState } from "../types";
 import FeatureDetailPanel from "./FeatureDetailPanel";
 
-const thumbnailZoomOffset = 1.5;
-const thumbnailMinZoom = 0;
-const thumbnailMaxZoom = 17;
+const thumbnailTileZoom = 6;
+const thumbnailBounds = {
+  west: 72,
+  south: 35,
+  east: 103,
+  north: 50,
+} as const;
 const thumbnailMinIndicatorSizePx = 10;
 const thumbnailTileSize = 256;
 const thumbnailMaxMercatorLat = 85.05112878;
@@ -20,12 +24,18 @@ interface ThumbnailTile {
   url: string;
   left: number;
   top: number;
+  size: number;
 }
 interface ThumbnailExtentBox {
   left: number;
   top: number;
   width: number;
   height: number;
+}
+interface ThumbnailViewport {
+  left: number;
+  top: number;
+  scale: number;
 }
 const trendMonths = [
   "7",
@@ -99,15 +109,11 @@ const riskMatrix = [
 interface Props {
   selectedFeature: FeatureInfo | null;
   currentView: MapViewState | null;
-  thumbnailCenter: [number, number];
-  thumbnailZoom: number;
 }
 
 export default function RightSidePanel({
   selectedFeature,
   currentView,
-  thumbnailCenter,
-  thumbnailZoom,
 }: Props) {
   return (
     <div className="right-panel-stack">
@@ -115,11 +121,7 @@ export default function RightSidePanel({
         className="right-map-overview-panel"
         aria-label="当前视角平面缩略图"
       >
-        <FlatMapThumbnail
-          currentView={currentView}
-          fixedCenter={thumbnailCenter}
-          fixedZoom={thumbnailZoom}
-        />
+        <FlatMapThumbnail currentView={currentView} />
       </section>
 
       <section
@@ -178,12 +180,8 @@ export default function RightSidePanel({
 
 function FlatMapThumbnail({
   currentView,
-  fixedCenter,
-  fixedZoom,
 }: {
   currentView: MapViewState | null;
-  fixedCenter: [number, number];
-  fixedZoom: number;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -206,20 +204,8 @@ function FlatMapThumbnail({
 
   const thumbnail = useMemo(
     () =>
-      buildThumbnail(
-        fixedCenter,
-        fixedZoom,
-        currentView,
-        containerSize.width,
-        containerSize.height,
-      ),
-    [
-      containerSize.height,
-      containerSize.width,
-      currentView,
-      fixedCenter,
-      fixedZoom,
-    ],
+      buildThumbnail(currentView, containerSize.width, containerSize.height),
+    [containerSize.height, containerSize.width, currentView],
   );
 
   return (
@@ -239,8 +225,8 @@ function FlatMapThumbnail({
             style={{
               left: tile.left,
               top: tile.top,
-              width: thumbnailTileSize,
-              height: thumbnailTileSize,
+              width: tile.size,
+              height: tile.size,
             }}
             draggable={false}
           />
@@ -266,19 +252,7 @@ function FlatMapThumbnail({
   );
 }
 
-function zoomForThumbnail(mapZoom: number) {
-  const zoom = Number.isFinite(mapZoom) ? mapZoom : thumbnailMinZoom;
-  return Math.round(
-    Math.min(
-      thumbnailMaxZoom,
-      Math.max(thumbnailMinZoom, zoom - thumbnailZoomOffset),
-    ),
-  );
-}
-
 function buildThumbnail(
-  center: [number, number],
-  zoom: number,
   currentView: MapViewState | null,
   width: number,
   height: number,
@@ -289,38 +263,57 @@ function buildThumbnail(
       extent: null as ThumbnailExtentBox | null,
     };
   }
-  const tileZoom = zoomForThumbnail(zoom);
-  const centerPoint = lngLatToWorldPixel(center, tileZoom);
-  const viewportLeft = centerPoint.x - width / 2;
-  const viewportTop = centerPoint.y - height / 2;
+  const viewport = thumbnailViewportForBounds(thumbnailBounds, width, height);
   return {
-    tiles: thumbnailTiles(tileZoom, viewportLeft, viewportTop, width, height),
+    tiles: thumbnailTiles(thumbnailTileZoom, viewport, width, height),
     extent: currentView
-      ? thumbnailExtentBox(
-          currentView.bounds,
-          tileZoom,
-          viewportLeft,
-          viewportTop,
-        )
+      ? thumbnailExtentBox(currentView.bounds, thumbnailTileZoom, viewport)
       : null,
+  };
+}
+
+function thumbnailViewportForBounds(
+  bounds: typeof thumbnailBounds,
+  width: number,
+  height: number,
+): ThumbnailViewport {
+  const northwest = lngLatToWorldPixel(
+    [bounds.west, bounds.north],
+    thumbnailTileZoom,
+  );
+  const southeast = lngLatToWorldPixel(
+    [bounds.east, bounds.south],
+    thumbnailTileZoom,
+  );
+  const boundsWidth = Math.max(1, southeast.x - northwest.x);
+  const boundsHeight = Math.max(1, southeast.y - northwest.y);
+  const scale = Math.min(width / boundsWidth, height / boundsHeight);
+  const centerX = (northwest.x + southeast.x) / 2;
+  const centerY = (northwest.y + southeast.y) / 2;
+  return {
+    left: centerX - width / scale / 2,
+    top: centerY - height / scale / 2,
+    scale,
   };
 }
 
 function thumbnailTiles(
   zoom: number,
-  viewportLeft: number,
-  viewportTop: number,
+  viewport: ThumbnailViewport,
   width: number,
   height: number,
 ) {
   const tileCount = 2 ** zoom;
-  const minTileX = Math.floor(viewportLeft / thumbnailTileSize);
-  const maxTileX = Math.floor((viewportLeft + width) / thumbnailTileSize);
-  const minTileY = Math.max(0, Math.floor(viewportTop / thumbnailTileSize));
+  const minTileX = Math.floor(viewport.left / thumbnailTileSize);
+  const maxTileX = Math.floor(
+    (viewport.left + width / viewport.scale) / thumbnailTileSize,
+  );
+  const minTileY = Math.max(0, Math.floor(viewport.top / thumbnailTileSize));
   const maxTileY = Math.min(
     tileCount - 1,
-    Math.floor((viewportTop + height) / thumbnailTileSize),
+    Math.floor((viewport.top + height / viewport.scale) / thumbnailTileSize),
   );
+  const displayTileSize = thumbnailTileSize * viewport.scale;
   const tiles: ThumbnailTile[] = [];
   for (let tileY = minTileY; tileY <= maxTileY; tileY += 1) {
     for (let tileX = minTileX; tileX <= maxTileX; tileX += 1) {
@@ -331,8 +324,13 @@ function thumbnailTiles(
       tiles.push({
         key: `${zoom}-${tileX}-${tileY}`,
         url: `https://${subdomain}.tile.openstreetmap.org/${zoom}/${wrappedX}/${tileY}.png`,
-        left: Math.round(tileX * thumbnailTileSize - viewportLeft),
-        top: Math.round(tileY * thumbnailTileSize - viewportTop),
+        left: Math.round(
+          (tileX * thumbnailTileSize - viewport.left) * viewport.scale,
+        ),
+        top: Math.round(
+          (tileY * thumbnailTileSize - viewport.top) * viewport.scale,
+        ),
+        size: displayTileSize,
       });
     }
   }
@@ -342,29 +340,37 @@ function thumbnailTiles(
 function thumbnailExtentBox(
   bounds: MapViewState["bounds"],
   zoom: number,
-  viewportLeft: number,
-  viewportTop: number,
+  viewport: ThumbnailViewport,
 ): ThumbnailExtentBox {
   const [west, south, east, north] = bounds;
-  const extent = ensureMinimumThumbnailExtent(zoom, {
-    west,
-    east,
-    south,
-    north,
-  });
+  const extent = ensureMinimumThumbnailExtent(
+    zoom,
+    {
+      west,
+      east,
+      south,
+      north,
+    },
+    viewport.scale,
+  );
   const northwest = lngLatToWorldPixel([extent.west, extent.north], zoom);
   const southeast = lngLatToWorldPixel([extent.east, extent.south], zoom);
   return {
-    left: Math.round(northwest.x - viewportLeft),
-    top: Math.round(northwest.y - viewportTop),
-    width: Math.round(Math.max(1, southeast.x - northwest.x)),
-    height: Math.round(Math.max(1, southeast.y - northwest.y)),
+    left: Math.round((northwest.x - viewport.left) * viewport.scale),
+    top: Math.round((northwest.y - viewport.top) * viewport.scale),
+    width: Math.round(
+      Math.max(1, (southeast.x - northwest.x) * viewport.scale),
+    ),
+    height: Math.round(
+      Math.max(1, (southeast.y - northwest.y) * viewport.scale),
+    ),
   };
 }
 
 function ensureMinimumThumbnailExtent(
   zoom: number,
   extent: { west: number; east: number; south: number; north: number },
+  viewportScale: number,
 ) {
   const centerLng = (extent.west + extent.east) / 2;
   const centerLat = (extent.south + extent.north) / 2;
@@ -374,16 +380,14 @@ function ensureMinimumThumbnailExtent(
   const northPoint = lngLatToWorldPixel([centerLng, extent.north], zoom);
   const widthPx = Math.abs(eastPoint.x - westPoint.x);
   const heightPx = Math.abs(southPoint.y - northPoint.y);
-  if (
-    widthPx >= thumbnailMinIndicatorSizePx &&
-    heightPx >= thumbnailMinIndicatorSizePx
-  ) {
+  const minIndicatorWorldPx = thumbnailMinIndicatorSizePx / viewportScale;
+  if (widthPx >= minIndicatorWorldPx && heightPx >= minIndicatorWorldPx) {
     return extent;
   }
 
   const centerPoint = lngLatToWorldPixel([centerLng, centerLat], zoom);
-  const halfWidthPx = Math.max(widthPx, thumbnailMinIndicatorSizePx) / 2;
-  const halfHeightPx = Math.max(heightPx, thumbnailMinIndicatorSizePx) / 2;
+  const halfWidthPx = Math.max(widthPx, minIndicatorWorldPx) / 2;
+  const halfHeightPx = Math.max(heightPx, minIndicatorWorldPx) / 2;
   const southwest = worldPixelToLngLat(
     centerPoint.x - halfWidthPx,
     centerPoint.y + halfHeightPx,

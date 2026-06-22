@@ -1,5 +1,6 @@
 import type {
   ExpressionSpecification,
+  FilterSpecification,
   Map as MapboxMap,
   StyleSpecification,
 } from "mapbox-gl";
@@ -23,6 +24,13 @@ export const chineseLabelExpression: ExpressionSpecification = [
   ["get", "name"],
 ];
 
+type StyleLayerWithExpressions = {
+  id: string;
+  filter?: unknown;
+  layout?: Record<string, unknown>;
+  paint?: Record<string, unknown>;
+};
+
 export function applyChineseBasemapLanguage(map: MapboxMap) {
   map.setLanguage(mapLabelLanguage);
 
@@ -41,6 +49,86 @@ export function applyChineseBasemapLanguage(map: MapboxMap) {
     if (!textField.includes("name")) continue;
     map.setLayoutProperty(layer.id, "text-field", chineseLabelExpression);
   }
+}
+
+export function applyBasemapExpressionSafety(map: MapboxMap) {
+  const style = map.getStyle();
+  for (const layer of style.layers ?? []) {
+    const expressionLayer = layer as StyleLayerWithExpressions;
+    if (!map.getLayer(layer.id)) continue;
+
+    if (expressionLayer.filter) {
+      const filter = withSafeNumericAssertions(expressionLayer.filter);
+      if (filter !== expressionLayer.filter) {
+        map.setFilter(layer.id, filter as FilterSpecification);
+      }
+    }
+
+    for (const [property, value] of Object.entries(
+      expressionLayer.layout ?? {},
+    )) {
+      const safeValue = withSafeNumericAssertions(value);
+      if (safeValue !== value) {
+        map.setLayoutProperty(layer.id, property as never, safeValue as never);
+      }
+    }
+
+    for (const [property, value] of Object.entries(
+      expressionLayer.paint ?? {},
+    )) {
+      const safeValue = withSafeNumericAssertions(value);
+      if (safeValue !== value) {
+        map.setPaintProperty(layer.id, property as never, safeValue as never);
+      }
+    }
+  }
+}
+
+export function sanitizeStyleNumericAssertions(
+  style: StyleSpecification,
+): StyleSpecification {
+  const next = JSON.parse(JSON.stringify(style)) as StyleSpecification;
+  for (const layer of next.layers ?? []) {
+    const expressionLayer = layer as StyleLayerWithExpressions;
+    if (expressionLayer.filter) {
+      expressionLayer.filter = withSafeNumericAssertions(
+        expressionLayer.filter,
+      ) as FilterSpecification;
+    }
+    for (const [property, value] of Object.entries(
+      expressionLayer.layout ?? {},
+    )) {
+      expressionLayer.layout![property] = withSafeNumericAssertions(value);
+    }
+    for (const [property, value] of Object.entries(
+      expressionLayer.paint ?? {},
+    )) {
+      expressionLayer.paint![property] = withSafeNumericAssertions(value);
+    }
+  }
+  return next;
+}
+
+function withSafeNumericAssertions(value: unknown): unknown {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  let changed = false;
+  const next = value.map((item) => {
+    const safeItem = withSafeNumericAssertions(item);
+    if (safeItem !== item) {
+      changed = true;
+    }
+    return safeItem;
+  });
+
+  if (next[0] === "number" && next.length === 2) {
+    changed = true;
+    next.push(0);
+  }
+
+  return changed ? next : value;
 }
 
 const osmTileUrls = [

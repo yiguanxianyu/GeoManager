@@ -5,6 +5,7 @@ import mapboxgl, {
 } from "mapbox-gl";
 import type { GeoJsonGeometry } from "../types";
 import { extractCoordinates } from "../utils/geometry";
+import { sanitizeStyleNumericAssertions } from "./basemapStyle";
 import {
   bindPlatformSymbolImageFallback,
   registerPlatformSymbolImages,
@@ -242,7 +243,7 @@ export function addJpegDpiMetadata(bytes: Uint8Array, dpi: number): Uint8Array {
 export function createExportStyle(
   style: StyleSpecification,
 ): StyleSpecification {
-  const next = JSON.parse(JSON.stringify(style)) as StyleSpecification;
+  const next = sanitizeStyleNumericAssertions(style);
   next.projection = { name: "mercator" };
   next.layers = (next.layers ?? []).filter(
     (layer) => !isRangeOverlayId(layer.id),

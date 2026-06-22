@@ -1012,8 +1012,6 @@ export default function MapPage() {
             <RightSidePanel
               selectedFeature={selectedFeature}
               currentView={currentMapView}
-              thumbnailCenter={bootstrap.map.defaultCenter}
-              thumbnailZoom={bootstrap.map.defaultZoom}
             />
           </ConfigProvider>
         </aside>

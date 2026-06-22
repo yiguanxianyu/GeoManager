@@ -15,6 +15,7 @@ import mapboxgl, {
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef } from "react";
 import {
+  applyBasemapExpressionSafety,
   applyChineseBasemapLanguage,
   createBasemapStyle,
   mapLabelLanguage,
@@ -139,6 +140,7 @@ export default function MapCanvas({
     const unbindPlatformSymbolImageFallback =
       bindPlatformSymbolImageFallback(map);
     const handleStyleLoad = () => {
+      applyBasemapExpressionSafety(map);
       registerPlatformSymbolImages(map);
       map.setFog({
         color: "rgb(221, 232, 224)",
