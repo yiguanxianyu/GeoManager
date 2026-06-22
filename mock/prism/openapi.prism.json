@@ -11511,7 +11511,7 @@
           },
           "name": {
             "type": "string",
-            "description": "数据集名称，默认取文件名"
+            "description": "前端显示的数据集名称；为空时默认取源文件名，不包含后端复制存储时追加的唯一前缀"
           },
           "async": {
             "type": "boolean",
@@ -11533,7 +11533,7 @@
           },
           "name": {
             "type": "string",
-            "description": "数据集名称，默认取上传文件名"
+            "description": "前端显示的数据集名称；为空时默认取上传文件名，不展示后端保存到 uploaded/ 目录时追加的唯一前缀"
           }
         }
       },

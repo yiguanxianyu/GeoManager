@@ -1394,6 +1394,8 @@ A: 检查图层关联的数据资源的 `isQueryable` 字段。
 
 支持两种导入方式。后台管理页面使用 `multipart/form-data` 上传本地文件；服务端保存到科研数据根目录 `raster/original/uploaded/` 后立即提交异步预处理任务。运维脚本也可以继续传入研究数据目录中已有栅格文件的 `sourcePath`。两种方式都通过 `/api/raster/jobs/{job_id}/` 轮询 `progressPercent`、`messages` 和最终状态。
 
+`name` 始终是前端显示的数据名称，应写入 `RasterDataset.name`、`DataResource.name` 和 `MapLayer.name`。后端为避免文件冲突给上传源文件追加的唯一前缀只属于 `source_relative_path`、`processed_relative_path`、`code` 等后台存储标识，不得展示给用户；如果 `name` 为空，浏览器上传栅格默认回退到原始上传文件名，不包含 `uploaded/` 存储文件名前缀。
+
 ```javascript
 // JavaScript - 浏览器上传本地栅格文件
 const formData = new FormData();

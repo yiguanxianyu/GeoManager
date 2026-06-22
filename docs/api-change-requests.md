@@ -41,7 +41,7 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260621-002 | Verified | GET /api/users/; GET /api/groups/; GET /api/admin/data/resources/ | mock data | N/A | Done | N/A | Done | Exercise non-superadmin admin responses without superadmin principals |
 | API-20260621-003 | BackendReady | GET /api/admin/data/resources/; POST /api/admin/data/resources/{id}/; POST /api/catalog/import/commit/ | permission behavior | Done | N/A | Done | Done | Hide superadmin from configurable access-role choices for every user |
 | API-20260621-004 | BackendReady | POST /api/auth/guest-login/ | permission behavior | Done | N/A | Done | Done | Clarify that guest starts with no default function permissions |
-| API-20260622-001 | BackendReady | POST /api/raster/import/; GET /api/raster/jobs/{job_id}/ | request body, mock data | Done | Done | Done | Pending | Browser raster upload starts async preprocessing and exposes progress through existing job polling |
+| API-20260622-001 | BackendReady | POST /api/raster/import/; GET /api/raster/jobs/{job_id}/ | request body, mock data | Done | Done | Done | Pending | Browser raster upload starts async preprocessing, exposes progress, and keeps display names separate from storage IDs |
 | API-20260622-002 | BackendReady | GET /api/raster/tiles/{dataset_id}/{style_hash}/{z}/{x}/{y}.png | status code | Done | N/A | Done | Pending | Raster tiles outside dataset extent return 204 and frontend constrains Mapbox requests with source bounds |
 | API-20260622-003 | BackendReady | GET /api/auth/me/; admin user/profile auth responses | response fields, permission behavior, mock data | Done | Done | Done | Pending | Add independent data backup permission, defaulting to superadmin only |
 | API-20260622-004 | BackendReady | GET /api/auth/me/ | response fields, permission behavior, mock data | Done | Done | Done | Pending | Gate AI interpretation with a new feature permission and map PNG export with existing data export permission |
@@ -69,10 +69,10 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Owner: Frontend / Backend
 - Endpoints: `POST /api/raster/import/`, `GET /api/raster/jobs/{job_id}/`
 - Change type: request body, mock data
-- OpenAPI change: `POST /api/raster/import/` now accepts `multipart/form-data` with binary `file` and optional `name` in addition to the existing JSON `sourcePath` request. Successful browser uploads return the existing `AsyncJobResponse` with `kind=import`; progress remains available from the existing job polling endpoint.
+- OpenAPI change: `POST /api/raster/import/` now accepts `multipart/form-data` with binary `file` and optional `name` in addition to the existing JSON `sourcePath` request. Successful browser uploads return the existing `AsyncJobResponse` with `kind=import`; progress remains available from the existing job polling endpoint. `name` is the frontend display name and must not include backend storage IDs such as uploaded-file UUID prefixes.
 - Mock examples: `mock/prism/examples/40-raster.json`
 - Frontend reason: The data import page needs direct raster file selection, automatic backend preprocessing, and realtime progress display without putting raster processing in React.
-- Backend implementation notes: Save uploaded source files under the TOML-driven `raster/original/uploaded/` directory, validate raster extensions, start the existing import job, and keep permission checks on `raster.manage_raster_dataset`.
+- Backend implementation notes: Save uploaded source files under the TOML-driven `raster/original/uploaded/` directory, validate raster extensions, start the existing import job, and keep permission checks on `raster.manage_raster_dataset`. Use UUID-prefixed filenames only for storage paths and stable resource codes; keep `RasterDataset.name`, `DataResource.name`, and `MapLayer.name` as the user-facing data name.
 - Verification: run backend raster API tests plus `cd frontend && pnpm run generate:api && pnpm run check:api && pnpm run api:changes:check && pnpm run mock:build`.
 - Result: Backend endpoint, frontend upload UI, and browser test are included in this change; full verification pending.
 
