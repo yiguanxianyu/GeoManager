@@ -8,23 +8,30 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureInfo, MapViewState } from "../types";
 import FeatureDetailPanel from "./FeatureDetailPanel";
 
-const thumbnailTileZoom = 6;
+const thumbnailTileZoom = 5;
 const thumbnailBounds = {
-  west: 72,
-  south: 35,
-  east: 103,
-  north: 50,
+  west: 69,
+  south: 34,
+  east: 93,
+  north: 48,
 } as const;
 const thumbnailMinIndicatorSizePx = 10;
 const thumbnailTileSize = 256;
 const thumbnailMaxMercatorLat = 85.05112878;
 const osmTileSubdomains = ["a", "b", "c"] as const;
+interface ThumbnailBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
 interface ThumbnailTile {
   key: string;
   url: string;
   left: number;
   top: number;
-  size: number;
+  width: number;
+  height: number;
 }
 interface ThumbnailExtentBox {
   left: number;
@@ -36,6 +43,16 @@ interface ThumbnailViewport {
   left: number;
   top: number;
   scale: number;
+}
+interface ThumbnailTileCoverage {
+  minTileX: number;
+  maxTileX: number;
+  minTileY: number;
+  maxTileY: number;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 const trendMonths = [
   "7",
@@ -225,8 +242,8 @@ function FlatMapThumbnail({
             style={{
               left: tile.left,
               top: tile.top,
-              width: tile.size,
-              height: tile.size,
+              width: tile.width,
+              height: tile.height,
             }}
             draggable={false}
           />
@@ -252,7 +269,7 @@ function FlatMapThumbnail({
   );
 }
 
-function buildThumbnail(
+export function buildThumbnail(
   currentView: MapViewState | null,
   width: number,
   height: number,
@@ -267,37 +284,78 @@ function buildThumbnail(
   return {
     tiles: thumbnailTiles(thumbnailTileZoom, viewport, width, height),
     extent: currentView
-      ? thumbnailExtentBox(currentView.bounds, thumbnailTileZoom, viewport)
+      ? thumbnailExtentBox(
+          currentView.bounds,
+          thumbnailTileZoom,
+          viewport,
+          width,
+          height,
+        )
       : null,
   };
 }
 
-function thumbnailViewportForBounds(
-  bounds: typeof thumbnailBounds,
+export function thumbnailViewportForBounds(
+  bounds: ThumbnailBounds,
   width: number,
   height: number,
 ): ThumbnailViewport {
-  const northwest = lngLatToWorldPixel(
-    [bounds.west, bounds.north],
-    thumbnailTileZoom,
-  );
-  const southeast = lngLatToWorldPixel(
-    [bounds.east, bounds.south],
-    thumbnailTileZoom,
-  );
-  const boundsWidth = Math.max(1, southeast.x - northwest.x);
-  const boundsHeight = Math.max(1, southeast.y - northwest.y);
-  const scale = Math.min(width / boundsWidth, height / boundsHeight);
-  const centerX = (northwest.x + southeast.x) / 2;
-  const centerY = (northwest.y + southeast.y) / 2;
+  const coverage = thumbnailTileCoverage(bounds, thumbnailTileZoom);
+  const canvasAspect = width / height;
+  const coverageAspect = coverage.width / coverage.height;
+  const cropWidth =
+    coverageAspect > canvasAspect
+      ? coverage.height * canvasAspect
+      : coverage.width;
+  const cropHeight =
+    coverageAspect > canvasAspect
+      ? coverage.height
+      : coverage.width / canvasAspect;
+
   return {
-    left: centerX - width / scale / 2,
-    top: centerY - height / scale / 2,
-    scale,
+    left: coverage.left + (coverage.width - cropWidth) / 2,
+    top: coverage.top + (coverage.height - cropHeight) / 2,
+    scale: width / cropWidth,
   };
 }
 
-function thumbnailTiles(
+export function thumbnailTileCoverage(
+  bounds: ThumbnailBounds,
+  zoom: number,
+): ThumbnailTileCoverage {
+  const tileCount = 2 ** zoom;
+  const northwest = lngLatToWorldPixel([bounds.west, bounds.north], zoom);
+  const southeast = lngLatToWorldPixel([bounds.east, bounds.south], zoom);
+  const minTileX = Math.floor(northwest.x / thumbnailTileSize);
+  const maxTileX = Math.floor(
+    (southeast.x - Number.EPSILON) / thumbnailTileSize,
+  );
+  const minTileY = clampTileY(
+    Math.floor(northwest.y / thumbnailTileSize),
+    tileCount,
+  );
+  const maxTileY = clampTileY(
+    Math.floor((southeast.y - Number.EPSILON) / thumbnailTileSize),
+    tileCount,
+  );
+  const left = minTileX * thumbnailTileSize;
+  const top = minTileY * thumbnailTileSize;
+  const width = (maxTileX - minTileX + 1) * thumbnailTileSize;
+  const height = (maxTileY - minTileY + 1) * thumbnailTileSize;
+
+  return {
+    minTileX,
+    maxTileX,
+    minTileY,
+    maxTileY,
+    left,
+    top,
+    width,
+    height,
+  };
+}
+
+export function thumbnailTiles(
   zoom: number,
   viewport: ThumbnailViewport,
   width: number,
@@ -321,26 +379,33 @@ function thumbnailTiles(
       const subdomain =
         osmTileSubdomains[Math.abs(tileX + tileY) % osmTileSubdomains.length] ??
         "a";
+      const rawLeft =
+        (tileX * thumbnailTileSize - viewport.left) * viewport.scale;
+      const rawTop =
+        (tileY * thumbnailTileSize - viewport.top) * viewport.scale;
+      const left = Math.floor(rawLeft);
+      const top = Math.floor(rawTop);
+      const right = Math.ceil(rawLeft + displayTileSize) + 1;
+      const bottom = Math.ceil(rawTop + displayTileSize) + 1;
       tiles.push({
         key: `${zoom}-${tileX}-${tileY}`,
         url: `https://${subdomain}.tile.openstreetmap.org/${zoom}/${wrappedX}/${tileY}.png`,
-        left: Math.round(
-          (tileX * thumbnailTileSize - viewport.left) * viewport.scale,
-        ),
-        top: Math.round(
-          (tileY * thumbnailTileSize - viewport.top) * viewport.scale,
-        ),
-        size: displayTileSize,
+        left,
+        top,
+        width: right - left,
+        height: bottom - top,
       });
     }
   }
   return tiles;
 }
 
-function thumbnailExtentBox(
+export function thumbnailExtentBox(
   bounds: MapViewState["bounds"],
   zoom: number,
   viewport: ThumbnailViewport,
+  canvasWidth: number,
+  canvasHeight: number,
 ): ThumbnailExtentBox {
   const [west, south, east, north] = bounds;
   const extent = ensureMinimumThumbnailExtent(
@@ -355,7 +420,7 @@ function thumbnailExtentBox(
   );
   const northwest = lngLatToWorldPixel([extent.west, extent.north], zoom);
   const southeast = lngLatToWorldPixel([extent.east, extent.south], zoom);
-  return {
+  const rawBox = {
     left: Math.round((northwest.x - viewport.left) * viewport.scale),
     top: Math.round((northwest.y - viewport.top) * viewport.scale),
     width: Math.round(
@@ -364,6 +429,55 @@ function thumbnailExtentBox(
     height: Math.round(
       Math.max(1, (southeast.y - northwest.y) * viewport.scale),
     ),
+  };
+  return constrainThumbnailExtentBox(rawBox, canvasWidth, canvasHeight);
+}
+
+function constrainThumbnailExtentBox(
+  box: ThumbnailExtentBox,
+  canvasWidth: number,
+  canvasHeight: number,
+): ThumbnailExtentBox {
+  const right = box.left + box.width;
+  const bottom = box.top + box.height;
+  const visibleLeft = Math.max(0, box.left);
+  const visibleTop = Math.max(0, box.top);
+  const visibleRight = Math.min(canvasWidth, right);
+  const visibleBottom = Math.min(canvasHeight, bottom);
+  const intersects = visibleRight > visibleLeft && visibleBottom > visibleTop;
+
+  if (intersects) {
+    const centerX = (visibleLeft + visibleRight) / 2;
+    const centerY = (visibleTop + visibleBottom) / 2;
+    const width = Math.min(
+      canvasWidth,
+      Math.max(thumbnailMinIndicatorSizePx, visibleRight - visibleLeft),
+    );
+    const height = Math.min(
+      canvasHeight,
+      Math.max(thumbnailMinIndicatorSizePx, visibleBottom - visibleTop),
+    );
+    return {
+      left: clamp(centerX - width / 2, 0, canvasWidth - width),
+      top: clamp(centerY - height / 2, 0, canvasHeight - height),
+      width,
+      height,
+    };
+  }
+
+  return {
+    left: clamp(
+      box.left + box.width / 2 - thumbnailMinIndicatorSizePx / 2,
+      0,
+      canvasWidth - thumbnailMinIndicatorSizePx,
+    ),
+    top: clamp(
+      box.top + box.height / 2 - thumbnailMinIndicatorSizePx / 2,
+      0,
+      canvasHeight - thumbnailMinIndicatorSizePx,
+    ),
+    width: thumbnailMinIndicatorSizePx,
+    height: thumbnailMinIndicatorSizePx,
   };
 }
 
@@ -434,6 +548,14 @@ function worldPixelToLngLat(
 
 function wrapTileX(tileX: number, tileCount: number) {
   return ((tileX % tileCount) + tileCount) % tileCount;
+}
+
+function clampTileY(tileY: number, tileCount: number) {
+  return Math.min(tileCount - 1, Math.max(0, tileY));
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function EcologyOverviewPanel() {
