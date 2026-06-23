@@ -5,6 +5,7 @@
 .npm-cache/
 .pnpm-home/
 logs/
+demo/
 runtime-data/
 .env
 __pycache__/

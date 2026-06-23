@@ -15,6 +15,7 @@
     "mock:api": "pnpm run mock:build && prism mock ../mock/prism/openapi.prism.json --host 127.0.0.1 --port 4010",
     "dev:mock": "vite --host 127.0.0.1 --mode mock",
     "dev:with-mock": "concurrently -k -n prism,vite -c cyan,green \"pnpm run mock:api\" \"pnpm run dev:mock\"",
+    "demo:record": "node scripts/record-demo.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "build": "vite build",
     "build:verify": "pnpm run check:api && pnpm run typecheck && vite build",
