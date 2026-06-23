@@ -5,9 +5,12 @@ APP_ROOT=/opt/app
 BACKEND_ROOT="${APP_ROOT}/backend"
 DEFAULT_CONFIG=/config/app.toml
 
-export PATH="${BACKEND_ROOT}/.pixi/envs/default/bin:${PATH}"
 export PYTHONPATH="${BACKEND_ROOT}:${PYTHONPATH:-}"
 export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-geomanager.settings}"
+
+activate_pixi_environment() {
+  eval "$(pixi shell-hook --shell bash --no-completions --manifest-path "${BACKEND_ROOT}/pixi.toml")"
+}
 
 wait_for_config() {
   local config_path="$1"
@@ -37,6 +40,8 @@ for key, value in values.items():
     print(f"{key}={shlex.quote(value)}")
 PY
 }
+
+activate_pixi_environment
 
 case "${1:-serve}" in
   serve)

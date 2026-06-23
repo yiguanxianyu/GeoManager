@@ -9,31 +9,31 @@ from apps.core import cli
 
 
 class CliCommandTests(SimpleTestCase):
-    def test_default_mode_wraps_command_with_pixi_run_executable(self):
+    def test_default_mode_wraps_command_when_pixi_environment_is_not_active(self):
         self.assertEqual(
-            cli.build_cli_command(["gdalwarp", "-t_srs", "EPSG:3857"]),
+            cli.build_cli_command(
+                ["gdalwarp", "-t_srs", "EPSG:3857"],
+                env={},
+            ),
             ["pixi", "run", "--executable", "gdalwarp", "-t_srs", "EPSG:3857"],
         )
 
-    def test_direct_mode_keeps_original_command(self):
-        self.assertEqual(
-            cli.build_cli_command(["gdalwarp", "in.tif"], mode="direct"),
-            ["gdalwarp", "in.tif"],
-        )
-
-    def test_env_can_switch_to_direct_mode(self):
+    def test_active_pixi_environment_runs_command_directly(self):
         self.assertEqual(
             cli.build_cli_command(
                 ["gdalinfo", "-json", "a.tif"],
-                env={cli.CLI_RUN_MODE_ENV: "direct"},
+                env={"PIXI_PROJECT_MANIFEST": "/opt/app/backend/pixi.toml"},
             ),
             ["gdalinfo", "-json", "a.tif"],
         )
 
-    def test_unknown_env_mode_falls_back_to_pixi(self):
+    def test_conda_prefix_marks_pixi_environment_active(self):
         self.assertEqual(
-            cli.build_cli_command(["gdalinfo"], env={cli.CLI_RUN_MODE_ENV: "bad"}),
-            ["pixi", "run", "--executable", "gdalinfo"],
+            cli.build_cli_command(
+                ["gdalinfo"],
+                env={"CONDA_PREFIX": "/opt/app/backend/.pixi/envs/default"},
+            ),
+            ["gdalinfo"],
         )
 
     def test_run_cli_capture_uses_backend_workspace(self):
@@ -44,7 +44,7 @@ class CliCommandTests(SimpleTestCase):
             stderr="",
         )
         with mock.patch.object(cli.subprocess, "run", return_value=result) as run:
-            self.assertIs(cli.run_cli_capture(["gdalinfo"]), result)
+            self.assertIs(cli.run_cli_capture(["gdalinfo"], env={}), result)
 
         run.assert_called_once()
         self.assertEqual(
@@ -55,7 +55,9 @@ class CliCommandTests(SimpleTestCase):
     def test_popen_cli_uses_backend_workspace(self):
         process = mock.Mock()
         with mock.patch.object(cli.subprocess, "Popen", return_value=process) as popen:
-            self.assertIs(cli.popen_cli(["gdalwarp"], stdout=subprocess.PIPE), process)
+            self.assertIs(
+                cli.popen_cli(["gdalwarp"], stdout=subprocess.PIPE, env={}), process
+            )
 
         popen.assert_called_once()
         self.assertEqual(
