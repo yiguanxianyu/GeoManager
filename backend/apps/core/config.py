@@ -56,6 +56,7 @@ class MapConfig:
 class LimitConfig:
     upload_max_mb: int
     query_result_limit: int
+    max_raster_side_pixels: int
 
 
 @dataclass(frozen=True)
@@ -188,6 +189,10 @@ def load_project_config(config_path: Path, program_root: Path) -> ProjectConfig:
             query_result_limit=_positive_int(
                 limits.get("query_result_limit"),
                 "application.limits.query_result_limit",
+            ),
+            max_raster_side_pixels=_positive_int(
+                limits.get("max_raster_side_pixels"),
+                "application.limits.max_raster_side_pixels",
             ),
         ),
         raster=RasterConfig(

@@ -14,7 +14,8 @@
       },
       "limits": {
         "uploadMaxMb": 512,
-        "queryResultLimit": 30000
+        "queryResultLimit": 30000,
+        "maxRasterSidePixels": 10000
       }
     }
   },

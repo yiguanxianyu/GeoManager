@@ -2161,6 +2161,7 @@ def _serialize_application_settings(user) -> dict[str, Any]:
         "limits": {
             "uploadMaxMb": application["limits"]["upload_max_mb"],
             "queryResultLimit": application["limits"]["query_result_limit"],
+            "maxRasterSidePixels": application["limits"]["max_raster_side_pixels"],
         },
         "raster": {
             "symbolizerTimeoutSeconds": application["raster"][
@@ -2566,6 +2567,14 @@ def _limits_patch(value: Any) -> dict[str, Any] | JsonResponse:
         if isinstance(query_result_limit, JsonResponse):
             return query_result_limit
         patch["query_result_limit"] = query_result_limit
+    if "maxRasterSidePixels" in value:
+        max_raster_side_pixels = _positive_int(
+            value["maxRasterSidePixels"],
+            "maxRasterSidePixels",
+        )
+        if isinstance(max_raster_side_pixels, JsonResponse):
+            return max_raster_side_pixels
+        patch["max_raster_side_pixels"] = max_raster_side_pixels
     return patch
 
 

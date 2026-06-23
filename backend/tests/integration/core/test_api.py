@@ -2123,6 +2123,7 @@ mapbox_access_token = "pk.test-token"
 [application.limits]
 upload_max_mb = 512
 query_result_limit = 30000
+max_raster_side_pixels = 10000
 
 [application.raster]
 symbolizer_timeout_seconds = 120
@@ -2176,6 +2177,7 @@ mapbox_access_token = ""
 [application.limits]
 upload_max_mb = 512
 query_result_limit = 30000
+max_raster_side_pixels = 10000
 
 [application.raster]
 symbolizer_timeout_seconds = 120
@@ -2234,6 +2236,7 @@ mapbox_access_token = ""
 [application.limits]
 upload_max_mb = 512
 query_result_limit = 30000
+max_raster_side_pixels = 10000
 
 [application.raster]
 symbolizer_timeout_seconds = 120

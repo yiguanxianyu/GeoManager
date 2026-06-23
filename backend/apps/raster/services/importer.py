@@ -7,6 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
+from django.conf import settings
 from django.db import OperationalError, ProgrammingError
 from django.utils import timezone
 
@@ -37,6 +38,30 @@ def is_raster_file(path: Path) -> bool:
     )
 
 
+def validate_raster_upload_size(uploaded_file) -> None:
+    max_bytes = settings.PROJECT_CONFIG.limits.upload_max_mb * 1024 * 1024
+    if uploaded_file.size > max_bytes:
+        raise RasterImportError(
+            f"栅格文件大小不能超过 {settings.PROJECT_CONFIG.limits.upload_max_mb} MB"
+        )
+
+
+def validate_raster_pixel_size(info: dict[str, Any]) -> None:
+    max_side_pixels = settings.PROJECT_CONFIG.limits.max_raster_side_pixels
+    raw_size = info.get("size")
+    if (
+        not isinstance(raw_size, list | tuple)
+        or len(raw_size) < 2
+        or not all(isinstance(value, int) for value in raw_size[:2])
+    ):
+        raise RasterImportError("无法读取栅格像素尺寸")
+    width, height = raw_size[:2]
+    if width > max_side_pixels or height > max_side_pixels:
+        raise RasterImportError(
+            f"栅格单边长度不能超过 {max_side_pixels} 像素，当前为 {width} x {height}"
+        )
+
+
 def store_source_file(input_path: Path) -> tuple[Path, str]:
     source_root = raster_source_path("")
     try:
@@ -57,12 +82,18 @@ def store_uploaded_source_file(uploaded_file) -> Path:
     suffix = Path(source_name).suffix.lower()
     if suffix not in RASTER_EXTENSIONS:
         raise RasterImportError(f"不支持的栅格文件格式：{suffix or source_name}")
+    validate_raster_upload_size(uploaded_file)
     target_relative = f"uploaded/{uuid.uuid4().hex}-{source_name}"
     target_path = raster_source_path(target_relative)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     with target_path.open("wb") as output:
         for chunk in uploaded_file.chunks():
             output.write(chunk)
+    try:
+        validate_raster_pixel_size(gdalinfo_json(target_path))
+    except Exception:
+        target_path.unlink(missing_ok=True)
+        raise
     return target_path
 
 
@@ -197,6 +228,7 @@ def import_raster_file(
         if progress:
             progress("gdalinfo -json 源文件")
         source_info = gdalinfo_json(source_path)
+        validate_raster_pixel_size(source_info)
         save_metadata(source_metadata_relative, source_info)
 
         processed_path.parent.mkdir(parents=True, exist_ok=True)

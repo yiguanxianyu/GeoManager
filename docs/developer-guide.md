@@ -1396,6 +1396,8 @@ A: 检查图层关联的数据资源的 `isQueryable` 字段。
 
 `name` 始终是前端显示的数据名称，应写入 `RasterDataset.name`、`DataResource.name` 和 `MapLayer.name`。后端为避免文件冲突给上传源文件追加的唯一前缀只属于 `source_relative_path`、`processed_relative_path`、`code` 等后台存储标识，不得展示给用户；如果 `name` 为空，浏览器上传栅格默认回退到原始上传文件名，不包含 `uploaded/` 存储文件名前缀。
 
+栅格上传必须在前后端同时校验限制。前端使用系统启动配置 `limits.uploadMaxMb` 检查文件大小，并使用 `limits.maxRasterSidePixels` 和 `geotiff.js` 读取本地栅格首图像尺寸；文件大小超过配置上限、宽或高超过配置的单边像素上限、或无法读取尺寸时，不提交上传。后端仍是最终校验边界：上传文件大小超过 `application.limits.upload_max_mb`、源栅格宽或高超过 `application.limits.max_raster_side_pixels`、或无法读取栅格尺寸时，返回 `400 {"detail":"..."}`，不会创建异步任务；按 `sourcePath` 导入和目录扫描同样复用像素尺寸限制。
+
 ```javascript
 // JavaScript - 浏览器上传本地栅格文件
 const formData = new FormData();

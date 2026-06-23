@@ -42,6 +42,8 @@ from apps.raster.services.importer import (
     stable_code,
     store_source_file,
     store_uploaded_source_file,
+    validate_raster_pixel_size,
+    validate_raster_upload_size,
 )
 from apps.raster.services.jobs import (
     RasterJob,
@@ -104,6 +106,8 @@ __all__ = [
     "is_raster_file",
     "store_source_file",
     "store_uploaded_source_file",
+    "validate_raster_pixel_size",
+    "validate_raster_upload_size",
     "processed_relative_path",
     "metadata_relative_path",
     "stable_code",

@@ -153,9 +153,15 @@ class RasterPermissionApiTests(TestCase):
                 },
             )
             with override_settings(PROJECT_CONFIG=config):
-                with patch(
-                    "apps.raster.views.start_import_job", return_value=job
-                ) as start_import_job:
+                with (
+                    patch(
+                        "apps.raster.services.importer.gdalinfo_json",
+                        return_value={"size": [256, 128]},
+                    ),
+                    patch(
+                        "apps.raster.views.start_import_job", return_value=job
+                    ) as start_import_job,
+                ):
                     response = self.client.post(
                         "/api/raster/import/",
                         data={
@@ -197,9 +203,15 @@ class RasterPermissionApiTests(TestCase):
                 },
             )
             with override_settings(PROJECT_CONFIG=config):
-                with patch(
-                    "apps.raster.views.start_import_job", return_value=job
-                ) as start_import_job:
+                with (
+                    patch(
+                        "apps.raster.services.importer.gdalinfo_json",
+                        return_value={"size": [256, 128]},
+                    ),
+                    patch(
+                        "apps.raster.views.start_import_job", return_value=job
+                    ) as start_import_job,
+                ):
                     response = self.client.post(
                         "/api/raster/import/",
                         data={
@@ -215,6 +227,54 @@ class RasterPermissionApiTests(TestCase):
             self.assertEqual(start_import_job.call_args.kwargs["name"], "Traim")
             saved_path = Path(start_import_job.call_args.args[0])
             self.assertRegex(saved_path.name, r"^[0-9a-f]{32}-Traim\.tif$")
+
+    def test_import_endpoint_rejects_uploaded_raster_over_size_limit(self):
+        grant(self.user, ("raster", "manage_raster_dataset"))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = self._config(Path(tmpdir), upload_max_mb=1)
+            with override_settings(PROJECT_CONFIG=config):
+                with patch("apps.raster.views.start_import_job") as start_import_job:
+                    response = self.client.post(
+                        "/api/raster/import/",
+                        data={
+                            "file": SimpleUploadedFile(
+                                "large.tif",
+                                b"x" * (1024 * 1024 + 1),
+                                content_type="image/tiff",
+                            ),
+                        },
+                    )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json()["detail"], "栅格文件大小不能超过 1 MB")
+            start_import_job.assert_not_called()
+
+    def test_import_endpoint_rejects_uploaded_raster_over_pixel_limit(self):
+        grant(self.user, ("raster", "manage_raster_dataset"))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = self._config(Path(tmpdir), max_raster_side_pixels=9000)
+            with override_settings(PROJECT_CONFIG=config):
+                with (
+                    patch(
+                        "apps.raster.services.importer.gdalinfo_json",
+                        return_value={"size": [9001, 9000]},
+                    ),
+                    patch("apps.raster.views.start_import_job") as start_import_job,
+                ):
+                    response = self.client.post(
+                        "/api/raster/import/",
+                        data={
+                            "file": SimpleUploadedFile(
+                                "wide.tif",
+                                b"fake raster bytes",
+                                content_type="image/tiff",
+                            ),
+                        },
+                    )
+
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("栅格单边长度不能超过 9000 像素", response.json()["detail"])
+            start_import_job.assert_not_called()
 
     def test_tile_endpoint_returns_no_content_for_tiles_outside_extent(self):
         grant(self.user, ("core", "load_raster_layer"))
@@ -253,7 +313,13 @@ class RasterPermissionApiTests(TestCase):
             status=RasterDataset.Status.READY,
         )
 
-    def _config(self, root: Path):
+    def _config(
+        self,
+        root: Path,
+        *,
+        upload_max_mb: int = 512,
+        max_raster_side_pixels: int = 10000,
+    ):
         config_path = root / "app.toml"
         business_root = root / "app"
         research_root = root / "research"
@@ -284,8 +350,9 @@ default_basemap = "osm"
 mapbox_access_token = ""
 
 [application.limits]
-upload_max_mb = 512
+upload_max_mb = {upload_max_mb}
 query_result_limit = 30000
+max_raster_side_pixels = {max_raster_side_pixels}
 
 [application.raster]
 symbolizer_timeout_seconds = 120
@@ -355,6 +422,7 @@ mapbox_access_token = ""
 [application.limits]
 upload_max_mb = 512
 query_result_limit = 30000
+max_raster_side_pixels = 10000
 
 [application.raster]
 symbolizer_timeout_seconds = 120

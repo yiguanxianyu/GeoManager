@@ -16,6 +16,7 @@ interface BasicSettingValues {
   mapboxAccessToken: string;
   uploadMaxMb: number;
   queryResultLimit: number;
+  maxRasterSidePixels: number;
   symbolizerTimeoutSeconds: number;
 }
 
@@ -107,6 +108,16 @@ const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptio
       },
     },
     {
+      title: "栅格单边像素上限",
+      dataIndex: "maxRasterSidePixels",
+      valueType: "digit",
+      span: 2,
+      fieldProps: {
+        min: 1,
+        max: 100000,
+      },
+    },
+    {
       title: "栅格超时秒数",
       dataIndex: "symbolizerTimeoutSeconds",
       valueType: "digit",
@@ -159,6 +170,7 @@ export default function AdminSystemSettingsPage() {
       limits: {
         uploadMaxMb: values.uploadMaxMb,
         queryResultLimit: values.queryResultLimit,
+        maxRasterSidePixels: values.maxRasterSidePixels,
       },
       raster: {
         symbolizerTimeoutSeconds: values.symbolizerTimeoutSeconds,
@@ -223,6 +235,7 @@ function valuesFromSettings(settings: AdminSettings): BasicSettingValues {
     mapboxAccessToken: settings.map.mapboxAccessToken,
     uploadMaxMb: settings.limits.uploadMaxMb,
     queryResultLimit: settings.limits.queryResultLimit,
+    maxRasterSidePixels: settings.limits.maxRasterSidePixels,
     symbolizerTimeoutSeconds: settings.raster.symbolizerTimeoutSeconds,
   };
 }

@@ -230,6 +230,10 @@ export type SystemLimits = {
      * 单次查询返回结果上限
      */
     queryResultLimit: number;
+    /**
+     * 栅格上传和导入允许的最大单边像素长度
+     */
+    maxRasterSidePixels: number;
 };
 
 export type HealthResponse = {
@@ -2615,7 +2619,7 @@ export type RasterImportRequest = {
 
 export type RasterImportUploadRequest = {
     /**
-     * 上传的栅格源文件，支持 GeoTIFF、IMG 和 VRT。后端保存到科研数据根目录的 raster/original/uploaded/ 后异步预处理。
+     * 上传的栅格源文件，支持 GeoTIFF、IMG 和 VRT。文件大小不得超过系统配置的 upload_max_mb，单边像素长度不得超过 max_raster_side_pixels。后端保存到科研数据根目录的 raster/original/uploaded/ 后异步预处理。
      */
     file: Blob | File;
     /**

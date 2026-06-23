@@ -44,6 +44,7 @@ def bootstrap(request):
             "limits": {
                 "uploadMaxMb": application["limits"]["upload_max_mb"],
                 "queryResultLimit": application["limits"]["query_result_limit"],
+                "maxRasterSidePixels": application["limits"]["max_raster_side_pixels"],
             },
         }
     )

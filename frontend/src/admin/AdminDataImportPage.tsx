@@ -28,6 +28,7 @@ import {
   Typography,
   Upload,
 } from "antd";
+import { fromArrayBuffer } from "geotiff";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ApiError, api } from "../api/client";
@@ -53,6 +54,7 @@ interface ImportFormValues {
 
 type IssueAction = "continue" | "import";
 type ImportKind = "tabular" | "raster" | "unsupported";
+type RasterDimensions = { width: number; height: number };
 const selfAccessScopeId = "__self__";
 const unfinishedImportWarning =
   "当前导入尚未完成，离开页面会丢失已选择的文件、导入配置、校验结果和字段元数据。";
@@ -60,7 +62,7 @@ type AccessScopeId = number | typeof selfAccessScopeId;
 
 export default function AdminDataImportPage() {
   const { message } = AntApp.useApp();
-  const { user } = useAppContext();
+  const { bootstrap, user } = useAppContext();
   const location = useLocation();
   const navigate = useNavigate();
   const allowNavigationRef = useRef(false);
@@ -104,6 +106,9 @@ export default function AdminDataImportPage() {
   >(null);
   const [rasterFile, setRasterFile] = useState<File | null>(null);
   const [rasterName, setRasterName] = useState("");
+  const [rasterDimensions, setRasterDimensions] =
+    useState<RasterDimensions | null>(null);
+  const [rasterInspecting, setRasterInspecting] = useState(false);
   const [rasterUploading, setRasterUploading] = useState(false);
   const [rasterJob, setRasterJob] = useState<RasterJob | null>(null);
   const [unsupportedFile, setUnsupportedFile] = useState<File | null>(null);
@@ -373,6 +378,8 @@ export default function AdminDataImportPage() {
     setImportConfig({});
     setRasterFile(null);
     setRasterName("");
+    setRasterDimensions(null);
+    setRasterInspecting(false);
     setRasterJob(null);
     setRasterUploading(false);
     setUnsupportedFile(null);
@@ -380,13 +387,26 @@ export default function AdminDataImportPage() {
     form.resetFields();
   }
 
-  function handleFileSelected(selectedFile: File) {
+  async function handleFileSelected(selectedFile: File) {
     const kind = detectImportKind(selectedFile);
     resetImportState();
     if (kind === "raster") {
+      setRasterInspecting(true);
+      const validation = await validateRasterBeforeUpload(
+        selectedFile,
+        bootstrap.limits.uploadMaxMb,
+        bootstrap.limits.maxRasterSidePixels,
+      );
+      setRasterInspecting(false);
+      if (!validation.ok) {
+        setImportKind(null);
+        message.error(validation.error);
+        return;
+      }
       setImportKind("raster");
       setRasterFile(selectedFile);
       setRasterName(fileStem(selectedFile.name));
+      setRasterDimensions(validation.dimensions);
       setCurrentStep(1);
       message.success("已识别为栅格数据，请确认名称后启动预处理");
       return;
@@ -630,9 +650,9 @@ export default function AdminDataImportPage() {
           {currentStep === 0 && (
             <section className="import-step-pane">
               <Upload.Dragger
-                disabled={previewing}
+                disabled={previewing || rasterInspecting}
                 beforeUpload={(selectedFile) => {
-                  handleFileSelected(selectedFile);
+                  void handleFileSelected(selectedFile);
                   return false;
                 }}
                 maxCount={1}
@@ -649,6 +669,8 @@ export default function AdminDataImportPage() {
                 <div className="import-selected-file">
                   {previewing ? (
                     <Tag color="processing">正在预检文件...</Tag>
+                  ) : rasterInspecting ? (
+                    <Tag color="processing">正在读取栅格尺寸...</Tag>
                   ) : file ? (
                     <Tag color="green">{file.name}</Tag>
                   ) : (
@@ -857,7 +879,7 @@ export default function AdminDataImportPage() {
                 type="info"
                 showIcon
                 title="已识别为栅格数据"
-                description="上传后后台会自动预处理为 EPSG:3857 COG，并实时显示任务进度。"
+                description={`上传前已校验文件大小不超过 ${bootstrap.limits.uploadMaxMb} MB、单边长度不超过 ${bootstrap.limits.maxRasterSidePixels} 像素；上传后后台会自动预处理为 EPSG:3857 COG，并实时显示任务进度。`}
               />
 
               <Descriptions
@@ -871,6 +893,14 @@ export default function AdminDataImportPage() {
                 </Descriptions.Item>
                 <Descriptions.Item label="文件类型">
                   {rasterFileExtensionLabel(rasterFile.name)}
+                </Descriptions.Item>
+                <Descriptions.Item label="像素尺寸">
+                  {rasterDimensions
+                    ? `${rasterDimensions.width} x ${rasterDimensions.height}`
+                    : "-"}
+                </Descriptions.Item>
+                <Descriptions.Item label="大小上限">
+                  {bootstrap.limits.uploadMaxMb} MB
                 </Descriptions.Item>
               </Descriptions>
 
@@ -1312,6 +1342,46 @@ function rasterFileExtensionLabel(name: string) {
       return "VRT";
     default:
       return extension || "未知";
+  }
+}
+
+async function validateRasterBeforeUpload(
+  file: File,
+  uploadMaxMb: number,
+  maxRasterSidePixels: number,
+): Promise<
+  { ok: true; dimensions: RasterDimensions } | { ok: false; error: string }
+> {
+  const maxBytes = uploadMaxMb * 1024 * 1024;
+  if (file.size > maxBytes) {
+    return {
+      ok: false,
+      error: `栅格文件大小不能超过 ${uploadMaxMb} MB`,
+    };
+  }
+
+  try {
+    const tiff = await fromArrayBuffer(await file.arrayBuffer());
+    const image = await tiff.getImage();
+    const dimensions = {
+      width: image.getWidth(),
+      height: image.getHeight(),
+    };
+    if (
+      dimensions.width > maxRasterSidePixels ||
+      dimensions.height > maxRasterSidePixels
+    ) {
+      return {
+        ok: false,
+        error: `栅格单边长度不能超过 ${maxRasterSidePixels} 像素，当前为 ${dimensions.width} x ${dimensions.height}`,
+      };
+    }
+    return { ok: true, dimensions };
+  } catch {
+    return {
+      ok: false,
+      error: "无法读取栅格尺寸，请确认文件为有效 GeoTIFF",
+    };
   }
 }
 

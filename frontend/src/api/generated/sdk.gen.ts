@@ -901,6 +901,9 @@ export const getRasterDatasets = <ThrowOnError extends boolean = false>(options?
 
 /**
  * 导入栅格文件
+ *
+ * 导入或上传栅格源文件。上传文件会先按系统配置的 `application.limits.upload_max_mb` 校验文件大小，并读取栅格元信息校验单边像素长度不超过 `application.limits.max_raster_side_pixels`；校验失败返回 `400 ErrorResponse`，不会提交异步任务。
+ *
  */
 export const importRaster = <ThrowOnError extends boolean = false>(options: Options<ImportRasterData, ThrowOnError>): RequestResult<ImportRasterResponses, ImportRasterErrors, ThrowOnError> => (options.client ?? client).post<ImportRasterResponses, ImportRasterErrors, ThrowOnError>({
     security: [{

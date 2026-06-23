@@ -46,6 +46,7 @@ const bootstrap: Bootstrap = {
   limits: {
     uploadMaxMb: 512,
     queryResultLimit: 30000,
+    maxRasterSidePixels: 10000,
   },
 };
 

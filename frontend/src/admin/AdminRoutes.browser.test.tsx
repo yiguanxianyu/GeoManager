@@ -67,10 +67,16 @@ const mockApi = vi.hoisted(() => ({
   adminDashboardServer: vi.fn(),
 }));
 
+const mockGeoTiff = vi.hoisted(() => ({
+  fromArrayBuffer: vi.fn(),
+}));
+
 vi.mock("../api/client", () => ({
   ApiError: class ApiError extends Error {},
   api: mockApi,
 }));
+
+vi.mock("geotiff", () => mockGeoTiff);
 
 const bootstrap: Bootstrap = {
   systemName: "中亚胡杨林生态系统保护数据共享平台",
@@ -84,6 +90,7 @@ const bootstrap: Bootstrap = {
   limits: {
     uploadMaxMb: 512,
     queryResultLimit: 30000,
+    maxRasterSidePixels: 10000,
   },
 };
 
@@ -343,6 +350,7 @@ describe("admin routes", () => {
     for (const fn of Object.values(mockApi)) {
       fn.mockReset();
     }
+    mockGeoTiff.fromArrayBuffer.mockReset();
     mockApi.logout.mockResolvedValue({ detail: "已退出" });
     mockApi.adminProfile.mockResolvedValue({
       user: adminUser,
@@ -525,6 +533,12 @@ describe("admin routes", () => {
       resourceName: "样地调查点位",
       importedRows: 1,
       validationIssues: [],
+    });
+    mockGeoTiff.fromArrayBuffer.mockResolvedValue({
+      getImage: vi.fn().mockResolvedValue({
+        getWidth: vi.fn().mockReturnValue(256),
+        getHeight: vi.fn().mockReturnValue(128),
+      }),
     });
     mockApi.importRaster.mockResolvedValue({
       id: "raster-job-1",
@@ -1154,6 +1168,52 @@ describe("admin routes", () => {
       { timeout: 5000 },
     );
     expect(screen.getByText(/gdalwarp 预处理完成/)).toBeInTheDocument();
+  }, 30000);
+
+  it("rejects a raster file above the configured upload size before submitting", async () => {
+    renderAdminRoute("/resources/data/import");
+
+    const rasterInput = document.querySelector(
+      "input[type='file']",
+    ) as HTMLInputElement;
+    const oversizedFile = new File(["x"], "too-large.tif", {
+      type: "image/tiff",
+    });
+    Object.defineProperty(oversizedFile, "size", {
+      value: bootstrap.limits.uploadMaxMb * 1024 * 1024 + 1,
+    });
+
+    fireEvent.change(rasterInput, { target: { files: [oversizedFile] } });
+
+    expect(
+      await screen.findByText(/栅格文件大小不能超过 512 MB/),
+    ).toBeInTheDocument();
+    expect(mockGeoTiff.fromArrayBuffer).not.toHaveBeenCalled();
+    expect(mockApi.importRaster).not.toHaveBeenCalled();
+  }, 30000);
+
+  it("rejects a raster file above the pixel side limit before submitting", async () => {
+    mockGeoTiff.fromArrayBuffer.mockResolvedValueOnce({
+      getImage: vi.fn().mockResolvedValue({
+        getWidth: vi.fn().mockReturnValue(10001),
+        getHeight: vi.fn().mockReturnValue(9000),
+      }),
+    });
+    renderAdminRoute("/resources/data/import");
+
+    const rasterInput = document.querySelector(
+      "input[type='file']",
+    ) as HTMLInputElement;
+    const rasterFile = new File(["fake-raster"], "too-wide.tif", {
+      type: "image/tiff",
+    });
+
+    fireEvent.change(rasterInput, { target: { files: [rasterFile] } });
+
+    expect(
+      await screen.findByText(/栅格单边长度不能超过 10000 像素/),
+    ).toBeInTheDocument();
+    expect(mockApi.importRaster).not.toHaveBeenCalled();
   }, 30000);
 
   it("shows an unsupported state for files without an available import flow", async () => {
