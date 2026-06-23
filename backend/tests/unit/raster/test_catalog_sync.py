@@ -37,3 +37,5 @@ class RasterCatalogSyncTests(TestCase):
         )
         self.assertEqual(resource.data_type, DataResource.DataType.RASTER)
         self.assertEqual(layer.layer_type, MapLayer.LayerType.RASTER)
+        self.assertNotIn(dataset.source_relative_path, resource.description)
+        self.assertNotIn(dataset.processed_relative_path, resource.description)

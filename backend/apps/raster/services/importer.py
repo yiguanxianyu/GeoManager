@@ -241,7 +241,6 @@ def import_raster_file(
             "source_metadata_relative_path": source_metadata_relative,
             "processed_metadata_relative_path": processed_metadata_relative,
             "status": RasterDataset.Status.PROCESSING,
-            "progress_log": "",
             "error_message": "",
             "source_file_size": source_path.stat().st_size,
         },
