@@ -1320,6 +1320,9 @@ map.addLayer({
 - `fillOpacity`：填充透明度
 - `strokeColor`：边框颜色
 - `strokeWidth`：边框宽度
+- `cluster.enabled`：点图层是否启用 Mapbox source 聚合，默认 `false`
+- `cluster.maxZoom`：聚合生效的最大瓦片缩放级别，默认 `12`
+- `cluster.radius`：聚合半径，默认 `50`
 
 ### 最佳实践
 

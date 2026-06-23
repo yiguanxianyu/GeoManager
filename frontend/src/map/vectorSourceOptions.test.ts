@@ -12,7 +12,7 @@ import {
 } from "./vectorSourceOptions";
 
 describe("vectorGeojsonSourceOptions", () => {
-  it("clusters dense point layers and disables point tile buffering", () => {
+  it("keeps dense point layers unclustered and disables point tile buffering", () => {
     const options = vectorGeojsonSourceOptions(
       makeLayer({
         geojson: pointFeatures(1000),
@@ -22,9 +22,31 @@ describe("vectorGeojsonSourceOptions", () => {
 
     expect(options.maxzoom).toBe(12);
     expect(options.buffer).toBe(0);
+    expect(
+      shouldClusterVectorLayer(makeLayer({ geojson: pointFeatures(1000) })),
+    ).toBe(false);
+    expect(options.cluster).toBeUndefined();
+    expect(options.clusterMaxZoom).toBeUndefined();
+    expect(options.clusterRadius).toBeUndefined();
+  });
+
+  it("clusters point layers only when symbolization enables clustering", () => {
+    const layer = makeLayer({
+      geojson: pointFeatures(1000),
+      geometryType: "Point",
+    });
+    layer.symbolization.cluster = {
+      enabled: true,
+      maxZoom: 10,
+      radius: 36,
+    };
+
+    const options = vectorGeojsonSourceOptions(layer);
+
+    expect(shouldClusterVectorLayer(layer)).toBe(true);
     expect(options.cluster).toBe(true);
-    expect(options.clusterMaxZoom).toBe(12);
-    expect(options.clusterRadius).toBe(50);
+    expect(options.clusterMaxZoom).toBe(10);
+    expect(options.clusterRadius).toBe(36);
   });
 
   it("does not cluster heatmap point layers", () => {
@@ -33,6 +55,7 @@ describe("vectorGeojsonSourceOptions", () => {
       geometryType: "Point",
     });
     layer.symbolization.pointMode = "heatmap";
+    layer.symbolization.cluster.enabled = true;
 
     expect(shouldClusterVectorLayer(layer)).toBe(false);
     expect(vectorGeojsonSourceOptions(layer).cluster).toBeUndefined();
@@ -65,19 +88,19 @@ describe("vectorGeojsonSourceOptions", () => {
     expect(options.tolerance).toBe(0.75);
   });
 
-  it("changes the source key when source-level options change", () => {
+  it("changes the source key when point clustering changes source options", () => {
     const circleLayer = makeLayer({
       geojson: pointFeatures(1000),
       geometryType: "Point",
     });
-    const heatmapLayer = makeLayer({
+    const clusteredLayer = makeLayer({
       geojson: pointFeatures(1000),
       geometryType: "Point",
     });
-    heatmapLayer.symbolization.pointMode = "heatmap";
+    clusteredLayer.symbolization.cluster.enabled = true;
 
     expect(vectorSourceKey(circleLayer)).not.toBe(
-      vectorSourceKey(heatmapLayer),
+      vectorSourceKey(clusteredLayer),
     );
   });
 });

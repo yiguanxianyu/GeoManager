@@ -1,34 +1,35 @@
 import { describe, expect, it } from "vitest";
 import {
   thumbnailExtentBox,
-  thumbnailTileCoverage,
   thumbnailTiles,
-  thumbnailViewportForBounds,
+  thumbnailViewportForMapTile,
 } from "./RightSidePanel";
 
-const bounds = {
-  west: 75,
-  south: 40,
-  east: 90,
-  north: 45,
+const mapTile = {
+  center: [82, 42] as [number, number],
+  tileZoom: 6,
+  scale: 0.44,
+  tileUrlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
 };
 
 describe("thumbnailTiles", () => {
-  it("uses full tiles that cover the configured geographic bounds", () => {
-    const coverage = thumbnailTileCoverage(bounds, 6);
+  it("centers the thumbnail viewport on the configured 2D map tile", () => {
+    const viewport = thumbnailViewportForMapTile(mapTile, 290, 174);
+    const tiles = thumbnailTiles(
+      mapTile.tileZoom,
+      viewport,
+      290,
+      174,
+      mapTile.tileUrlTemplate,
+    );
 
-    expect(coverage.minTileX).toBeLessThanOrEqual(coverage.maxTileX);
-    expect(coverage.minTileY).toBeLessThanOrEqual(coverage.maxTileY);
-    expect(coverage.width).toBe(
-      (coverage.maxTileX - coverage.minTileX + 1) * 256,
-    );
-    expect(coverage.height).toBe(
-      (coverage.maxTileY - coverage.minTileY + 1) * 256,
-    );
+    expect(viewport.scale).toBe(0.44);
+    expect(tiles.length).toBeGreaterThan(0);
+    expect(tiles[0]?.url).toContain("/6/");
   });
 
-  it("crops the stitched tile coverage to the canvas aspect ratio", () => {
-    const viewport = thumbnailViewportForBounds(bounds, 290, 174);
+  it("uses the configured scale as the thumbnail zoom ratio", () => {
+    const viewport = thumbnailViewportForMapTile(mapTile, 290, 174);
     const visibleWorldWidth = 290 / viewport.scale;
     const visibleWorldHeight = 174 / viewport.scale;
 
@@ -36,7 +37,7 @@ describe("thumbnailTiles", () => {
   });
 
   it("keeps the current view indicator visible when the view is outside the crop", () => {
-    const viewport = thumbnailViewportForBounds(bounds, 290, 174);
+    const viewport = thumbnailViewportForMapTile(mapTile, 290, 174);
     const extent = thumbnailExtentBox(
       [105, 25, 110, 30],
       6,

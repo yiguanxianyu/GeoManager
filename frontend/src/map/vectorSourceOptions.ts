@@ -1,18 +1,16 @@
 import type { GeoJSONSourceSpecification } from "mapbox-gl";
 import type { LoadedVectorLayer } from "../types";
 
-const largePointFeatureCount = 1000;
 const largeLineOrPolygonFeatureCount = 2000;
+const defaultClusterMaxZoom = 12;
+const defaultClusterRadius = 50;
 
 export function vectorGeojsonSourceOptions(
   layer: LoadedVectorLayer,
 ): GeoJSONSourceSpecification {
   const featureCount = layer.geojson.features.length;
   const pointOnly = featureCount > 0 && isPointOnlyGeometry(layer.geometryType);
-  const cluster =
-    pointOnly &&
-    featureCount >= largePointFeatureCount &&
-    layer.symbolization.pointMode !== "heatmap";
+  const cluster = shouldClusterVectorLayer(layer);
   const source: GeoJSONSourceSpecification = {
     type: "geojson",
     data: layer.geojson as never,
@@ -25,8 +23,10 @@ export function vectorGeojsonSourceOptions(
     ...(cluster
       ? {
           cluster: true,
-          clusterMaxZoom: 12,
-          clusterRadius: 50,
+          clusterMaxZoom:
+            layer.symbolization.cluster?.maxZoom ?? defaultClusterMaxZoom,
+          clusterRadius:
+            layer.symbolization.cluster?.radius ?? defaultClusterRadius,
         }
       : {}),
   };
@@ -34,7 +34,12 @@ export function vectorGeojsonSourceOptions(
 }
 
 export function shouldClusterVectorLayer(layer: LoadedVectorLayer) {
-  return Boolean(vectorGeojsonSourceOptions(layer).cluster);
+  return (
+    layer.geojson.features.length > 0 &&
+    isPointOnlyGeometry(layer.geometryType) &&
+    layer.symbolization.pointMode !== "heatmap" &&
+    layer.symbolization.cluster?.enabled === true
+  );
 }
 
 export function vectorSourceKey(layer: LoadedVectorLayer) {

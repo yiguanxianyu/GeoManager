@@ -26,6 +26,14 @@ describe("defaultVectorSymbolization", () => {
     expect(defaultVectorSymbolization.pointMode).toBe("circle");
   });
 
+  it("disables point clustering by default", () => {
+    expect(defaultVectorSymbolization.cluster).toEqual({
+      enabled: false,
+      maxZoom: 12,
+      radius: 50,
+    });
+  });
+
   it("has circle properties", () => {
     expect(defaultVectorSymbolization.circle.circleColor).toBeDefined();
     expect(defaultVectorSymbolization.circle.circleRadius).toBeGreaterThan(0);
@@ -127,6 +135,7 @@ describe("cloneDefaultVectorSymbolization", () => {
     const clone = cloneDefaultVectorSymbolization();
     expect(clone.circle).not.toBe(defaultVectorSymbolization.circle);
     expect(clone.symbol).not.toBe(defaultVectorSymbolization.symbol);
+    expect(clone.cluster).not.toBe(defaultVectorSymbolization.cluster);
     expect(clone.line).not.toBe(defaultVectorSymbolization.line);
     expect(clone.fill).not.toBe(defaultVectorSymbolization.fill);
   });

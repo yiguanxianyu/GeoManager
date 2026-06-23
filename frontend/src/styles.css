@@ -1152,9 +1152,45 @@ body:has(.login-shell),
   width: 100%;
   min-width: 0;
 
+  & .ant-table {
+    table-layout: fixed;
+  }
+
   & .ant-pagination-total-text {
     order: 99;
     margin-inline-start: auto;
+  }
+}
+
+.inventory-group-resource-table {
+  width: 100%;
+}
+
+.inventory-table-stack-cell {
+  width: 100%;
+  min-width: 0;
+
+  & .ant-space-item,
+  & .ant-typography {
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
+.inventory-resource-name-button.ant-btn {
+  max-width: 100%;
+  min-width: 0;
+  padding-inline: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  vertical-align: top;
+  white-space: nowrap;
+
+  & > span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 

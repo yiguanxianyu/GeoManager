@@ -8,23 +8,25 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FeatureInfo, MapViewState } from "../types";
 import FeatureDetailPanel from "./FeatureDetailPanel";
 
-const thumbnailTileZoom = 5;
-const thumbnailBounds = {
-  west: 69,
-  south: 34,
-  east: 93,
-  north: 48,
-} as const;
 const thumbnailMinIndicatorSizePx = 10;
 const thumbnailTileSize = 256;
 const thumbnailMaxMercatorLat = 85.05112878;
 const osmTileSubdomains = ["a", "b", "c"] as const;
-interface ThumbnailBounds {
-  west: number;
-  south: number;
-  east: number;
-  north: number;
+
+export interface ThumbnailMapTile {
+  center: [number, number];
+  tileZoom: number;
+  scale: number;
+  tileUrlTemplate: string;
 }
+
+export const thumbnailMapTile: ThumbnailMapTile = {
+  center: [81, 41],
+  tileZoom: 5,
+  scale: 0.38,
+  tileUrlTemplate: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+};
+
 interface ThumbnailTile {
   key: string;
   url: string;
@@ -43,16 +45,6 @@ interface ThumbnailViewport {
   left: number;
   top: number;
   scale: number;
-}
-interface ThumbnailTileCoverage {
-  minTileX: number;
-  maxTileX: number;
-  minTileY: number;
-  maxTileY: number;
-  left: number;
-  top: number;
-  width: number;
-  height: number;
 }
 const trendMonths = [
   "7",
@@ -273,6 +265,7 @@ export function buildThumbnail(
   currentView: MapViewState | null,
   width: number,
   height: number,
+  mapTile: ThumbnailMapTile = thumbnailMapTile,
 ) {
   if (width <= 0 || height <= 0) {
     return {
@@ -280,13 +273,19 @@ export function buildThumbnail(
       extent: null as ThumbnailExtentBox | null,
     };
   }
-  const viewport = thumbnailViewportForBounds(thumbnailBounds, width, height);
+  const viewport = thumbnailViewportForMapTile(mapTile, width, height);
   return {
-    tiles: thumbnailTiles(thumbnailTileZoom, viewport, width, height),
+    tiles: thumbnailTiles(
+      mapTile.tileZoom,
+      viewport,
+      width,
+      height,
+      mapTile.tileUrlTemplate,
+    ),
     extent: currentView
       ? thumbnailExtentBox(
           currentView.bounds,
-          thumbnailTileZoom,
+          mapTile.tileZoom,
           viewport,
           width,
           height,
@@ -295,63 +294,17 @@ export function buildThumbnail(
   };
 }
 
-export function thumbnailViewportForBounds(
-  bounds: ThumbnailBounds,
+export function thumbnailViewportForMapTile(
+  mapTile: ThumbnailMapTile,
   width: number,
   height: number,
 ): ThumbnailViewport {
-  const coverage = thumbnailTileCoverage(bounds, thumbnailTileZoom);
-  const canvasAspect = width / height;
-  const coverageAspect = coverage.width / coverage.height;
-  const cropWidth =
-    coverageAspect > canvasAspect
-      ? coverage.height * canvasAspect
-      : coverage.width;
-  const cropHeight =
-    coverageAspect > canvasAspect
-      ? coverage.height
-      : coverage.width / canvasAspect;
-
+  const center = lngLatToWorldPixel(mapTile.center, mapTile.tileZoom);
+  const scale = Math.max(0.05, mapTile.scale);
   return {
-    left: coverage.left + (coverage.width - cropWidth) / 2,
-    top: coverage.top + (coverage.height - cropHeight) / 2,
-    scale: width / cropWidth,
-  };
-}
-
-export function thumbnailTileCoverage(
-  bounds: ThumbnailBounds,
-  zoom: number,
-): ThumbnailTileCoverage {
-  const tileCount = 2 ** zoom;
-  const northwest = lngLatToWorldPixel([bounds.west, bounds.north], zoom);
-  const southeast = lngLatToWorldPixel([bounds.east, bounds.south], zoom);
-  const minTileX = Math.floor(northwest.x / thumbnailTileSize);
-  const maxTileX = Math.floor(
-    (southeast.x - Number.EPSILON) / thumbnailTileSize,
-  );
-  const minTileY = clampTileY(
-    Math.floor(northwest.y / thumbnailTileSize),
-    tileCount,
-  );
-  const maxTileY = clampTileY(
-    Math.floor((southeast.y - Number.EPSILON) / thumbnailTileSize),
-    tileCount,
-  );
-  const left = minTileX * thumbnailTileSize;
-  const top = minTileY * thumbnailTileSize;
-  const width = (maxTileX - minTileX + 1) * thumbnailTileSize;
-  const height = (maxTileY - minTileY + 1) * thumbnailTileSize;
-
-  return {
-    minTileX,
-    maxTileX,
-    minTileY,
-    maxTileY,
-    left,
-    top,
-    width,
-    height,
+    left: center.x - width / (2 * scale),
+    top: center.y - height / (2 * scale),
+    scale,
   };
 }
 
@@ -360,6 +313,7 @@ export function thumbnailTiles(
   viewport: ThumbnailViewport,
   width: number,
   height: number,
+  tileUrlTemplate = thumbnailMapTile.tileUrlTemplate,
 ) {
   const tileCount = 2 ** zoom;
   const minTileX = Math.floor(viewport.left / thumbnailTileSize);
@@ -389,7 +343,11 @@ export function thumbnailTiles(
       const bottom = Math.ceil(rawTop + displayTileSize) + 1;
       tiles.push({
         key: `${zoom}-${tileX}-${tileY}`,
-        url: `https://${subdomain}.tile.openstreetmap.org/${zoom}/${wrappedX}/${tileY}.png`,
+        url: tileUrlTemplate
+          .replace("{s}", subdomain)
+          .replace("{z}", String(zoom))
+          .replace("{x}", String(wrappedX))
+          .replace("{y}", String(tileY)),
         left,
         top,
         width: right - left,
@@ -548,10 +506,6 @@ function worldPixelToLngLat(
 
 function wrapTileX(tileX: number, tileCount: number) {
   return ((tileX % tileCount) + tileCount) % tileCount;
-}
-
-function clampTileY(tileY: number, tileCount: number) {
-  return Math.min(tileCount - 1, Math.max(0, tileY));
 }
 
 function clamp(value: number, min: number, max: number) {

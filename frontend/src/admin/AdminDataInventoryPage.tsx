@@ -98,8 +98,28 @@ const defaultInventoryGroup: InventoryGroupDefinition = {
   isDefault: true,
 };
 
-const inventoryNameColumnWidth = 144;
+const inventoryGroupNameColumnWidth = 144;
+const inventoryResourceNameColumnWidth = 260;
 const inventoryActionColumnWidth = 112;
+const inventoryTableScrollX = 1280;
+const inventoryResourceColumnWidths: Record<string, number> = {
+  name: inventoryResourceNameColumnWidth,
+  dataType: 92,
+  dataSize: 150,
+  status: 112,
+  source: 190,
+  uploader: 150,
+  dataDate: 120,
+  updatedAt: 190,
+  actions: inventoryActionColumnWidth,
+};
+const inventoryEllipsisColumnKeys = new Set([
+  "name",
+  "source",
+  "uploader",
+  "dataDate",
+  "updatedAt",
+]);
 
 const filterFields: FilterField[] = [
   {
@@ -529,8 +549,17 @@ export default function AdminDataInventoryPage() {
       title: "数据资源",
       dataIndex: "name",
       key: "name",
-      width: 260,
-      render: (_, record) => <Button type="link">{record.name}</Button>,
+      width: inventoryResourceNameColumnWidth,
+      ellipsis: true,
+      render: (_, record) => (
+        <Button
+          type="link"
+          className="inventory-resource-name-button"
+          title={record.name}
+        >
+          {record.name}
+        </Button>
+      ),
     },
     {
       title: "类型",
@@ -575,9 +604,19 @@ export default function AdminDataInventoryPage() {
       key: "source",
       width: 190,
       render: (_, record) => (
-        <Space orientation="vertical" size={0}>
-          <span>{record.source || "未记录"}</span>
-          <Typography.Text type="secondary" className="admin-table-subtext">
+        <Space
+          orientation="vertical"
+          size={0}
+          className="inventory-table-stack-cell"
+        >
+          <Typography.Text ellipsis={{ tooltip: record.source || "未记录" }}>
+            {record.source || "未记录"}
+          </Typography.Text>
+          <Typography.Text
+            type="secondary"
+            className="admin-table-subtext"
+            ellipsis={{ tooltip: record.provider || "未记录提供单位" }}
+          >
             {record.provider || "未记录提供单位"}
           </Typography.Text>
         </Space>
@@ -588,10 +627,20 @@ export default function AdminDataInventoryPage() {
       key: "uploader",
       width: 150,
       render: (_, record) => (
-        <Space orientation="vertical" size={0}>
-          <span>{uploaderDisplayName(record)}</span>
+        <Space
+          orientation="vertical"
+          size={0}
+          className="inventory-table-stack-cell"
+        >
+          <Typography.Text ellipsis={{ tooltip: uploaderDisplayName(record) }}>
+            {uploaderDisplayName(record)}
+          </Typography.Text>
           {record.uploader?.username && (
-            <Typography.Text type="secondary" className="admin-table-subtext">
+            <Typography.Text
+              type="secondary"
+              className="admin-table-subtext"
+              ellipsis={{ tooltip: record.uploader.username }}
+            >
               {record.uploader.username}
             </Typography.Text>
           )}
@@ -618,7 +667,8 @@ export default function AdminDataInventoryPage() {
         title: "组名",
         dataIndex: "name",
         key: "name",
-        width: inventoryNameColumnWidth,
+        width: inventoryGroupNameColumnWidth,
+        ellipsis: true,
         render: (_, group) => (
           <Space size={6} className="inventory-group-name-cell">
             {editingGroupId === group.id ? (
@@ -694,7 +744,13 @@ export default function AdminDataInventoryPage() {
         render: (_, group) => (
           <Space orientation="vertical" size={0}>
             <span>{formatBytes(group.sizeBytes)}</span>
-            <Typography.Text type="secondary" className="admin-table-subtext">
+            <Typography.Text
+              type="secondary"
+              className="admin-table-subtext"
+              ellipsis={{
+                tooltip: `${group.itemCount} 条，${group.resources.length} 项数据`,
+              }}
+            >
               {group.itemCount} 条，{group.resources.length} 项数据
             </Typography.Text>
           </Space>
@@ -738,6 +794,7 @@ export default function AdminDataInventoryPage() {
           <span>共 {nextTotal} 条</span>
           <Button
             icon={<PlusOutlined />}
+            aria-label="新增组别"
             className="inventory-add-group-button"
             disabled={!canChange}
             onClick={openCreateGroupModal}
@@ -755,7 +812,8 @@ export default function AdminDataInventoryPage() {
           loading={tableLoading}
           columns={groupColumns}
           dataSource={inventoryGroups}
-          scroll={{ x: 1280 }}
+          tableLayout="fixed"
+          scroll={{ x: inventoryTableScrollX }}
           pagination={groupPagination}
           onRow={(group) => ({
             onDragOver: (event) => event.preventDefault(),
@@ -781,10 +839,12 @@ export default function AdminDataInventoryPage() {
                 <Table<AdminDataResource>
                   rowKey="id"
                   size="small"
+                  className="inventory-group-resource-table"
                   columns={nestedTableColumns}
                   dataSource={group.resources}
                   pagination={false}
-                  scroll={{ x: 1280 }}
+                  tableLayout="fixed"
+                  scroll={{ x: inventoryTableScrollX }}
                   onRow={(resource) => ({
                     draggable: canChange,
                     onDragStart: () => setDraggingResourceId(resource.id),
@@ -912,6 +972,7 @@ export default function AdminDataInventoryPage() {
         title="新增组别"
         open={Boolean(groupModal)}
         okText="新建"
+        okButtonProps={{ "aria-label": "新建" }}
         cancelText="取消"
         confirmLoading={savingGroup}
         onOk={saveGroupModal}
@@ -962,21 +1023,25 @@ function addResourceColumnSorter(
   if ("children" in column) {
     return column;
   }
+  const key = String(column.key ?? "");
+  const fixedColumn = {
+    ...column,
+    ...(inventoryResourceColumnWidths[key]
+      ? { width: inventoryResourceColumnWidths[key] }
+      : {}),
+    ...(inventoryEllipsisColumnKeys.has(key) ? { ellipsis: true } : {}),
+  };
   if (column.key === "name") {
     return {
-      ...column,
-      width: inventoryNameColumnWidth,
+      ...fixedColumn,
       sorter: resourceColumnSorters.name,
     };
   }
   if (column.key === "actions") {
-    return {
-      ...column,
-      width: inventoryActionColumnWidth,
-    };
+    return fixedColumn;
   }
-  const sorter = resourceColumnSorters[String(column.key ?? "")];
-  return sorter ? { ...column, sorter } : column;
+  const sorter = resourceColumnSorters[key];
+  return sorter ? { ...fixedColumn, sorter } : fixedColumn;
 }
 
 const resourceColumnSorters: Record<

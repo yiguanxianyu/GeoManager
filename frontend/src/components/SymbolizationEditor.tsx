@@ -19,9 +19,11 @@ import type { ReactNode } from "react";
 import { useCallback, useState } from "react";
 import { api } from "../api/client";
 import {
+  defaultVectorSymbolization,
   normalizeSymbolIconImage,
   type Anchor,
   type CircleSymbolization,
+  type ClusterSymbolization,
   type FillSymbolization,
   type HeatmapSymbolization,
   type LineSymbolization,
@@ -168,6 +170,10 @@ const symbolizationLabels: Record<string, string> = {
   "text-pitch-alignment": "标注俯仰对齐方式",
   "text-rotation-alignment": "标注旋转对齐方式",
   "text-transform": "标注大小写转换",
+  cluster: "点位聚合",
+  "cluster-enabled": "启用点位聚合",
+  "cluster-max-zoom": "聚合最大缩放级别",
+  "cluster-radius": "聚合半径",
   "text-allow-overlap": "允许标注重叠",
   "text-ignore-placement": "标注忽略避让",
   "text-optional": "标注可选显示",
@@ -335,6 +341,19 @@ export function VectorSymbolizationEditor({
     onChange({ ...value, heatmap: { ...value.heatmap, [key]: nextValue } });
   }
 
+  function updateCluster<Key extends keyof ClusterSymbolization>(
+    key: Key,
+    nextValue: ClusterSymbolization[Key],
+  ) {
+    onChange({
+      ...value,
+      cluster: {
+        ...(value.cluster ?? defaultVectorSymbolization.cluster),
+        [key]: nextValue,
+      },
+    });
+  }
+
   function applyPreset(kind: "point" | "symbol" | "heatmap" | "line" | "fill") {
     if (kind === "point") {
       onChange({
@@ -422,6 +441,7 @@ export function VectorSymbolizationEditor({
   const defaultLabelField =
     labelFieldOptions.find((option) => option.value)?.value ?? "";
   const labelEnabled = value.symbol.textField.trim().length > 0;
+  const cluster = value.cluster ?? defaultVectorSymbolization.cluster;
   const selectedHeatmapWeightField = value.heatmap.heatmapWeightField ?? "";
   const heatmapWeightFieldOptions = [
     { value: "", label: "按点位数量" },
@@ -780,6 +800,17 @@ export function VectorSymbolizationEditor({
               </>
             )}
 
+            {geometry.hasPoint && value.pointMode !== "heatmap" && (
+              <ControlRow label="点位聚合">
+                <Switch
+                  checked={cluster.enabled}
+                  checkedChildren="开启"
+                  unCheckedChildren="关闭"
+                  onChange={(enabled) => updateCluster("enabled", enabled)}
+                />
+              </ControlRow>
+            )}
+
             {geometry.hasLine && (
               <>
                 <Divider className="symbolization-divider" />
@@ -1023,6 +1054,33 @@ export function VectorSymbolizationEditor({
 
             {geometry.hasPoint && value.pointMode !== "heatmap" && (
               <>
+                <Divider className="symbolization-divider" />
+                <Typography.Text strong>聚合高级</Typography.Text>
+                <BooleanField
+                  label="cluster-enabled"
+                  value={cluster.enabled}
+                  onChange={(next) => updateCluster("enabled", next)}
+                />
+                {cluster.enabled && (
+                  <>
+                    <NumberField
+                      label="cluster-max-zoom"
+                      value={cluster.maxZoom}
+                      min={0}
+                      max={22}
+                      step={1}
+                      onChange={(next) => updateCluster("maxZoom", next)}
+                    />
+                    <NumberField
+                      label="cluster-radius"
+                      value={cluster.radius}
+                      min={1}
+                      max={200}
+                      step={1}
+                      onChange={(next) => updateCluster("radius", next)}
+                    />
+                  </>
+                )}
                 <Divider className="symbolization-divider" />
                 <Typography.Text strong>标注高级</Typography.Text>
                 <TextListField

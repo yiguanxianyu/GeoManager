@@ -172,12 +172,19 @@ export interface HeatmapSymbolization {
   heatmapColor: unknown[];
 }
 
+export interface ClusterSymbolization {
+  enabled: boolean;
+  maxZoom: number;
+  radius: number;
+}
+
 export interface VectorSymbolization {
   opacity: number;
   pointMode: PointSymbolMode;
   circle: CircleSymbolization;
   symbol: SymbolLayerSymbolization;
   heatmap: HeatmapSymbolization;
+  cluster: ClusterSymbolization;
   line: LineSymbolization;
   fill: FillSymbolization;
 }
@@ -326,6 +333,11 @@ export const defaultVectorSymbolization: VectorSymbolization = {
       "#d62828",
     ],
   },
+  cluster: {
+    enabled: false,
+    maxZoom: 12,
+    radius: 50,
+  },
   line: {
     lineColor: "#174f46",
     lineOpacity: 1,
@@ -403,6 +415,7 @@ export function cloneDefaultVectorSymbolization(): VectorSymbolization {
       ...defaultVectorSymbolization.heatmap,
       heatmapColor: [...defaultVectorSymbolization.heatmap.heatmapColor],
     },
+    cluster: { ...defaultVectorSymbolization.cluster },
     line: {
       ...defaultVectorSymbolization.line,
       lineDasharray: [...defaultVectorSymbolization.line.lineDasharray],
