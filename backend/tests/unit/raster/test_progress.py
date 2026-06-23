@@ -42,5 +42,8 @@ class ParseProgressPercentTests(SimpleTestCase):
     def test_detects_done_keyword(self):
         self.assertEqual(parse_progress_percent("all done"), 100)
 
-    def test_prefers_last_valid_number(self):
-        self.assertEqual(parse_progress_percent("10 then 80 then 50"), 50)
+    def test_ignores_plain_command_numbers(self):
+        self.assertIsNone(parse_progress_percent("gdalinfo -json 源文件"))
+
+    def test_parses_gdal_dot_progress(self):
+        self.assertEqual(parse_progress_percent("0...10...20..."), 20)

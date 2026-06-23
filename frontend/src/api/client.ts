@@ -236,7 +236,18 @@ async function requestJson<T>(
   return data as T;
 }
 
-async function requestForm<T>(url: string, formData: FormData): Promise<T> {
+interface FormRequestOptions {
+  onUploadProgress?: (percent: number) => void;
+}
+
+async function requestForm<T>(
+  url: string,
+  formData: FormData,
+  options: FormRequestOptions = {},
+): Promise<T> {
+  if (options.onUploadProgress) {
+    return requestFormWithUploadProgress<T>(url, formData, options);
+  }
   const headers = new Headers();
   headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
   const response = await fetch(
@@ -259,6 +270,62 @@ async function requestForm<T>(url: string, formData: FormData): Promise<T> {
     );
   }
   return data as T;
+}
+
+function requestFormWithUploadProgress<T>(
+  url: string,
+  formData: FormData,
+  options: FormRequestOptions,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.withCredentials = true;
+    xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken") ?? "");
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable || event.total <= 0) {
+        return;
+      }
+      options.onUploadProgress?.(
+        Math.min(99, Math.round((event.loaded / event.total) * 100)),
+      );
+    };
+
+    xhr.onerror = () => {
+      reject(new ApiError("网络请求失败", xhr.status || 0));
+    };
+
+    xhr.onload = () => {
+      const data = parseXhrBody(xhr);
+      if (xhr.status < 200 || xhr.status >= 300) {
+        if (xhr.status === 403 && onForbiddenHandler) {
+          onForbiddenHandler();
+        }
+        reject(new ApiError(errorMessage(data, xhr.status), xhr.status, data));
+        return;
+      }
+      options.onUploadProgress?.(100);
+      resolve(data as T);
+    };
+
+    xhr.send(formData);
+  });
+}
+
+function parseXhrBody(xhr: XMLHttpRequest) {
+  if (xhr.status === 204 || !xhr.responseText) {
+    return undefined;
+  }
+  const contentType = xhr.getResponseHeader("Content-Type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      return JSON.parse(xhr.responseText);
+    } catch {
+      return xhr.responseText;
+    }
+  }
+  return xhr.responseText;
 }
 
 async function parseResponseBody(response: Response) {
@@ -457,13 +524,19 @@ export const api = {
     unwrap<ImportValidateResult>(
       sdk.importValidate({ body: { file, payload: JSON.stringify(payload) } }),
     ),
-  importRaster: (file: File, name: string) => {
+  importRaster: (
+    file: File,
+    name: string,
+    onUploadProgress?: (percent: number) => void,
+  ) => {
     const formData = new FormData();
     formData.append("file", file);
     if (name.trim()) {
       formData.append("name", name.trim());
     }
-    return requestForm<RasterJob>("/api/raster/import/", formData);
+    return requestForm<RasterJob>("/api/raster/import/", formData, {
+      onUploadProgress,
+    });
   },
   resourceProfile: (resource: ResourceListItem) =>
     unwrap<DataResourceProfile>(

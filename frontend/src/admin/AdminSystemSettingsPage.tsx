@@ -4,6 +4,7 @@ import { App, Skeleton } from "antd";
 import type { Key } from "react";
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useAppContext } from "../contexts/AppContext";
 import type { AdminSettings, AdminSettingsUpdate } from "../types";
 
 interface BasicSettingValues {
@@ -131,6 +132,7 @@ const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptio
 
 export default function AdminSystemSettingsPage() {
   const { message } = App.useApp();
+  const { bootstrap, setBootstrap } = useAppContext();
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -178,6 +180,14 @@ export default function AdminSystemSettingsPage() {
     };
     const updated = await api.updateAdminSettings(payload);
     setSettings(updated);
+    setBootstrap({
+      ...bootstrap,
+      systemName: updated.systemName,
+      allowRegistration: updated.allowRegistration,
+      map: updated.map,
+      limits: updated.limits,
+    });
+    document.title = updated.systemName;
     message.success("系统设置已写入运行配置");
     return true;
   }

@@ -62,7 +62,7 @@ type AccessScopeId = number | typeof selfAccessScopeId;
 
 export default function AdminDataImportPage() {
   const { message } = AntApp.useApp();
-  const { bootstrap, user } = useAppContext();
+  const { bootstrap, setBootstrap, user } = useAppContext();
   const location = useLocation();
   const navigate = useNavigate();
   const allowNavigationRef = useRef(false);
@@ -110,6 +110,9 @@ export default function AdminDataImportPage() {
     useState<RasterDimensions | null>(null);
   const [rasterInspecting, setRasterInspecting] = useState(false);
   const [rasterUploading, setRasterUploading] = useState(false);
+  const [rasterUploadProgress, setRasterUploadProgress] = useState(0);
+  const [completedRasterUploadProgress, setCompletedRasterUploadProgress] =
+    useState(0);
   const [rasterJob, setRasterJob] = useState<RasterJob | null>(null);
   const [unsupportedFile, setUnsupportedFile] = useState<File | null>(null);
   const hasUnfinishedImport = Boolean(
@@ -205,6 +208,24 @@ export default function AdminDataImportPage() {
       ignore = true;
     };
   }, [user?.permissions.canUploadData]);
+
+  useEffect(() => {
+    let ignore = false;
+    api
+      .bootstrap()
+      .then((nextBootstrap) => {
+        if (!ignore) {
+          setBootstrap(nextBootstrap);
+          document.title = nextBootstrap.systemName;
+        }
+      })
+      .catch(() => {
+        // 导入页可继续使用启动时配置；后端仍会按当前 TOML 做最终校验。
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [setBootstrap]);
 
   useEffect(() => {
     if (!hasUnfinishedImport) {
@@ -382,6 +403,8 @@ export default function AdminDataImportPage() {
     setRasterInspecting(false);
     setRasterJob(null);
     setRasterUploading(false);
+    setRasterUploadProgress(0);
+    setCompletedRasterUploadProgress(0);
     setUnsupportedFile(null);
     setCurrentStep(0);
     form.resetFields();
@@ -517,9 +540,14 @@ export default function AdminDataImportPage() {
       return;
     }
     setRasterUploading(true);
+    setRasterUploadProgress(0);
+    setCompletedRasterUploadProgress(0);
     setRasterJob(null);
     try {
-      const job = await api.importRaster(rasterFile, rasterName);
+      const job = await api.importRaster(rasterFile, rasterName, (percent) => {
+        setRasterUploadProgress(percent);
+      });
+      setCompletedRasterUploadProgress(100);
       setRasterJob(job);
       setCurrentStep(2);
       message.success("栅格导入任务已提交，后台正在预处理");
@@ -914,6 +942,22 @@ export default function AdminDataImportPage() {
                   disabled={rasterUploading}
                 />
               </section>
+
+              {rasterUploading && (
+                <section className="import-section raster-upload-progress">
+                  <Space>
+                    <Tag color="processing">正在上传</Tag>
+                    <Typography.Text type="secondary">
+                      已上传 {rasterUploadProgress}%
+                    </Typography.Text>
+                  </Space>
+                  <Progress
+                    percent={rasterUploadProgress}
+                    status="active"
+                    showInfo
+                  />
+                </section>
+              )}
             </div>
           )}
 
@@ -1062,10 +1106,20 @@ export default function AdminDataImportPage() {
                       任务 ID：{rasterJob.id}
                     </Typography.Text>
                   </Space>
-                  <Progress
-                    percent={rasterJob.progressPercent}
-                    status={rasterJobProgressStatus(rasterJob)}
-                  />
+                  <section className="import-section raster-upload-progress">
+                    <Typography.Text strong>上传进度</Typography.Text>
+                    <Progress
+                      percent={completedRasterUploadProgress}
+                      status="success"
+                    />
+                  </section>
+                  <section className="import-section raster-gdal-progress">
+                    <Typography.Text strong>GDAL 预处理进度</Typography.Text>
+                    <Progress
+                      percent={rasterJob.progressPercent}
+                      status={rasterJobProgressStatus(rasterJob)}
+                    />
+                  </section>
                   {rasterJob.status === "ready" && (
                     <Alert
                       type="success"

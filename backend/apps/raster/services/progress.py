@@ -8,8 +8,13 @@ def normalize_progress_text(text: str) -> str:
 
 
 def parse_progress_percent(text: str) -> int | None:
-    matches = re.findall(r"(?<!\d)(\d{1,3})(?:\.\d+)?(?=\D|$)", text)
-    for raw in reversed(matches):
+    percent_matches = re.findall(r"(?<!\d)(\d{1,3})(?:\.\d+)?\s*%", text)
+    for raw in reversed(percent_matches):
+        value = int(raw)
+        if 0 <= value <= 100:
+            return value
+    progress_marks = re.findall(r"(?<!\d)(\d{1,3})(?:\.\.+|\.+)", text)
+    for raw in reversed(progress_marks):
         value = int(raw)
         if 0 <= value <= 100:
             return value

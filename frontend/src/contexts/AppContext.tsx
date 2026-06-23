@@ -4,6 +4,7 @@ import type { Bootstrap, User } from "../types";
 export interface AppContextValue {
   bootstrap: Bootstrap;
   user: User | null;
+  setBootstrap: (bootstrap: Bootstrap) => void;
   setUser: (user: User | null) => void;
 }
 

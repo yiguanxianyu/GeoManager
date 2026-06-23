@@ -156,7 +156,14 @@ function renderHeader(
   return render(
     <ConfigProvider locale={zhCN} theme={appTheme}>
       <AntApp>
-        <AppContext.Provider value={{ bootstrap, user: contextUser, setUser }}>
+        <AppContext.Provider
+          value={{
+            bootstrap,
+            user: contextUser,
+            setBootstrap: vi.fn(),
+            setUser,
+          }}
+        >
           <MemoryRouter>
             <WorkspaceHeader
               activeTab="map"

@@ -36,6 +36,7 @@ from apps.core.api import (
 )
 from apps.core.auth_views import serialize_user
 from apps.core.config import (
+    load_project_config,
     load_runtime_config_document,
     update_runtime_application_config,
 )
@@ -759,6 +760,7 @@ def admin_settings(request):
 
     if patch:
         update_runtime_application_config(settings.PROJECT_CONFIG, patch)
+        _reload_runtime_project_config()
         if "system" in patch and "allow_registration" in patch["system"]:
             SystemSetting.objects.update_or_create(
                 pk=1,
@@ -767,6 +769,15 @@ def admin_settings(request):
         log_operation(request.user, "系统设置", "保存配置", "success", "", request)
 
     return JsonResponse(_serialize_application_settings(request.user))
+
+
+def _reload_runtime_project_config() -> None:
+    config = load_project_config(
+        settings.PROJECT_CONFIG.config_path,
+        program_root=settings.PROGRAM_ROOT,
+    )
+    settings.PROJECT_CONFIG = config
+    settings.DATA_UPLOAD_MAX_MEMORY_SIZE = None
 
 
 @require_GET

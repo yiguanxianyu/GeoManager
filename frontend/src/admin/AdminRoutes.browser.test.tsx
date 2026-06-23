@@ -32,6 +32,7 @@ import AdminWorkspaceManagementPage from "./AdminWorkspaceManagementPage";
 import ResourceLayout from "../resource/ResourceLayout";
 
 const mockApi = vi.hoisted(() => ({
+  bootstrap: vi.fn(),
   logout: vi.fn(),
   adminProfile: vi.fn(),
   updateAdminProfile: vi.fn(),
@@ -335,6 +336,7 @@ function AdminTestProviders({
           value={{
             bootstrap,
             user,
+            setBootstrap: vi.fn(),
             setUser: vi.fn(),
           }}
         >
@@ -350,6 +352,7 @@ describe("admin routes", () => {
     for (const fn of Object.values(mockApi)) {
       fn.mockReset();
     }
+    mockApi.bootstrap.mockResolvedValue(bootstrap);
     mockGeoTiff.fromArrayBuffer.mockReset();
     mockApi.logout.mockResolvedValue({ detail: "已退出" });
     mockApi.adminProfile.mockResolvedValue({
@@ -540,17 +543,26 @@ describe("admin routes", () => {
         getHeight: vi.fn().mockReturnValue(128),
       }),
     });
-    mockApi.importRaster.mockResolvedValue({
-      id: "raster-job-1",
-      kind: "import",
-      status: "running",
-      progressPercent: 35,
-      messages: ["已上传栅格文件", "开始 gdalwarp 预处理"],
-      result: null,
-      error: "",
-      startedAt: 1782100000,
-      finishedAt: null,
-    });
+    mockApi.importRaster.mockImplementation(
+      (
+        _file: File,
+        _name: string,
+        onUploadProgress?: (percent: number) => void,
+      ) => {
+        onUploadProgress?.(42);
+        return Promise.resolve({
+          id: "raster-job-1",
+          kind: "import",
+          status: "running",
+          progressPercent: 35,
+          messages: ["已上传栅格文件", "开始 gdalwarp 预处理"],
+          result: null,
+          error: "",
+          startedAt: 1782100000,
+          finishedAt: null,
+        });
+      },
+    );
     mockApi.rasterJob.mockResolvedValue({
       id: "raster-job-1",
       kind: "import",
@@ -1150,15 +1162,44 @@ describe("admin routes", () => {
 
     expect(await screen.findByText("已识别为栅格数据")).toBeInTheDocument();
     expect(screen.getByLabelText("栅格数据名称")).toHaveValue("poplar-2026");
+    let resolveRasterUpload: ((value: unknown) => void) | undefined;
+    mockApi.importRaster.mockImplementationOnce(
+      (
+        _file: File,
+        _name: string,
+        onUploadProgress?: (percent: number) => void,
+      ) => {
+        onUploadProgress?.(42);
+        return new Promise((resolve) => {
+          resolveRasterUpload = resolve;
+        });
+      },
+    );
     fireEvent.click(screen.getByRole("button", { name: /上传并预处理/ }));
 
     await waitFor(() => {
       expect(mockApi.importRaster).toHaveBeenCalledWith(
         rasterFile,
         "poplar-2026",
+        expect.any(Function),
       );
     });
+    expect(await screen.findByText("正在上传")).toBeInTheDocument();
+    expect(screen.getByText("已上传 42%")).toBeInTheDocument();
+    resolveRasterUpload?.({
+      id: "raster-job-1",
+      kind: "import",
+      status: "running",
+      progressPercent: 35,
+      messages: ["已上传栅格文件", "开始 gdalwarp 预处理"],
+      result: null,
+      error: "",
+      startedAt: 1782100000,
+      finishedAt: null,
+    });
     expect(await screen.findByText("正在预处理")).toBeInTheDocument();
+    expect(screen.getByText("上传进度")).toBeInTheDocument();
+    expect(screen.getByText("GDAL 预处理进度")).toBeInTheDocument();
 
     await waitFor(
       () => {

@@ -34,6 +34,7 @@ from apps.core.storage import (
     table_data_path,
 )
 from apps.raster.models import RasterDataset
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.test import Client, SimpleTestCase, TestCase, override_settings
@@ -136,6 +137,39 @@ class CsrfSettingsTests(SimpleTestCase):
 
 
 class AdminSettingsApiTests(TestCase):
+    def test_update_refreshes_runtime_upload_limit_without_restart(self):
+        user = get_user_model().objects.create_user(
+            username="settings-upload-admin", password="pass12345"
+        )
+        grant(user, ("core", "manage_system_settings"))
+        self.client.force_login(user)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            config_path = root / "app.toml"
+            config_path.write_text(
+                _minimal_config_text(root / "app", root / "research").replace(
+                    "upload_max_mb = 512", "upload_max_mb = 300"
+                ),
+                encoding="utf-8",
+            )
+            config = load_project_config(config_path, program_root=Path("/opt/app"))
+
+            with override_settings(
+                PROJECT_CONFIG=config,
+                PROGRAM_ROOT=Path("/opt/app"),
+                DATA_UPLOAD_MAX_MEMORY_SIZE=300 * 1024 * 1024,
+            ):
+                response = self.client.post(
+                    "/api/admin/settings/",
+                    data=json.dumps({"limits": {"uploadMaxMb": 1000}}),
+                    content_type="application/json",
+                )
+
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(settings.PROJECT_CONFIG.limits.upload_max_mb, 1000)
+                self.assertIsNone(settings.DATA_UPLOAD_MAX_MEMORY_SIZE)
+
     def test_rejects_invalid_map_numbers_without_writing_config(self):
         user = get_user_model().objects.create_user(
             username="settings-admin", password="pass12345"

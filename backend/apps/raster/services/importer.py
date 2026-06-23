@@ -11,6 +11,7 @@ from django.conf import settings
 from django.db import OperationalError, ProgrammingError
 from django.utils import timezone
 
+from apps.core.config import load_runtime_config_document
 from apps.core.storage import (
     raster_metadata_path,
     raster_processed_path,
@@ -39,11 +40,18 @@ def is_raster_file(path: Path) -> bool:
 
 
 def validate_raster_upload_size(uploaded_file) -> None:
-    max_bytes = settings.PROJECT_CONFIG.limits.upload_max_mb * 1024 * 1024
+    upload_max_mb = current_upload_max_mb()
+    max_bytes = upload_max_mb * 1024 * 1024
     if uploaded_file.size > max_bytes:
-        raise RasterImportError(
-            f"栅格文件大小不能超过 {settings.PROJECT_CONFIG.limits.upload_max_mb} MB"
-        )
+        raise RasterImportError(f"栅格文件大小不能超过 {upload_max_mb} MB")
+
+
+def current_upload_max_mb() -> int:
+    raw = load_runtime_config_document(settings.PROJECT_CONFIG)
+    try:
+        return int(raw["application"]["limits"]["upload_max_mb"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RasterImportError("无法读取栅格上传大小限制") from exc
 
 
 def validate_raster_pixel_size(info: dict[str, Any]) -> None:

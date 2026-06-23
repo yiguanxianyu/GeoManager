@@ -134,7 +134,7 @@ export default function App() {
   }
 
   return (
-    <AppContext.Provider value={{ bootstrap, user, setUser }}>
+    <AppContext.Provider value={{ bootstrap, user, setBootstrap, setUser }}>
       <Suspense fallback={<RouteLoading />}>
         <Routes>
           <Route

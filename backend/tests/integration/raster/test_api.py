@@ -12,7 +12,11 @@ from apps.audit.models import OperationLog
 from apps.catalog.models import DataResource
 from apps.core.config import load_project_config
 from apps.raster.models import RasterDataset
-from apps.raster.services import RasterTileOutsideExtent, scan_unprocessed_source_files
+from apps.raster.services import (
+    RasterTileOutsideExtent,
+    scan_unprocessed_source_files,
+    validate_raster_upload_size,
+)
 
 
 class RasterPermissionApiTests(TestCase):
@@ -248,6 +252,23 @@ class RasterPermissionApiTests(TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.json()["detail"], "栅格文件大小不能超过 1 MB")
             start_import_job.assert_not_called()
+
+    def test_upload_size_validation_uses_latest_toml_limit(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = self._config(Path(tmpdir), upload_max_mb=1)
+            updated_text = config.config_path.read_text(encoding="utf-8").replace(
+                "upload_max_mb = 1", "upload_max_mb = 2"
+            )
+            config.config_path.write_text(updated_text, encoding="utf-8")
+            uploaded_file = SimpleUploadedFile(
+                "latest-limit.tif",
+                b"x",
+                content_type="image/tiff",
+            )
+            uploaded_file.size = 2 * 1024 * 1024 - 1
+
+            with override_settings(PROJECT_CONFIG=config):
+                validate_raster_upload_size(uploaded_file)
 
     def test_import_endpoint_rejects_uploaded_raster_over_pixel_limit(self):
         grant(self.user, ("raster", "manage_raster_dataset"))
