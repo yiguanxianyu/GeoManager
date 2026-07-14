@@ -209,6 +209,8 @@ config/
 
 ```text
 vector/
+  original/
+    uploaded/
 raster/
   original/
   preprocessed/
@@ -219,7 +221,7 @@ gene/
 table/
 ```
 
-GeoPackage 矢量数据放入科研数据根目录的 `vector/`，原始栅格数据放入 `raster/original/`，基因数据放入 `gene/`，表格数据放入 `table/`。栅格符号化在后端完成，前端只加载后端生成的 XYZ 或 PNG 结果。
+统一 GeoPackage 矢量数据放入科研数据根目录的 `vector/vector.gpkg`；浏览器上传的 Shapefile ZIP、GeoJSON 和 GeoPackage 原始文件以 UUID 文件名归档到 `vector/original/uploaded/`，原始文件名和 SHA256 保存于 `VectorDataset`。栅格原始数据包放入 `raster/original/uploaded/{uuid}/`，GeoTIFF/IMG 可单文件归档，ENVI 数据保留主文件与 HDR，VRT 保留全部包内引用文件和 `manifest.json`；展示 COG 写入 `raster/preprocessed/`。基因数据放入 `gene/`，表格数据放入 `table/`。栅格符号化在后端完成，前端只加载后端生成的 XYZ 或 PNG 结果。
 
 ## 常见问题
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.contrib.auth.models import Group
+
 from apps.catalog.models import DataResource, MapLayer
 from apps.core.initialization import ensure_superadmin_defaults
 from apps.raster.models import RasterDataset
@@ -15,6 +17,8 @@ def upsert_catalog_records(
     processed_info: dict[str, Any],
     default_rules: dict[str, Any],
     bounds_4326: list[float],
+    uploader_id: int | None = None,
+    access_group_ids: list[int] | None = None,
 ) -> tuple[DataResource, MapLayer]:
     spatial_extent = (
         ",".join(f"{value:.6f}" for value in bounds_4326) if bounds_4326 else ""
@@ -35,10 +39,13 @@ def upsert_catalog_records(
             "file_format": "COG",
             "storage_path": dataset.processed_relative_path,
             "description": "由栅格上传或目录扫描导入的预处理数据集。",
-            "quality_note": "导入时使用 gdalwarp 统一投影到 EPSG:3857 并输出 COG。",
+            "quality_note": (
+                "导入时保留原始栅格数据包，并使用 gdalwarp 统一生成 EPSG:3857 "
+                f"展示 COG；重采样方式为 {dataset.resampling}。"
+            ),
             "size_bytes": dataset.source_file_size + dataset.processed_file_size,
             "item_count": 1,
-            "maintainer": None,
+            "maintainer_id": uploader_id,
             "status": DataResource.Status.ACTIVE,
         },
     )
@@ -61,6 +68,12 @@ def upsert_catalog_records(
     _, superadmin_group = ensure_superadmin_defaults(
         create_account=False, attach_existing_superusers=False
     )
-    data_resource.access_groups.set([superadmin_group])
-    map_layer.access_groups.set([superadmin_group])
+    selected_groups = list(
+        Group.objects.filter(pk__in=access_group_ids or []).exclude(
+            pk=superadmin_group.pk
+        )
+    )
+    groups = [superadmin_group, *selected_groups]
+    data_resource.access_groups.set(groups)
+    map_layer.access_groups.set(groups)
     return data_resource, map_layer

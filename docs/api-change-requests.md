@@ -34,6 +34,14 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260710-001 | Verified | `GET /api/layers/`, admin data-resource visualization payloads | schema clarification | Updated | Updated | N/A | Passed | Adds manual graduated numeric classes under existing vector symbolization renderer |
 | API-20260710-002 | Verified | `GET /api/admin/dashboard/` | response fields | Updated | Updated | Implemented | Focused passed | Adds permission-scoped data overview spatial summary for coverage map, heatmap, and coverage ranking |
 | API-20260710-003 | Verified | `GET /api/catalog/resources/{id}/visualization-summary/` | response fields | Updated | Updated | Implemented | Focused passed | Adds recommended symbolization templates for five coordinate-bearing business table types |
+| API-20260713-001 | Verified | `POST /api/catalog/vector-import/*`, schema summary and resource domain enum | new endpoints / enum addition | Updated | Added | Implemented | Focused passed | Adds vector source-file preview, validation, GeoPackage import, metadata registration, and the vector business domain type |
+| API-20260713-002 | Verified | `POST /api/raster/import/preview/`, raster import/jobs/tiles | new endpoint / multipart and response fields | Updated | Added | Implemented | Passed | Adds GDAL-backed raster packages, DAT+HDR, persistent jobs/styles, configurable bands and stable tile caching |
+| API-20260714-001 | Verified | `GET /api/admin/dashboard/` | statistics behavior clarification | Updated | Updated | Implemented | Focused passed | Separates authenticated activity from successful login events and fixes cross-midnight session undercounting |
+| API-20260714-002 | Verified | `GET /api/catalog/resources/` | query parameter / response field | Updated | Updated | Implemented | Focused passed | Adds explicit spatial/non-spatial resource classification so map and non-geo workspaces receive isolated lists |
+| API-20260713-003 | Verified | `GET /api/admin/data/resources/` | response field / grouping semantics | Updated | Updated | Implemented | Focused passed | Adds business type data for automatic inventory system groups while preserving custom groups |
+| API-20260714-003 | Verified | `/api/catalog/map-compositions/*` | new endpoints / models / permissions / multipart export | Updated | Added | Implemented | Passed | Adds persisted map layouts, immutable output versions, PNG/JPG/PDF artifacts and publish workflow |
+| API-20260714-004 | Verified | `GET/POST /api/catalog/workspaces/*`, `GET/POST /api/admin/workspaces/*` | visibility behavior / request and response fields | Updated | Updated | Implemented | Focused passed | Makes superadmin visibility unconditional, exposes shared active workspaces in the map, and adds uploader-managed access scopes |
+| API-20260714-005 | Verified | `POST /api/auth/register/`, `GET/POST /api/admin/role-applications/*`, `POST /api/users/` | request validation / new endpoints / role workflow | Updated | Updated | Verified | Passed | Requires normalized unique email, fixed ordinary-user registration, research-role application review and transitional password recovery guidance |
 
 ## Entry Template
 
@@ -51,6 +59,84 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Verification: commands or response checks required before marking implemented
 - Result: current backend/frontend verification result
 ```
+
+## API-20260714-005 - Registration Email And Research Role Application
+
+- Status: Verified
+- Owner: Frontend/backend implementer
+- Endpoints: `POST /api/auth/register/`, `GET /api/admin/role-applications/`, `POST /api/admin/role-applications/{applicationId}/review/`, `POST /api/users/`
+- Change type: request body | validation behavior | new endpoints | permission behavior | mock data
+- OpenAPI change: Makes registration and administrator-created account email mandatory, defines lowercase non-empty email uniqueness, adds `accountPurpose` and conditional research-application fields, returns the submitted application, and adds permission-gated list/review endpoints.
+- Mock examples: `mock/prism/examples/00-public-auth.json`, `mock/prism/examples/10-admin-auth.json`
+- Frontend reason: Self-registration must map safely to the existing built-in roles without allowing users to grant themselves elevated permissions, while the current no-mail transition still requires reliable contact data and a clear administrator-assisted password reset path.
+- Backend implementation notes: Keep every self-registered account in the ordinary-user group, persist a separate pending research-role application, normalize and reserve unique email identities, approve by replacing the ordinary role with the research role while retaining custom roles, reject without changing permissions, and record review operations.
+- Verification: Run OpenAPI lint/generation/change checks, Prism example injection, Django migration/system checks, focused registration/email/review tests, frontend registration/admin tests, typecheck and production build.
+- Result: Verified with OpenAPI lint and regenerated client types, bundled YAML/HTML documentation, Prism example injection, API change tracking, Django system and migration checks, 13 focused registration/email/role-review permission tests, frontend typecheck, 185 frontend unit tests, production build, and targeted system-Chrome browser tests for research registration and administrator approval. The repository-wide browser command still requires its configured Playwright Chromium download; the broader existing core suite retains unrelated Windows TOML/path/encoding failures.
+
+## API-20260714-003 - Formal Map Composition And Thematic Product Workflow
+
+- Status: Verified
+- Owner: Frontend/backend implementer
+- Endpoints: `GET/POST /api/catalog/map-compositions/`, `GET/POST /api/catalog/map-compositions/{compositionId}/`, `POST /api/catalog/map-compositions/{compositionId}/versions/`, `GET /api/catalog/map-compositions/{compositionId}/versions/{versionNumber}/file/`
+- Change type: new endpoint | new models | request/response schemas | multipart upload | permission behavior | binary download | mock data
+- OpenAPI change: Adds typed map composition drafts linked to project workspaces, lightweight layout JSON, immutable exported versions, status transitions, PNG/JPG/PDF metadata, preview/download URLs, and six composition permission flags in the current-user response.
+- Mock examples: `mock/prism/examples/50-map-compositions.json`
+- Frontend reason: The geographic workspace needs a complete project-to-layout-to-thematic-product workflow with paper settings, map frames, legends, north arrows, scale bars, overview maps, grids, sources, notes, preview, versioning and export.
+- Backend implementation notes: Persist composition metadata in the application database, store generated artifacts only under the TOML-driven business exports directory, reject embedded source data/Data URLs in layout JSON, validate uploaded PNG dimensions, convert the client-rendered master image to the selected output format, enforce Django permissions and record audit targets.
+- Verification: Run OpenAPI lint/generation/check, Prism bundle/example injection, Django migrations/system checks, focused map-composition API/model/export tests, frontend typecheck/tests/build, and a signed-in browser workflow covering create, edit, version generation, preview, download and publish.
+- Result: Verified with focused map-composition/workspace/auth Django tests, OpenAPI lint and regenerated types, API change tracking, Prism example injection, 179 frontend unit tests, frontend typecheck, production build and targeted lint. A signed-in real-browser workflow completed project creation, composition editing, geographic and Web Mercator grids, overview map, legend/source/note rendering, draft save, PNG V1 generation and preview, publish, unpublish and archive. The repository browser-test command remains unavailable because its configured Playwright Chromium executable is not installed.
+
+## API-20260714-004 - Shared Workspace Visibility And Superadmin Invariant
+
+- Status: Verified
+- Owner: Frontend/backend implementer
+- Endpoints: `GET/POST /api/catalog/workspaces/`, `GET/POST /api/catalog/workspaces/{workspaceId}/`, `GET /api/admin/workspaces/`, `POST /api/admin/workspaces/{workspaceId}/`
+- Change type: permission behavior | response fields | request body | mock data | data migration
+- OpenAPI change: Changes the normal workspace list/detail from owner-only to owner-or-role-visible active objects with a superadmin all-object bypass; adds access groups and per-object owner/edit/delete flags, returns selectable access groups, and accepts `accessGroupIds` on create/update while keeping the superadmin group server-controlled.
+- Mock examples: `mock/prism/examples/30-catalog-vector.json`, `mock/prism/examples/25-admin-managed-assets.json`
+- Frontend reason: Superadmins and explicitly shared users must be able to discover and load engineering/topic snapshots saved by other uploaders, while owners need to set visibility during save and shared viewers must not receive edit/delete controls.
+- Backend implementation notes: Centralize workspace visibility filtering, force the protected superadmin group onto new and historical workspaces, keep normal updates owner-only, exclude the superadmin group from selectable scopes, and preserve inactive objects only in the admin management surface.
+- Verification: Run migration checks, focused workspace API tests, OpenAPI generation/lint/change checks, frontend typecheck and focused workspace/admin tests, then verify list counts, shared loading, owner-only editing and admin map loading in a signed-in browser.
+- Result: Verified with OpenAPI lint and generated types, Prism bundle/example injection, API change request validation, Django system/migration checks, focused map-composition/workspace/auth tests, frontend typecheck, 179 unit tests and production build. Browser workflow verification is tracked separately because it requires a running signed-in local stack with map tile access.
+
+## API-20260714-001 - Reliable Active Account And Login Statistics
+
+- Status: Verified
+- Owner: Frontend/backend implementer
+- Endpoints: `GET /api/admin/dashboard/`
+- Change type: statistics behavior clarification | mock data | documentation clarification
+- OpenAPI change: Keeps the existing response shape but redefines `activeUsers.count` and `series[].count` as authenticated API activity metrics, while `loginCount` and `ranking[].loginCount` remain successful session-creation metrics. Successful authentication includes password login, guest login, and registration auto-login.
+- Mock examples: `mock/prism/examples/20-admin-dashboard-data.json`
+- Frontend reason: A session that remains signed in across midnight was shown as zero active users even while the account was actively querying and importing data, because the previous implementation treated login events as activity.
+- Backend implementation notes: Record at most one activity row per user and local-time hour, backfill historical successful operation logs, identify authentication events with stable event codes instead of Chinese display text, preserve principal visibility rules, and keep login totals separate from activity counts.
+- Verification: run the audit migration check, focused dashboard/auth tests, OpenAPI generation/checks, frontend route tests, typecheck, and formatting checks.
+- Result: Verified by focused backend tests covering carried sessions, stable login events, daily series, and existing dashboard permissions, plus OpenAPI/frontend checks.
+
+## API-20260714-002 - Geographic And Non-Geographic Resource Isolation
+
+- Status: Verified
+- Owner: Frontend/backend implementer
+- Endpoints: `GET /api/catalog/resources/`
+- Change type: query parameter | response field | filtering behavior | mock data
+- OpenAPI change: Adds `spatialClass=spatial|non_spatial` and `DataResource.spatialClass`; documents that vector/raster resources are spatial while table/gene/document/image resources are non-spatial, independently of `domainType`.
+- Mock examples: `mock/prism/examples/30-catalog-vector.json`
+- Frontend reason: Plain Excel/CSV imports without usable longitude/latitude columns must disappear from the map resource list and appear immediately in the non-geographic workspace resource list, including after manual refresh.
+- Backend implementation notes: Derive the resource classification from `DataResource.data_type`, validate the query value, preserve existing permission and business-domain filters, and return the classification in serialized resources.
+- Verification: run OpenAPI lint/generation, API change request check, focused catalog list/import tests, frontend typecheck and focused workspace tests, then validate both workspaces in the local browser.
+- Result: Verified with OpenAPI lint and generated types, Prism bundle/example injection, API change request validation, focused Django resource/import tests, frontend typecheck and unit tests, and a real signed-in Chrome check confirming the imported SQLite table appears and refreshes in `/nongeo` while remaining absent from `/map`. The repository browser-test command remains unavailable because its configured Playwright Chromium binary is not installed.
+
+## API-20260713-001 - Vector Source Import And Business Domain
+
+- Status: Verified
+- Owner: Frontend/backend implementer
+- Endpoints: `POST /api/catalog/vector-import/preview/`, `POST /api/catalog/vector-import/validate/`, `POST /api/catalog/vector-import/commit/`, `GET /api/data-schema/summary/`, `GET /api/catalog/resources/`
+- Change type: new endpoint | request body | response fields | enum addition | mock data | backend model
+- OpenAPI change: Adds typed vector source preview, validation, and commit responses for Shapefile ZIP, GeoJSON, and GeoPackage; extends `DataDomainType` with `vector`; documents CRS, encoding, geometry quality, duplicate-name, access-group, and permission behavior.
+- Mock examples: `mock/prism/examples/30-catalog-vector.json`, `mock/prism/examples/45-domain-schema.json`
+- Frontend reason: The admin import page must replace the previous “vector import not yet supported” result with a complete typed workflow that previews source layers, allows encoding/CRS and geometry-quality decisions, and registers the imported resource for immediate use in the geographic workspace.
+- Backend implementation notes: Add `VectorDataset`, retain original uploads under the configured research vector directory, normalize valid geometries to EPSG:4326 in the shared GeoPackage, create `DataResource`/`MapLayer`/`ResourceDomain`/`SourceDataset`, reuse existing access groups and audit logging, and keep existing Excel/CSV import endpoints unchanged.
+- Verification: run OpenAPI lint/generation, API change request check, Prism mock build, Django migration/system checks, focused vector import integration tests, frontend API client tests, frontend typecheck, formatting checks, and production build.
+- Result: Verified with OpenAPI lint and generated types, Prism bundle/example injection, API change request validation, Django system and focused migration checks, vector import/domain/schema integration tests, actual GB18030 Shapefile preview, frontend typecheck, targeted lint/format checks, mock example tests, and production build. Browser-mode API tests remain blocked because the configured Playwright Chromium executable is not installed; the broader legacy import suite still contains existing Windows GeoPackage/SQLite file-lock failures and one unrelated coordinate-format expectation failure.
 
 ## API-20260710-002 - Data Overview Spatial Summary
 
@@ -210,7 +296,7 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 
 ## API-20260630-001 - Built-In Role Permission Baseline
 
-- Status: BackendReady
+- Status: Verified
 - Owner: Frontend/backend implementer
 - Endpoints: `GET/POST /api/groups/`, `POST /api/groups/{groupId}/`
 - Change type: permission behavior | mock data | documentation clarification
@@ -259,3 +345,29 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Backend implementation notes: Generate recommendations from the existing visualization summary read path using resource `domainType`, field alias matching, category counts, numeric distributions, and the platform `gm-*` icon whitelist. No new write endpoint or database migration is required.
 - Verification: run OpenAPI lint, regenerate API types, run frontend TypeScript checks, run focused frontend symbolization tests, run backend template unit tests, and compile the touched backend modules.
 - Result: Verified with direct Redocly lint, direct OpenAPI type generation, frontend TypeScript checks, `src/symbolization.test.ts`, `backend/tests/unit/catalog/test_symbolization_templates.py`, and Python module compilation. `pnpm run check:api` was not run because the script contains `rm -rf`, which conflicts with the workspace deletion policy.
+
+## API-20260713-002 - Raster Package Import And Persistent Jobs
+
+- Status: BackendReady
+- Owner: Frontend/backend implementer
+- Endpoints: `POST /api/raster/import/preview/`, `POST /api/raster/import/`, `GET /api/raster/jobs/{job_id}/`, `POST /api/raster/render/`, `GET /api/raster/tiles/{dataset_id}/{style_hash}/{z}/{x}/{y}.png`
+- Change type: new endpoint | multipart request | response fields | persistence | permission behavior | mock data
+- OpenAPI change: Adds server-side raster package preview, multi-file `files + payload` import, DAT/BSQ/BIL/BIP + HDR and VRT dependency semantics, persistent job `stage`, source package metadata, raster kind, resampling, access groups, and display rules.
+- Mock examples: `mock/prism/examples/40-raster.json`
+- Frontend reason: IMG/VRT/ENVI files must not be parsed as GeoTIFF in the browser; users need GDAL-backed package validation, companion-file upload, RGB band selection, resampling, permissions, and refresh-safe job status.
+- Backend implementation notes: Preserve the legacy single-file field, store new packages under UUID directories with a manifest and SHA256, persist sparse task checkpoints and raster styles in the metadata database, publish catalog records in a short transaction, and restrict server-path imports to `raster/original`.
+- Verification: regenerate OpenAPI types, rebuild Prism examples, run frontend typecheck/browser tests, Django checks, raster unit/integration tests, and a real GeoTIFF preview/import smoke test.
+- Result: Verified with OpenAPI lint and generated types, bundled YAML/HTML API documentation, Prism example rebuild, API change-request validation, Django system check, the applied raster database migration, 113 raster unit/integration tests, frontend TypeScript checks, 162 frontend tests, and a Vite production build. The provided `Tarim_worldview_1.tif` sample was preflighted as GTiff, 512 x 512, 8 bands, EPSG:32645, with the WorldView natural-color 5/3/2 preset. Browser-mode tests could not start because the configured Playwright Chromium executable is not installed. `makemigrations --check` also reports an unrelated pre-existing `core.BackupRun` index-name drift; no raster migration drift was reported.
+
+## API-20260713-003 - Inventory Business Type Groups
+
+- Status: Verified
+- Owner: Frontend/backend implementer
+- Endpoints: `GET /api/admin/data/resources/`
+- Change type: response field | mock data | documentation clarification
+- OpenAPI change: Adds nullable `AdminDataResource.domainType` and clarifies that `inventoryGroups` / `inventoryGroupId` represent user-created custom groups, while “全部数据” and the ten business-type groups are derived system groups.
+- Mock examples: `mock/prism/examples/20-admin-dashboard-data.json`
+- Frontend reason: The inventory page needs stable automatic grouping by the ten import business types without duplicating those types as manually maintained database groups.
+- Backend implementation notes: Serialize `DataResource.domain_type` as `domainType`; no model or migration change is required. Historical blank values remain null and are displayed under “其他类型”.
+- Verification: run OpenAPI lint/type generation, API change-request validation, focused backend admin-resource tests, frontend inventory browser tests, and frontend typecheck.
+- Result: OpenAPI lint and generated types passed; the API change request and Prism example injection passed; all 17 admin data-resource backend tests passed; frontend formatting, full TypeScript checking, and the production build passed. The browser test could not start because the configured Playwright Chromium executable is not installed.

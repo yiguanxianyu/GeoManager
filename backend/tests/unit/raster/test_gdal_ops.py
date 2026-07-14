@@ -22,7 +22,36 @@ class GdalOpsTests(SimpleTestCase):
             self.assertEqual(gdal_ops.gdalinfo_json(Path("a.tif")), {"size": [1, 1]})
 
         run.assert_called_once_with(
-            ["gdalinfo", "-json", "a.tif"],
+            [
+                "gdalinfo",
+                "--config",
+                "GDAL_PAM_ENABLED",
+                "NO",
+                "-json",
+                "a.tif",
+            ],
+        )
+
+    def test_gdalinfo_can_request_approximate_statistics(self):
+        result = subprocess.CompletedProcess(
+            args=[],
+            returncode=0,
+            stdout='{"size":[1,1]}',
+            stderr="",
+        )
+        with mock.patch.object(gdal_ops, "run_cli_capture", return_value=result) as run:
+            gdal_ops.gdalinfo_json(Path("a.tif"), calculate_statistics=True)
+
+        run.assert_called_once_with(
+            [
+                "gdalinfo",
+                "--config",
+                "GDAL_PAM_ENABLED",
+                "NO",
+                "-json",
+                "-approx_stats",
+                "a.tif",
+            ],
         )
 
     def test_gdal_command_uses_cli_wrapper(self):

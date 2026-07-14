@@ -34,6 +34,13 @@ class BandMinMaxTests(SimpleTestCase):
         self.assertEqual(minimum, 5.0)
         self.assertEqual(maximum, 100.0)
 
+    def test_reads_alternate_gdal_minimum_maximum_keys(self):
+        minimum, maximum = band_min_max(
+            {"bands": [{"band": 1, "minimum": 7, "maximum": 91}]}, 1
+        )
+        self.assertEqual(minimum, 7.0)
+        self.assertEqual(maximum, 91.0)
+
     def test_returns_defaults_for_missing_band(self):
         minimum, maximum = band_min_max({"bands": []}, 1)
         self.assertEqual(minimum, 0.0)
@@ -73,6 +80,17 @@ class DefaultRasterRulesTests(SimpleTestCase):
         rules = default_raster_rules(metadata)
         self.assertEqual(rules["mode"], "rgb")
         self.assertEqual(rules["bands"], [1, 2, 2])
+
+    def test_source_statistics_can_avoid_zero_warp_border_stretch(self):
+        source = _single_band_metadata(36, 92)
+        processed = _single_band_metadata(0, 90)
+
+        rules = default_raster_rules(source, processed)
+
+        self.assertEqual(
+            rules["stretch"]["perBand"]["1"],
+            {"min": 36.0, "max": 92.0},
+        )
 
 
 class NormalizeRulesTests(SimpleTestCase):

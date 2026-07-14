@@ -137,8 +137,8 @@ def band_min_max(
 ) -> tuple[float, float]:
     bands = metadata.get("bands") or []
     band = bands[band_index - 1] if 0 <= band_index - 1 < len(bands) else {}
-    minimum = band.get("min")
-    maximum = band.get("max")
+    minimum = band.get("min", band.get("minimum"))
+    maximum = band.get("max", band.get("maximum"))
     stats = (band.get("metadata") or {}).get("") or {}
     if (minimum is None or maximum is None) and fallback_metadata:
         fallback_min, fallback_max = band_min_max(fallback_metadata, band_index)

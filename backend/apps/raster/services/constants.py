@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-RASTER_EXTENSIONS = {".tif", ".tiff", ".img", ".vrt"}
+RASTER_EXTENSIONS = {
+    ".tif",
+    ".tiff",
+    ".img",
+    ".vrt",
+    ".dat",
+    ".bsq",
+    ".bil",
+    ".bip",
+}
 WEB_MERCATOR_HALF_WORLD = 20037508.342789244
 DEFAULT_TILE_SIZE = 256
 

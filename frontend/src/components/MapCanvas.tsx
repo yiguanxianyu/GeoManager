@@ -6,12 +6,7 @@ import {
   ZoomOutOutlined,
 } from "@ant-design/icons";
 import { Button, Tooltip } from "antd";
-import mapboxgl, {
-  type GeoJSONSource,
-  LngLatBounds,
-  type Map as MapboxMap,
-  type MapboxOptions,
-} from "mapbox-gl";
+import mapboxgl, { type Map as MapboxMap, type MapboxOptions } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { useEffect, useRef } from "react";
 import {
@@ -23,8 +18,7 @@ import {
   mapLabelLanguage,
   shouldUseMapboxBasemap,
 } from "../map/basemapStyle";
-import { syncVectorInteractions } from "../map/featureInteraction";
-import { addRasterLayer } from "../map/rasterLayerSync";
+import { syncLoadedLayers } from "../map/loadedLayerSync";
 import {
   bindGeometryDraw,
   type DrawMode,
@@ -34,34 +28,17 @@ import {
   bindPlatformSymbolImageFallback,
   registerPlatformSymbolImages,
 } from "../map/symbolImages";
-import {
-  addLoadedStyleLayers,
-  removeLayerGroup,
-  removeLoadedLayerGroup,
-  reorderLoadedStyleLayers,
-} from "../map/vectorLayerSync";
-import {
-  vectorGeojsonSourceOptions,
-  vectorSourceKey,
-} from "../map/vectorSourceOptions";
+import { removeLayerGroup } from "../map/vectorLayerSync";
 import { fitBoundsOptions, readMapViewState } from "../map/mapViewport";
-import { getMapState } from "../map/mapState";
 import type {
   Bootstrap,
   FeatureInfo,
   GeoJsonGeometry,
   LoadedLayer,
-  LoadedRasterLayer,
-  LoadedVectorLayer,
   MapViewState,
   SpatialFilter,
 } from "../types";
-import {
-  boundsFromImageCoordinates,
-  combinedFeatureBounds,
-  normalizeDisplayLngLat,
-  sourceIdFor,
-} from "../utils/geometry";
+import { normalizeDisplayLngLat, sourceIdFor } from "../utils/geometry";
 
 const spatialFilterSourceId = "query-spatial-filter";
 const spatialFilterFillId = "query-spatial-filter-fill";
@@ -121,6 +98,11 @@ export default function MapCanvas({
   const pointerUpdateFrameRef = useRef<number | null>(null);
   const resizeFrameRef = useRef<number | null>(null);
   const activeLayerExtentSourceIdsRef = useRef<Set<string>>(new Set());
+  const styleInitializedRef = useRef(false);
+  const latestLoadedLayersRef = useRef(loadedLayers);
+  const latestOnFeatureSelectRef = useRef(onFeatureSelect);
+  latestLoadedLayersRef.current = loadedLayers;
+  latestOnFeatureSelectRef.current = onFeatureSelect;
   const mapConfig = bootstrap.map;
   const mapboxToken = mapConfig.mapboxAccessToken;
   const shouldUseMapboxStyle = shouldUseMapboxBasemap(mapConfig);
@@ -162,6 +144,12 @@ export default function MapCanvas({
         hideAdministrativeBoundaries(map);
         map.once("idle", () => hideAdministrativeBoundaries(map));
       }
+      styleInitializedRef.current = true;
+      syncLoadedLayers(
+        map,
+        latestLoadedLayersRef.current,
+        latestOnFeatureSelectRef.current,
+      );
     };
     map.on("style.load", handleStyleLoad);
     const handleMapError = (event: { error?: unknown }) => {
@@ -242,6 +230,7 @@ export default function MapCanvas({
         resizeFrameRef.current = null;
       }
       onMapDestroy?.();
+      styleInitializedRef.current = false;
       map.remove();
       mapRef.current = null;
     };
@@ -257,10 +246,8 @@ export default function MapCanvas({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    const sync = () => syncLoadedLayers(map, loadedLayers, onFeatureSelect);
-    if (map.isStyleLoaded()) sync();
-    else map.once("load", sync);
+    if (!map || !styleInitializedRef.current) return;
+    syncLoadedLayers(map, loadedLayers, onFeatureSelect);
   }, [loadedLayers, onFeatureSelect]);
 
   useEffect(() => {
@@ -448,95 +435,6 @@ function firstStyleLayerIdForLayer(map: MapboxMap, layer: LoadedLayer) {
           `${sourceId}-symbol`,
         ];
   return candidates.find((id) => map.getLayer(id));
-}
-
-function syncLoadedLayers(
-  map: MapboxMap,
-  layers: LoadedLayer[],
-  onFeatureSelect?: (feature: FeatureInfo | null) => void,
-) {
-  registerPlatformSymbolImages(map);
-  const renderableVectorLayers = layers.filter(
-    (l): l is LoadedVectorLayer => l.layerType === "vector" && "geojson" in l,
-  );
-  const renderableRasterLayers = layers.filter(
-    (l): l is LoadedRasterLayer =>
-      l.layerType === "raster" && Boolean(l.tileUrl),
-  );
-  const activeIds = new Set([
-    ...renderableVectorLayers.map((l) => sourceIdFor(l.id)),
-    ...renderableRasterLayers.map((l) => sourceIdFor(l.id)),
-  ]);
-
-  const state = getMapState(map);
-  for (const sourceId of state.loadedSourceIds) {
-    if (!activeIds.has(sourceId)) {
-      removeLoadedLayerGroup(map, sourceId);
-      state.sourceDataRefs.delete(sourceId);
-    }
-  }
-
-  const newVectorBounds: LngLatBounds[] = [];
-  for (const layer of renderableVectorLayers) {
-    const sourceId = sourceIdFor(layer.id);
-    if (!layer.visible) {
-      removeLoadedLayerGroup(map, sourceId);
-      continue;
-    }
-    const isNew = !map.getSource(sourceId);
-    const nextSourceKey = vectorSourceKey(layer);
-    if (!isNew && state.vectorSourceKeys.get(sourceId) !== nextSourceKey) {
-      removeLoadedLayerGroup(map, sourceId);
-      state.sourceDataRefs.delete(sourceId);
-    }
-    const shouldCreateSource = !map.getSource(sourceId);
-    if (shouldCreateSource) {
-      map.addSource(sourceId, vectorGeojsonSourceOptions(layer));
-      state.vectorSourceKeys.set(sourceId, nextSourceKey);
-      state.sourceDataRefs.set(sourceId, layer.geojson);
-      const bounds = combinedFeatureBounds([layer.geojson]);
-      if (bounds) newVectorBounds.push(bounds);
-    } else if (state.sourceDataRefs.get(sourceId) !== layer.geojson) {
-      (map.getSource(sourceId) as GeoJSONSource).setData(
-        layer.geojson as never,
-      );
-      state.sourceDataRefs.set(sourceId, layer.geojson);
-    }
-    addLoadedStyleLayers(map, sourceId, layer);
-  }
-
-  const newRasterBounds: LngLatBounds[] = [];
-  for (const layer of renderableRasterLayers) {
-    const sourceId = sourceIdFor(layer.id);
-    if (!layer.visible) {
-      removeLoadedLayerGroup(map, sourceId);
-      continue;
-    }
-    const isNew = !map.getSource(sourceId);
-    if (isNew && layer.imageCoordinates) {
-      const bounds = boundsFromImageCoordinates(layer.imageCoordinates);
-      if (bounds) newRasterBounds.push(bounds);
-    }
-    addRasterLayer(map, sourceId, layer);
-  }
-
-  const allNewBounds = [...newVectorBounds, ...newRasterBounds];
-  if (allNewBounds.length > 0) {
-    const firstBound = allNewBounds[0];
-    if (!firstBound) return;
-    const combined = allNewBounds.reduce(
-      (b, next) => b.extend(next),
-      new LngLatBounds(firstBound.getSouthWest(), firstBound.getNorthEast()),
-    );
-    map.fitBounds(combined, fitBoundsOptions(80));
-  }
-
-  reorderLoadedStyleLayers(map, [
-    ...renderableVectorLayers,
-    ...renderableRasterLayers,
-  ]);
-  syncVectorInteractions(map, renderableVectorLayers, onFeatureSelect);
-  state.loadedSourceIds = activeIds;
 }
 
 function hideAdministrativeBoundaries(map: MapboxMap) {

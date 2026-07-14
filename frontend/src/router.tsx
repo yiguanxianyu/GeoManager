@@ -46,13 +46,17 @@ export function RequireDataUpload() {
   return <Outlet />;
 }
 
-/** 需要工程专题查看、编辑或删除权限才能访问工程专题管理 */
+/** 需要工程或专题制图相关权限才能访问对应存量管理页面 */
 export function RequireWorkspaceInventory() {
   const { user } = useAppContext();
   if (
     !user?.permissions.canViewWorkspaces &&
     !user?.permissions.canChangeWorkspaces &&
-    !user?.permissions.canDeleteWorkspaces
+    !user?.permissions.canDeleteWorkspaces &&
+    !user?.permissions.canViewMapCompositions &&
+    !user?.permissions.canChangeMapCompositions &&
+    !user?.permissions.canDeleteMapCompositions &&
+    !user?.permissions.canPublishMapCompositions
   ) {
     return <Navigate to="/admin/profile" replace />;
   }

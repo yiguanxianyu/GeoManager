@@ -118,6 +118,31 @@ describe("useLayerGroups", () => {
     expect(rasterLayer.renderStatus).toBe("ready");
   });
 
+  it("updates visibility only for the targeted vector or raster layer", () => {
+    const { result } = renderHook(() => useLayerGroups());
+    const group = makeGroup("group", [
+      makeVectorLayer("vector-layer"),
+      makeRasterLayer("raster-layer"),
+    ]);
+
+    act(() => {
+      result.current.addGroup(group);
+    });
+    act(() => {
+      result.current.setLayerVisibility("group", "vector-layer", false);
+    });
+
+    expect(result.current.groups[0].children[0].visible).toBe(false);
+    expect(result.current.groups[0].children[1].visible).toBe(true);
+
+    act(() => {
+      result.current.setLayerVisibility("group", "raster-layer", false);
+    });
+
+    expect(result.current.groups[0].children[0].visible).toBe(false);
+    expect(result.current.groups[0].children[1].visible).toBe(false);
+  });
+
   it("removes empty groups when the last layer is removed", () => {
     const { result } = renderHook(() => useLayerGroups());
 

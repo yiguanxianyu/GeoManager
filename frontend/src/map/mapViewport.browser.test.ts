@@ -1,6 +1,10 @@
 import type { Map as MapboxMap } from "mapbox-gl";
 import { describe, expect, it } from "vitest";
-import { fitBoundsOptions, readMapViewState } from "./mapViewport";
+import {
+  fitBoundsOptions,
+  rasterFitBoundsOptions,
+  readMapViewState,
+} from "./mapViewport";
 
 describe("mapViewport", () => {
   it("reads bounds from the full map container state", () => {
@@ -15,6 +19,15 @@ describe("mapViewport", () => {
 
   it("uses fixed fitBounds padding", () => {
     expect(fitBoundsOptions(80).padding).toBe(80);
+  });
+
+  it("uses a top-down zoom limit for small raster extents", () => {
+    expect(rasterFitBoundsOptions()).toMatchObject({
+      padding: 80,
+      maxZoom: 19,
+      bearing: 0,
+      pitch: 0,
+    });
   });
 });
 

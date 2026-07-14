@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from apps.core.cli import configure_runtime_geospatial_environment
 from apps.core.config import (
     ConfigValidationError,
     load_project_config,
@@ -10,6 +11,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PROGRAM_ROOT = BASE_DIR.parent
+configure_runtime_geospatial_environment()
 
 try:
     CONFIG_PATH = resolve_config_path(PROGRAM_ROOT)
@@ -79,6 +81,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.audit.middleware.UserActivityMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

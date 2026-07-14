@@ -1,6 +1,5 @@
 import {
   ApartmentOutlined,
-  AppstoreOutlined,
   BookOutlined,
   DatabaseOutlined,
   FolderOpenOutlined,
@@ -9,7 +8,6 @@ import {
   LogoutOutlined,
   QrcodeOutlined,
   QuestionCircleOutlined,
-  RobotOutlined,
   SearchOutlined,
   SettingOutlined,
   UserOutlined,
@@ -454,10 +452,6 @@ export default function WorkspaceHeader({
     () => filteredWorkspaceScenes.filter((scene) => scene.kind === "project"),
     [filteredWorkspaceScenes],
   );
-  const filteredTopicScenes = useMemo(
-    () => filteredWorkspaceScenes.filter((scene) => scene.kind === "topic"),
-    [filteredWorkspaceScenes],
-  );
 
   async function handleLogout() {
     try {
@@ -567,11 +561,6 @@ export default function WorkspaceHeader({
     },
     [dismissSearchForNavigation, navigate, onSelectDataDomain],
   );
-
-  const handleAiInterpretationPlaceholder = useCallback(() => {
-    dismissSearchForNavigation();
-    message.info("智能解译功能按钮已预留，暂未接入后端服务", 1.2);
-  }, [dismissSearchForNavigation, message]);
 
   function handleResourceCenter() {
     if (!canBrowseData && !showAdminTab) {
@@ -954,28 +943,6 @@ export default function WorkspaceHeader({
         ))}
       </SearchResultSection>
 
-      <SearchResultSection
-        title="专题"
-        icon={<AppstoreOutlined style={{ fontSize: 15 }} />}
-        emptyText="暂无匹配专题"
-      >
-        {filteredTopicScenes.map((scene) => (
-          <div className="workspace-search-row" key={`scene-${scene.id}`}>
-            <span className="workspace-search-row-main">
-              <strong>{scene.name}</strong>
-              <small>{scene.description || formatSceneUpdatedAt(scene)}</small>
-            </span>
-            <Button
-              size="small"
-              type="primary"
-              ghost
-              onClick={() => openWorkspaceScene(scene)}
-            >
-              加载
-            </Button>
-          </div>
-        ))}
-      </SearchResultSection>
     </section>
   );
 
@@ -1081,17 +1048,6 @@ export default function WorkspaceHeader({
               <span className="tab-text">非地理数据</span>
             </Button>
           </Dropdown>
-          <Button
-            type="text"
-            className={tabClass(false, expandedTabId === "ai")}
-            onClick={handleAiInterpretationPlaceholder}
-            onMouseEnter={() => scheduleTabHoverExpand("ai")}
-            onMouseLeave={collapseTabHover}
-            title="智能解译（占位）"
-          >
-            <RobotOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-            <span className="tab-text">智能解译</span>
-          </Button>
           {(canBrowseData || showAdminTab) && dataButton}
           {showAdminTab && (
             <Dropdown

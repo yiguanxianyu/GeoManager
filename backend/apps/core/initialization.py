@@ -11,6 +11,7 @@ from django.contrib.auth.models import Group
 from django.db import OperationalError, ProgrammingError, transaction
 
 from apps.core.models import UserProfile
+from apps.core.emails import normalize_account_email
 from apps.core.passwords import generate_password
 from apps.core.permissions import (
     FEATURE_PERMISSION_NAMES,
@@ -33,9 +34,19 @@ DEFAULT_SUPERADMIN_EMAIL = BUILTIN_ACCOUNTS.default_superadmin_email
 INITIAL_PASSWORD_FILE = BUILTIN_ACCOUNTS.initial_password_file
 LOCKED_SUPERADMIN_PERMISSIONS = BUILTIN_GROUPS.superadmin_locked_permissions
 PLATFORM_ADMIN_GROUP_PERMISSIONS = BUILTIN_GROUPS.platform_admin_permissions
+PREVIOUS_PLATFORM_ADMIN_GROUP_PERMISSIONS = (
+    BUILTIN_GROUPS.previous_platform_admin_permissions
+)
 RESEARCH_USER_GROUP_PERMISSIONS = BUILTIN_GROUPS.research_user_permissions
+PREVIOUS_RESEARCH_USER_GROUP_PERMISSIONS = (
+    BUILTIN_GROUPS.previous_research_user_permissions
+)
 GUEST_GROUP_PERMISSIONS = BUILTIN_GROUPS.guest_permissions
+PREVIOUS_GUEST_GROUP_PERMISSIONS = BUILTIN_GROUPS.previous_guest_permissions
 DEFAULT_USER_GROUP_PERMISSIONS = BUILTIN_GROUPS.default_user_permissions
+PREVIOUS_DEFAULT_USER_GROUP_PERMISSIONS = (
+    BUILTIN_GROUPS.previous_default_user_permissions
+)
 LEGACY_DEFAULT_USER_GROUP_PERMISSIONS = BUILTIN_GROUPS.legacy_default_user_permissions
 
 
@@ -90,6 +101,13 @@ def is_platform_admin_group(group: Group) -> bool:
     return group.name == PLATFORM_ADMIN_GROUP_NAME
 
 
+def is_platform_admin_user(user) -> bool:
+    return bool(
+        getattr(user, "is_authenticated", False)
+        and user.groups.filter(name=PLATFORM_ADMIN_GROUP_NAME).exists()
+    )
+
+
 def is_research_user_group(group: Group) -> bool:
     return group.name == RESEARCH_USER_GROUP_NAME
 
@@ -118,15 +136,21 @@ def builtin_group_names() -> set[str]:
 
 def ensure_platform_admin_group() -> Group:
     group, created = Group.objects.get_or_create(name=PLATFORM_ADMIN_GROUP_NAME)
-    if created:
+    if created or _matches_previous_group_permissions(
+        group, PREVIOUS_PLATFORM_ADMIN_GROUP_PERMISSIONS
+    ):
         _set_group_permissions(group, PLATFORM_ADMIN_GROUP_PERMISSIONS)
+    _add_group_permissions(group, ("catalog.restore_mapcomposition",))
     return group
 
 
 def ensure_research_user_group() -> Group:
     group, created = Group.objects.get_or_create(name=RESEARCH_USER_GROUP_NAME)
-    if created:
+    if created or _matches_previous_group_permissions(
+        group, PREVIOUS_RESEARCH_USER_GROUP_PERMISSIONS
+    ):
         _set_group_permissions(group, RESEARCH_USER_GROUP_PERMISSIONS)
+    _add_group_permissions(group, ("catalog.restore_mapcomposition",))
     return group
 
 
@@ -134,8 +158,10 @@ def ensure_default_user_group() -> Group:
     group, created = Group.objects.get_or_create(name=DEFAULT_USER_GROUP_NAME)
     if created:
         _set_group_permissions(group, DEFAULT_USER_GROUP_PERMISSIONS)
-    elif _group_feature_permission_names(group) == set(
-        LEGACY_DEFAULT_USER_GROUP_PERMISSIONS
+    elif _matches_previous_group_permissions(
+        group,
+        PREVIOUS_DEFAULT_USER_GROUP_PERMISSIONS,
+        LEGACY_DEFAULT_USER_GROUP_PERMISSIONS,
     ):
         _set_group_permissions(group, DEFAULT_USER_GROUP_PERMISSIONS)
     return group
@@ -143,7 +169,9 @@ def ensure_default_user_group() -> Group:
 
 def ensure_guest_group() -> Group:
     group, created = Group.objects.get_or_create(name=GUEST_GROUP_NAME)
-    if created:
+    if created or _matches_previous_group_permissions(
+        group, PREVIOUS_GUEST_GROUP_PERMISSIONS
+    ):
         _set_group_permissions(group, GUEST_GROUP_PERMISSIONS)
     return group
 
@@ -183,9 +211,15 @@ def ensure_guest_user():
         user.groups.set([guest_group])
         user.user_permissions.clear()
         profile, _ = UserProfile.objects.get_or_create(user=user)
+        profile_changed = False
         if profile.department != BUILTIN_ACCOUNTS.guest_department:
             profile.department = BUILTIN_ACCOUNTS.guest_department
-            profile.save(update_fields=["department", "updated_at"])
+            profile_changed = True
+        if profile.normalized_email is not None:
+            profile.normalized_email = None
+            profile_changed = True
+        if profile_changed:
+            profile.save(update_fields=["department", "normalized_email", "updated_at"])
         return user
 
 
@@ -276,6 +310,22 @@ def _group_feature_permission_names(group: Group) -> set[str]:
     }
 
 
+def _matches_previous_group_permissions(
+    group: Group, *permission_sets: tuple[str, ...]
+) -> bool:
+    current = _group_feature_permission_names(group)
+    for permission_names in permission_sets:
+        expected = set(permission_names)
+        if current == expected:
+            return True
+        without_map_compositions = {
+            permission for permission in expected if "mapcomposition" not in permission
+        }
+        if current == without_map_compositions:
+            return True
+    return False
+
+
 def _add_group_permissions(group: Group, permission_names: tuple[str, ...]) -> None:
     permissions_by_name = {
         f"{permission.content_type.app_label}.{permission.codename}": permission
@@ -325,9 +375,22 @@ def _ensure_initial_superadmin(group: Group):
     )
     user.groups.add(group)
     profile, _ = UserProfile.objects.get_or_create(user=user)
+    profile_changed = False
     if not profile.department:
         profile.department = BUILTIN_ACCOUNTS.superadmin_department
-        profile.save(update_fields=["department", "updated_at"])
+        profile_changed = True
+    normalized_email = normalize_account_email(user.email)
+    if (
+        normalized_email
+        and profile.normalized_email != normalized_email
+        and not UserProfile.objects.exclude(user=user)
+        .filter(normalized_email=normalized_email)
+        .exists()
+    ):
+        profile.normalized_email = normalized_email
+        profile_changed = True
+    if profile_changed:
+        profile.save(update_fields=["department", "normalized_email", "updated_at"])
     return user
 
 

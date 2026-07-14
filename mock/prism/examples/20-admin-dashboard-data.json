@@ -460,12 +460,12 @@
             {
               "key": "09",
               "label": "09:00",
-              "count": 3
+              "count": 2
             },
             {
               "key": "10",
               "label": "10:00",
-              "count": 2
+              "count": 1
             }
           ],
           "ranking": [
@@ -531,6 +531,7 @@
           "name": "塔里木河胡杨林样地监测点",
           "code": "RES-POPULUS-PLOTS",
           "dataType": "vector",
+          "domainType": "field_survey",
           "category": {
             "id": 1,
             "type": "data_category",
@@ -592,6 +593,7 @@
           "name": "Traim",
           "code": "raster-91d2a5ecd116",
           "dataType": "raster",
+          "domainType": "remote_sensing",
           "category": null,
           "source": "栅格导入",
           "provider": "生态监测组",
@@ -659,6 +661,7 @@
           "name": "胡杨样地生长指标表",
           "code": "table-populus-growth-2026",
           "dataType": "table",
+          "domainType": "individual",
           "category": {
             "id": 2,
             "type": "data_category",

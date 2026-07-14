@@ -103,6 +103,7 @@ const domainLabels: Partial<Record<DataDomainType, string>> = {
   remote_sensing: "遥感影像",
   molecular: "分子数据",
   genome: "基因组数据",
+  vector: "矢量数据",
 };
 
 const domainFeaturePlans: Partial<

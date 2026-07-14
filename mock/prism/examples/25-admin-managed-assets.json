@@ -38,18 +38,15 @@
           "status": "active",
           "accessGroups": [
             {
-              "id": 1,
-              "name": "超级管理员",
-              "isGuest": false,
-              "isSuperadmin": true
-            },
-            {
               "id": 2,
               "name": "普通用户",
               "isGuest": false,
               "isSuperadmin": false
             }
           ],
+          "isOwner": true,
+          "canEdit": true,
+          "canDelete": true,
           "canManageAccess": true
         },
         {
@@ -72,25 +69,15 @@
           "createdAt": "2026-06-17T14:35:00+08:00",
           "updatedAt": "2026-06-17T14:35:00+08:00",
           "status": "inactive",
-          "accessGroups": [
-            {
-              "id": 1,
-              "name": "超级管理员",
-              "isGuest": false,
-              "isSuperadmin": true
-            }
-          ],
+          "accessGroups": [],
+          "isOwner": false,
+          "canEdit": false,
+          "canDelete": false,
           "canManageAccess": true
         }
       ],
       "total": 2,
       "availableAccessGroups": [
-        {
-          "id": 1,
-          "name": "超级管理员",
-          "isGuest": false,
-          "isSuperadmin": true
-        },
         {
           "id": 2,
           "name": "普通用户",
@@ -129,18 +116,15 @@
       "status": "active",
       "accessGroups": [
         {
-          "id": 1,
-          "name": "超级管理员",
-          "isGuest": false,
-          "isSuperadmin": true
-        },
-        {
           "id": 2,
           "name": "普通用户",
           "isGuest": false,
           "isSuperadmin": false
         }
       ],
+      "isOwner": true,
+      "canEdit": true,
+      "canDelete": true,
       "canManageAccess": true
     }
   }

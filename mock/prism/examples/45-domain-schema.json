@@ -67,6 +67,14 @@
           "coreEntities": ["MolecularSample", "MolecularAssay", "MolecularResult", "MolecularFile"]
         },
         {
+          "code": "vector",
+          "name": "矢量数据",
+          "spatialClass": "spatial",
+          "description": "以点、线、面几何为主体的 Shapefile、GeoJSON、GeoPackage 等空间矢量资源，支持统一入库、查询、符号化和地图展示。",
+          "recommendedResourceTypes": ["vector"],
+          "coreEntities": ["DataResource", "VectorDataset", "MapLayer"]
+        },
+        {
           "code": "other",
           "name": "其他类型",
           "spatialClass": "spatialized_table",
@@ -181,6 +189,13 @@
           "domainTypes": ["other"],
           "description": "承接暂未归入专门业务专题的数据资源，保留源文件、工作表、字段说明和后续归类线索。",
           "keyFields": ["data_resource_id", "source_file_name", "sheet_name", "file_format"]
+        },
+        {
+          "name": "VectorDataset",
+          "label": "矢量数据集",
+          "domainTypes": ["vector"],
+          "description": "记录矢量源文件、源图层、编码、坐标系、几何质量、标准化 GeoPackage 图层和渲染策略。",
+          "keyFields": ["data_resource_id", "source_format", "source_layer_name", "geometry_type", "feature_count"]
         }
       ],
       "catalogTree": [
@@ -229,6 +244,13 @@
               "code": "geo-remote-sensing",
               "name": "遥感影像数据",
               "domainType": "remote_sensing",
+              "spatialClass": "spatial",
+              "children": []
+            },
+            {
+              "code": "geo-vector",
+              "name": "矢量数据",
+              "domainType": "vector",
               "spatialClass": "spatial",
               "children": []
             },

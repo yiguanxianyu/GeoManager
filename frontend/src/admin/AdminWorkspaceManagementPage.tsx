@@ -1,6 +1,7 @@
-import { FolderOpenOutlined } from "@ant-design/icons";
+import { FolderOpenOutlined, GlobalOutlined } from "@ant-design/icons";
 import {
   App as AntApp,
+  Button,
   Form,
   Input,
   Select,
@@ -11,7 +12,7 @@ import {
 } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
 import type {
@@ -26,6 +27,11 @@ import ManagedCollectionPage, {
   realAccessGroupIds,
   withFixedAccessScopes,
 } from "./ManagedCollectionPage";
+import {
+  isWorkspaceInventoryChange,
+  notifyWorkspaceInventoryChanged,
+  workspaceInventoryChangedEvent,
+} from "../workspace/workspaceSync";
 
 type WorkspaceFormValues = ManagedFormValues & {
   name: string;
@@ -40,7 +46,6 @@ const statusLabels = {
 
 const kindLabels: Record<AdminWorkspaceScene["kind"], string> = {
   project: "工程",
-  topic: "专题",
 };
 
 const initialList: AdminWorkspaceList = {
@@ -67,6 +72,7 @@ export default function AdminWorkspaceManagementPage({
   kind: AdminWorkspaceScene["kind"];
 }) {
   const { message } = AntApp.useApp();
+  const navigate = useNavigate();
   const { user } = useAppContext();
   const [filters, setFilters] = useState<AdminWorkspaceFilters>({
     kind,
@@ -77,7 +83,13 @@ export default function AdminWorkspaceManagementPage({
   const [loading, setLoading] = useState(false);
   const canView = Boolean(user?.permissions.canViewWorkspaces);
   const canChange = Boolean(user?.permissions.canChangeWorkspaces);
-  const canDelete = Boolean(user?.permissions.canDeleteWorkspaces);
+  const canManageAllData = Boolean(
+    user?.roles.includes("平台管理员") || user?.permissions.canManageDataBackup,
+  );
+  const canMaintain = canChange && canManageAllData;
+  const canDelete = Boolean(
+    user?.permissions.canDeleteWorkspaces && canManageAllData,
+  );
   const canOpen = canView || canChange || canDelete;
   const label = kindLabels[kind];
 
@@ -86,10 +98,10 @@ export default function AdminWorkspaceManagementPage({
     const inactive = data.items.filter(
       (item) => item.status === "inactive",
     ).length;
-    const restricted = data.items.filter(
+    const shared = data.items.filter(
       (item) => item.accessGroups.length > 0,
     ).length;
-    return { active, inactive, restricted };
+    return { active, inactive, shared };
   }, [data.items]);
 
   const loadItems = useCallback(
@@ -115,6 +127,53 @@ export default function AdminWorkspaceManagementPage({
     }
   }, [canOpen, filters, loadItems]);
 
+  useEffect(() => {
+    setFilters((currentFilters) => ({
+      ...currentFilters,
+      kind,
+      current: 1,
+    }));
+  }, [kind]);
+
+  useEffect(() => {
+    function refreshFromEvent(event: Event) {
+      const detail = event instanceof CustomEvent ? event.detail : undefined;
+      if (isWorkspaceInventoryChange(detail)) {
+        void loadItems(filters);
+      }
+    }
+    function refreshFromStorage(event: StorageEvent) {
+      if (event.key !== workspaceInventoryChangedEvent || !event.newValue) {
+        return;
+      }
+      try {
+        if (isWorkspaceInventoryChange(JSON.parse(event.newValue))) {
+          void loadItems(filters);
+        }
+      } catch {
+        return;
+      }
+    }
+    function refreshOnFocus() {
+      if (document.visibilityState === "visible") {
+        void loadItems(filters);
+      }
+    }
+    window.addEventListener(workspaceInventoryChangedEvent, refreshFromEvent);
+    window.addEventListener("storage", refreshFromStorage);
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    return () => {
+      window.removeEventListener(
+        workspaceInventoryChangedEvent,
+        refreshFromEvent,
+      );
+      window.removeEventListener("storage", refreshFromStorage);
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+    };
+  }, [filters, loadItems]);
+
   if (!canOpen) {
     return <Navigate to="/admin/profile" replace />;
   }
@@ -124,13 +183,14 @@ export default function AdminWorkspaceManagementPage({
     values: ManagedFormValues,
   ) {
     try {
-      if (!canChange) {
+      if (!canMaintain) {
         const updated = await api.updateAdminWorkspace(item.id, {
           action: "updateAccess",
           accessGroupIds: realAccessGroupIds(values.accessGroupIds),
         });
         if ("id" in updated) {
           replaceItem(updated);
+          notifyWorkspaceInventoryChanged("workspace");
           message.success(`${label}可见范围已保存`);
           return updated;
         }
@@ -147,6 +207,7 @@ export default function AdminWorkspaceManagementPage({
       });
       if ("id" in updated) {
         replaceItem(updated);
+        notifyWorkspaceInventoryChanged("workspace");
         message.success(`${label}信息和权限已保存`);
         return updated;
       }
@@ -156,7 +217,7 @@ export default function AdminWorkspaceManagementPage({
   }
 
   async function toggleStatus(item: AdminWorkspaceScene, checked: boolean) {
-    if (!canChange) {
+    if (!canMaintain) {
       message.warning(`当前用户无${label}编辑权限`);
       return;
     }
@@ -167,6 +228,7 @@ export default function AdminWorkspaceManagementPage({
       });
       if ("id" in updated) {
         replaceItem(updated);
+        notifyWorkspaceInventoryChanged("workspace");
       }
       message.success(`已${checked ? "启用" : "禁用"} ${item.name}`);
     } catch (error) {
@@ -192,6 +254,7 @@ export default function AdminWorkspaceManagementPage({
         items: current.items.filter((entry) => entry.id !== item.id),
         total: Math.max(current.total - 1, 0),
       }));
+      notifyWorkspaceInventoryChanged("workspace");
       message.success(`${label}已删除`);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "删除失败");
@@ -242,7 +305,7 @@ export default function AdminWorkspaceManagementPage({
           checked={record.status === "active"}
           checkedChildren="启用"
           unCheckedChildren="禁用"
-          disabled={!canChange}
+          disabled={!canMaintain}
           onChange={(checked) => toggleStatus(record, checked)}
         />
       ),
@@ -258,6 +321,43 @@ export default function AdminWorkspaceManagementPage({
             {record.owner.username}
           </Typography.Text>
         </Space>
+      ),
+    },
+    {
+      title: "可见范围",
+      key: "accessGroups",
+      width: 240,
+      render: (_, record) => (
+        <Space wrap size={[4, 4]}>
+          <Tag color="cyan">所属用户</Tag>
+          {record.accessGroups.map((group) => (
+            <Tag key={group.id} color={group.isGuest ? "orange" : "blue"}>
+              {group.name}
+            </Tag>
+          ))}
+        </Space>
+      ),
+    },
+    {
+      title: "快照图层",
+      key: "layers",
+      width: 104,
+      align: "center",
+      render: (_, record) => workspaceLayerCount(record),
+    },
+    {
+      title: "地图加载",
+      key: "load",
+      width: 112,
+      render: (_, record) => (
+        <Button
+          type="link"
+          icon={<GlobalOutlined />}
+          disabled={record.status !== "active"}
+          onClick={() => navigate(`/map?sceneId=${record.id}`)}
+        >
+          打开
+        </Button>
       ),
     },
   ];
@@ -279,14 +379,19 @@ export default function AdminWorkspaceManagementPage({
         },
         { title: "本页启用", value: metrics.active },
         { title: "本页禁用", value: metrics.inactive },
-        { title: "本页受限访问", value: metrics.restricted },
+        { title: "本页已共享", value: metrics.shared },
       ]}
       rowName={(item) => item.name}
       drawerTitle={`${label}配置`}
       deleteTitle={`删除${label}`}
       deleteDescription={`删除会移除该${label}保存项和共享配置，不会删除原始数据资源。请输入完整名称确认。`}
       ownerScopeLabel="所属用户本人可见"
-      canMaintain={canChange}
+      accessScopeNotice={
+        <Typography.Text type="secondary">
+          所属用户本人始终可见；平台会自动保留必要的系统访问范围。
+        </Typography.Text>
+      }
+      canMaintain={canMaintain}
       canDelete={canDelete}
       detailItems={(item) => [
         { label: `${label}名称`, value: item.name },
@@ -303,6 +408,16 @@ export default function AdminWorkspaceManagementPage({
         {
           label: "创建时间",
           value: new Date(item.createdAt).toLocaleString("zh-CN"),
+        },
+        {
+          label: "快照图层数",
+          value: workspaceLayerCount(item),
+        },
+        {
+          label: "额外可见角色",
+          value:
+            item.accessGroups.map((group) => group.name).join("、") ||
+            "未额外共享",
         },
       ]}
       formInitialValues={(item) => ({
@@ -358,4 +473,14 @@ export default function AdminWorkspaceManagementPage({
 
 function ownerDisplayName(item: AdminWorkspaceScene): string {
   return item.owner.displayName || item.owner.username;
+}
+
+function workspaceLayerCount(item: AdminWorkspaceScene): number {
+  const groups = item.snapshot.groups;
+  if (!Array.isArray(groups)) return 0;
+  return groups.reduce((total, group) => {
+    if (!group || typeof group !== "object") return total;
+    const children = (group as { children?: unknown }).children;
+    return total + (Array.isArray(children) ? children.length : 0);
+  }, 0);
 }

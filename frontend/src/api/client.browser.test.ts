@@ -183,6 +183,125 @@ describe("api client", () => {
     });
   });
 
+  it("serializes vector import payloads through generated multipart endpoints", async () => {
+    setTestCookie("csrftoken=vector-token");
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        mode: "vector",
+        resourceId: 8,
+        resourceName: "新疆自治区边界",
+        vectorDatasetId: 3,
+        layerId: 9,
+        layerName: "xinjiang_boundary",
+        sourceLayerName: "boundary",
+        importedFeatures: 1,
+        skippedFeatures: 0,
+        bounds: [73.5, 34.3, 96.3, 49.1],
+        geometryType: "Polygon",
+        coordinateSystem: "EPSG:4326",
+        sourceEncoding: "GB18030",
+        validationIssues: [],
+      }),
+    );
+
+    await api.commitVectorImport(
+      new File(["vector"], "boundary.zip", { type: "application/zip" }),
+      {
+        name: "新疆自治区边界",
+        domainType: "vector",
+        sourceLayerName: "boundary",
+        tableName: "xinjiang_boundary",
+        encoding: "GB18030",
+        sourceCrs: null,
+        repairInvalidGeometries: false,
+        skipInvalidGeometries: false,
+        duplicateConfirmed: false,
+        accessGroupIds: [],
+        fieldMetadata: { Name: "名称" },
+      },
+    );
+
+    const request = capturedRequest(fetchMock);
+    const body = await request.clone().formData();
+    expect(requestPath(request)).toBe("/api/catalog/vector-import/commit/");
+    expect(request.headers.get("X-CSRFToken")).toBe("vector-token");
+    expect(JSON.parse(String(body.get("payload")))).toMatchObject({
+      domainType: "vector",
+      sourceLayerName: "boundary",
+      encoding: "GB18030",
+    });
+  });
+
+  it("uploads raster packages with a selected primary file", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        primaryFileName: "scene.dat",
+        sourceFormat: "ENVI",
+        files: [],
+        metadata: {
+          size: [512, 512],
+          driver: "ENVI",
+          coordinateSystem: 32645,
+          bands: [],
+        },
+        bounds4326: [88, 40, 88.1, 40.1],
+        defaultRules: { mode: "gray", bands: [1] },
+        suggestedName: "scene",
+        rasterKind: "continuous",
+        resampling: "bilinear",
+        warnings: [],
+      }),
+    );
+
+    await api.previewRasterImport(
+      [new File(["data"], "scene.dat"), new File(["ENVI"], "scene.hdr")],
+      "scene.dat",
+    );
+
+    const request = capturedRequest(fetchMock);
+    const body = await request.clone().formData();
+    expect(requestPath(request)).toBe("/api/raster/import/preview/");
+    expect(body.getAll("files")).toHaveLength(2);
+    expect(body.get("primaryFileName")).toBe("scene.dat");
+  });
+
+  it("serializes raster import configuration with all package files", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        id: "raster-import-job",
+        kind: "import",
+        status: "queued",
+        stage: "queued",
+        progressPercent: 0,
+        messages: [],
+        result: null,
+        error: "",
+        startedAt: 1,
+        finishedAt: null,
+      }),
+    );
+
+    await api.importRaster([new File(["tif"], "worldview.tif")], {
+      primaryFileName: "worldview.tif",
+      name: "WorldView 影像",
+      rasterKind: "imagery",
+      resampling: "bilinear",
+      defaultRules: { mode: "rgb", bands: [5, 3, 2] },
+      accessGroupIds: [2],
+    });
+
+    const request = capturedRequest(fetchMock);
+    const body = await request.clone().formData();
+    expect(requestPath(request)).toBe("/api/raster/import/");
+    expect(body.getAll("files")).toHaveLength(1);
+    expect(JSON.parse(String(body.get("payload")))).toMatchObject({
+      primaryFileName: "worldview.tif",
+      rasterKind: "imagery",
+      defaultRules: { bands: [5, 3, 2] },
+      accessGroupIds: [2],
+    });
+  });
+
   it("uses data-resource query endpoint for registered resources", async () => {
     fetchMock.mockResolvedValue(jsonResponse({}));
     const resource = {
@@ -261,5 +380,23 @@ describe("api client", () => {
 
     expect(result.filename).toBe("layers.zip");
     expect(await result.blob.text()).toBe("zip-content");
+  });
+
+  it("decodes UTF-8 map composition filenames instead of using the zip fallback", async () => {
+    fetchMock.mockResolvedValue(
+      new Response("%PDF-1.4", {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition":
+            "attachment; filename*=utf-8''text2%E4%B8%93%E9%A2%98%E5%9B%BE_V2.pdf",
+        },
+      }),
+    );
+
+    const result = await api.downloadMapCompositionVersion(2, 2);
+
+    expect(result.filename).toBe("text2专题图_V2.pdf");
+    expect(await result.blob.text()).toBe("%PDF-1.4");
   });
 });

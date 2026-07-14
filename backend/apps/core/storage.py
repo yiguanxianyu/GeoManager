@@ -21,6 +21,14 @@ def vector_geopackage_path() -> Path:
     return research_path("vector", "vector.gpkg")
 
 
+def vector_original_path(relative_path: str = "") -> Path:
+    return (
+        research_path("vector", "original", relative_path)
+        if relative_path
+        else research_path("vector", "original")
+    )
+
+
 def validate_vector_layer_name(layer_name: str) -> str:
     layer_name = layer_name.strip()
     if not layer_name:

@@ -54,6 +54,7 @@ import {
 import {
   isGraduatedRenderer,
   isUniqueValueRenderer,
+  rasterSymbolizationFromRules,
   type GroupSymbolization,
   type RasterSymbolization,
   type VectorSymbolization,
@@ -70,7 +71,6 @@ import type {
   ResourceField,
   ResourceListItem,
   ResourceVisualizationSummary,
-  WorkspaceSceneKind,
 } from "../types";
 import { createEmptyLayerGroup } from "../utils/layerFactory";
 import { resourceExportId } from "../utils/resources";
@@ -108,7 +108,6 @@ export default function LayerPanel() {
     layerId: string | null;
     placement: LayerDropPlacement;
   } | null>(null);
-  const [saveKind, setSaveKind] = useState<WorkspaceSceneKind>("project");
   const [saveMode, setSaveMode] = useState<"create" | "update">("create");
   const [saveOpen, setSaveOpen] = useState(false);
   const [savingWorkspace, setSavingWorkspace] = useState(false);
@@ -127,8 +126,8 @@ export default function LayerPanel() {
   } | null>(null);
   const selectedSaveTargetId = Form.useWatch("targetId", saveForm);
   const saveTargetScenes = useMemo(
-    () => ctx.workspaceScenes.filter((scene) => scene.kind === saveKind),
-    [ctx.workspaceScenes, saveKind],
+    () => ctx.workspaceScenes.filter((scene) => scene.canEdit),
+    [ctx.workspaceScenes],
   );
   const selectedSaveTarget = useMemo(
     () => saveTargetScenes.find((scene) => scene.id === selectedSaveTargetId),
@@ -245,17 +244,21 @@ export default function LayerPanel() {
     });
   }
 
-  function openSaveWorkspace(kind: WorkspaceSceneKind) {
+  function openSaveWorkspace() {
+    if (!ctx.canCreateWorkspaces) {
+      message.warning("当前用户无新增工程权限");
+      return;
+    }
     if (groups.length === 0) {
       message.warning("当前没有可保存的图层");
       return;
     }
-    setSaveKind(kind);
     setSaveMode("create");
     saveForm.setFieldsValue({
       targetId: undefined,
       name: "",
       description: "",
+      accessGroupIds: [],
     });
     setSaveOpen(true);
   }
@@ -267,20 +270,18 @@ export default function LayerPanel() {
         ? saveTargetScenes.find((scene) => scene.id === values.targetId)
         : null;
     if (saveMode === "update" && !targetScene) {
-      message.warning(
-        `请选择要覆盖的${saveKind === "project" ? "工程" : "专题"}`,
-      );
+      message.warning("请选择要覆盖的工程");
       return;
     }
     setSavingWorkspace(true);
     try {
       await ctx.saveWorkspace(
-        saveKind,
         saveMode === "update" && targetScene
           ? {
               targetId: targetScene.id,
               name: targetScene.name,
               description: targetScene.description,
+              accessGroupIds: values.accessGroupIds ?? [],
             }
           : values,
       );
@@ -482,18 +483,10 @@ export default function LayerPanel() {
         <Button
           size="small"
           icon={<SaveOutlined style={{ fontSize: 14 }} />}
-          disabled={groups.length === 0}
-          onClick={() => openSaveWorkspace("project")}
+          disabled={groups.length === 0 || !ctx.canCreateWorkspaces}
+          onClick={openSaveWorkspace}
         >
           保存为工程
-        </Button>
-        <Button
-          size="small"
-          icon={<SaveOutlined style={{ fontSize: 14 }} />}
-          disabled={groups.length === 0}
-          onClick={() => openSaveWorkspace("topic")}
-        >
-          保存为专题
         </Button>
         <Button
           size="small"
@@ -679,7 +672,7 @@ export default function LayerPanel() {
         />
       )}
       <Modal
-        title={saveKind === "project" ? "保存为工程" : "保存为专题"}
+        title="保存为工程"
         open={saveOpen}
         okText="保存"
         confirmLoading={savingWorkspace}
@@ -695,7 +688,7 @@ export default function LayerPanel() {
               options={[
                 { label: "新建", value: "create" },
                 {
-                  label: `覆盖已有${saveKind === "project" ? "工程" : "专题"}`,
+                  label: "覆盖已有工程",
                   value: "update",
                   disabled: saveTargetScenes.length === 0,
                 },
@@ -708,6 +701,7 @@ export default function LayerPanel() {
                     targetId: undefined,
                     name: "",
                     description: "",
+                    accessGroupIds: [],
                   });
                   return;
                 }
@@ -716,6 +710,8 @@ export default function LayerPanel() {
                   targetId: firstScene?.id,
                   name: firstScene?.name ?? "",
                   description: firstScene?.description ?? "",
+                  accessGroupIds:
+                    firstScene?.accessGroups.map((group) => group.id) ?? [],
                 });
               }}
             />
@@ -724,11 +720,11 @@ export default function LayerPanel() {
             <>
               <Form.Item
                 name="targetId"
-                label={saveKind === "project" ? "选择工程" : "选择专题"}
+                label="选择工程"
                 rules={[{ required: true, message: "请选择保存目标" }]}
               >
                 <Select
-                  placeholder={`请选择要覆盖的${saveKind === "project" ? "工程" : "专题"}`}
+                  placeholder="请选择要覆盖的工程"
                   options={saveTargetScenes.map((scene) => ({
                     value: scene.id,
                     label: scene.name,
@@ -740,6 +736,8 @@ export default function LayerPanel() {
                     saveForm.setFieldsValue({
                       name: scene?.name ?? "",
                       description: scene?.description ?? "",
+                      accessGroupIds:
+                        scene?.accessGroups.map((group) => group.id) ?? [],
                     });
                   }}
                 />
@@ -758,7 +756,7 @@ export default function LayerPanel() {
             <>
               <Form.Item
                 name="name"
-                label={saveKind === "project" ? "工程名称" : "专题名称"}
+                label="工程名称"
                 rules={[{ required: true, message: "请输入名称" }]}
               >
                 <Input maxLength={80} />
@@ -768,6 +766,24 @@ export default function LayerPanel() {
               </Form.Item>
             </>
           )}
+          <Form.Item name="accessGroupIds" label="额外可见角色">
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="不选择时仅所属用户可见"
+              options={ctx.workspaceAccessGroups.map((group) => ({
+                value: group.id,
+                label: group.name,
+              }))}
+            />
+          </Form.Item>
+          <Alert
+            className="workspace-save-fixed-access-alert"
+            type="info"
+            showIcon
+            title="所属用户本人始终可见"
+            description="平台会自动保留必要的系统访问范围，无需手动配置。"
+          />
         </Form>
       </Modal>
     </section>
@@ -796,6 +812,7 @@ interface SaveWorkspaceFormValues {
   targetId?: number;
   name: string;
   description?: string;
+  accessGroupIds?: number[];
 }
 
 function standaloneLayerForGroup(group: LoadedLayerGroup): LoadedLayer | null {
@@ -860,6 +877,7 @@ function LayerGroupNode({
             className="visibility-switch"
             checked={group.visible}
             size="small"
+            aria-label={`${group.visible ? "隐藏" : "显示"}图层组${group.name}`}
             checkedChildren={<EyeOutlined style={{ fontSize: 10 }} />}
             unCheckedChildren={
               <EyeInvisibleOutlined style={{ fontSize: 10 }} />
@@ -960,10 +978,7 @@ function LayerItemNode({
 }: LayerNodeProps) {
   const ctx = useLayerContext();
   const dropClass = dropPlacement ? ` layer-drop-${dropPlacement}` : "";
-  const fieldValueCounts = useMemo(
-    () => buildFieldValueCounts(layer),
-    [layer],
-  );
+  const fieldValueCounts = useMemo(() => buildFieldValueCounts(layer), [layer]);
   return (
     <div
       className={`layer-tree-node${selected ? " layer-tree-node-selected" : ""}${dragging ? " is-dragging" : ""}${dropClass}`}
@@ -978,6 +993,7 @@ function LayerItemNode({
             className="visibility-switch"
             checked={layer.visible}
             size="small"
+            aria-label={`${layer.visible ? "隐藏" : "显示"}图层${layer.name}`}
             checkedChildren={<EyeOutlined style={{ fontSize: 10 }} />}
             unCheckedChildren={
               <EyeInvisibleOutlined style={{ fontSize: 10 }} />
@@ -1012,9 +1028,7 @@ function LayerItemNode({
             fields={layer.fields}
             fieldValueCounts={fieldValueCounts}
             geometryType={layer.geometryType}
-            sourceResource={
-              layer.layerType === "vector" ? layer.sourceResource : undefined
-            }
+            sourceResource={layer.sourceResource}
             rasterBands={
               layer.layerType === "raster"
                 ? (layer.rasterMetadata?.bands ?? [])
@@ -1111,9 +1125,7 @@ function LayerLegend({ layer }: { layer: LoadedLayer }) {
         </span>
       ))}
       {visibleClasses.length > 6 && (
-        <span className="layer-legend-more">
-          +{visibleClasses.length - 6}
-        </span>
+        <span className="layer-legend-more">+{visibleClasses.length - 6}</span>
       )}
     </div>
   );
@@ -1211,6 +1223,7 @@ function NodeActions({
   ] = useState(false);
   const [recommendedSymbolizationsError, setRecommendedSymbolizationsError] =
     useState<string | null>(null);
+  const [restoringRasterDefault, setRestoringRasterDefault] = useState(false);
   const recommendedRequestRef = useRef(0);
   const isDeferredSymbolization =
     isVectorSymbolization(symbolization) ||
@@ -1333,6 +1346,28 @@ function NodeActions({
     setSymbolizationOpen(false);
   }
 
+  async function restoreRasterDefaultSymbolization() {
+    if (!sourceResource || !isRasterSymbolization(draftSymbolization)) return;
+    setRestoringRasterDefault(true);
+    try {
+      const profile = await api.resourceProfile(sourceResource);
+      if (!profile.raster?.defaultRules) {
+        message.warning("该栅格数据没有可恢复的默认符号化方案");
+        return;
+      }
+      setDraftSymbolization(
+        rasterSymbolizationFromRules(profile.raster.defaultRules),
+      );
+      message.success("已恢复数据默认样式，请点击确定应用");
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : "恢复栅格默认样式失败",
+      );
+    } finally {
+      setRestoringRasterDefault(false);
+    }
+  }
+
   function previewVectorSymbolization(next: VectorSymbolization) {
     if (!canUseCustomSymbolization) return;
     setDraftSymbolization(next);
@@ -1367,6 +1402,8 @@ function NodeActions({
           value={draftSymbolization}
           bands={rasterBands}
           datasetId={rasterDatasetId}
+          onRestoreDefault={restoreRasterDefaultSymbolization}
+          restoringDefault={restoringRasterDefault}
           onChange={setDraftSymbolization}
           onApply={applyDraftSymbolization}
         />
@@ -1446,9 +1483,7 @@ function NodeActions({
         )}
         {canOpenSymbolization && (
           <LayerTooltip
-            title={
-              canUseCustomSymbolization ? "符号化" : "推荐符号化预览"
-            }
+            title={canUseCustomSymbolization ? "符号化" : "推荐符号化预览"}
           >
             <Button
               className={`action-btn symbolization-action-btn${

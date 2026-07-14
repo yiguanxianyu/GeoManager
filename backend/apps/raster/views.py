@@ -8,6 +8,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from apps.audit.service import log_operation
 from apps.core.api import api_login_required
+from apps.core.storage import StoragePathError, raster_source_path
 from apps.catalog.models import MapLayer
 from apps.catalog.permissions import related_access_filter, user_can_access
 from apps.core.permissions import feature_denied_response, has_feature_perm
@@ -29,6 +30,28 @@ from apps.raster.services import (
     start_scan_job,
     store_uploaded_source_file,
 )
+from apps.raster.services.package import (
+    preview_uploaded_raster_package,
+    store_uploaded_raster_package,
+)
+
+
+@require_POST
+@api_login_required
+def preview_import(request):
+    if not can_manage_raster_data(request.user):
+        return feature_denied_response(request.user)
+    uploaded_files = request.FILES.getlist("files")
+    if not uploaded_files:
+        legacy_file = request.FILES.get("file")
+        uploaded_files = [legacy_file] if legacy_file is not None else []
+    try:
+        result = preview_uploaded_raster_package(
+            uploaded_files, str(request.POST.get("primaryFileName") or "")
+        )
+    except (RasterImportError, OSError) as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+    return JsonResponse(result)
 
 
 @require_POST
@@ -127,6 +150,7 @@ def render_async(request):
             layer_id=layer.id if layer else None,
             dataset_id=dataset.id if dataset else None,
             rules=rules,
+            created_by_id=request.user.id,
         )
     except (ValueError, RasterRenderError) as exc:
         log_operation(
@@ -200,20 +224,66 @@ def unique_values(request):
 def import_raster(request):
     if not can_manage_raster_data(request.user):
         return feature_denied_response(request.user)
-    uploaded_file = request.FILES.get("file")
-    if uploaded_file is not None:
+    uploaded_files = request.FILES.getlist("files")
+    legacy_file = request.FILES.get("file")
+    is_legacy_upload = not uploaded_files and legacy_file is not None
+    if not uploaded_files and legacy_file is not None:
+        uploaded_files = [legacy_file]
+    if uploaded_files:
         try:
-            display_name = (
-                str(request.POST.get("name") or "").strip()
-                or Path(uploaded_file.name or "uploaded-raster").stem
-            )
-            source_path = store_uploaded_source_file(uploaded_file)
-            job = start_import_job(
-                str(source_path),
-                name=display_name,
-                cleanup_upload_on_failure=True,
-            )
-        except (RasterImportError, OSError) as exc:
+            raw_payload = str(request.POST.get("payload") or "").strip()
+            payload = json.loads(raw_payload) if raw_payload else {}
+            if not isinstance(payload, dict):
+                raise RasterImportError("payload 必须是 JSON 对象")
+            if is_legacy_upload and not raw_payload and legacy_file is not None:
+                display_name = (
+                    str(request.POST.get("name") or "").strip()
+                    or Path(legacy_file.name or "uploaded-raster").stem
+                )
+                source_path = store_uploaded_source_file(legacy_file)
+                job = start_import_job(
+                    str(source_path),
+                    name=display_name,
+                    cleanup_upload_on_failure=True,
+                    uploader_id=request.user.id,
+                    created_by_id=request.user.id,
+                )
+                source_manifest = []
+                checksum = ""
+            else:
+                primary_file_name = str(payload.get("primaryFileName") or "")
+                source_path, source_manifest, checksum = store_uploaded_raster_package(
+                    uploaded_files, primary_file_name
+                )
+                display_name = (
+                    str(payload.get("name") or request.POST.get("name") or "").strip()
+                    or Path(source_path.name).stem
+                )
+                access_group_ids = [
+                    int(value) for value in payload.get("accessGroupIds") or []
+                ]
+                job = start_import_job(
+                    str(source_path),
+                    name=display_name,
+                    cleanup_upload_on_failure=True,
+                    source_manifest=source_manifest,
+                    source_checksum_sha256=checksum,
+                    raster_kind=str(payload.get("rasterKind") or "imagery"),
+                    resampling=str(payload.get("resampling") or "bilinear"),
+                    default_rules=payload.get("defaultRules")
+                    if isinstance(payload.get("defaultRules"), dict)
+                    else None,
+                    uploader_id=request.user.id,
+                    access_group_ids=access_group_ids,
+                    created_by_id=request.user.id,
+                )
+        except (
+            json.JSONDecodeError,
+            TypeError,
+            ValueError,
+            RasterImportError,
+            OSError,
+        ) as exc:
             log_operation(
                 request.user,
                 "栅格管理",
@@ -228,7 +298,7 @@ def import_raster(request):
             "栅格管理",
             "发起栅格导入任务",
             "success",
-            f"任务 {job.id}：{uploaded_file.name}",
+            f"任务 {job.id}：{source_path.name}",
             request,
         )
         return JsonResponse(job.as_dict(), status=202)
@@ -237,8 +307,8 @@ def import_raster(request):
         payload = json.loads(request.body.decode("utf-8"))
     except json.JSONDecodeError:
         return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
-    source_path = str(payload.get("sourcePath") or "").strip()
-    if not source_path:
+    source_relative = str(payload.get("sourcePath") or "").strip()
+    if not source_relative:
         log_operation(
             request.user,
             "栅格管理",
@@ -249,19 +319,34 @@ def import_raster(request):
         )
         return JsonResponse({"detail": "缺少 sourcePath"}, status=400)
     if payload.get("async", True):
-        job = start_import_job(source_path, name=str(payload.get("name") or ""))
+        try:
+            source_path = raster_source_path(source_relative)
+        except StoragePathError as exc:
+            return JsonResponse({"detail": str(exc)}, status=400)
+        job = start_import_job(
+            str(source_path),
+            name=str(payload.get("name") or ""),
+            created_by_id=request.user.id,
+            uploader_id=request.user.id,
+        )
         log_operation(
             request.user,
             "栅格管理",
             "发起栅格导入任务",
             "success",
-            f"任务 {job.id}：{source_path}",
+            f"任务 {job.id}：{source_relative}",
             request,
         )
         return JsonResponse(job.as_dict(), status=202)
     try:
+        try:
+            source_path = raster_source_path(source_relative)
+        except StoragePathError as exc:
+            return JsonResponse({"detail": str(exc)}, status=400)
         dataset = import_raster_file(
-            Path(source_path), name=str(payload.get("name") or "")
+            source_path,
+            name=str(payload.get("name") or ""),
+            uploader_id=request.user.id,
         )
     except (RasterImportError, OSError) as exc:
         log_operation(
@@ -289,7 +374,7 @@ def import_raster(request):
 def scan_sources(request):
     if not has_feature_perm(request.user, "core.browse_data"):
         return feature_denied_response(request.user)
-    job = start_scan_job()
+    job = start_scan_job(created_by_id=request.user.id)
     return JsonResponse(job.as_dict(), status=202)
 
 
@@ -314,7 +399,14 @@ def datasets(request):
 @api_login_required
 def job_status(request, job_id: str):
     try:
-        return JsonResponse(get_job(job_id).as_dict())
+        job = get_job(job_id)
+        if (
+            job.created_by_id
+            and job.created_by_id != request.user.id
+            and not request.user.is_superuser
+        ):
+            return JsonResponse({"detail": "无权查看该任务"}, status=403)
+        return JsonResponse(job.as_dict())
     except RasterJobError as exc:
         return JsonResponse({"detail": str(exc)}, status=404)
 
@@ -337,4 +429,7 @@ def tile(request, dataset_id: int, style_hash: str, z: int, x: int, y: int):
         return HttpResponse(status=204)
     except RasterRenderError as exc:
         return JsonResponse({"detail": str(exc)}, status=404)
-    return HttpResponse(content, content_type="image/png")
+    response = HttpResponse(content, content_type="image/png")
+    response["Cache-Control"] = "private, max-age=86400"
+    response["ETag"] = f'"{style_hash}-{z}-{x}-{y}"'
+    return response

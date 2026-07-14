@@ -1,6 +1,8 @@
 import helpGuidePreview from "../assets/about/help-guide-preview.png";
 import labLeavesImage from "../assets/about/lab-leaves.jpeg";
+import knowledgePopulusForestImage from "../assets/about/knowledge-populus-forest.png";
 import liZhijunPortrait from "../assets/about/lizhijun-portrait.jpeg";
+import memberResearchSeedlingsImage from "../assets/about/member-research-seedlings.png";
 import populusForestImage from "../assets/about/populus-forest.png";
 import researchSeedlingsImage from "../assets/about/research-seedlings.jpeg";
 import tarimUniversitySeal from "../assets/about/tarim-university-seal.jpeg";
@@ -33,8 +35,10 @@ export type AboutSection = {
 
 export const aboutAssets = {
   helpGuidePreview,
+  knowledgePopulusForestImage,
   labLeavesImage,
   liZhijunPortrait,
+  memberResearchSeedlingsImage,
   populusForestImage,
   researchSeedlingsImage,
   tarimUniversitySeal,
@@ -295,14 +299,17 @@ export const teamNewsItems = [
 ];
 
 export const contactRows = [
-  ["数据使用咨询 / 权限申请", "待项目组确认公开邮箱；也可通过系统消息入口联系"],
   [
-    "数据提交与 API 对接",
-    "由数据管理员统一受理，按数据模板和 OpenAPI 契约执行",
+    "数据使用咨询 / 权限申请",
+    "请发送邮件至 wanghaoyu191@mails.ucas.ac.cn，说明姓名、单位、数据用途与所需权限。",
+  ],
+  [
+    "数据资料提交",
+    "请按平台数据模板整理数据文件、元数据说明和联系人信息，由数据管理员统一受理。",
   ],
   [
     "平台故障报修",
-    "待公开邮箱确认；建议工作日 10:00-19:00 提交问题描述、截图和复现步骤",
+    "请通过 wanghaoyu191@mails.ucas.ac.cn 反馈问题描述、截图、浏览器环境和复现步骤。",
   ],
   ["通信地址", "新疆阿拉尔市塔里木大学生命科学与技术学院，843300"],
 ];
@@ -653,7 +660,7 @@ export const knowledgeGraphNodes = [
     x: 50,
     y: 50,
     detail:
-      "汇聚基因组、表观调控、抗逆响应、资源保育和监测应用等研究主题。",
+      "以科研论文和平台数据为入口，汇聚基因组机制、异形叶调控、抗逆适应和保护应用四类知识。",
   },
   {
     id: "genome",
@@ -667,16 +674,16 @@ export const knowledgeGraphNodes = [
     id: "slr",
     label: "性别连锁区 SLR",
     group: "genome",
-    x: 35,
-    y: 27,
+    x: 31,
+    y: 24,
     detail: "定位 Y 染色体关键区域，支撑性别鉴定标记开发。",
   },
   {
     id: "arr17",
     label: "ARR17 相关机制",
     group: "genome",
-    x: 65,
-    y: 27,
+    x: 69,
+    y: 24,
     detail: "关注甲基化与性别表达调控线索。",
   },
   {
@@ -684,23 +691,23 @@ export const knowledgeGraphNodes = [
     label: "性别鉴定标记",
     group: "genome",
     x: 50,
-    y: 38,
+    y: 36,
     detail: "服务苗期雌雄识别和精准造林配置。",
   },
   {
     id: "leaf",
     label: "异形叶发育",
     group: "leaf",
-    x: 19,
-    y: 43,
+    x: 18,
+    y: 38,
     detail: "解释下层窄叶和上层阔叶的功能分化。",
   },
   {
     id: "methyl",
     label: "DNA 甲基化",
     group: "leaf",
-    x: 31,
-    y: 58,
+    x: 30,
+    y: 53,
     detail: "表观调控连接叶形变化与逆境适应。",
   },
   {
@@ -708,15 +715,15 @@ export const knowledgeGraphNodes = [
     label: "转录组响应",
     group: "leaf",
     x: 18,
-    y: 70,
+    y: 68,
     detail: "连接叶片形态变化、根叶响应和逆境下的表达调控。",
   },
   {
     id: "stress",
     label: "盐旱胁迫响应",
     group: "stress",
-    x: 81,
-    y: 43,
+    x: 82,
+    y: 38,
     detail: "组织转录组、基因家族和生理响应证据。",
   },
   {
@@ -724,15 +731,15 @@ export const knowledgeGraphNodes = [
     label: "WOX 基因家族",
     group: "stress",
     x: 70,
-    y: 58,
+    y: 53,
     detail: "补充胡杨和灰杨在非生物胁迫下的基因家族表达线索。",
   },
   {
     id: "pruinosa",
     label: "灰杨荒漠适应",
     group: "stress",
-    x: 84,
-    y: 70,
+    x: 82,
+    y: 68,
     detail: "通过灰杨基因组补充姐妹种荒漠适应研究。",
   },
   {
@@ -740,14 +747,14 @@ export const knowledgeGraphNodes = [
     label: "种质资源保育",
     group: "conservation",
     x: 50,
-    y: 82,
+    y: 84,
     detail: "连接样本采集、保护单元和资源评价。",
   },
   {
     id: "monitoring",
     label: "遥感与样地监测",
     group: "conservation",
-    x: 34,
+    x: 31,
     y: 82,
     detail: "支撑宏观分布、退化识别和恢复成效跟踪。",
   },
@@ -755,32 +762,51 @@ export const knowledgeGraphNodes = [
     id: "restoration",
     label: "生态修复应用",
     group: "conservation",
-    x: 66,
+    x: 69,
     y: 82,
     detail: "将性别鉴定、种质选择和监测评估转化为恢复配置策略。",
   },
 ];
 
 export const knowledgeGraphEdges = [
-  { from: "genome", to: "slr", tone: "genome", label: "定位", bend: -5 },
-  { from: "genome", to: "arr17", tone: "genome", label: "调控", bend: 5 },
-  { from: "slr", to: "marker", tone: "genome", label: "标记", bend: 4 },
-  { from: "arr17", to: "marker", tone: "genome", label: "表达", bend: -4 },
+  { from: "genome", to: "slr", tone: "genome", label: "定位", bend: -2 },
+  { from: "genome", to: "arr17", tone: "genome", label: "调控", bend: 2 },
+  { from: "slr", to: "marker", tone: "genome", label: "标记", bend: 1 },
+  { from: "arr17", to: "marker", tone: "genome", label: "表达", bend: -1 },
   { from: "marker", to: "hub", tone: "genome", label: "转化", bend: 0 },
-  { from: "leaf", to: "methyl", tone: "leaf", label: "表观", bend: -6 },
-  { from: "leaf", to: "transcriptome", tone: "leaf", label: "表达", bend: 5 },
-  { from: "methyl", to: "hub", tone: "leaf", label: "叶形", bend: 7 },
-  { from: "transcriptome", to: "hub", tone: "leaf", label: "响应", bend: -8 },
-  { from: "hub", to: "stress", tone: "stress", label: "抗逆", bend: -7 },
-  { from: "stress", to: "wox", tone: "stress", label: "基因", bend: 5 },
-  { from: "stress", to: "pruinosa", tone: "stress", label: "演化", bend: -4 },
-  { from: "wox", to: "pruinosa", tone: "stress", label: "比较", bend: 6 },
-  { from: "hub", to: "germplasm", tone: "conservation", label: "资源", bend: 0 },
-  { from: "monitoring", to: "germplasm", tone: "conservation", label: "评估", bend: -5 },
-  { from: "germplasm", to: "restoration", tone: "conservation", label: "应用", bend: 5 },
-  { from: "marker", to: "restoration", tone: "conservation", label: "配置", bend: 10 },
-  { from: "monitoring", to: "leaf", tone: "leaf", label: "反馈", bend: 8 },
-  { from: "pruinosa", to: "germplasm", tone: "conservation", label: "保育", bend: -8 },
+  { from: "leaf", to: "methyl", tone: "leaf", label: "表观调控", bend: -1 },
+  {
+    from: "methyl",
+    to: "transcriptome",
+    tone: "leaf",
+    label: "表达响应",
+    bend: 1,
+  },
+  { from: "methyl", to: "hub", tone: "leaf", label: "叶形机制", bend: 3 },
+  { from: "hub", to: "wox", tone: "stress", label: "抗逆机制", bend: -3 },
+  { from: "stress", to: "wox", tone: "stress", label: "基因响应", bend: 1 },
+  { from: "wox", to: "pruinosa", tone: "stress", label: "适应演化", bend: -1 },
+  {
+    from: "hub",
+    to: "germplasm",
+    tone: "conservation",
+    label: "资源沉淀",
+    bend: 0,
+  },
+  {
+    from: "monitoring",
+    to: "germplasm",
+    tone: "conservation",
+    label: "监测评估",
+    bend: -2,
+  },
+  {
+    from: "germplasm",
+    to: "restoration",
+    tone: "conservation",
+    label: "修复应用",
+    bend: 2,
+  },
 ];
 
 export const knowledgeMechanisms = [
@@ -847,7 +873,7 @@ export type HelpArticle = {
 
 export const helpDocumentDownload = {
   label: "下载 PDF 帮助文档",
-  href: "/docs/CAPFED-help-center.pdf",
+  href: `${import.meta.env.BASE_URL}docs/CAPFED-help-center.pdf`,
   filename: "中亚胡杨林生态系统保护数据共享平台帮助文档.pdf",
   meta: "v1.0 / 2026-07-10 / 适用于帮助中心离线阅读与培训分发",
 };
@@ -990,7 +1016,7 @@ export const helpArticles: HelpArticle[] = [
       {
         type: "note",
         title: "权限口径",
-        body: "系统实际内置超级管理员、平台管理员、科研用户、普通用户和游客等角色。数据管理员通常通过平台管理员或自定义角色授予数据维护权限形成。",
+        body: "平台采用分级授权和数据可见范围双重控制。平台管理员负责日常数据运维，科研用户开展数据生产与成果管理，普通用户和游客按授权范围使用数据。具体权限以账号实际授权为准。",
       },
     ],
   },
@@ -1097,7 +1123,7 @@ export const helpArticles: HelpArticle[] = [
         title: "图层常用操作",
         items: [
           "保存为工程：保存当前图层组合、视角和状态。",
-          "保存为专题：把当前图层组合整理成可共享业务场景。",
+          "保存为工程：固化当前图层组合、符号和地图视图，再从工程创建专题出图。",
           "符号化：调整矢量或栅格图层样式；栅格重新符号化会触发后端渲染。",
           "移除图层：只从当前工作台移除，不删除原始数据资源。",
         ],

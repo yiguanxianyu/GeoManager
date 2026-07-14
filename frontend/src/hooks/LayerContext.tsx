@@ -12,7 +12,7 @@ import type {
   LoadedLayerGroup,
   LoadedRasterLayer,
   WorkspaceScene,
-  WorkspaceSceneKind,
+  WorkspaceAccessGroup,
 } from "../types";
 
 export type DropPlacement = "before" | "after";
@@ -105,9 +105,15 @@ export interface LayerContextValue {
     onProgress?: ExportProgressHandler,
   ) => Promise<void>;
   workspaceScenes: WorkspaceScene[];
+  workspaceAccessGroups: WorkspaceAccessGroup[];
+  canCreateWorkspaces: boolean;
   saveWorkspace: (
-    kind: WorkspaceSceneKind,
-    values: { name: string; description?: string; targetId?: number },
+    values: {
+      name: string;
+      description?: string;
+      targetId?: number;
+      accessGroupIds?: number[];
+    },
   ) => Promise<void>;
 }
 

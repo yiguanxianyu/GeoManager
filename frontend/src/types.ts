@@ -50,7 +50,10 @@ import type {
   QueryResponse,
   RasterBandInfo,
   RasterDataset,
+  RasterImportCommitRequest,
+  RasterImportPreviewResponse,
   RasterRenderResult,
+  RegisterRequest,
   ResourceListItem,
   ResourceProfileResponse,
   ResourceVisualizationSummaryResponse,
@@ -59,9 +62,15 @@ import type {
   UserInfo,
   ValidationIssue,
   ValidationWarning,
+  VectorImportCommitRequest,
+  VectorImportCommitResponse,
+  VectorImportPreviewResponse,
+  VectorImportValidateRequest,
+  VectorImportValidateResponse,
   AdminWorkspaceSceneListResponse,
   AdminWorkspaceSceneUpdateRequest,
   WorkspaceScene,
+  WorkspaceSceneListResponse,
 } from "./api/generated";
 
 export type {
@@ -88,6 +97,12 @@ export type {
   GroupUpdateRequest,
   ImportDuplicateTarget,
   RasterRenderResult,
+  RegisterRequest,
+  RegisterResponse,
+  RoleApplicationListItem,
+  RoleApplicationListResponse,
+  RoleApplicationReviewRequest,
+  RoleApplicationStatus,
   ResourceListItem,
   UserCreateRequest,
   UserCreateResponse,
@@ -98,7 +113,18 @@ export type {
   UserUpdateRequest,
   WorkspaceScene,
   WorkspaceSceneCreateRequest,
+  WorkspaceSceneListResponse,
   WorkspaceSceneUpdateRequest,
+  MapComposition,
+  MapCompositionCreateRequest,
+  MapCompositionUpdateRequest,
+  MapCompositionVersion,
+  MapCompositionVersionCreatePayload,
+  MapCompositionListResponse,
+  MapCompositionPublishRequest,
+  MapCompositionRestoreProjectRequest,
+  MapCompositionRestoreProjectResponse,
+  MapCompositionRestoreWarning,
 } from "./api/generated";
 
 import type {
@@ -154,6 +180,8 @@ export type AdminWorkspaceUpdate = AdminWorkspaceSceneUpdateRequest;
 export type AdminWorkspaceFilters = NonNullable<
   ListAdminWorkspacesData["query"]
 >;
+export type WorkspaceAccessGroup =
+  WorkspaceSceneListResponse["availableAccessGroups"][number];
 export type ResourceField = FieldInfo;
 export type ImportCoordinateStats = CoordinateStats;
 export type ImportValidationIssue = ValidationIssue;
@@ -173,6 +201,11 @@ export type ImportPreview = ImportPreviewResponse & {
 };
 export type ImportValidateResult = ImportValidateResponse;
 export type ImportCommitResult = ImportCommitResponse;
+export type VectorImportPreview = VectorImportPreviewResponse;
+export type VectorImportValidatePayload = VectorImportValidateRequest;
+export type VectorImportValidateResult = VectorImportValidateResponse;
+export type VectorImportCommitPayload = VectorImportCommitRequest;
+export type VectorImportCommitResult = VectorImportCommitResponse;
 export type RasterBandMetadata = RasterBandInfo;
 type RasterDatasetProfile = RasterDataset;
 export type GeoJsonValidationWarning = ValidationWarning;
@@ -183,6 +216,8 @@ export type DataCatalog = Directory;
 export type MapLayerListItem = LayerListResponse["items"][number];
 export type RasterUniqueValuesResult = UniqueValuesResponse;
 export type RasterJob = AsyncJobResponse;
+export type RasterImportPreview = RasterImportPreviewResponse;
+export type RasterImportCommitPayload = RasterImportCommitRequest;
 export type SearchResult = SearchResponse;
 export type WorkspaceSceneKind = WorkspaceScene["kind"];
 export type SavedWorkspaceLayer = {
@@ -348,7 +383,11 @@ export interface LoginFormValues {
 
 export interface RegisterFormValues {
   username: string;
-  email?: string;
+  email: string;
   password: string;
   passwordConfirm: string;
+  accountPurpose: RegisterRequest["accountPurpose"];
+  displayName?: string;
+  department?: string;
+  applicationReason?: string;
 }

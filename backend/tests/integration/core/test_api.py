@@ -5,7 +5,11 @@ from unittest.mock import patch
 
 import tomlkit
 from apps.core.map_thumbnail import ThumbnailTileError
-from apps.audit.models import OperationLog
+from apps.audit.events import (
+    AUTH_GUEST_LOGIN_SUCCESS,
+    AUTH_LOGIN_SUCCESS,
+)
+from apps.audit.models import OperationLog, UserActivityHour
 from apps.catalog.models import DataResource, DictionaryItem, MapLayer
 from apps.core.config import (
     APP_SUBDIRS,
@@ -28,7 +32,7 @@ from apps.core.initialization import (
     research_user_group_permissions,
     superadmin_group_locked_permissions,
 )
-from apps.core.models import SystemSetting, UserProfile
+from apps.core.models import RoleApplication, SystemSetting, UserProfile
 from apps.core.storage import (
     StoragePathError,
     app_path,
@@ -44,6 +48,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.test import Client, SimpleTestCase, TestCase, override_settings
+from django.utils import timezone
 from geomanager.settings import _default_csrf_trusted_origins
 
 
@@ -414,8 +419,7 @@ class RegistrationApiTests(TestCase):
         self.assertTrue(
             OperationLog.objects.filter(
                 user=user,
-                module="认证授权",
-                action="用户登录",
+                event_code=AUTH_LOGIN_SUCCESS,
                 status="success",
             ).exists()
         )
@@ -467,6 +471,7 @@ class RegistrationApiTests(TestCase):
                     "email": "researcher@example.local",
                     "password": "123456",
                     "passwordConfirm": "123456",
+                    "accountPurpose": "standard",
                 }
             ),
             content_type="application/json",
@@ -484,8 +489,147 @@ class RegistrationApiTests(TestCase):
         )
         self.assertTrue(user.groups.filter(name=DEFAULT_USER_GROUP_NAME).exists())
         self.assertFalse(user.groups.filter(name=GUEST_GROUP_NAME).exists())
+        self.assertEqual(user.profile.normalized_email, "researcher@example.local")
+        self.assertIsNone(response.json()["roleApplication"])
 
-    def test_guest_login_creates_dedicated_guest_user_without_default_permissions(self):
+    def test_registration_requires_valid_unique_normalized_email(self):
+        SystemSetting.objects.update_or_create(
+            pk=1, defaults={"allow_registration": True}
+        )
+
+        missing_response = self.client.post(
+            "/api/auth/register/",
+            data=json.dumps(
+                {
+                    "username": "missing-email",
+                    "password": "StrongPass12345",
+                    "passwordConfirm": "StrongPass12345",
+                    "accountPurpose": "standard",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(missing_response.status_code, 400)
+        self.assertEqual(missing_response.json()["detail"], "请输入邮箱")
+
+        first_response = self.client.post(
+            "/api/auth/register/",
+            data=json.dumps(
+                {
+                    "username": "normalized-email",
+                    "email": "  Person@Example.COM  ",
+                    "password": "StrongPass12345",
+                    "passwordConfirm": "StrongPass12345",
+                    "accountPurpose": "standard",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(first_response.status_code, 200)
+        user = get_user_model().objects.get(username="normalized-email")
+        self.assertEqual(user.email, "person@example.com")
+        self.assertEqual(user.profile.normalized_email, "person@example.com")
+
+        self.client.logout()
+        duplicate_response = self.client.post(
+            "/api/auth/register/",
+            data=json.dumps(
+                {
+                    "username": "duplicate-email",
+                    "email": "PERSON@example.com",
+                    "password": "StrongPass12345",
+                    "passwordConfirm": "StrongPass12345",
+                    "accountPurpose": "standard",
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(duplicate_response.status_code, 400)
+        self.assertEqual(duplicate_response.json()["detail"], "邮箱已被使用")
+
+    def test_research_registration_creates_pending_application_without_elevation(self):
+        SystemSetting.objects.update_or_create(
+            pk=1, defaults={"allow_registration": True}
+        )
+
+        response = self.client.post(
+            "/api/auth/register/",
+            data=json.dumps(
+                {
+                    "username": "research-applicant",
+                    "email": "Applicant@Example.COM",
+                    "password": "StrongPass12345",
+                    "passwordConfirm": "StrongPass12345",
+                    "accountPurpose": "research",
+                    "displayName": "张研究员",
+                    "department": "生态监测组",
+                    "applicationReason": "需要上传和导出长期监测数据",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        user = get_user_model().objects.get(username="research-applicant")
+        application = RoleApplication.objects.get(user=user)
+        self.assertEqual(user.first_name, "张研究员")
+        self.assertEqual(user.profile.department, "生态监测组")
+        self.assertTrue(user.groups.filter(name=DEFAULT_USER_GROUP_NAME).exists())
+        self.assertFalse(user.groups.filter(name=RESEARCH_USER_GROUP_NAME).exists())
+        self.assertEqual(application.status, RoleApplication.Status.PENDING)
+        self.assertEqual(response.json()["roleApplication"]["status"], "pending")
+
+    def test_manager_can_approve_research_application_and_replace_base_role(self):
+        ensure_superadmin_defaults(create_account=False)
+        manager = get_user_model().objects.create_user(
+            username="research-reviewer", password="pass12345"
+        )
+        grant(manager, ("core", "manage_auth"))
+        applicant = get_user_model().objects.create_user(
+            username="research-review-target",
+            email="review.target@example.com",
+            password="pass12345",
+        )
+        ordinary_group = Group.objects.get(name=DEFAULT_USER_GROUP_NAME)
+        custom_group = Group.objects.create(name="项目协作组")
+        applicant.groups.set([ordinary_group, custom_group])
+        UserProfile.objects.create(
+            user=applicant,
+            normalized_email="review.target@example.com",
+            department="生态监测组",
+        )
+        application = RoleApplication.objects.create(
+            user=applicant,
+            reason="需要科研数据处理权限",
+        )
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            f"/api/admin/role-applications/{application.id}/review/",
+            data=json.dumps({"action": "approve", "reviewNote": "申请信息完整"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        applicant.refresh_from_db()
+        application.refresh_from_db()
+        self.assertFalse(applicant.groups.filter(name=DEFAULT_USER_GROUP_NAME).exists())
+        self.assertTrue(applicant.groups.filter(name=RESEARCH_USER_GROUP_NAME).exists())
+        self.assertTrue(applicant.groups.filter(name="项目协作组").exists())
+        self.assertEqual(application.status, RoleApplication.Status.APPROVED)
+        self.assertEqual(application.reviewer, manager)
+        self.assertEqual(response.json()["status"], "approved")
+
+        list_response = self.client.get("/api/admin/role-applications/?status=approved")
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(
+            list_response.json()["items"][0]["user"]["email"],
+            "review.target@example.com",
+        )
+
+    def test_guest_login_creates_dedicated_guest_user_with_public_read_permissions(
+        self,
+    ):
         response = self.client.post("/api/auth/guest-login/")
 
         self.assertEqual(response.status_code, 200)
@@ -494,19 +638,20 @@ class RegistrationApiTests(TestCase):
         self.assertEqual(payload["displayName"], "游客")
         self.assertEqual(payload["roles"], [GUEST_GROUP_NAME])
         permissions = payload["permissions"]
-        self.assertFalse(permissions["canBrowseData"])
-        self.assertFalse(permissions["canQueryData"])
-        self.assertFalse(permissions["canLoadVectorLayer"])
-        self.assertFalse(permissions["canLoadRasterLayer"])
+        self.assertTrue(permissions["canBrowseData"])
+        self.assertTrue(permissions["canQueryData"])
+        self.assertTrue(permissions["canLoadVectorLayer"])
+        self.assertTrue(permissions["canLoadRasterLayer"])
+        self.assertTrue(permissions["canViewWorkspaces"])
         self.assertFalse(permissions["canUploadData"])
+        self.assertFalse(permissions["canExportData"])
         user = get_user_model().objects.get(username="guest")
         self.assertFalse(user.has_usable_password())
         self.assertTrue(user.groups.filter(name=GUEST_GROUP_NAME).exists())
         self.assertTrue(
             OperationLog.objects.filter(
                 user=user,
-                module="认证授权",
-                action="游客登录",
+                event_code=AUTH_GUEST_LOGIN_SUCCESS,
                 status="success",
             ).exists()
         )
@@ -614,7 +759,107 @@ class FeaturePermissionTests(TestCase):
         user = get_user_model().objects.get(username="created-by-admin")
         self.assertEqual(user.email, "created@example.local")
         self.assertEqual(user.profile.department, "生态监测组")
+        self.assertEqual(user.profile.normalized_email, "created@example.local")
         self.assertTrue(user.groups.filter(id=group.id).exists())
+
+    def test_create_user_requires_email_when_role_is_valid(self):
+        manager = get_user_model().objects.create_user(
+            username="user-manager-email", password="pass12345"
+        )
+        grant(manager, ("core", "manage_auth"), ("core", "create_user"))
+        group = Group.objects.create(name="邮箱必填测试组")
+        self.client.force_login(manager)
+
+        response = self.client.post(
+            "/api/users/",
+            data=json.dumps(
+                {
+                    "username": "created-without-email",
+                    "groupIds": [group.id],
+                    "isActive": True,
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "请输入邮箱")
+
+    def test_only_superadmin_can_assign_platform_admin_role(self):
+        ensure_superadmin_defaults(create_account=False)
+        platform_group = Group.objects.get(name=PLATFORM_ADMIN_GROUP_NAME)
+        ordinary_group = Group.objects.get(name=DEFAULT_USER_GROUP_NAME)
+        manager = get_user_model().objects.create_user(
+            username="platform-role-manager", password="pass12345"
+        )
+        grant(manager, ("core", "manage_auth"), ("core", "create_user"))
+        target = get_user_model().objects.create_user(
+            username="platform-role-target", password="pass12345"
+        )
+        target.groups.add(ordinary_group)
+        self.client.force_login(manager)
+
+        create_response = self.client.post(
+            "/api/users/",
+            data=json.dumps(
+                {
+                    "username": "blocked-platform-admin",
+                    "email": "blocked.platform@example.com",
+                    "groupIds": [platform_group.id],
+                }
+            ),
+            content_type="application/json",
+        )
+        self.assertEqual(create_response.status_code, 400)
+        self.assertEqual(
+            create_response.json()["detail"],
+            "只有超级管理员可以分配平台管理员角色",
+        )
+
+        update_response = self.client.post(
+            f"/api/users/{target.id}/groups/",
+            data=json.dumps({"groupIds": [platform_group.id]}),
+            content_type="application/json",
+        )
+        self.assertEqual(update_response.status_code, 400)
+        self.assertEqual(
+            update_response.json()["detail"],
+            "只有超级管理员可以分配平台管理员角色",
+        )
+
+    def test_profile_email_is_normalized_and_cannot_duplicate_another_user(self):
+        user = get_user_model().objects.create_user(
+            username="profile-email-user",
+            email="old@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=user, normalized_email="old@example.com")
+        other = get_user_model().objects.create_user(
+            username="profile-email-other",
+            email="used@example.com",
+            password="pass12345",
+        )
+        UserProfile.objects.create(user=other, normalized_email="used@example.com")
+        self.client.force_login(user)
+
+        normalized_response = self.client.post(
+            "/api/admin/profile/update/",
+            data=json.dumps({"email": "  New.Address@Example.COM  "}),
+            content_type="application/json",
+        )
+        self.assertEqual(normalized_response.status_code, 200)
+        user.refresh_from_db()
+        user.profile.refresh_from_db()
+        self.assertEqual(user.email, "new.address@example.com")
+        self.assertEqual(user.profile.normalized_email, "new.address@example.com")
+
+        duplicate_response = self.client.post(
+            "/api/admin/profile/update/",
+            data=json.dumps({"email": "USED@example.com"}),
+            content_type="application/json",
+        )
+        self.assertEqual(duplicate_response.status_code, 400)
+        self.assertEqual(duplicate_response.json()["detail"], "邮箱已被使用")
 
     def test_create_user_requires_group(self):
         manager = get_user_model().objects.create_user(
@@ -2001,6 +2246,7 @@ class FeaturePermissionTests(TestCase):
             user=active_user,
             module="认证授权",
             action="用户登录",
+            event_code=AUTH_LOGIN_SUCCESS,
             status="success",
             message="登录成功",
         )
@@ -2008,8 +2254,17 @@ class FeaturePermissionTests(TestCase):
             user=active_user,
             module="认证授权",
             action="用户登录",
+            event_code=AUTH_LOGIN_SUCCESS,
             status="success",
             message="登录成功",
+        )
+        UserActivityHour.objects.create(
+            user=active_user,
+            bucket_start=timezone.localtime().replace(
+                minute=0,
+                second=0,
+                microsecond=0,
+            ),
         )
         self.client.force_login(manager)
 
@@ -2036,12 +2291,28 @@ class FeaturePermissionTests(TestCase):
         )
         self.assertEqual(payload["cards"]["users"]["groups"], visible_groups.count())
         self.assertEqual(payload["cards"]["activeUsers"]["period"], "day")
-        self.assertEqual(payload["cards"]["activeUsers"]["count"], 1)
+        self.assertEqual(payload["cards"]["activeUsers"]["count"], 2)
         self.assertEqual(payload["cards"]["activeUsers"]["loginCount"], 2)
         self.assertEqual(
             payload["cards"]["activeUsers"]["ranking"][0]["username"], "active-user"
         )
         self.assertEqual(len(payload["cards"]["activeUsers"]["series"]), 24)
+
+    def test_admin_dashboard_counts_session_activity_without_a_new_login(self):
+        manager = get_user_model().objects.create_user(
+            username="carried-session-user", password="pass12345"
+        )
+        grant(manager, ("core", "view_dashboard_active_users_card"))
+        self.client.force_login(manager)
+
+        response = self.client.get("/api/admin/dashboard/", {"period": "day"})
+
+        self.assertEqual(response.status_code, 200)
+        active_users = response.json()["cards"]["activeUsers"]
+        self.assertEqual(active_users["count"], 1)
+        self.assertEqual(active_users["loginCount"], 0)
+        current_hour = timezone.localtime().hour
+        self.assertEqual(active_users["series"][current_hour]["count"], 1)
 
     def test_admin_dashboard_data_overview_permission_and_superadmin_uploaders(
         self,

@@ -30,6 +30,7 @@ import SpatialQueryWorkbench, {
 } from "../components/SpatialQueryWorkbench";
 import WorkspaceScenePanel from "../components/WorkspaceScenePanel";
 import WorkspaceHeader from "../components/WorkspaceHeader";
+import MapCompositionPanel from "../components/map-composition/MapCompositionPanel";
 import { useAppContext } from "../contexts/AppContext";
 import {
   type ExportOptions,
@@ -38,8 +39,11 @@ import {
   type LayerContextValue,
 } from "../hooks/LayerContext";
 import { useLayerGroups } from "../hooks/useLayerGroups";
+import { useMapCompositions } from "../hooks/useMapCompositions";
 import { useRasterRender } from "../hooks/useRasterRender";
 import { useWorkspaceScenes } from "../hooks/useWorkspaceScenes";
+import { workspaceSnapshot } from "../workspace/workspaceSnapshot";
+import { effectiveMapLayers } from "../map/effectiveMapLayers";
 import { clearFeatureState, getMapState } from "../map/mapState";
 import {
   exportMapRangeImage,
@@ -49,6 +53,11 @@ import {
 } from "../map/mapExport";
 import type { DrawMode } from "../map/spatialDraw";
 import { workspacePanelTheme } from "../theme";
+import {
+  boundsFromUnknown,
+  defaultCompositionLayout,
+  type MapBounds,
+} from "../map-composition/layout";
 import type {
   AttributeFilter,
   DataDomainType,
@@ -63,11 +72,13 @@ import type {
   LoadedRasterLayer,
   LoadedVectorLayer,
   MapViewState,
+  MapComposition,
   ResourceFilters,
   ResourceListItem,
   ResourceQueryResult,
   ResourceVisualizationSummary,
   SpatialFilter,
+  WorkspaceScene,
 } from "../types";
 import { downloadBlob } from "../utils/download";
 import {
@@ -82,7 +93,10 @@ import {
   createRasterLayerGroup,
   createVectorLayerGroup,
 } from "../utils/layerFactory";
-import { resourceSpatialExtent } from "../utils/resources";
+import {
+  isGeographicResource,
+  resourceSpatialExtent,
+} from "../utils/resources";
 import { showGeojsonWarnings } from "../workspace/workspaceNotifications";
 
 type DrawPurpose = "query";
@@ -140,6 +154,13 @@ const emptyPermissions = {
   canCreateWorkspaces: false,
   canChangeWorkspaces: false,
   canDeleteWorkspaces: false,
+  canViewMapCompositions: false,
+  canCreateMapCompositions: false,
+  canChangeMapCompositions: false,
+  canDeleteMapCompositions: false,
+  canExportMapCompositions: false,
+  canPublishMapCompositions: false,
+  canRestoreMapCompositions: false,
   canManageRasterData: false,
 };
 
@@ -155,9 +176,14 @@ const fallbackDomainTypeOptions: Array<{
   { value: "remote_sensing", label: "遥感影像数据" },
   { value: "molecular", label: "分子数据" },
   { value: "genome", label: "基因组数据" },
+  { value: "vector", label: "矢量数据" },
+  { value: "other", label: "其他类型" },
 ];
 
 const MapCanvas = lazy(() => import("../components/MapCanvas"));
+const MapCompositionEditor = lazy(
+  () => import("../components/map-composition/MapCompositionEditor"),
+);
 
 interface LastGeoInsightCache {
   resource: ResourceListItem | null;
@@ -239,6 +265,8 @@ export default function MapPage() {
     null,
   );
   const [mapObject, setMapObject] = useState<MapboxMap | null>(null);
+  const [editingComposition, setEditingComposition] =
+    useState<MapComposition | null>(null);
   const [exportTileZoomRange, setExportTileZoomRange] = useState<TileZoomRange>(
     { min: 0, max: 22 },
   );
@@ -285,6 +313,7 @@ export default function MapPage() {
   }, []);
   const {
     workspaceScenes,
+    workspaceAccessGroups,
     loadWorkspaceScenes,
     loadWorkspaceScene,
     loadWorkspaceSceneById,
@@ -292,7 +321,7 @@ export default function MapPage() {
     updateWorkspaceScene,
     deleteWorkspaceScene,
   } = useWorkspaceScenes({
-    canBrowseData: permissions.canBrowseData,
+    canViewWorkspaces: permissions.canViewWorkspaces,
     canQueryData: permissions.canQueryData,
     canLoadVectorLayer: permissions.canLoadVectorLayer,
     queryResultLimit: bootstrap.limits.queryResultLimit,
@@ -304,35 +333,32 @@ export default function MapPage() {
     setSelectedLayerId,
     onWorkspaceLoaded: handleWorkspaceLoaded,
   });
+  const mapCompositions = useMapCompositions(
+    permissions.canViewMapCompositions,
+  );
 
   const mapLayers = useMemo(
-    () =>
-      layerGroups.groups.flatMap((group) =>
-        group.visible
-          ? group.children
-              .filter((layer) => layer.visible)
-              .map(
-                (layer) =>
-                  ({
-                    ...layer,
-                    symbolization: {
-                      ...layer.symbolization,
-                      opacity: Math.round(
-                        (layer.symbolization.opacity *
-                          group.symbolization.opacity) /
-                          100,
-                      ),
-                    },
-                  }) as LoadedLayer,
-              )
-          : [],
-      ),
+    () => effectiveMapLayers(layerGroups.groups),
     [layerGroups.groups],
   );
 
   const allLayers = useMemo(
     () => layerGroups.groups.flatMap((group) => group.children),
     [layerGroups.groups],
+  );
+  const compositionSourceText = useMemo(() => {
+    const sources = new Set(
+      allLayers
+        .map((layer) => layer.sourceResource.source?.trim())
+        .filter((value): value is string => Boolean(value)),
+    );
+    return sources.size > 0
+      ? `数据来源：${Array.from(sources).join("、")}`
+      : "数据来源：平台已加载数据资源";
+  }, [allLayers]);
+  const compositionFallbackBounds = useMemo<MapBounds>(
+    () => boundsFromUnknown(currentMapView?.bounds, [50, 35, 100, 48]),
+    [currentMapView?.bounds],
   );
   const loadedSourceIds = useMemo(
     () => new Set(allLayers.map((layer) => sourceIdFor(layer.id))),
@@ -414,7 +440,10 @@ export default function MapPage() {
 
     setRememberedGeoInsight((current) => {
       const nextResource =
-        activeInsightResource ?? activeInsightLayer?.sourceResource ?? current?.resource ?? null;
+        activeInsightResource ??
+        activeInsightLayer?.sourceResource ??
+        current?.resource ??
+        null;
       const nextProfile =
         activeInsightProfile ??
         (nextResource && current?.profile?.resource.id === nextResource.id
@@ -587,8 +616,11 @@ export default function MapPage() {
   const loadResources = useCallback(
     async (filters: ResourceFilters) => {
       try {
-        const response = await api.resources(filters);
-        const items = response.items;
+        const response = await api.resources({
+          ...filters,
+          spatialClass: "spatial",
+        });
+        const items = response.items.filter(isGeographicResource);
         setResources(items);
         setSelectedResource((current) =>
           current && !items.some((item) => item.id === current.id)
@@ -624,6 +656,10 @@ export default function MapPage() {
   useEffect(() => {
     void loadWorkspaceScenes();
   }, [loadWorkspaceScenes]);
+
+  useEffect(() => {
+    void mapCompositions.load();
+  }, [mapCompositions.load]);
 
   useEffect(() => {
     if (!permissions.canBrowseData) {
@@ -850,6 +886,15 @@ export default function MapPage() {
       child,
       "default",
     );
+    const map = mapInstanceRef.current;
+    const bounds = child.imageCoordinates
+      ? boundsFromImageCoordinates(child.imageCoordinates)
+      : null;
+    if (map && bounds) {
+      void import("../map/mapViewport").then(({ rasterFitBoundsOptions }) => {
+        map.fitBounds(bounds, rasterFitBoundsOptions());
+      });
+    }
   }
 
   async function loadVectorResource(
@@ -955,7 +1000,8 @@ export default function MapPage() {
       ) {
         const bounds = boundsFromImageCoordinates(targetLayer.imageCoordinates);
         if (bounds) {
-          map.fitBounds(bounds, await mapFitBoundsOptions(map));
+          const { rasterFitBoundsOptions } = await import("../map/mapViewport");
+          map.fitBounds(bounds, rasterFitBoundsOptions());
           return;
         }
       }
@@ -1011,7 +1057,8 @@ export default function MapPage() {
       }
       const firstRasterBound = rasterBounds[0];
       if (!bounds && firstRasterBound) {
-        map.fitBounds(firstRasterBound, await mapFitBoundsOptions(map));
+        const { rasterFitBoundsOptions } = await import("../map/mapViewport");
+        map.fitBounds(firstRasterBound, rasterFitBoundsOptions());
         return;
       }
       if (!bounds) {
@@ -1581,8 +1628,105 @@ export default function MapPage() {
     clearExportClipGeometry: () => setSpatialFilter(null),
     exportLayers,
     workspaceScenes,
+    workspaceAccessGroups,
+    canCreateWorkspaces: permissions.canCreateWorkspaces,
     saveWorkspace,
   };
+
+  const handleCreateMapComposition = useCallback(
+    async (scene: WorkspaceScene) => {
+      if (!permissions.canCreateMapCompositions) {
+        message.warning(permissionDeniedMessage);
+        return;
+      }
+      try {
+        await loadWorkspaceScene(scene);
+        const snapshot = scene.snapshot as {
+          mapView?: { bounds?: unknown } | null;
+        };
+        const bounds = boundsFromUnknown(
+          snapshot.mapView?.bounds,
+          compositionFallbackBounds,
+        );
+        const baseName = `${scene.name}专题图`;
+        const sameNames = new Set(
+          mapCompositions.items
+            .filter((item) => item.projectId === scene.id)
+            .map((item) => item.name),
+        );
+        let name = baseName;
+        let suffix = 2;
+        while (sameNames.has(name)) {
+          name = `${baseName}（${suffix}）`;
+          suffix += 1;
+        }
+        const created = await mapCompositions.create(
+          scene.id,
+          name,
+          defaultCompositionLayout(name, bounds, compositionSourceText),
+        );
+        setEditingComposition(created);
+        setActiveLeftPanel("topics");
+        message.success("出图草稿已创建");
+      } catch (error) {
+        message.error(
+          error instanceof Error ? error.message : "出图草稿创建失败",
+        );
+      }
+    },
+    [
+      compositionFallbackBounds,
+      compositionSourceText,
+      loadWorkspaceScene,
+      mapCompositions,
+      message,
+      permissionDeniedMessage,
+      permissions.canCreateMapCompositions,
+    ],
+  );
+
+  const handleOpenMapComposition = useCallback(
+    async (composition: MapComposition) => {
+      try {
+        const project =
+          workspaceScenes.find((scene) => scene.id === composition.projectId) ??
+          (await api.workspace(composition.projectId));
+        await loadWorkspaceScene(project);
+        setEditingComposition(composition);
+      } catch (error) {
+        message.error(
+          error instanceof Error ? error.message : "来源工程加载失败",
+        );
+      }
+    },
+    [loadWorkspaceScene, message, workspaceScenes],
+  );
+
+  const handleLoadMapCompositionSource = useCallback(
+    async (composition: MapComposition) => {
+      try {
+        const project =
+          workspaceScenes.find((scene) => scene.id === composition.projectId) ??
+          (await api.workspace(composition.projectId));
+        await loadWorkspaceScene(project);
+        setActiveLeftPanel("projects");
+      } catch (error) {
+        message.error(
+          error instanceof Error ? error.message : "来源工程加载失败",
+        );
+      }
+    },
+    [loadWorkspaceScene, message, workspaceScenes],
+  );
+
+  const handleRestoredMapCompositionProject = useCallback(
+    async (project: WorkspaceScene) => {
+      await loadWorkspaceScenes();
+      await loadWorkspaceScene(project);
+      setActiveLeftPanel("projects");
+    },
+    [loadWorkspaceScene, loadWorkspaceScenes],
+  );
 
   const renderDataPanel = () => (
     <DataPanel
@@ -1621,7 +1765,7 @@ export default function MapPage() {
         }
         onLoadWorkspaceScene={loadWorkspaceScene}
         onSearchFocus={() => {
-          if (permissions.canBrowseData) {
+          if (permissions.canViewWorkspaces) {
             void loadWorkspaceScenes();
           }
         }}
@@ -1699,10 +1843,12 @@ export default function MapPage() {
                         items={workspaceScenes.filter(
                           (scene) => scene.kind === "project",
                         )}
+                        accessGroups={workspaceAccessGroups}
                         onLoad={loadWorkspaceScene}
                         onRefresh={loadWorkspaceScenes}
                         onUpdate={updateWorkspaceScene}
                         onDelete={deleteWorkspaceScene}
+                        onCreateComposition={handleCreateMapComposition}
                       />
                     ),
                   },
@@ -1715,15 +1861,19 @@ export default function MapPage() {
                       </span>
                     ),
                     children: (
-                      <WorkspaceScenePanel
-                        kind="topic"
-                        items={workspaceScenes.filter(
-                          (scene) => scene.kind === "topic",
-                        )}
-                        onLoad={loadWorkspaceScene}
-                        onRefresh={loadWorkspaceScenes}
-                        onUpdate={updateWorkspaceScene}
-                        onDelete={deleteWorkspaceScene}
+                      <MapCompositionPanel
+                        items={mapCompositions.items}
+                        availableAudienceGroups={
+                          mapCompositions.availableAudienceGroups
+                        }
+                        availableProjectAccessGroups={workspaceAccessGroups}
+                        loading={mapCompositions.loading}
+                        onRefresh={mapCompositions.load}
+                        onOpen={handleOpenMapComposition}
+                        onLoadSource={handleLoadMapCompositionSource}
+                        onRestored={handleRestoredMapCompositionProject}
+                        onChanged={mapCompositions.update}
+                        onArchived={mapCompositions.archive}
                       />
                     ),
                   },
@@ -1749,7 +1899,9 @@ export default function MapPage() {
               selectedResourceProfile={rightPanelSelectedResourceProfile}
               selectedLayer={rightPanelSelectedLayer}
               visualizationSummary={rightPanelVisualizationSummary}
-              visualizationSummaryLoading={rightPanelVisualizationSummaryLoading}
+              visualizationSummaryLoading={
+                rightPanelVisualizationSummaryLoading
+              }
               visualizationSummaryError={visualizationSummaryError}
               currentView={currentMapView}
               mapConfig={bootstrap.map}
@@ -1838,6 +1990,28 @@ export default function MapPage() {
           </ConfigProvider>
         </aside>
       </div>
+      <Suspense fallback={null}>
+        <MapCompositionEditor
+          open={Boolean(editingComposition)}
+          composition={editingComposition}
+          map={mapObject}
+          groups={layerGroups.groups}
+          workspaceSnapshot={workspaceSnapshot(
+            layerGroups.groups,
+            selectedLayerId,
+            currentMapView,
+          )}
+          fallbackBounds={compositionFallbackBounds}
+          sourceText={compositionSourceText}
+          accessToken={bootstrap.map.mapboxAccessToken}
+          canExport={permissions.canExportMapCompositions}
+          onClose={() => setEditingComposition(null)}
+          onSaved={(composition) => {
+            mapCompositions.update(composition);
+            setEditingComposition(composition);
+          }}
+        />
+      </Suspense>
     </Layout>
   );
 }

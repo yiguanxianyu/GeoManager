@@ -77,9 +77,17 @@ def serialize_backup_run(run: BackupRun) -> dict[str, Any]:
 
 
 def backup_scope_summaries() -> list[dict[str, Any]]:
+    backup = current_backup_settings()
     return [
-        _scope_summary("research", "科研数据", "科研数据根目录"),
-        _scope_summary("platform", "平台数据", "业务数据根目录"),
+        _scope_summary(
+            "research", "科研数据", "科研数据根目录", include_logs=False
+        ),
+        _scope_summary(
+            "platform",
+            "平台数据",
+            "业务数据根目录",
+            include_logs=backup.plans["platform"].include_logs,
+        ),
     ]
 
 
@@ -349,7 +357,8 @@ def _backup_sources(plan_type: str, *, include_logs: bool) -> list[BackupFileEnt
         roots.append((app_path("logs"), "platform/logs"))
     sources = _collect_files(roots)
     config_path = settings.PROJECT_CONFIG.config_path
-    if config_path.is_file():
+    source_paths = {_normalized_path(source.path) for source in sources}
+    if config_path.is_file() and _normalized_path(config_path) not in source_paths:
         sources.append(
             BackupFileEntry(
                 path=config_path,
@@ -476,9 +485,11 @@ def _append_message(messages: list[str], message: str) -> list[str]:
     return [*messages, text][-120:]
 
 
-def _scope_summary(plan_type: str, label: str, source: str) -> dict[str, Any]:
+def _scope_summary(
+    plan_type: str, label: str, source: str, *, include_logs: bool
+) -> dict[str, Any]:
     try:
-        sources = _backup_sources(plan_type, include_logs=False)
+        sources = _backup_sources(plan_type, include_logs=include_logs)
     except Exception:
         return {
             "planType": plan_type,
@@ -496,6 +507,13 @@ def _scope_summary(plan_type: str, label: str, source: str) -> dict[str, Any]:
         "fileCount": len(sources),
         "sizeBytes": sum(item.size_bytes for item in sources),
     }
+
+
+def _normalized_path(path: Path) -> Path:
+    try:
+        return path.resolve()
+    except OSError:
+        return path.absolute()
 
 
 def _file_sha256(path: Path) -> str:

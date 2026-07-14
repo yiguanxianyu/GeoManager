@@ -97,7 +97,13 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true
+          "canDeleteWorkspaces": true,
+          "canViewMapCompositions": true,
+          "canCreateMapCompositions": true,
+          "canChangeMapCompositions": true,
+          "canDeleteMapCompositions": true,
+          "canExportMapCompositions": true,
+          "canPublishMapCompositions": true
         },
         "groupIds": [
           1
@@ -163,7 +169,7 @@
   },
   "POST /api/auth/register/": {
     "200": {
-      "detail": "用户注册成功",
+      "detail": "用户注册成功，科研用户权限申请已提交",
       "user": {
         "id": 3,
         "username": "researcher",
@@ -201,16 +207,22 @@
           "canUseCustomSymbolization": false,
           "canExportData": false,
           "canManageRasterData": false,
-          "canUploadData": true,
+          "canUploadData": false,
           "canViewDataOverview": false,
           "canViewDataResources": false,
-          "canCreateDataResources": true,
+          "canCreateDataResources": false,
           "canChangeDataResources": false,
           "canDeleteDataResources": false,
           "canViewWorkspaces": true,
-          "canCreateWorkspaces": true,
-          "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true
+          "canCreateWorkspaces": false,
+          "canChangeWorkspaces": false,
+          "canDeleteWorkspaces": false,
+          "canViewMapCompositions": true,
+          "canCreateMapCompositions": false,
+          "canChangeMapCompositions": false,
+          "canDeleteMapCompositions": false,
+          "canExportMapCompositions": false,
+          "canPublishMapCompositions": false
         },
         "groupIds": [
           2
@@ -222,7 +234,8 @@
           "core.query_data",
           "core.load_vector_layer",
           "core.load_raster_layer",
-          "catalog.add_dataresource"
+          "catalog.view_workspacescene",
+          "catalog.view_mapcomposition"
         ],
         "operationLogGroupIds": [],
         "groupPermissions": [
@@ -230,8 +243,19 @@
           "core.query_data",
           "core.load_vector_layer",
           "core.load_raster_layer",
-          "catalog.add_dataresource"
+          "catalog.view_workspacescene",
+          "catalog.view_mapcomposition"
         ]
+      },
+      "roleApplication": {
+        "id": 1,
+        "userId": 3,
+        "requestedRole": "research",
+        "status": "pending",
+        "reason": "参与胡杨林长期生态监测，需要上传和导出科研数据。",
+        "reviewNote": "",
+        "createdAt": "2026-07-14T10:30:00+08:00",
+        "reviewedAt": null
       }
     }
   },
@@ -289,7 +313,13 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true
+          "canDeleteWorkspaces": true,
+          "canViewMapCompositions": true,
+          "canCreateMapCompositions": true,
+          "canChangeMapCompositions": true,
+          "canDeleteMapCompositions": true,
+          "canExportMapCompositions": true,
+          "canPublishMapCompositions": true
         },
         "groupIds": [
           1

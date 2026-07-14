@@ -345,7 +345,7 @@ export default function AdminDashboardPage({
               styles={{ body: { padding: 0 } }}
             >
               <div className="admin-active-tabs">
-                <div className="admin-active-tab-current">活跃用户</div>
+                <div className="admin-active-tab-current">账号活跃与登录</div>
                 <div className="admin-active-actions">
                   {(["day", "week", "month"] as ActivePeriod[]).map((item) => (
                     <Button
@@ -372,16 +372,19 @@ export default function AdminDashboardPage({
                   <div className="admin-active-chart-heading">
                     <Space size={18} wrap>
                       <Statistic
-                        title={`${periodLabels[period]}活跃用户`}
+                        title={`${periodLabels[period]}活跃账号`}
                         value={dashboard.cards.activeUsers.count}
-                        suffix="人"
+                        suffix="个"
                       />
                       <Statistic
-                        title="登录次数"
+                        title="成功登录次数"
                         value={dashboard.cards.activeUsers.loginCount}
                         suffix="次"
                       />
                     </Space>
+                    <Typography.Text type="secondary">
+                      活跃账号按已认证访问去重；登录次数包含账号密码、游客及注册自动登录
+                    </Typography.Text>
                   </div>
                   <div className="admin-active-chart">
                     <ActiveUsersChart data={activeChartData} />
@@ -389,7 +392,7 @@ export default function AdminDashboardPage({
                 </Col>
                 <Col xs={24} xl={8}>
                   <div className="admin-active-rank">
-                    <Typography.Title level={4}>活跃用户排名</Typography.Title>
+                    <Typography.Title level={4}>登录次数排名</Typography.Title>
                     <ul>
                       {dashboard.cards.activeUsers.ranking.map(
                         (item, index) => (
@@ -409,7 +412,7 @@ export default function AdminDashboardPage({
                             >
                               {item.displayName}
                             </span>
-                            <span>{item.loginCount}</span>
+                            <span>{item.loginCount} 次</span>
                           </li>
                         ),
                       )}
@@ -505,7 +508,7 @@ function ActiveUsersChart({
     <div
       className="admin-active-lite-chart"
       role="list"
-      aria-label="活跃用户柱状图"
+      aria-label="活跃账号柱状图"
     >
       {data.map((item) => {
         const ratio = maxCount > 0 ? item.count / maxCount : 0;
@@ -514,7 +517,7 @@ function ActiveUsersChart({
             className="admin-active-lite-bar"
             role="listitem"
             key={item.label}
-            title={`${item.label}：${item.count} 次`}
+            title={`${item.label}：${item.count} 个活跃账号`}
           >
             <div className="admin-active-lite-bar-track">
               <div

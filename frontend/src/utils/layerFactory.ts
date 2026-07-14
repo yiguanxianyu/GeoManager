@@ -155,6 +155,8 @@ export function createEmptyLayerGroup(name: string): LoadedLayerGroup {
     name,
     code: groupId,
     dataType: "vector",
+    spatialClass: "spatial",
+    domainType: "vector",
     category: null,
     source: "手动创建",
     provider: "当前用户",

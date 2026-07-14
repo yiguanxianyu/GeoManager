@@ -110,7 +110,8 @@ class StyleHashTests(SimpleTestCase):
         from pathlib import Path
 
         with tempfile.NamedTemporaryFile(suffix=".tif") as f:
+            f.write(b"test")
+            f.flush()
             path = Path(f.name)
-            path.write_bytes(b"test")
             sh = style_hash_for(path, {"mode": "gray"})
             self.assertLessEqual(len(sh), 24)

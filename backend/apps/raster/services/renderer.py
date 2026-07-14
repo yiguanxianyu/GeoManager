@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import threading
+from functools import lru_cache
 from typing import Any
 
 from django.utils import timezone
@@ -10,7 +11,7 @@ from rasterio.enums import Resampling
 from rasterio.windows import from_bounds
 
 from apps.core.storage import raster_processed_path
-from apps.raster.models import RasterDataset
+from apps.raster.models import RasterDataset, RasterStyle
 from apps.raster.services.color_mapping import array_to_rgba
 from apps.raster.services.constants import DEFAULT_TILE_SIZE
 from apps.raster.services.exceptions import RasterRenderError, RasterTileOutsideExtent
@@ -24,6 +25,7 @@ from apps.raster.services.rules_engine import normalize_rules, read_source_bands
 
 _TILE_STYLES: dict[tuple[int, str], dict[str, Any]] = {}
 _TILE_STYLES_LOCK = threading.RLock()
+RASTER_RENDERER_VERSION = 2
 
 
 def register_tile_style(
@@ -35,7 +37,13 @@ def register_tile_style(
     normalized_rules = normalize_rules(
         rules or dataset.default_rules, dataset.processed_gdalinfo
     )
-    sh = style_hash_for(raster_path, normalized_rules)
+    sh = style_hash_for(
+        raster_path,
+        {
+            "rendererVersion": RASTER_RENDERER_VERSION,
+            "rules": normalized_rules,
+        },
+    )
 
     with _TILE_STYLES_LOCK:
         _TILE_STYLES[(dataset.id, sh)] = {
@@ -43,6 +51,11 @@ def register_tile_style(
             "rules": normalized_rules,
             "created_at": timezone.now().isoformat(),
         }
+    RasterStyle.objects.update_or_create(
+        dataset=dataset,
+        style_hash=sh,
+        defaults={"rules": normalized_rules},
+    )
     return {
         "delivery": "xyz",
         "datasetId": dataset.id,
@@ -58,13 +71,32 @@ def register_tile_style(
 
 
 def render_xyz_tile(dataset_id: int, style_hash: str, z: int, x: int, y: int) -> bytes:
+    return _render_xyz_tile_cached(dataset_id, style_hash, z, x, y)
+
+
+@lru_cache(maxsize=512)
+def _render_xyz_tile_cached(
+    dataset_id: int, style_hash: str, z: int, x: int, y: int
+) -> bytes:
     if z < 0 or x < 0 or y < 0 or x >= 2**z or y >= 2**z:
         raise RasterTileOutsideExtent("瓦片坐标超出有效范围")
 
     with _TILE_STYLES_LOCK:
         style = _TILE_STYLES.get((dataset_id, style_hash))
     if not style:
-        raise RasterRenderError("符号化瓦片样式不存在或已过期")
+        persisted = RasterStyle.objects.filter(
+            dataset_id=dataset_id, style_hash=style_hash
+        ).first()
+        if persisted:
+            style = {
+                "dataset_id": dataset_id,
+                "rules": persisted.rules,
+                "created_at": persisted.created_at.isoformat(),
+            }
+            with _TILE_STYLES_LOCK:
+                _TILE_STYLES[(dataset_id, style_hash)] = style
+        else:
+            raise RasterRenderError("符号化瓦片样式不存在或已过期")
     dataset = RasterDataset.objects.get(
         pk=dataset_id, status=RasterDataset.Status.READY
     )

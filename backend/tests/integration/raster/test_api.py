@@ -381,8 +381,8 @@ name = "test"
 allow_registration = true
 
 [application.storage]
-app_data = "{business_root}"
-research_data_root = "{research_root}"
+app_data = "{business_root.as_posix()}"
+research_data_root = "{research_root.as_posix()}"
 
 [application.map]
 default_center = [80.0, 41.5]
@@ -451,8 +451,8 @@ name = "测试系统"
 allow_registration = true
 
 [application.storage]
-app_data = "{business_root}"
-research_data_root = "{research_root}"
+app_data = "{business_root.as_posix()}"
+research_data_root = "{research_root.as_posix()}"
 
 [application.map]
 default_center = [80.0, 41.5]

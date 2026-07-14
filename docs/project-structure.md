@@ -14,7 +14,7 @@
 
 - `backend/apps/core/`：TOML 配置加载、认证、权限、系统设置、初始化账号和管理后台 API。
 - `backend/apps/core/configuration/`：后端内置业务配置。当前 `builtins.py` 维护内置用户组、游客账号、初始管理员环境变量名和默认权限集合。
-- `backend/apps/catalog/`：数据目录、数据资源、GeoPackage 查询、导入、导出和资源扫描。
+- `backend/apps/catalog/`：数据目录、数据资源、GeoPackage 查询、导入、导出、资源扫描，以及 `MapComposition/MapCompositionVersion` 专题制图持久化和成果文件接口。
 - `backend/apps/raster/`：栅格数据集、导入预处理、符号化规则、XYZ 瓦片和异步任务。
 - `backend/apps/audit/`：操作日志模型和记录服务。
 - `backend/tests/`：后端单元测试与集成测试，按 app 和测试层级组织。
@@ -26,6 +26,8 @@
 - `frontend/src/components/`：地图工作台通用组件和业务面板。
 - `frontend/src/hooks/`：React 状态和业务 hook，包括图层上下文、缓存恢复和栅格渲染调度。
 - `frontend/src/map/`：Mapbox GL JS 相关同步、交互和样式层工具。
+- `frontend/src/map-composition/`：专题版式类型、纸张模板、图例派生、离屏地图合成、格网/比例尺绘制和出图检查纯函数。
+- `frontend/src/components/map-composition/`：出图工作台、页面与整饰设置、专题成果列表、预览和导出交互组件。
 - `frontend/src/pages/`：路由页面组件。
 - `frontend/src/utils/`：纯函数工具，避免依赖 React 生命周期或 DOM。
 

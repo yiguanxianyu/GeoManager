@@ -9,9 +9,19 @@ from apps.core.cli import popen_cli, run_cli_capture
 from apps.raster.services.exceptions import RasterImportError
 
 
-def gdalinfo_json(path: Path) -> dict[str, Any]:
+def gdalinfo_json(path: Path, *, calculate_statistics: bool = False) -> dict[str, Any]:
+    command = [
+        "gdalinfo",
+        "--config",
+        "GDAL_PAM_ENABLED",
+        "NO",
+        "-json",
+    ]
+    if calculate_statistics:
+        command.append("-approx_stats")
+    command.append(str(path))
     result = run_cli_capture(
-        ["gdalinfo", "-json", str(path)],
+        command,
     )
     if result.returncode != 0:
         raise RasterImportError(result.stderr.strip() or "gdalinfo 执行失败")

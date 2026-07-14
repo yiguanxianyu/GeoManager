@@ -1,9 +1,14 @@
+from datetime import datetime, timedelta
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase
+from django.utils import timezone
 
-from apps.audit.models import OperationLog
+from apps.audit.events import AUTH_LOGIN_SUCCESS
+from apps.audit.middleware import record_user_activity
+from apps.audit.models import OperationLog, UserActivityHour
 from apps.audit.service import _client_ip, log_operation
 
 
@@ -67,6 +72,21 @@ class LogOperationTests(TestCase):
         self.assertEqual(log.target_id, 42)
         self.assertEqual(log.target_code, "resource-code")
         self.assertEqual(log.target_name, "样地数据")
+
+    def test_creates_log_with_stable_event_code(self):
+        user = get_user_model().objects.create_user(
+            username="event-code-test", password="pass12345"
+        )
+
+        log_operation(
+            user,
+            "认证授权",
+            "用户登录",
+            "success",
+            event_code=AUTH_LOGIN_SUCCESS,
+        )
+
+        self.assertEqual(OperationLog.objects.get().event_code, AUTH_LOGIN_SUCCESS)
 
     def test_creates_log_with_null_user_for_anonymous(self):
         anonymous = MagicMock()
@@ -194,3 +214,32 @@ class ClientIpTests(TestCase):
         request = MagicMock()
         request.META = {}
         self.assertIsNone(_client_ip(request))
+
+
+class UserActivityTests(TestCase):
+    def test_records_at_most_one_row_per_user_and_local_hour(self):
+        user = get_user_model().objects.create_user(
+            username="activity-test", password="pass12345"
+        )
+        request = SimpleNamespace(user=user, path="/api/catalog/resources/", session={})
+        first_hour = timezone.make_aware(datetime(2026, 7, 14, 9, 15))
+
+        self.assertTrue(record_user_activity(request, now=first_hour))
+        self.assertTrue(
+            record_user_activity(request, now=first_hour + timedelta(minutes=30))
+        )
+        self.assertEqual(UserActivityHour.objects.filter(user=user).count(), 1)
+
+        self.assertTrue(
+            record_user_activity(request, now=first_hour + timedelta(hours=1))
+        )
+        self.assertEqual(UserActivityHour.objects.filter(user=user).count(), 2)
+
+    def test_ignores_non_api_requests(self):
+        user = get_user_model().objects.create_user(
+            username="non-api-activity-test", password="pass12345"
+        )
+        request = SimpleNamespace(user=user, path="/admin/dashboard", session={})
+
+        self.assertFalse(record_user_activity(request))
+        self.assertFalse(UserActivityHour.objects.filter(user=user).exists())

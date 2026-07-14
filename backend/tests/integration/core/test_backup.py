@@ -24,7 +24,7 @@ class BackupPermissionApiTests(TestCase):
         response = self.client.get("/api/admin/backups/overview/")
 
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(response.json()["detail"], "数据备份仅限超级管理员使用")
+        self.assertEqual(response.json()["detail"], "数据备份属于系统级维护功能")
 
         me_response = self.client.get("/api/auth/me/")
         self.assertFalse(
@@ -33,6 +33,74 @@ class BackupPermissionApiTests(TestCase):
 
 
 class BackupLocalRunTests(TestCase):
+    def test_platform_overview_counts_logs_and_deduplicates_config_file(self):
+        superadmin, _group = ensure_superadmin_defaults()
+        self.client.force_login(superadmin)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            app_root = root / "app"
+            research_root = root / "research"
+            config_path = app_root / "config" / "app.toml"
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            config_path.write_text(
+                minimal_config_text(app_root, research_root),
+                encoding="utf-8",
+            )
+            config = load_project_config(config_path, program_root=Path("/opt/app"))
+            media_file = config.app_path("media", "note.txt")
+            log_file = config.app_path("logs", "runtime.log")
+            media_file.parent.mkdir(parents=True, exist_ok=True)
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+            media_file.write_text("backup me", encoding="utf-8")
+            log_file.write_text("log me", encoding="utf-8")
+
+            with override_settings(
+                PROJECT_CONFIG=config, PROGRAM_ROOT=Path("/opt/app")
+            ):
+                settings_response = self.client.post(
+                    "/api/admin/backups/settings/",
+                    data=json.dumps(
+                        {
+                            "plans": {
+                                "platform": {
+                                    "enabled": True,
+                                    "dailyAt": "03:00",
+                                    "target": "local",
+                                    "retentionCount": 2,
+                                    "includeLogs": True,
+                                },
+                                "research": {
+                                    "enabled": False,
+                                    "dailyAt": "02:00",
+                                    "target": "local",
+                                    "retentionCount": 2,
+                                    "includeLogs": False,
+                                },
+                            },
+                            "local": {"directory": ""},
+                        }
+                    ),
+                    content_type="application/json",
+                )
+                self.assertEqual(settings_response.status_code, 200)
+
+                response = self.client.get("/api/admin/backups/overview/")
+
+            self.assertEqual(response.status_code, 200)
+            platform_summary = next(
+                item
+                for item in response.json()["summaries"]
+                if item["planType"] == "platform"
+            )
+            expected_size = (
+                media_file.stat().st_size
+                + log_file.stat().st_size
+                + config_path.stat().st_size
+            )
+            self.assertEqual(platform_summary["fileCount"], 3)
+            self.assertEqual(platform_summary["sizeBytes"], expected_size)
+
     def test_superadmin_can_save_local_plan_and_generate_backup_archive(self):
         superadmin, _group = ensure_superadmin_defaults()
         self.client.force_login(superadmin)

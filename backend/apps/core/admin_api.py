@@ -25,16 +25,22 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date, parse_datetime
 from django.views.decorators.http import require_GET, require_http_methods
 
-from apps.audit.models import OperationLog
+from apps.audit.events import SUCCESSFUL_AUTH_EVENT_CODES
+from apps.audit.models import OperationLog, UserActivityHour
 from apps.audit.service import log_operation
-from apps.catalog.models import DataResource, DataResourceGroup, MapLayer
+from apps.catalog.models import DataResource, DataResourceGroup, MapLayer, VectorDataset
 from apps.catalog.importer import ImportDataError, set_resource_access_groups
-from apps.catalog.permissions import filter_accessible, user_can_access
+from apps.catalog.permissions import (
+    filter_accessible,
+    user_can_access,
+    user_has_full_data_access,
+)
 from apps.core.api import (
     api_login_required,
     api_permission_required,
 )
 from apps.core.auth_views import serialize_user
+from apps.core.emails import AccountEmailError, validate_account_email
 from apps.core.config import (
     load_project_config,
     load_runtime_config_document,
@@ -47,10 +53,10 @@ from apps.core.initialization import (
     ensure_guest_user,
     ensure_superadmin_defaults,
     is_builtin_group,
-    is_default_user_group,
     is_guest_group,
     is_guest_user,
     is_initial_superadmin_user,
+    is_platform_admin_group,
     is_superadmin_group,
     is_superadmin_user,
     protected_group_permissions,
@@ -69,7 +75,7 @@ from apps.core.backup_service import (
     start_backup_run,
     test_backup_target,
 )
-from apps.core.models import BackupRun, SystemSetting, UserProfile
+from apps.core.models import BackupRun, RoleApplication, SystemSetting, UserProfile
 from apps.core.passwords import generate_password, password_validation_errors
 from apps.core.permissions import (
     FEATURE_PERMISSION_NAMES,
@@ -91,6 +97,11 @@ from apps.core.principal_visibility import (
     visible_operation_logs_for,
     visible_users_for,
 )
+from apps.core.role_applications import (
+    RoleApplicationReviewError,
+    review_role_application,
+    serialize_role_application,
+)
 from apps.core.storage import (
     StoragePathError,
     app_path,
@@ -98,6 +109,7 @@ from apps.core.storage import (
     table_data_path,
     validate_vector_layer_name,
     vector_geopackage_path,
+    vector_original_path,
 )
 from apps.raster.models import RasterDataset
 
@@ -127,7 +139,15 @@ def update_admin_profile(request):
         user.first_name = str(display_name).strip()
         user.last_name = ""
     if email is not None:
-        user.email = str(email).strip()
+        if is_guest_user(user):
+            return JsonResponse(
+                {"detail": f"{GUEST_GROUP_NAME}账号不能修改邮箱"}, status=400
+            )
+        try:
+            user.email = validate_account_email(email, exclude_user_id=user.id)
+        except AccountEmailError as exc:
+            return JsonResponse({"detail": str(exc)}, status=400)
+        profile.normalized_email = user.email
     if avatar_url is not None:
         profile.avatar_url = str(avatar_url).strip()
     if department is not None:
@@ -505,6 +525,76 @@ def user_list(request):
     )
 
 
+@require_GET
+@api_permission_required("core.manage_auth")
+def role_application_list(request):
+    status = str(request.GET.get("status", "")).strip()
+    valid_statuses = set(RoleApplication.Status.values)
+    if status and status not in valid_statuses:
+        return JsonResponse({"detail": "角色申请状态不存在"}, status=400)
+
+    User = get_user_model()
+    visible_user_ids = visible_users_for(User.objects.all(), request.user).values("id")
+    applications = RoleApplication.objects.filter(user_id__in=visible_user_ids)
+    if status:
+        applications = applications.filter(status=status)
+    applications = applications.select_related(
+        "user", "user__profile", "reviewer", "reviewer__profile"
+    )
+    return JsonResponse(
+        {
+            "items": [
+                serialize_role_application(application, include_user=True)
+                for application in applications
+            ]
+        }
+    )
+
+
+@require_http_methods(["POST"])
+@api_permission_required("core.manage_auth")
+def role_application_review(request, application_id: int):
+    payload = _json_payload(request)
+    if isinstance(payload, JsonResponse):
+        return payload
+
+    try:
+        application = RoleApplication.objects.select_related("user").get(
+            pk=application_id
+        )
+    except RoleApplication.DoesNotExist:
+        return JsonResponse({"detail": "角色申请不存在"}, status=404)
+    if not user_is_visible_to(request.user, application.user):
+        return JsonResponse({"detail": "角色申请不存在"}, status=404)
+
+    action = str(payload.get("action", "")).strip()
+    review_note = str(payload.get("reviewNote", "")).strip()
+    if len(review_note) > 500:
+        return JsonResponse({"detail": "审核说明不能超过 500 个字符"}, status=400)
+    try:
+        application = review_role_application(
+            application_id,
+            reviewer=request.user,
+            action=action,
+            review_note=review_note,
+        )
+    except RoleApplication.DoesNotExist:
+        return JsonResponse({"detail": "角色申请不存在"}, status=404)
+    except RoleApplicationReviewError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+
+    action_label = "通过" if action == "approve" else "拒绝"
+    log_operation(
+        request.user,
+        "认证授权",
+        "审核角色申请",
+        "success",
+        f"{action_label} {application.user.get_username()} 的科研用户申请",
+        request,
+    )
+    return JsonResponse(serialize_role_application(application, include_user=True))
+
+
 @require_http_methods(["POST"])
 @api_permission_required("core.manage_auth")
 def user_detail(request, user_id: int):
@@ -655,6 +745,12 @@ def update_user_groups(request, user_id: int):
                 "detail": f"不能将{DEFAULT_USER_GROUP_NAME}加入{SUPERADMIN_GROUP_NAME}角色"
             },
             status=400,
+        )
+    if not is_superadmin_user(request.user) and any(
+        is_platform_admin_group(group) for group in groups
+    ):
+        return JsonResponse(
+            {"detail": "只有超级管理员可以分配平台管理员角色"}, status=400
         )
     user.groups.set(groups)
     log_operation(
@@ -1344,10 +1440,18 @@ def admin_dashboard(request):
         }
     if has_feature_perm(request.user, "core.view_dashboard_active_users_card"):
         period_start, period_end = _active_period_bounds(period)
+        User = get_user_model()
+        visible_user_ids = visible_users_for(User.objects.all(), request.user).values(
+            "id"
+        )
+        activity_hours = UserActivityHour.objects.filter(
+            user_id__in=visible_user_ids,
+            bucket_start__gte=period_start,
+            bucket_start__lt=period_end,
+        )
         login_logs = visible_operation_logs_for(
             OperationLog.objects.filter(
-                module="认证授权",
-                action="用户登录",
+                event_code__in=SUCCESSFUL_AUTH_EVENT_CODES,
                 status=OperationLog.Status.SUCCESS,
                 created_at__gte=period_start,
                 created_at__lt=period_end,
@@ -1361,16 +1465,17 @@ def admin_dashboard(request):
             "rangeEnd": (timezone.localtime(period_end) - timedelta(days=1))
             .date()
             .isoformat(),
-            "count": login_logs.values("user_id").distinct().count(),
+            "count": activity_hours.values("user_id").distinct().count(),
             "loginCount": login_logs.count(),
-            "series": _active_user_series(login_logs, period, period_start),
+            "series": _active_user_series(activity_hours, period, period_start),
             "ranking": _active_user_ranking(login_logs),
         }
     can_view_data_overview = has_feature_perm(request.user, "core.view_data_overview")
     cards["dataOverview"] = _data_overview_card(
         request.user,
         include_visible=can_view_data_overview,
-        include_uploaders=can_view_data_overview and is_superadmin_user(request.user),
+        include_uploaders=can_view_data_overview
+        and user_has_full_data_access(request.user),
     )
 
     return JsonResponse(
@@ -1410,30 +1515,34 @@ def _active_period_bounds(period: str):
     return start, end
 
 
-def _active_user_series(login_logs, period: str, period_start) -> list[dict[str, Any]]:
+def _active_user_series(
+    activity_hours, period: str, period_start
+) -> list[dict[str, Any]]:
     if period == "day":
-        counts = {hour: 0 for hour in range(24)}
-        for created_at in login_logs.values_list("created_at", flat=True):
-            counts[timezone.localtime(created_at).hour] += 1
+        counts = {hour: set() for hour in range(24)}
+        for user_id, bucket_start in activity_hours.values_list(
+            "user_id", "bucket_start"
+        ):
+            counts[timezone.localtime(bucket_start).hour].add(user_id)
         return [
-            {"key": str(hour), "label": f"{hour:02d}:00", "count": count}
-            for hour, count in counts.items()
+            {"key": str(hour), "label": f"{hour:02d}:00", "count": len(user_ids)}
+            for hour, user_ids in counts.items()
         ]
 
     start_date = timezone.localtime(period_start).date()
     days = 7 if period == "week" else monthrange(start_date.year, start_date.month)[1]
-    counts = {start_date + timedelta(days=offset): 0 for offset in range(days)}
-    for created_at in login_logs.values_list("created_at", flat=True):
-        date = timezone.localtime(created_at).date()
+    counts = {start_date + timedelta(days=offset): set() for offset in range(days)}
+    for user_id, bucket_start in activity_hours.values_list("user_id", "bucket_start"):
+        date = timezone.localtime(bucket_start).date()
         if date in counts:
-            counts[date] += 1
+            counts[date].add(user_id)
     return [
         {
             "key": date.isoformat(),
             "label": date.strftime("%m-%d"),
-            "count": count,
+            "count": len(user_ids),
         }
-        for date, count in counts.items()
+        for date, user_ids in counts.items()
     ]
 
 
@@ -1772,6 +1881,7 @@ def _serialize_admin_data_resource(
         "name": resource.name,
         "code": resource.code,
         "dataType": resource.data_type,
+        "domainType": resource.domain_type or None,
         "category": _serialize_dictionary_item(resource.category),
         "source": resource.source,
         "provider": resource.provider,
@@ -1789,7 +1899,9 @@ def _serialize_admin_data_resource(
         "inventoryGroupId": resource.inventory_group_id,
         "accessGroups": [
             _serialize_access_group(group)
-            for group in visible_groups_for(resource.access_groups.all(), request_user)
+            for group in selectable_access_groups_for(
+                resource.access_groups.all(), request_user
+            )
         ],
         "canManageAccess": bool(
             has_feature_perm(request_user, "catalog.change_dataresource")
@@ -1987,7 +2099,14 @@ def _delete_imported_resource_storage(resource: DataResource) -> str:
     if not resource.storage_path:
         return "未配置存储路径，仅删除资源登记"
     if resource.data_type == DataResource.DataType.VECTOR:
-        return _drop_geopackage_layer(resource.storage_path)
+        messages = [_drop_geopackage_layer(resource.storage_path)]
+        dataset = VectorDataset.objects.filter(resource=resource).first()
+        if dataset and dataset.source_archive_path:
+            source_path = vector_original_path(dataset.source_archive_path)
+            if source_path.exists() and source_path.is_file():
+                source_path.unlink()
+                messages.append("已清理原始矢量归档")
+        return "；".join(messages)
     if (
         resource.data_type == DataResource.DataType.TABLE
         and resource.file_format.upper() == "SQLITE"
@@ -2867,7 +2986,6 @@ def _create_admin_user(User, payload: dict[str, Any], request_user=None):
     # 自动生成密码
     password = generate_password()
 
-    email = str(payload.get("email", "")).strip()
     display_name = str(payload.get("displayName", "")).strip()
     department = str(payload.get("department", "")).strip()
     is_active = bool(payload.get("isActive", True))
@@ -2896,6 +3014,19 @@ def _create_admin_user(User, payload: dict[str, Any], request_user=None):
             },
             status=400,
         )
+    if (
+        request_user is not None
+        and not is_superadmin_user(request_user)
+        and any(is_platform_admin_group(group) for group in groups)
+    ):
+        return JsonResponse(
+            {"detail": "只有超级管理员可以分配平台管理员角色"}, status=400
+        )
+
+    try:
+        email = validate_account_email(payload.get("email"))
+    except AccountEmailError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
 
     try:
         with transaction.atomic():
@@ -2909,8 +3040,11 @@ def _create_admin_user(User, payload: dict[str, Any], request_user=None):
             user.groups.set(groups)
             profile = _ensure_profile(user)
             profile.department = department
-            profile.save(update_fields=["department", "updated_at"])
+            profile.normalized_email = email
+            profile.save(update_fields=["department", "normalized_email", "updated_at"])
     except IntegrityError:
+        if User.objects.filter(email__iexact=email).exists():
+            return JsonResponse({"detail": "邮箱已被使用"}, status=400)
         return JsonResponse({"detail": "用户名已存在"}, status=400)
     return user, password
 
@@ -2932,7 +3066,7 @@ def _backup_superadmin_denied(request) -> JsonResponse | None:
     if not has_feature_perm(
         request.user, "core.manage_data_backup"
     ) or not is_superadmin_user(request.user):
-        return JsonResponse({"detail": "数据备份仅限超级管理员使用"}, status=403)
+        return JsonResponse({"detail": "数据备份属于系统级维护功能"}, status=403)
     return None
 
 

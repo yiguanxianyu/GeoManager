@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { userEvent } from "vitest/browser";
 import { App as AntApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { MemoryRouter } from "react-router-dom";
@@ -148,6 +149,7 @@ const tarimVectorResource: ResourceListItem = {
   name: "塔里木河胡杨样地监测点",
   code: "tarim-poplar-monitoring-2026",
   dataType: "vector",
+  spatialClass: "spatial",
   category: { code: "monitoring", name: "长期监测" },
   source: "2026 塔里木河野外调查",
   provider: "生态监测组",
@@ -163,6 +165,30 @@ const tarimVectorResource: ResourceListItem = {
   updatedAt: "2026-06-18T12:00:00+08:00",
   sizeBytes: 245760,
   itemCount: 3,
+};
+
+const nonGeoTableResource: ResourceListItem = {
+  id: 22,
+  name: "2024 塔里木盆地植物调查基础数据",
+  code: "tarim-plant-metadata-2024",
+  dataType: "table",
+  spatialClass: "non_spatial",
+  domainType: "field_survey",
+  category: null,
+  source: "用户导入",
+  provider: "",
+  dataDate: null,
+  spatialExtent: "",
+  coordinateSystem: "",
+  fileFormat: "SQLITE",
+  description: "不含经纬度的调查元数据",
+  qualityNote: "",
+  status: "active",
+  isQueryable: false,
+  isRenderable: false,
+  updatedAt: "2026-07-14T10:00:00+08:00",
+  sizeBytes: 1024,
+  itemCount: 8,
 };
 
 const tarimVectorProfile: DataResourceProfile = {
@@ -251,12 +277,16 @@ describe("application critical flows", () => {
     mockApi.register.mockResolvedValue({
       user: normalUser,
       detail: "用户注册成功",
+      roleApplication: null,
     });
     mockApi.logout.mockResolvedValue({ detail: "已退出" });
     mockApi.resources.mockResolvedValue({ items: [] });
     mockApi.resourceProfile.mockResolvedValue(tarimVectorProfile);
     mockApi.queryResource.mockResolvedValue(tarimQueryResult);
-    mockApi.workspaces.mockResolvedValue({ items: [] });
+    mockApi.workspaces.mockResolvedValue({
+      items: [],
+      availableAccessGroups: [],
+    });
     mockApi.scanCatalogSources.mockResolvedValue({ detail: "ok" });
     mockApi.scanRasterSources.mockResolvedValue({
       id: "scan-job",
@@ -318,6 +348,83 @@ describe("application critical flows", () => {
     expect(
       screen.getByRole("button", { name: /后台管理/ }),
     ).toBeInTheDocument();
+  });
+
+  it("submits required email and a separate research role application", async () => {
+    mockApi.bootstrap.mockResolvedValue({
+      ...bootstrap,
+      allowRegistration: true,
+    });
+    mockApi.register.mockResolvedValue({
+      user: normalUser,
+      detail: "用户注册成功，科研用户权限申请已提交",
+      roleApplication: {
+        id: 1,
+        userId: normalUser.id,
+        requestedRole: "research",
+        status: "pending",
+        reason: "需要上传长期监测数据",
+        reviewNote: "",
+        createdAt: "2026-07-14T10:30:00+08:00",
+        reviewedAt: null,
+      },
+    });
+
+    renderApp("/");
+
+    expect(
+      await screen.findByRole("heading", { name: "用户登录" }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /注册新账号/ }));
+    expect(
+      await screen.findByRole("heading", { name: "用户注册" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("首个注册用户自动成为系统管理员。"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText("请输入账号"), {
+      target: { value: "research_applicant" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("请输入邮箱"), {
+      target: { value: "Applicant@Example.COM" },
+    });
+    await userEvent.click(screen.getByText("申请科研用户"));
+    fireEvent.change(await screen.findByPlaceholderText("请输入真实姓名"), {
+      target: { value: "张研究员" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("请输入单位或部门"), {
+      target: { value: "生态监测组" },
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText(
+        "请简要说明需要上传、导出或科研分析权限的用途",
+      ),
+      { target: { value: "需要上传长期监测数据" } },
+    );
+    const passwordFields = screen.getAllByPlaceholderText(
+      /请输入密码|请再次输入密码/,
+    );
+    fireEvent.change(passwordFields[0], {
+      target: { value: "StrongPass12345" },
+    });
+    fireEvent.change(passwordFields[1], {
+      target: { value: "StrongPass12345" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /注册并进入/ }));
+
+    await waitFor(() => {
+      expect(mockApi.register).toHaveBeenCalledWith({
+        username: "research_applicant",
+        email: "Applicant@Example.COM",
+        accountPurpose: "research",
+        displayName: "张研究员",
+        department: "生态监测组",
+        applicationReason: "需要上传长期监测数据",
+        password: "StrongPass12345",
+        passwordConfirm: "StrongPass12345",
+      });
+    });
   });
 
   it("retries app startup while the backend is still becoming ready", async () => {
@@ -393,6 +500,47 @@ describe("application critical flows", () => {
         ),
       ).toBe(true);
     });
+  });
+
+  it("isolates non-geographic resources and refreshes the real resource list", async () => {
+    window.localStorage.setItem(
+      `huyang-system.workspace-tour.v1.${normalUser.id}.${normalUser.username}`,
+      "completed",
+    );
+    mockApi.me.mockResolvedValue({ authenticated: true, user: normalUser });
+    mockApi.resources.mockResolvedValue({
+      items: [nonGeoTableResource, tarimVectorResource],
+    });
+
+    renderApp("/nongeo");
+
+    expect(
+      await screen.findByText(nonGeoTableResource.name, {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(tarimVectorResource.name),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText("记录总量")).toBeInTheDocument();
+    expect(screen.getByText("字段角色")).toBeInTheDocument();
+    expect(
+      screen.queryByText("非地理分析接口暂不可用"),
+    ).not.toBeInTheDocument();
+    expect(mockApi.resources).toHaveBeenCalledWith({
+      spatialClass: "non_spatial",
+    });
+
+    const refreshedResource = {
+      ...nonGeoTableResource,
+      id: 23,
+      name: "刷新后识别的非地理资源",
+    };
+    mockApi.resources.mockResolvedValueOnce({ items: [refreshedResource] });
+    fireEvent.click(screen.getByRole("button", { name: "刷新非地理数据资源" }));
+
+    expect(await screen.findByText(refreshedResource.name)).toBeInTheDocument();
+    expect(
+      screen.queryByText(nonGeoTableResource.name),
+    ).not.toBeInTheDocument();
   });
 
   it("runs a long research user journey without privileged data exposure", async () => {

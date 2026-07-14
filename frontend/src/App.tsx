@@ -39,6 +39,9 @@ const AdminSystemSettingsPage = lazy(
 const AdminWorkspaceManagementPage = lazy(
   () => import("./admin/AdminWorkspaceManagementPage"),
 );
+const AdminTopicCompositionManagementPage = lazy(
+  () => import("./admin/AdminTopicCompositionManagementPage"),
+);
 const AboutPage = lazy(() => import("./pages/AboutPage"));
 const HomePage = lazy(() => import("./pages/HomePage"));
 const LoginPage = lazy(() => import("./pages/LoginPage"));
@@ -208,7 +211,7 @@ export default function App() {
                 />
                 <Route
                   path="manage/topics"
-                  element={<AdminWorkspaceManagementPage kind="topic" />}
+                  element={<AdminTopicCompositionManagementPage />}
                 />
               </Route>
               <Route element={<RequireDataUpload />}>

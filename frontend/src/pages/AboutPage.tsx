@@ -13,7 +13,6 @@ import {
   GlobalOutlined,
   InfoCircleOutlined,
   LinkOutlined,
-  NodeIndexOutlined,
   ReadOutlined,
   SafetyCertificateOutlined,
   SearchOutlined,
@@ -29,7 +28,6 @@ import {
   aboutSectionByKey,
   aboutSections,
   contactRows,
-  cooperationNodes,
   coreMembers,
   helpArticles,
   helpCategories,
@@ -532,36 +530,22 @@ function MembersSection({ section }: { section: AboutSection }) {
           </div>
         </div>
 
-        <div>
-          <div className="about-page-block-title">
-            <NodeIndexOutlined />
-            <Typography.Title level={3}>稳定合作网络</Typography.Title>
-          </div>
-          <div className="about-page-network">
-            <svg aria-hidden="true" viewBox="0 0 100 100">
-              <line x1="46" x2="20" y1="48" y2="28" />
-              <line x1="46" x2="72" y1="48" y2="28" />
-              <line x1="46" x2="30" y1="48" y2="76" />
-              <line x1="46" x2="68" y1="48" y2="76" />
-            </svg>
-            {cooperationNodes.map((node) => (
-              <span
-                className={`about-page-network-node about-page-network-${node.type}`}
-                key={node.name}
-                style={{ left: `${node.x}%`, top: `${node.y}%` }}
-              >
-                <strong>{node.name}</strong>
-                <small>{node.type}</small>
-              </span>
-            ))}
-          </div>
-        </div>
+        <figure className="about-page-member-research-photo">
+          <img
+            alt="李志军教授在温室查看胡杨苗木"
+            src={aboutAssets.memberResearchSeedlingsImage}
+          />
+          <figcaption>李志军教授在温室查看胡杨苗木</figcaption>
+        </figure>
       </section>
     </>
   );
 }
 
 function KnowledgeSection({ section }: { section: AboutSection }) {
+  const [hoveredGraphNodeId, setHoveredGraphNodeId] = useState<string | null>(
+    null,
+  );
   const graphNodeById = new Map(
     knowledgeGraphNodes.map((node) => [node.id, node]),
   );
@@ -574,6 +558,15 @@ function KnowledgeSection({ section }: { section: AboutSection }) {
   });
   const featuredPapers = knowledgePapers.slice(0, 2);
   const supportingPapers = knowledgePapers.slice(2);
+  const defaultGraphNode =
+    knowledgeGraphNodes.find((node) => node.id === "hub") ??
+    knowledgeGraphNodes[0]!;
+  const activeGraphNode =
+    (hoveredGraphNodeId ? graphNodeById.get(hoveredGraphNodeId) : undefined) ??
+    defaultGraphNode;
+  const activeGraphNodeGroup =
+    knowledgeGraphLegend.find((item) => item.group === activeGraphNode.group)
+      ?.label ?? "知识节点";
 
   return (
     <>
@@ -597,10 +590,10 @@ function KnowledgeSection({ section }: { section: AboutSection }) {
         </div>
         <figure>
           <img
-            alt="李志军教授在温室查看胡杨苗木"
-            src={aboutAssets.researchSeedlingsImage}
+            alt="塔里木河流域胡杨林生态景观"
+            src={aboutAssets.knowledgePopulusForestImage}
           />
-          <figcaption>胡杨苗木培育与保护生物学研究场景</figcaption>
+          <figcaption>胡杨林河岸生态景观与荒漠绿洲屏障</figcaption>
         </figure>
       </section>
 
@@ -695,58 +688,86 @@ function KnowledgeSection({ section }: { section: AboutSection }) {
           </div>
         </div>
         <div className="about-page-knowledge-graph">
-          <div className="about-page-graph-clusters" aria-hidden="true">
-            {knowledgeGraphClusters.map((cluster) => (
-              <span
-                className={`about-page-graph-cluster about-page-graph-cluster-${cluster.group}`}
-                key={cluster.group}
+          <div className="about-page-graph-stage">
+            <div className="about-page-graph-clusters" aria-hidden="true">
+              {knowledgeGraphClusters.map((cluster) => (
+                <span
+                  className={`about-page-graph-cluster about-page-graph-cluster-${cluster.group}`}
+                  key={cluster.group}
+                >
+                  {cluster.label}
+                </span>
+              ))}
+            </div>
+            <svg aria-hidden="true" viewBox="0 0 100 100">
+              <defs>
+                <filter
+                  id="about-page-graph-glow"
+                  x="-20%"
+                  y="-20%"
+                  width="140%"
+                  height="140%"
+                >
+                  <feGaussianBlur result="blur" stdDeviation="0.7" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+                <marker
+                  id="about-page-graph-arrow"
+                  markerHeight="5"
+                  markerWidth="5"
+                  orient="auto"
+                  refX="4.4"
+                  refY="2.5"
+                  viewBox="0 0 5 5"
+                >
+                  <path d="M 0 0 L 5 2.5 L 0 5 z" />
+                </marker>
+              </defs>
+              {graphEdges.map((edge) => {
+                const isActiveEdge =
+                  activeGraphNode.id === edge.from.id ||
+                  activeGraphNode.id === edge.to.id;
+                return (
+                  <g
+                    className={`about-page-graph-edge-group about-page-graph-edge-${edge.tone}${
+                      isActiveEdge ? " about-page-graph-edge-active" : ""
+                    }`}
+                    key={edge.key}
+                  >
+                    <path d={getKnowledgeGraphPath(edge)} />
+                  </g>
+                );
+              })}
+            </svg>
+            {knowledgeGraphNodes.map((node) => (
+              <button
+                aria-label={`${node.label}：${node.detail}`}
+                className={`about-page-graph-node about-page-graph-${node.group}${
+                  activeGraphNode.id === node.id ? " about-page-graph-node-active" : ""
+                }`}
+                key={node.id}
+                type="button"
+                style={{ left: `${node.x}%`, top: `${node.y}%` }}
+                title={node.detail}
+                onBlur={() => setHoveredGraphNodeId(null)}
+                onFocus={() => setHoveredGraphNodeId(node.id)}
+                onMouseEnter={() => setHoveredGraphNodeId(node.id)}
+                onMouseLeave={() => setHoveredGraphNodeId(null)}
               >
-                {cluster.label}
-              </span>
+                <strong>{node.label}</strong>
+              </button>
             ))}
           </div>
-          <svg aria-hidden="true" viewBox="0 0 100 100">
-            <defs>
-              <filter
-                id="about-page-graph-glow"
-                x="-20%"
-                y="-20%"
-                width="140%"
-                height="140%"
-              >
-                <feGaussianBlur result="blur" stdDeviation="0.7" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
-            </defs>
-            {graphEdges.map((edge) => (
-              <g
-                className={`about-page-graph-edge-group about-page-graph-edge-${edge.tone}`}
-                key={edge.key}
-              >
-                <path d={getKnowledgeGraphPath(edge)} />
-                <text
-                  x={getKnowledgeGraphLabelPoint(edge).x}
-                  y={getKnowledgeGraphLabelPoint(edge).y}
-                >
-                  {edge.label}
-                </text>
-              </g>
-            ))}
-          </svg>
-          {knowledgeGraphNodes.map((node) => (
-            <span
-              className={`about-page-graph-node about-page-graph-${node.group}`}
-              key={node.id}
-              style={{ left: `${node.x}%`, top: `${node.y}%` }}
-              title={node.detail}
-            >
-              <strong>{node.label}</strong>
-              <small>{node.detail}</small>
-            </span>
-          ))}
+          <aside
+            className={`about-page-graph-detail about-page-graph-detail-${activeGraphNode.group}`}
+          >
+            <span>{activeGraphNodeGroup}</span>
+            <strong>{activeGraphNode.label}</strong>
+            <p>{activeGraphNode.detail}</p>
+          </aside>
         </div>
       </section>
 
@@ -816,15 +837,6 @@ function getKnowledgeGraphPath(edge: {
   const bend = edge.bend ?? 0;
   const { x, y } = getKnowledgeGraphControlPoint(edge, bend);
   return `M ${edge.from.x} ${edge.from.y} Q ${x} ${y} ${edge.to.x} ${edge.to.y}`;
-}
-
-function getKnowledgeGraphLabelPoint(edge: {
-  bend?: number;
-  from: { x: number; y: number };
-  to: { x: number; y: number };
-}) {
-  const bend = (edge.bend ?? 0) * 0.62;
-  return getKnowledgeGraphControlPoint(edge, bend);
 }
 
 function getKnowledgeGraphControlPoint(

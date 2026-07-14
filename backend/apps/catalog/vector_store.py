@@ -217,6 +217,13 @@ def read_resource(
         path = vector_geopackage_path()
     except StoragePathError as exc:
         raise DataQueryError(str(exc)) from exc
+    if not geopackage_layer_exists(path, layer_name):
+        from apps.catalog.vector_recovery import recover_vector_layer_from_archive
+
+        if not recover_vector_layer_from_archive(resource):
+            raise DataQueryError(
+                "原始矢量图层已缺失且没有可用归档，请重新导入该数据后再加载工程"
+            )
     return _read_layer_from_path(path, layer_name, bbox=bbox)
 
 

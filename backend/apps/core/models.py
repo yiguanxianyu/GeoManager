@@ -15,6 +15,13 @@ class UserProfile(models.Model):
         max_length=50, blank=True, verbose_name="头像内容类型"
     )
     department = models.CharField(max_length=120, blank=True, verbose_name="部门")
+    normalized_email = models.EmailField(
+        max_length=254,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name="规范化邮箱",
+    )
     disabled_permissions = models.JSONField(
         default=list,
         blank=True,
@@ -33,6 +40,62 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return self.user.get_username()
+
+
+class RoleApplication(models.Model):
+    class RequestedRole(models.TextChoices):
+        RESEARCH = "research", "科研用户"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "待审核"
+        APPROVED = "approved", "已通过"
+        REJECTED = "rejected", "已拒绝"
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="role_application",
+        verbose_name="申请用户",
+    )
+    requested_role = models.CharField(
+        max_length=24,
+        choices=RequestedRole.choices,
+        default=RequestedRole.RESEARCH,
+        verbose_name="申请角色",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="申请状态",
+    )
+    reason = models.TextField(verbose_name="申请说明")
+    reviewer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_role_applications",
+        verbose_name="审核人",
+    )
+    review_note = models.TextField(blank=True, verbose_name="审核说明")
+    reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="审核时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="申请时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "角色申请"
+        verbose_name_plural = "角色申请"
+        ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=("status", "created_at"),
+                name="core_roleap_status_97a9dc_idx",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.user.get_username()} -> {self.get_requested_role_display()}"
 
 
 class FeaturePermission(models.Model):
@@ -142,9 +205,18 @@ class BackupRun(models.Model):
         verbose_name_plural = "数据备份任务"
         ordering = ("-created_at",)
         indexes = [
-            models.Index(fields=("plan_type", "status")),
-            models.Index(fields=("target_type", "status")),
-            models.Index(fields=("trigger", "created_at")),
+            models.Index(
+                fields=("plan_type", "status"),
+                name="core_backup_plan_ty_764d98_idx",
+            ),
+            models.Index(
+                fields=("target_type", "status"),
+                name="core_backup_target__a2f1f3_idx",
+            ),
+            models.Index(
+                fields=("trigger", "created_at"),
+                name="core_backup_trigger_59a9e8_idx",
+            ),
         ]
 
     def __str__(self):
