@@ -20,6 +20,7 @@ from shapely.geometry import Point
 from apps.catalog.models import DataResource
 from apps.catalog.services import stable_catalog_code
 from apps.catalog.vector_store import geopackage_layer_exists
+from apps.catalog.vector_storage import append_geopackage_layer
 from apps.core.initialization import ensure_superadmin_defaults
 from apps.core.principal_visibility import selectable_access_groups_for
 from apps.core.storage import table_data_path, vector_geopackage_path
@@ -1167,10 +1168,7 @@ def _ensure_table_can_be_written(
 
 
 def _write_geopackage_layer(path: Path, table_name: str, gdf) -> None:
-    if path.exists():
-        gdf.to_file(path, layer=table_name, driver="GPKG", mode="a")
-    else:
-        gdf.to_file(path, layer=table_name, driver="GPKG")
+    append_geopackage_layer(path, table_name, gdf)
 
 
 def _upsert_geographic_resource(

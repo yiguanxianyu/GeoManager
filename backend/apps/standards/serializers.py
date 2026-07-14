@@ -78,6 +78,14 @@ def domain_definitions() -> list[dict]:
             "coreEntities": ["MolecularSample", "MolecularAssay", "MolecularResult", "MolecularFile"],
         },
         {
+            "code": DataDomainType.VECTOR,
+            "name": "矢量数据",
+            "spatialClass": SpatialClass.SPATIAL,
+            "description": "以点、线、面几何为主体的 Shapefile、GeoJSON、GeoPackage 等空间矢量资源，支持统一入库、查询、符号化和地图展示。",
+            "recommendedResourceTypes": ["vector"],
+            "coreEntities": ["DataResource", "VectorDataset", "MapLayer"],
+        },
+        {
             "code": DataDomainType.OTHER,
             "name": "其他类型",
             "spatialClass": SpatialClass.SPATIALIZED_TABLE,
@@ -307,6 +315,13 @@ def schema_entities() -> list[dict]:
             "description": "承接暂未归入专门业务专题的数据资源，保留源文件、工作表、字段说明和后续归类线索。",
             "keyFields": ["data_resource_id", "source_file_name", "sheet_name", "file_format"],
         },
+        {
+            "name": "VectorDataset",
+            "label": "矢量数据集",
+            "domainTypes": [DataDomainType.VECTOR],
+            "description": "记录矢量源文件、源图层、编码、坐标系、几何质量、标准化 GeoPackage 图层和渲染策略。",
+            "keyFields": ["data_resource_id", "source_format", "source_layer_name", "geometry_type", "feature_count"],
+        },
     ]
 
 
@@ -324,6 +339,7 @@ def catalog_tree() -> list[dict]:
                 _node("geo-population", "种群数据", DataDomainType.POPULATION, SpatialClass.SPATIAL),
                 _node("geo-field-survey", "野外调查数据", DataDomainType.FIELD_SURVEY, SpatialClass.SPATIALIZED_TABLE),
                 _node("geo-remote-sensing", "遥感影像数据", DataDomainType.REMOTE_SENSING, SpatialClass.SPATIAL),
+                _node("geo-vector", "矢量数据", DataDomainType.VECTOR, SpatialClass.SPATIAL),
                 _node("geo-other", "其他类型", DataDomainType.OTHER, SpatialClass.SPATIALIZED_TABLE),
             ],
         },

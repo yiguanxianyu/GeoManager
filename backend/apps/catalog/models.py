@@ -12,6 +12,7 @@ DATA_DOMAIN_TYPE_CHOICES = [
     ("field_survey", "野外调查数据"),
     ("remote_sensing", "遥感影像数据"),
     ("molecular", "分子数据"),
+    ("vector", "矢量数据"),
     ("other", "其他类型"),
 ]
 
@@ -63,6 +64,10 @@ class DataResourceGroup(models.Model):
 
 
 class DataResource(models.Model):
+    class SpatialClass(models.TextChoices):
+        SPATIAL = "spatial", "地理数据"
+        NON_SPATIAL = "non_spatial", "非地理数据"
+
     class DataType(models.TextChoices):
         VECTOR = "vector", "矢量空间数据"
         RASTER = "raster", "栅格空间数据"
@@ -156,11 +161,16 @@ class DataResource(models.Model):
     def __str__(self) -> str:
         return self.name
 
+    @property
+    def spatial_class(self) -> str:
+        if self.data_type in {self.DataType.VECTOR, self.DataType.RASTER}:
+            return self.SpatialClass.SPATIAL
+        return self.SpatialClass.NON_SPATIAL
+
 
 class WorkspaceScene(models.Model):
     class Kind(models.TextChoices):
         PROJECT = "project", "工程"
-        TOPIC = "topic", "专题"
 
     class Status(models.TextChoices):
         ACTIVE = "active", "启用"
@@ -201,6 +211,143 @@ class WorkspaceScene(models.Model):
 
     def __str__(self) -> str:
         return f"{self.get_kind_display()}：{self.name}"
+
+
+class MapComposition(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "草稿"
+        COMPLETED = "completed", "已生成成果"
+        PUBLISHED = "published", "已发布"
+        ARCHIVED = "archived", "已归档"
+
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="map_compositions",
+        verbose_name="所属用户",
+    )
+    project = models.ForeignKey(
+        WorkspaceScene,
+        on_delete=models.PROTECT,
+        related_name="map_compositions",
+        verbose_name="来源工程",
+    )
+    name = models.CharField(max_length=160, verbose_name="专题图名称")
+    description = models.TextField(blank=True, verbose_name="专题图说明")
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="状态",
+    )
+    layout = models.JSONField(default=dict, blank=True, verbose_name="版式配置")
+    source_workspace_snapshot = models.JSONField(
+        default=dict, blank=True, verbose_name="来源工程快照"
+    )
+    audience_groups = models.ManyToManyField(
+        Group,
+        blank=True,
+        related_name="map_compositions",
+        verbose_name="发布可见角色",
+    )
+    published_version = models.ForeignKey(
+        "MapCompositionVersion",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="published_compositions",
+        verbose_name="正式发布版本",
+    )
+    published_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="published_map_compositions",
+        verbose_name="发布人",
+    )
+    published_at = models.DateTimeField(null=True, blank=True, verbose_name="发布时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "专题出图稿"
+        verbose_name_plural = "专题出图稿"
+        ordering = ("-updated_at", "id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("owner", "project", "name"),
+                name="uniq_map_composition_owner_project_name",
+            ),
+        ]
+        permissions = [
+            ("export_mapcomposition", "导出专题图成果"),
+            ("publish_mapcomposition", "发布专题图成果"),
+            ("restore_mapcomposition", "还原专题图为工程"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.project.name}：{self.name}"
+
+
+class MapCompositionVersion(models.Model):
+    class Format(models.TextChoices):
+        PNG = "png", "PNG"
+        JPG = "jpg", "JPG"
+        PDF = "pdf", "PDF"
+
+    composition = models.ForeignKey(
+        MapComposition,
+        on_delete=models.CASCADE,
+        related_name="versions",
+        verbose_name="出图稿",
+    )
+    version_number = models.PositiveIntegerField(verbose_name="版本号")
+    format = models.CharField(max_length=8, choices=Format.choices, verbose_name="格式")
+    dpi = models.PositiveSmallIntegerField(default=300, verbose_name="DPI")
+    width_px = models.PositiveIntegerField(verbose_name="宽度像素")
+    height_px = models.PositiveIntegerField(verbose_name="高度像素")
+    note = models.CharField(max_length=500, blank=True, verbose_name="版本说明")
+    preview_path = models.CharField(max_length=500, verbose_name="预览文件路径")
+    artifact_path = models.CharField(max_length=500, verbose_name="成果文件路径")
+    layout_snapshot = models.JSONField(
+        default=dict, blank=True, verbose_name="版式快照"
+    )
+    workspace_snapshot = models.JSONField(
+        default=dict, blank=True, verbose_name="工程快照"
+    )
+    snapshot_schema_version = models.PositiveSmallIntegerField(
+        default=1, verbose_name="快照结构版本"
+    )
+    snapshot_checksum = models.CharField(
+        max_length=64, blank=True, verbose_name="快照校验值"
+    )
+    resource_manifest = models.JSONField(
+        default=list, blank=True, verbose_name="资源引用清单"
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="created_map_composition_versions",
+        verbose_name="生成人",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="生成时间")
+
+    class Meta:
+        verbose_name = "专题图成果版本"
+        verbose_name_plural = "专题图成果版本"
+        ordering = ("-version_number", "-created_at")
+        constraints = [
+            models.UniqueConstraint(
+                fields=("composition", "version_number"),
+                name="uniq_map_composition_version_number",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.composition.name} V{self.version_number}"
 
 
 class DataCatalog(models.Model):
@@ -307,3 +454,78 @@ class MapLayer(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class VectorDataset(models.Model):
+    class SourceFormat(models.TextChoices):
+        SHAPEFILE = "SHAPEFILE", "Shapefile"
+        GEOJSON = "GEOJSON", "GeoJSON"
+        GPKG = "GPKG", "GeoPackage"
+
+    class RenderStrategy(models.TextChoices):
+        GEOJSON = "geojson", "GeoJSON"
+        VECTOR_TILE = "vector_tile", "矢量瓦片"
+
+    resource = models.OneToOneField(
+        DataResource,
+        on_delete=models.CASCADE,
+        related_name="vector_dataset",
+        verbose_name="数据资源",
+    )
+    source_file_name = models.CharField(max_length=255, verbose_name="源文件名")
+    source_format = models.CharField(
+        max_length=20, choices=SourceFormat.choices, verbose_name="源格式"
+    )
+    source_archive_path = models.CharField(
+        max_length=255, blank=True, verbose_name="原始文件归档相对路径"
+    )
+    source_layer_name = models.CharField(
+        max_length=255, blank=True, verbose_name="源图层名称"
+    )
+    source_encoding = models.CharField(
+        max_length=40, blank=True, verbose_name="源属性编码"
+    )
+    source_crs = models.TextField(blank=True, verbose_name="源坐标系")
+    source_epsg = models.IntegerField(null=True, blank=True, verbose_name="源 EPSG")
+    normalized_epsg = models.PositiveIntegerField(
+        default=4326, verbose_name="标准化 EPSG"
+    )
+    geometry_type = models.CharField(max_length=64, verbose_name="几何类型")
+    feature_count = models.PositiveBigIntegerField(default=0, verbose_name="要素数")
+    vertex_count = models.PositiveBigIntegerField(default=0, verbose_name="顶点数")
+    field_count = models.PositiveIntegerField(default=0, verbose_name="字段数")
+    valid_geometry_count = models.PositiveBigIntegerField(
+        default=0, verbose_name="有效几何数"
+    )
+    invalid_geometry_count = models.PositiveBigIntegerField(
+        default=0, verbose_name="无效几何数"
+    )
+    empty_geometry_count = models.PositiveBigIntegerField(
+        default=0, verbose_name="空几何数"
+    )
+    null_geometry_count = models.PositiveBigIntegerField(
+        default=0, verbose_name="空值几何数"
+    )
+    bounds = models.JSONField(default=list, blank=True, verbose_name="边界")
+    checksum_sha256 = models.CharField(
+        max_length=64, blank=True, verbose_name="源文件 SHA256"
+    )
+    render_strategy = models.CharField(
+        max_length=20,
+        choices=RenderStrategy.choices,
+        default=RenderStrategy.GEOJSON,
+        verbose_name="渲染策略",
+    )
+    import_summary = models.JSONField(
+        default=dict, blank=True, verbose_name="导入质量摘要"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "矢量数据集"
+        verbose_name_plural = "矢量数据集"
+        ordering = ("-created_at", "id")
+
+    def __str__(self) -> str:
+        return self.resource.name

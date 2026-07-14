@@ -19,6 +19,7 @@ import {
   Checkbox,
   Form,
   Input,
+  Radio,
   Typography,
 } from "antd";
 import { useState } from "react";
@@ -101,11 +102,13 @@ const serviceStatusSummary = [
 
 export default function LoginPage() {
   const { bootstrap, setUser } = useAppContext();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [submittingAction, setSubmittingAction] = useState<
     "login" | "register" | "guest" | null
   >(null);
   const [mode, setMode] = useState<"login" | "register">("login");
+  const [accountPurpose, setAccountPurpose] =
+    useState<RegisterFormValues["accountPurpose"]>("standard");
   const isSubmitting = submittingAction !== null;
 
   async function handleFinish(values: LoginFormValues) {
@@ -128,17 +131,22 @@ export default function LoginPage() {
     setSubmittingAction("register");
     try {
       await api.csrf();
-      const response = await api.register(
-        values.username,
-        values.email ?? "",
-        values.password,
-        values.passwordConfirm,
-      );
+      const response = await api.register(values);
+      message.success(response.detail);
       setUser(response.user);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "注册失败");
       setSubmittingAction(null);
     }
+  }
+
+  function handleForgotPassword() {
+    modal.info({
+      title: "请联系平台管理员重置密码",
+      content:
+        "当前阶段暂未接入邮件找回密码。请联系平台管理员在“认证授权—用户管理”中重置密码，并妥善保存管理员提供的临时密码。",
+      okText: "我知道了",
+    });
   }
 
   async function handleGuestLogin() {
@@ -246,7 +254,7 @@ export default function LoginPage() {
           <Typography.Text type="secondary">
             {mode === "login"
               ? "登录后进入地图工作台，后台功能按权限显示。"
-              : "首个注册用户自动成为系统管理员。"}
+              : "自助注册默认获得普通用户权限，科研用户权限需提交申请并由管理员审核。"}
           </Typography.Text>
 
           {mode === "login" ? (
@@ -285,7 +293,12 @@ export default function LoginPage() {
                 <Form.Item name="remember" valuePropName="checked" noStyle>
                   <Checkbox>记住登录状态</Checkbox>
                 </Form.Item>
-                <Button type="link" size="small" disabled={isSubmitting}>
+                <Button
+                  type="link"
+                  size="small"
+                  disabled={isSubmitting}
+                  onClick={handleForgotPassword}
+                >
                   忘记密码
                 </Button>
               </div>
@@ -326,7 +339,10 @@ export default function LoginPage() {
                     className="login-secondary-action"
                     disabled={isSubmitting}
                     icon={<UserAddOutlined style={{ fontSize: 16 }} />}
-                    onClick={() => setMode("register")}
+                    onClick={() => {
+                      setAccountPurpose("standard");
+                      setMode("register");
+                    }}
                   >
                     注册新账号
                   </Button>
@@ -341,6 +357,7 @@ export default function LoginPage() {
             <Form<RegisterFormValues>
               className="login-form"
               layout="vertical"
+              initialValues={{ accountPurpose: "standard" }}
               onFinish={handleRegister}
               onFinishFailed={(errorInfo) => {
                 message.error(firstFormError(errorInfo, "请检查注册信息"));
@@ -362,7 +379,10 @@ export default function LoginPage() {
               <Form.Item
                 name="email"
                 label="邮箱"
-                rules={[{ type: "email", message: "请输入有效邮箱" }]}
+                rules={[
+                  { required: true, message: "请输入邮箱" },
+                  { type: "email", message: "请输入有效邮箱" },
+                ]}
               >
                 <Input
                   placeholder="请输入邮箱"
@@ -370,6 +390,71 @@ export default function LoginPage() {
                   size="large"
                 />
               </Form.Item>
+              <Form.Item
+                name="accountPurpose"
+                label="账号用途"
+                rules={[{ required: true, message: "请选择账号用途" }]}
+              >
+                <Radio.Group
+                  optionType="button"
+                  buttonStyle="solid"
+                  onChange={(event) => setAccountPurpose(event.target.value)}
+                  options={[
+                    { label: "普通用户", value: "standard" },
+                    { label: "申请科研用户", value: "research" },
+                  ]}
+                />
+              </Form.Item>
+              {accountPurpose === "research" ? (
+                <div className="login-research-fields">
+                  <Form.Item
+                    name="displayName"
+                    label="姓名"
+                    preserve={false}
+                    rules={[{ required: true, message: "请输入姓名" }]}
+                  >
+                    <Input
+                      placeholder="请输入真实姓名"
+                      size="large"
+                      maxLength={150}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="department"
+                    label="单位或部门"
+                    preserve={false}
+                    rules={[{ required: true, message: "请输入单位或部门" }]}
+                  >
+                    <Input
+                      placeholder="请输入单位或部门"
+                      size="large"
+                      maxLength={120}
+                    />
+                  </Form.Item>
+                  <Form.Item
+                    name="applicationReason"
+                    label="申请说明"
+                    preserve={false}
+                    rules={[{ required: true, message: "请输入申请说明" }]}
+                  >
+                    <Input.TextArea
+                      placeholder="请简要说明需要上传、导出或科研分析权限的用途"
+                      autoSize={{ minRows: 2, maxRows: 3 }}
+                      maxLength={500}
+                      showCount
+                    />
+                  </Form.Item>
+                </div>
+              ) : null}
+              <Alert
+                type="info"
+                showIcon
+                title={
+                  accountPurpose === "research"
+                    ? "注册后先按普通用户权限使用，科研权限审核通过后生效。"
+                    : "注册成功后自动加入普通用户角色。"
+                }
+              />
               <Form.Item
                 name="password"
                 label="密码"

@@ -48,7 +48,13 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true
+          "canDeleteWorkspaces": true,
+          "canViewMapCompositions": true,
+          "canCreateMapCompositions": true,
+          "canChangeMapCompositions": true,
+          "canDeleteMapCompositions": true,
+          "canExportMapCompositions": true,
+          "canPublishMapCompositions": true
         },
         "groupIds": [
           1
@@ -206,7 +212,13 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true
+          "canDeleteWorkspaces": true,
+          "canViewMapCompositions": true,
+          "canCreateMapCompositions": true,
+          "canChangeMapCompositions": true,
+          "canDeleteMapCompositions": true,
+          "canExportMapCompositions": true,
+          "canPublishMapCompositions": true
         },
         "groupIds": [
           1
@@ -354,7 +366,13 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true
+          "canDeleteWorkspaces": true,
+          "canViewMapCompositions": true,
+          "canCreateMapCompositions": true,
+          "canChangeMapCompositions": true,
+          "canDeleteMapCompositions": true,
+          "canExportMapCompositions": true,
+          "canPublishMapCompositions": true
         },
         "groupIds": [
           1
@@ -494,7 +512,7 @@
             "canLoadVectorLayer": true,
             "canLoadRasterLayer": true,
             "canUseCustomSymbolization": true,
-          "canUseAiInterpretation": true,
+            "canUseAiInterpretation": true,
             "canExportData": true,
             "canManageRasterData": true,
             "canUploadData": true,
@@ -506,7 +524,13 @@
             "canViewWorkspaces": true,
             "canCreateWorkspaces": true,
             "canChangeWorkspaces": true,
-            "canDeleteWorkspaces": true
+            "canDeleteWorkspaces": true,
+            "canViewMapCompositions": true,
+            "canCreateMapCompositions": true,
+            "canChangeMapCompositions": true,
+            "canDeleteMapCompositions": true,
+            "canExportMapCompositions": true,
+            "canPublishMapCompositions": true
           },
           "groupIds": [
             6
@@ -592,7 +616,7 @@
             "canLoadVectorLayer": true,
             "canLoadRasterLayer": true,
             "canUseCustomSymbolization": false,
-          "canUseAiInterpretation": false,
+            "canUseAiInterpretation": false,
             "canExportData": true,
             "canManageRasterData": false,
             "canUploadData": true,
@@ -604,7 +628,13 @@
             "canViewWorkspaces": true,
             "canCreateWorkspaces": true,
             "canChangeWorkspaces": true,
-            "canDeleteWorkspaces": true
+            "canDeleteWorkspaces": true,
+            "canViewMapCompositions": true,
+            "canCreateMapCompositions": true,
+            "canChangeMapCompositions": true,
+            "canDeleteMapCompositions": true,
+            "canExportMapCompositions": true,
+            "canPublishMapCompositions": true
           },
           "groupIds": [
             3
@@ -680,7 +710,7 @@
             "canLoadVectorLayer": true,
             "canLoadRasterLayer": true,
             "canUseCustomSymbolization": true,
-          "canUseAiInterpretation": true,
+            "canUseAiInterpretation": true,
             "canExportData": true,
             "canManageRasterData": true,
             "canUploadData": true,
@@ -692,7 +722,13 @@
             "canViewWorkspaces": true,
             "canCreateWorkspaces": true,
             "canChangeWorkspaces": true,
-            "canDeleteWorkspaces": true
+            "canDeleteWorkspaces": true,
+            "canViewMapCompositions": true,
+            "canCreateMapCompositions": true,
+            "canChangeMapCompositions": true,
+            "canDeleteMapCompositions": true,
+            "canExportMapCompositions": true,
+            "canPublishMapCompositions": true
           },
           "groupIds": [
             4
@@ -773,7 +809,7 @@
             "canLoadVectorLayer": true,
             "canLoadRasterLayer": true,
             "canUseCustomSymbolization": false,
-          "canUseAiInterpretation": false,
+            "canUseAiInterpretation": false,
             "canExportData": false,
             "canManageRasterData": false,
             "canUploadData": true,
@@ -785,7 +821,13 @@
             "canViewWorkspaces": true,
             "canCreateWorkspaces": true,
             "canChangeWorkspaces": true,
-            "canDeleteWorkspaces": true
+            "canDeleteWorkspaces": true,
+            "canViewMapCompositions": true,
+            "canCreateMapCompositions": true,
+            "canChangeMapCompositions": true,
+            "canDeleteMapCompositions": true,
+            "canExportMapCompositions": false,
+            "canPublishMapCompositions": true
           },
           "groupIds": [
             2
@@ -861,7 +903,13 @@
           "canViewWorkspaces": true,
           "canCreateWorkspaces": true,
           "canChangeWorkspaces": true,
-          "canDeleteWorkspaces": true
+          "canDeleteWorkspaces": true,
+          "canViewMapCompositions": true,
+          "canCreateMapCompositions": true,
+          "canChangeMapCompositions": true,
+          "canDeleteMapCompositions": true,
+          "canExportMapCompositions": true,
+          "canPublishMapCompositions": true
         },
         "groupIds": [
           3
@@ -927,7 +975,7 @@
         "canLoadVectorLayer": true,
         "canLoadRasterLayer": true,
         "canUseCustomSymbolization": false,
-          "canUseAiInterpretation": false,
+        "canUseAiInterpretation": false,
         "canExportData": true,
         "canManageRasterData": false,
         "canUploadData": true,
@@ -939,7 +987,13 @@
         "canViewWorkspaces": true,
         "canCreateWorkspaces": true,
         "canChangeWorkspaces": true,
-        "canDeleteWorkspaces": true
+        "canDeleteWorkspaces": true,
+        "canViewMapCompositions": true,
+        "canCreateMapCompositions": true,
+        "canChangeMapCompositions": true,
+        "canDeleteMapCompositions": true,
+        "canExportMapCompositions": true,
+        "canPublishMapCompositions": true
       },
       "groupIds": [
         3,
@@ -1018,7 +1072,7 @@
         "canLoadVectorLayer": true,
         "canLoadRasterLayer": true,
         "canUseCustomSymbolization": false,
-          "canUseAiInterpretation": false,
+        "canUseAiInterpretation": false,
         "canExportData": true,
         "canManageRasterData": false,
         "canUploadData": true,
@@ -1030,7 +1084,13 @@
         "canViewWorkspaces": true,
         "canCreateWorkspaces": true,
         "canChangeWorkspaces": true,
-        "canDeleteWorkspaces": true
+        "canDeleteWorkspaces": true,
+        "canViewMapCompositions": true,
+        "canCreateMapCompositions": true,
+        "canChangeMapCompositions": true,
+        "canDeleteMapCompositions": true,
+        "canExportMapCompositions": true,
+        "canPublishMapCompositions": true
       },
       "groupIds": [
         3
@@ -1115,7 +1175,7 @@
         "canLoadVectorLayer": true,
         "canLoadRasterLayer": true,
         "canUseCustomSymbolization": false,
-          "canUseAiInterpretation": false,
+        "canUseAiInterpretation": false,
         "canExportData": false,
         "canManageRasterData": false,
         "canUploadData": true,
@@ -1127,7 +1187,13 @@
         "canViewWorkspaces": true,
         "canCreateWorkspaces": true,
         "canChangeWorkspaces": true,
-        "canDeleteWorkspaces": true
+        "canDeleteWorkspaces": true,
+        "canViewMapCompositions": true,
+        "canCreateMapCompositions": true,
+        "canChangeMapCompositions": true,
+        "canDeleteMapCompositions": true,
+        "canExportMapCompositions": false,
+        "canPublishMapCompositions": true
       },
       "groupIds": [
         2
@@ -1210,16 +1276,13 @@
             "core.create_user",
             "core.manage_auth",
             "core.manage_feature_permissions",
-            "core.manage_system_settings",
             "core.view_operation_logs",
-            "core.view_system_logs",
             "core.view_all_operation_logs",
             "core.view_dashboard_resource_card",
             "core.view_dashboard_layer_card",
             "core.view_dashboard_raster_card",
             "core.view_dashboard_user_card",
             "core.view_dashboard_active_users_card",
-            "core.view_dashboard_system_card",
             "core.view_data_overview",
             "core.browse_data",
             "core.query_data",
@@ -1234,6 +1297,12 @@
             "catalog.view_workspacescene",
             "catalog.change_workspacescene",
             "catalog.delete_workspacescene",
+            "catalog.add_mapcomposition",
+            "catalog.view_mapcomposition",
+            "catalog.change_mapcomposition",
+            "catalog.delete_mapcomposition",
+            "catalog.export_mapcomposition",
+            "catalog.publish_mapcomposition",
             "core.load_vector_layer",
             "core.load_raster_layer",
             "raster.manage_raster_dataset"
@@ -1258,7 +1327,14 @@
             "catalog.export_dataresource",
             "catalog.add_workspacescene",
             "catalog.view_workspacescene",
-            "catalog.change_workspacescene"
+            "catalog.change_workspacescene",
+            "catalog.delete_workspacescene",
+            "catalog.add_mapcomposition",
+            "catalog.view_mapcomposition",
+            "catalog.change_mapcomposition",
+            "catalog.delete_mapcomposition",
+            "catalog.export_mapcomposition",
+            "catalog.publish_mapcomposition"
           ],
           "isProtected": true,
           "lockedPermissions": []
@@ -1272,10 +1348,8 @@
             "core.query_data",
             "core.load_vector_layer",
             "core.load_raster_layer",
-            "catalog.add_dataresource",
-            "catalog.add_workspacescene",
             "catalog.view_workspacescene",
-            "catalog.change_workspacescene"
+            "catalog.view_mapcomposition"
           ],
           "isProtected": true,
           "lockedPermissions": []
@@ -1284,7 +1358,14 @@
           "id": 5,
           "name": "游客",
           "userCount": 1,
-          "permissions": [],
+          "permissions": [
+            "core.browse_data",
+            "core.query_data",
+            "core.load_vector_layer",
+            "core.load_raster_layer",
+            "catalog.view_workspacescene",
+            "catalog.view_mapcomposition"
+          ],
           "isProtected": true,
           "lockedPermissions": []
         }
@@ -1535,6 +1616,56 @@
         "defaultResampling": "nearest"
       },
       "editable": true
+    }
+  },
+  "GET /api/admin/role-applications/": {
+    "200": {
+      "items": [
+        {
+          "id": 1,
+          "userId": 3,
+          "requestedRole": "research",
+          "status": "pending",
+          "reason": "参与胡杨林长期生态监测，需要上传和导出科研数据。",
+          "reviewNote": "",
+          "createdAt": "2026-07-14T10:30:00+08:00",
+          "reviewedAt": null,
+          "user": {
+            "id": 3,
+            "username": "researcher",
+            "displayName": "张研究员",
+            "email": "researcher@example.local",
+            "department": "生态监测组"
+          },
+          "reviewer": null
+        }
+      ]
+    }
+  },
+  "POST /api/admin/role-applications/{applicationId}/review/": {
+    "200": {
+      "id": 1,
+      "userId": 3,
+      "requestedRole": "research",
+      "status": "approved",
+      "reason": "参与胡杨林长期生态监测，需要上传和导出科研数据。",
+      "reviewNote": "申请材料完整，批准科研数据权限。",
+      "createdAt": "2026-07-14T10:30:00+08:00",
+      "reviewedAt": "2026-07-14T11:00:00+08:00",
+      "user": {
+        "id": 3,
+        "username": "researcher",
+        "displayName": "张研究员",
+        "email": "researcher@example.local",
+        "department": "生态监测组"
+      },
+      "reviewer": {
+        "id": 1,
+        "username": "admin",
+        "displayName": "超级管理员",
+        "email": "admin@example.local",
+        "department": "系统管理"
+      }
     }
   }
 }

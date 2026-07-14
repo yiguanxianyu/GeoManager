@@ -17,6 +17,12 @@ class OperationLog(models.Model):
     )
     module = models.CharField(max_length=64, verbose_name="模块")
     action = models.CharField(max_length=64, verbose_name="操作")
+    event_code = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        verbose_name="稳定事件编码",
+    )
     status = models.CharField(
         max_length=16, choices=Status.choices, verbose_name="结果"
     )
@@ -44,3 +50,29 @@ class OperationLog(models.Model):
 
     def __str__(self) -> str:
         return f"{self.module}.{self.action} {self.status}"
+
+
+class UserActivityHour(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="activity_hours",
+        verbose_name="活跃用户",
+    )
+    bucket_start = models.DateTimeField(verbose_name="小时起始时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="记录时间")
+
+    class Meta:
+        verbose_name = "用户小时活跃记录"
+        verbose_name_plural = "用户小时活跃记录"
+        ordering = ("-bucket_start",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=("user", "bucket_start"),
+                name="audit_activity_user_hour_unique",
+            )
+        ]
+        indexes = [models.Index(fields=("bucket_start",))]
+
+    def __str__(self) -> str:
+        return f"{self.user_id}@{self.bucket_start.isoformat()}"

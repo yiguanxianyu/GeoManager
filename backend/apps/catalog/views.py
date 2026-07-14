@@ -4,7 +4,7 @@ from typing import Any
 
 from django.contrib.auth.models import Group
 from django.core.exceptions import RequestDataTooBig
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
@@ -29,6 +29,11 @@ from apps.catalog.importer import (
     preview_uploaded_table,
     validate_uploaded_table,
 )
+from apps.catalog.vector_importer import (
+    commit_vector_import,
+    preview_vector_import,
+    validate_vector_import,
+)
 from apps.catalog.models import (
     DataCatalog,
     DataResource,
@@ -39,6 +44,7 @@ from apps.catalog.permissions import (
     filter_accessible,
     filter_accessible_layers,
     user_can_access,
+    user_has_full_data_access,
 )
 from apps.catalog.serializers import (
     serialize_catalog,
@@ -50,7 +56,10 @@ from apps.catalog.services import (
 )
 from apps.catalog.visualization import resource_visualization_summary
 from apps.core.permissions import feature_denied_response, has_feature_perm
-from apps.core.principal_visibility import visible_groups_for
+from apps.core.principal_visibility import (
+    selectable_access_groups_for,
+    user_is_visible_to,
+)
 from apps.raster.services import (
     RasterJobError,
     get_job,
@@ -92,8 +101,11 @@ def resources(request):
         return feature_denied_response(request.user)
 
     data_type = request.GET.get("dataType", "").strip()
+    spatial_class = request.GET.get("spatialClass", "").strip()
     domain_type = request.GET.get("domainType", "").strip()
     query = request.GET.get("q", "").strip()
+    if spatial_class and spatial_class not in DataResource.SpatialClass.values:
+        return JsonResponse({"detail": "无效的空间数据分类"}, status=400)
     if domain_type and domain_type not in DataDomainType.values:
         return JsonResponse({"detail": "无效的数据业务类型"}, status=400)
 
@@ -104,6 +116,14 @@ def resources(request):
         queryset = queryset.filter(name__icontains=query)
     if data_type:
         queryset = queryset.filter(data_type=data_type)
+    if spatial_class == DataResource.SpatialClass.SPATIAL:
+        queryset = queryset.filter(
+            data_type__in=(DataResource.DataType.VECTOR, DataResource.DataType.RASTER)
+        )
+    elif spatial_class == DataResource.SpatialClass.NON_SPATIAL:
+        queryset = queryset.exclude(
+            data_type__in=(DataResource.DataType.VECTOR, DataResource.DataType.RASTER)
+        )
     if domain_type:
         queryset = queryset.filter(domain_type=domain_type)
     category = request.GET.get("category", "").strip()
@@ -290,6 +310,114 @@ def import_commit(request):
     return JsonResponse(result, status=201)
 
 
+@require_POST
+@api_login_required
+def vector_import_preview(request):
+    if not _can_create_data_resource(request.user):
+        return feature_denied_response(request.user)
+    uploaded_file = request.FILES.get("file")
+    if uploaded_file is None:
+        return JsonResponse({"detail": "请上传矢量文件"}, status=400)
+    try:
+        result = preview_vector_import(
+            uploaded_file, encoding=request.POST.get("encoding") or None
+        )
+    except ImportDataError as exc:
+        log_operation(
+            request.user,
+            "数据导入",
+            "预检矢量文件",
+            "failed",
+            str(exc),
+            request,
+        )
+        return JsonResponse(_import_error_payload(exc), status=400)
+    log_operation(
+        request.user,
+        "数据导入",
+        "预检矢量文件",
+        "success",
+        uploaded_file.name,
+        request,
+    )
+    return JsonResponse(result)
+
+
+@require_POST
+@api_login_required
+def vector_import_validate(request):
+    if not _can_create_data_resource(request.user):
+        return feature_denied_response(request.user)
+    uploaded_file = request.FILES.get("file")
+    if uploaded_file is None:
+        return JsonResponse({"detail": "请上传矢量文件"}, status=400)
+    try:
+        payload = json.loads(request.POST.get("payload", "{}"))
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "矢量导入参数不是有效 JSON"}, status=400)
+    try:
+        result = validate_vector_import(uploaded_file, payload)
+    except ImportDataError as exc:
+        log_operation(
+            request.user,
+            "数据导入",
+            "校验矢量文件",
+            "failed",
+            str(exc),
+            request,
+        )
+        return JsonResponse(_import_error_payload(exc), status=400)
+    log_operation(
+        request.user,
+        "数据导入",
+        "校验矢量文件",
+        "success",
+        uploaded_file.name,
+        request,
+    )
+    return JsonResponse(result)
+
+
+@require_POST
+@api_login_required
+def vector_import_commit(request):
+    if not _can_create_data_resource(request.user):
+        return feature_denied_response(request.user)
+    uploaded_file = request.FILES.get("file")
+    if uploaded_file is None:
+        return JsonResponse({"detail": "请上传矢量文件"}, status=400)
+    try:
+        payload = json.loads(request.POST.get("payload", "{}"))
+    except json.JSONDecodeError:
+        return JsonResponse({"detail": "矢量导入参数不是有效 JSON"}, status=400)
+    try:
+        result = commit_vector_import(uploaded_file, payload, request.user)
+    except ImportDataError as exc:
+        log_operation(
+            request.user,
+            "数据导入",
+            "提交矢量导入",
+            "failed",
+            str(exc),
+            request,
+        )
+        return JsonResponse(_import_error_payload(exc), status=400)
+    resource = DataResource.objects.filter(pk=result.get("resourceId")).first()
+    log_operation(
+        request.user,
+        "数据导入",
+        "提交矢量导入",
+        "success",
+        f"{result.get('resourceName', uploaded_file.name)}：导入 {result.get('importedFeatures', 0)} 个要素",
+        request,
+        target_type="data_resource",
+        target_id=resource.id if resource else result.get("resourceId"),
+        target_code=resource.code if resource else "",
+        target_name=resource.name if resource else result.get("resourceName", ""),
+    )
+    return JsonResponse(result, status=201)
+
+
 def _can_create_data_resource(user) -> bool:
     return has_feature_perm(user, "catalog.add_dataresource")
 
@@ -312,13 +440,24 @@ def workspaces(request):
     if not has_feature_perm(request.user, "catalog.view_workspacescene"):
         return feature_denied_response(request.user)
     kind = str(request.GET.get("kind", "")).strip()
-    if kind and kind not in WorkspaceScene.Kind.values:
-        return JsonResponse({"detail": "kind 仅支持 project 或 topic"}, status=400)
-    queryset = WorkspaceScene.objects.filter(owner=request.user)
-    queryset = queryset.filter(status=WorkspaceScene.Status.ACTIVE)
+    if kind and kind != WorkspaceScene.Kind.PROJECT:
+        return JsonResponse({"detail": "kind 仅支持 project"}, status=400)
+    queryset = (
+        WorkspaceScene.objects.select_related("owner")
+        .prefetch_related("access_groups")
+        .filter(status=WorkspaceScene.Status.ACTIVE)
+        .filter(_workspace_access_filter(request.user))
+        .order_by("-updated_at", "name")
+        .distinct()
+    )
     if kind:
         queryset = queryset.filter(kind=kind)
-    return JsonResponse({"items": [_serialize_workspace(item) for item in queryset]})
+    return JsonResponse(
+        {
+            "items": [_serialize_workspace(item, request.user) for item in queryset],
+            "availableAccessGroups": _available_access_groups(request.user),
+        }
+    )
 
 
 def _create_workspace(request):
@@ -330,10 +469,18 @@ def _create_workspace(request):
     values = _workspace_payload(payload, partial=False)
     if isinstance(values, JsonResponse):
         return values
+    group_ids = _workspace_access_group_ids(payload, request.user)
+    if isinstance(group_ids, JsonResponse):
+        return group_ids
     try:
-        scene = WorkspaceScene.objects.create(owner=request.user, **values)
+        with transaction.atomic():
+            scene = WorkspaceScene.objects.create(owner=request.user, **values)
     except IntegrityError:
-        return JsonResponse({"detail": "同名工程或专题已存在"}, status=400)
+        return JsonResponse({"detail": "同名工程已存在"}, status=400)
+    access_error = _set_access_groups_with_superadmin(scene, group_ids, request.user)
+    if isinstance(access_error, JsonResponse):
+        scene.delete()
+        return access_error
     log_operation(
         request.user,
         "工作台",
@@ -346,13 +493,22 @@ def _create_workspace(request):
         target_code=scene.kind,
         target_name=scene.name,
     )
-    return JsonResponse(_serialize_workspace(scene), status=201)
+    scene = (
+        WorkspaceScene.objects.select_related("owner")
+        .prefetch_related("access_groups")
+        .get(pk=scene.id)
+    )
+    return JsonResponse(_serialize_workspace(scene, request.user), status=201)
 
 
 @require_http_methods(["GET", "POST"])
 @api_login_required
 def workspace_detail(request, workspace_id: int):
-    scene = _workspace_for_user(request.user, workspace_id)
+    scene = _workspace_for_user(
+        request.user,
+        workspace_id,
+        require_owner=request.method == "POST",
+    )
     if isinstance(scene, JsonResponse):
         return scene
     if request.method == "GET":
@@ -370,7 +526,7 @@ def workspace_detail(request, workspace_id: int):
             target_code=scene.kind,
             target_name=scene.name,
         )
-        return JsonResponse(_serialize_workspace(scene))
+        return JsonResponse(_serialize_workspace(scene, request.user))
     payload = _json_payload(request, max_body_bytes=WORKSPACE_SNAPSHOT_MAX_BODY_BYTES)
     if isinstance(payload, JsonResponse):
         return payload
@@ -395,17 +551,32 @@ def workspace_detail(request, workspace_id: int):
             target_name=name,
         )
         return JsonResponse({"detail": f"{kind_label}已删除"})
-    if not has_feature_perm(request.user, "catalog.change_workspacescene"):
-        return feature_denied_response(request.user)
     values = _workspace_payload(payload, partial=True)
     if isinstance(values, JsonResponse):
         return values
+    if values and not has_feature_perm(request.user, "catalog.change_workspacescene"):
+        return feature_denied_response(request.user)
+    group_ids = None
+    if "accessGroupIds" in payload:
+        group_ids = _workspace_access_group_ids(payload, request.user)
+        if isinstance(group_ids, JsonResponse):
+            return group_ids
     for key, value in values.items():
         setattr(scene, key, value)
     try:
-        scene.save()
+        if values:
+            with transaction.atomic():
+                scene.save()
     except IntegrityError:
-        return JsonResponse({"detail": "同名工程或专题已存在"}, status=400)
+        return JsonResponse({"detail": "同名工程已存在"}, status=400)
+    if group_ids is not None:
+        access_error = _set_access_groups_with_superadmin(
+            scene, group_ids, request.user
+        )
+        if isinstance(access_error, JsonResponse):
+            return access_error
+    if not values and group_ids is None:
+        return JsonResponse({"detail": "没有可更新的工程字段"}, status=400)
     log_operation(
         request.user,
         "工作台",
@@ -418,16 +589,31 @@ def workspace_detail(request, workspace_id: int):
         target_code=scene.kind,
         target_name=scene.name,
     )
-    return JsonResponse(_serialize_workspace(scene))
+    scene = (
+        WorkspaceScene.objects.select_related("owner")
+        .prefetch_related("access_groups")
+        .get(pk=scene.id)
+    )
+    return JsonResponse(_serialize_workspace(scene, request.user))
 
 
-def _workspace_for_user(user, workspace_id: int) -> WorkspaceScene | JsonResponse:
-    try:
-        return WorkspaceScene.objects.get(
-            pk=workspace_id, owner=user, status=WorkspaceScene.Status.ACTIVE
-        )
-    except WorkspaceScene.DoesNotExist:
-        return JsonResponse({"detail": "工程或专题不存在"}, status=404)
+def _workspace_for_user(
+    user, workspace_id: int, *, require_owner: bool = False
+) -> WorkspaceScene | JsonResponse:
+    queryset = (
+        WorkspaceScene.objects.select_related("owner")
+        .prefetch_related("access_groups")
+        .filter(pk=workspace_id, status=WorkspaceScene.Status.ACTIVE)
+    )
+    if require_owner:
+        if not user_has_full_data_access(user):
+            queryset = queryset.filter(owner=user)
+    else:
+        queryset = queryset.filter(_workspace_access_filter(user)).distinct()
+    scene = queryset.first()
+    if scene is None:
+        return JsonResponse({"detail": "工程不存在"}, status=404)
+    return scene
 
 
 def _workspace_payload(
@@ -436,8 +622,8 @@ def _workspace_payload(
     values: dict[str, object] = {}
     if not partial or "kind" in payload:
         kind = str(payload.get("kind", "")).strip()
-        if kind not in WorkspaceScene.Kind.values:
-            return JsonResponse({"detail": "kind 仅支持 project 或 topic"}, status=400)
+        if kind != WorkspaceScene.Kind.PROJECT:
+            return JsonResponse({"detail": "kind 仅支持 project"}, status=400)
         values["kind"] = kind
     if not partial or "name" in payload:
         name = str(payload.get("name", "")).strip()
@@ -455,7 +641,7 @@ def _workspace_payload(
         if _snapshot_contains_embedded_data(snapshot):
             return JsonResponse(
                 {
-                    "detail": "工程或专题快照只能保存查询、范围、资源引用和图层结构，不能包含原始数据"
+                    "detail": "工程快照只能保存查询、范围、资源引用和图层结构，不能包含原始数据"
                 },
                 status=400,
             )
@@ -463,7 +649,10 @@ def _workspace_payload(
     return values
 
 
-def _serialize_workspace(scene: WorkspaceScene) -> dict[str, object]:
+def _serialize_workspace(scene: WorkspaceScene, request_user) -> dict[str, object]:
+    is_owner = scene.owner_id == getattr(request_user, "id", None)
+    can_manage_all = user_has_full_data_access(request_user)
+    owner = scene.owner if user_is_visible_to(request_user, scene.owner) else None
     return {
         "id": scene.id,
         "kind": scene.kind,
@@ -471,10 +660,28 @@ def _serialize_workspace(scene: WorkspaceScene) -> dict[str, object]:
         "description": scene.description,
         "snapshot": scene.snapshot,
         "owner": {
-            "id": scene.owner_id,
-            "displayName": scene.owner.get_full_name() or scene.owner.get_username(),
-            "username": scene.owner.get_username(),
+            "id": owner.id if owner else 0,
+            "displayName": (
+                owner.get_full_name() or owner.get_username() if owner else "系统维护"
+            ),
+            "username": owner.get_username() if owner else "",
         },
+        "accessGroups": [
+            _serialize_access_group(group)
+            for group in selectable_access_groups_for(
+                scene.access_groups.all(), request_user
+            )
+        ],
+        "isOwner": is_owner,
+        "canEdit": bool(
+            (is_owner or can_manage_all)
+            and has_feature_perm(request_user, "catalog.change_workspacescene")
+        ),
+        "canDelete": bool(
+            (is_owner or can_manage_all)
+            and has_feature_perm(request_user, "catalog.delete_workspacescene")
+        ),
+        "canManageAccess": bool(is_owner or can_manage_all),
         "createdAt": scene.created_at.isoformat(),
         "updatedAt": scene.updated_at.isoformat(),
     }
@@ -487,8 +694,8 @@ def admin_workspaces(request):
         return feature_denied_response(request.user)
     kind = str(request.GET.get("kind", "")).strip()
     status = str(request.GET.get("status", "")).strip()
-    if kind and kind not in WorkspaceScene.Kind.values:
-        return JsonResponse({"detail": "kind 仅支持 project 或 topic"}, status=400)
+    if kind and kind != WorkspaceScene.Kind.PROJECT:
+        return JsonResponse({"detail": "kind 仅支持 project"}, status=400)
     if status and status not in WorkspaceScene.Status.values:
         return JsonResponse({"detail": "status 仅支持 active 或 inactive"}, status=400)
     query = str(request.GET.get("q", "")).strip()
@@ -543,20 +750,26 @@ def admin_workspace_detail(request, workspace_id: int):
         .first()
     )
     if scene is None:
-        return JsonResponse({"detail": "工程或专题不存在"}, status=404)
+        return JsonResponse({"detail": "工程不存在"}, status=404)
     if not _user_can_see_admin_workspace(scene, request.user):
-        return JsonResponse({"detail": "工程或专题不存在"}, status=404)
+        return JsonResponse({"detail": "工程不存在"}, status=404)
 
     action = str(payload.get("action", "update")).strip()
-    can_change = has_feature_perm(request.user, "catalog.change_workspacescene")
-    can_delete = has_feature_perm(request.user, "catalog.delete_workspacescene")
-    can_update_access = can_change or scene.owner_id == request.user.id
+    is_owner = scene.owner_id == request.user.id
+    has_full_data_access = user_has_full_data_access(request.user)
+    can_change = has_feature_perm(request.user, "catalog.change_workspacescene") and (
+        has_full_data_access or is_owner
+    )
+    can_delete = has_feature_perm(request.user, "catalog.delete_workspacescene") and (
+        has_full_data_access or is_owner
+    )
+    can_update_access = has_full_data_access or is_owner
     if action == "delete":
         if not can_delete:
             return feature_denied_response(request.user)
         return _delete_admin_workspace(request, scene, payload)
     if action not in {"update", "setStatus", "updateAccess"}:
-        return JsonResponse({"detail": "不支持的工程专题操作"}, status=400)
+        return JsonResponse({"detail": "不支持的工程操作"}, status=400)
     if action == "updateAccess":
         if not can_update_access:
             return feature_denied_response(request.user)
@@ -593,7 +806,7 @@ def admin_workspace_detail(request, workspace_id: int):
     if update_fields:
         scene.save(update_fields=sorted(set([*update_fields, "updated_at"])))
     if not update_fields and not changed_access:
-        return JsonResponse({"detail": "没有可更新的工程专题字段"}, status=400)
+        return JsonResponse({"detail": "没有可更新的工程字段"}, status=400)
     log_operation(
         request.user,
         "数据管理",
@@ -616,15 +829,15 @@ def admin_workspace_detail(request, workspace_id: int):
 
 
 def _workspace_kind_label(kind: str) -> str:
-    return "专题" if kind == WorkspaceScene.Kind.TOPIC else "工程"
+    return "工程"
 
 
 def _admin_workspace_payload(payload: dict[str, Any]) -> dict[str, Any] | JsonResponse:
     values: dict[str, Any] = {}
     if "kind" in payload:
         kind = str(payload.get("kind", "")).strip()
-        if kind not in WorkspaceScene.Kind.values:
-            return JsonResponse({"detail": "kind 仅支持 project 或 topic"}, status=400)
+        if kind != WorkspaceScene.Kind.PROJECT:
+            return JsonResponse({"detail": "kind 仅支持 project"}, status=400)
         values["kind"] = kind
     if "name" in payload:
         name = str(payload.get("name", "")).strip()
@@ -668,7 +881,11 @@ def _can_open_workspace_admin(user) -> bool:
 
 
 def _workspace_admin_access_filter(user):
-    if user.is_superuser or user.groups.filter(name=SUPERADMIN_GROUP_NAME).exists():
+    return _workspace_access_filter(user)
+
+
+def _workspace_access_filter(user):
+    if user_has_full_data_access(user):
         return Q()
     group_ids = set(user.groups.values_list("id", flat=True))
     query = Q(owner=user)
@@ -678,27 +895,25 @@ def _workspace_admin_access_filter(user):
 
 
 def _user_can_see_admin_workspace(scene: WorkspaceScene, user) -> bool:
-    if (
-        user.is_superuser
-        or user.groups.filter(name=SUPERADMIN_GROUP_NAME).exists()
-        or scene.owner_id == user.id
-    ):
+    if user_has_full_data_access(user) or scene.owner_id == user.id:
         return True
     access_group_ids = {group.id for group in scene.access_groups.all()}
     return bool(access_group_ids & set(user.groups.values_list("id", flat=True)))
 
 
 def _serialize_admin_workspace(scene: WorkspaceScene, request_user) -> dict[str, Any]:
-    payload = _serialize_workspace(scene)
+    payload = _serialize_workspace(scene, request_user)
     payload.update(
         {
             "status": scene.status,
             "accessGroups": [
                 _serialize_access_group(group)
-                for group in visible_groups_for(scene.access_groups.all(), request_user)
+                for group in selectable_access_groups_for(
+                    scene.access_groups.all(), request_user
+                )
             ],
             "canManageAccess": bool(
-                has_feature_perm(request_user, "catalog.change_workspacescene")
+                user_has_full_data_access(request_user)
                 or scene.owner_id == getattr(request_user, "id", None)
             ),
         }
@@ -709,7 +924,9 @@ def _serialize_admin_workspace(scene: WorkspaceScene, request_user) -> dict[str,
 def _available_access_groups(request_user) -> list[dict[str, Any]]:
     return [
         _serialize_access_group(group)
-        for group in visible_groups_for(Group.objects.order_by("name"), request_user)
+        for group in selectable_access_groups_for(
+            Group.objects.order_by("name"), request_user
+        )
     ]
 
 
@@ -724,7 +941,7 @@ def _serialize_access_group(group: Group) -> dict[str, Any]:
 
 def _set_access_groups_with_superadmin(obj, group_ids: list[int], viewer):
     visible_requested_ids = set(
-        visible_groups_for(
+        selectable_access_groups_for(
             Group.objects.filter(id__in=group_ids).only("id", "name"), viewer
         ).values_list("id", flat=True)
     )
@@ -737,14 +954,28 @@ def _set_access_groups_with_superadmin(obj, group_ids: list[int], viewer):
     return None
 
 
+def _workspace_access_group_ids(payload: dict[str, Any], viewer):
+    group_ids = _group_ids_payload(payload.get("accessGroupIds", []))
+    if isinstance(group_ids, JsonResponse):
+        return group_ids
+    selectable_ids = set(
+        selectable_access_groups_for(
+            Group.objects.filter(id__in=group_ids).only("id", "name"), viewer
+        ).values_list("id", flat=True)
+    )
+    if selectable_ids != set(group_ids):
+        return JsonResponse({"detail": "包含不存在或不可选择的角色"}, status=400)
+    return group_ids
+
+
 def _admin_workspace_action_label(action: str, payload: dict[str, Any]) -> str:
     if action == "setStatus":
-        return "切换工程专题状态"
+        return "切换工程状态"
     if action == "updateAccess":
-        return "更新工程专题可见范围"
+        return "更新工程可见范围"
     if "accessGroupIds" in payload:
-        return "更新工程专题信息和可见范围"
-    return "更新工程专题信息"
+        return "更新工程信息和可见范围"
+    return "更新工程信息"
 
 
 def _json_payload(
@@ -1054,6 +1285,7 @@ def export_loaded_layers_async(request):
             reproject=reproject,
             clip_geometry=clip_geometry,
             vector_format=vector_format,
+            created_by_id=request.user.id,
         )
     except ExportError as exc:
         log_operation(
@@ -1083,6 +1315,12 @@ def export_job_download(request, job_id: str):
         return feature_denied_response(request.user)
     try:
         job = get_job(job_id)
+        if (
+            job.created_by_id
+            and job.created_by_id != request.user.id
+            and not request.user.is_superuser
+        ):
+            return JsonResponse({"detail": "无权访问该导出任务"}, status=403)
         path = get_job_artifact_path(job_id)
     except RasterJobError as exc:
         return JsonResponse({"detail": str(exc)}, status=404)

@@ -2,15 +2,19 @@ import csv
 import io
 import json
 import sqlite3
+import tempfile
 import zipfile
+from dataclasses import replace
 from datetime import date
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group, Permission
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from shapely.geometry import Point
 
 from apps.audit.models import OperationLog
@@ -20,16 +24,39 @@ from apps.catalog.models import (
     DataResourceGroup,
     DictionaryItem,
     MapLayer,
+    VectorDataset,
     WorkspaceScene,
 )
 from apps.catalog.services import scan_catalog_sources, stable_catalog_code
 from apps.core.initialization import (
     GUEST_GROUP_NAME,
+    PLATFORM_ADMIN_GROUP_NAME,
     SUPERADMIN_GROUP_NAME,
     ensure_guest_user,
     ensure_superadmin_defaults,
 )
-from apps.core.storage import gene_data_path, table_data_path, vector_geopackage_path
+from apps.core.storage import (
+    gene_data_path,
+    table_data_path,
+    vector_geopackage_path,
+    vector_original_path,
+)
+from apps.standards.models import DataDomainType, ResourceDomain, SourceDataset
+
+
+class IsolatedCatalogStorageMixin:
+    def isolate_catalog_storage(self):
+        storage_tempdir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
+        root = Path(storage_tempdir.name)
+        config = replace(
+            settings.PROJECT_CONFIG,
+            app_data=root / "app",
+            research_data_root=root / "research",
+        )
+        storage_override = override_settings(PROJECT_CONFIG=config)
+        storage_override.enable()
+        self.addCleanup(storage_tempdir.cleanup)
+        self.addCleanup(storage_override.disable)
 
 
 class LayerApiTests(TestCase):
@@ -129,6 +156,14 @@ class ResourceListDomainTypeTests(TestCase):
             maintainer=self.user,
             status=DataResource.Status.ACTIVE,
         )
+        DataResource.objects.create(
+            name="行政区边界",
+            code="domain-vector",
+            data_type=DataResource.DataType.VECTOR,
+            domain_type="vector",
+            maintainer=self.user,
+            status=DataResource.Status.ACTIVE,
+        )
 
         response = self.client.get(
             "/api/catalog/resources/", {"domainType": "germplasm"}
@@ -146,17 +181,97 @@ class ResourceListDomainTypeTests(TestCase):
         self.assertEqual([item["code"] for item in items], ["domain-other"])
         self.assertEqual(items[0]["domainType"], "other")
 
+        response = self.client.get("/api/catalog/resources/", {"domainType": "vector"})
+
+        self.assertEqual(response.status_code, 200)
+        items = response.json()["items"]
+        self.assertEqual([item["code"] for item in items], ["domain-vector"])
+        self.assertEqual(items[0]["domainType"], "vector")
+
     def test_resources_endpoint_rejects_invalid_domain_type(self):
-        response = self.client.get(
-            "/api/catalog/resources/", {"domainType": "unknown"}
-        )
+        response = self.client.get("/api/catalog/resources/", {"domainType": "unknown"})
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json(), {"detail": "无效的数据业务类型"})
 
+    def test_resources_endpoint_separates_spatial_and_non_spatial_resources(self):
+        spatial = DataResource.objects.create(
+            name="样地点位",
+            code="spatial-resource-filter",
+            data_type=DataResource.DataType.VECTOR,
+            domain_type="field_survey",
+            maintainer=self.user,
+            status=DataResource.Status.ACTIVE,
+        )
+        non_spatial = DataResource.objects.create(
+            name="样地基础元数据",
+            code="non-spatial-resource-filter",
+            data_type=DataResource.DataType.TABLE,
+            domain_type="field_survey",
+            maintainer=self.user,
+            status=DataResource.Status.ACTIVE,
+        )
 
-class ResourceQueryApiTests(TestCase):
+        spatial_response = self.client.get(
+            "/api/catalog/resources/", {"spatialClass": "spatial"}
+        )
+        non_spatial_response = self.client.get(
+            "/api/catalog/resources/", {"spatialClass": "non_spatial"}
+        )
+
+        self.assertEqual(spatial_response.status_code, 200)
+        self.assertEqual(non_spatial_response.status_code, 200)
+        spatial_items = spatial_response.json()["items"]
+        non_spatial_items = non_spatial_response.json()["items"]
+        self.assertEqual([item["id"] for item in spatial_items], [spatial.id])
+        self.assertEqual(spatial_items[0]["spatialClass"], "spatial")
+        self.assertEqual([item["id"] for item in non_spatial_items], [non_spatial.id])
+        self.assertEqual(non_spatial_items[0]["spatialClass"], "non_spatial")
+
+    def test_resources_endpoint_rejects_invalid_spatial_class(self):
+        response = self.client.get("/api/catalog/resources/", {"spatialClass": "mixed"})
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json(), {"detail": "无效的空间数据分类"})
+
+
+class GuestPublicDataAccessTests(TestCase):
+    def test_guest_only_browses_resources_explicitly_shared_to_guest_role(self):
+        guest = ensure_guest_user()
+        guest_group = Group.objects.get(name=GUEST_GROUP_NAME)
+        private_group = Group.objects.create(name="内部科研数据组")
+        owner = get_user_model().objects.create_user(
+            username="guest-public-data-owner", password="pass12345"
+        )
+        public_resource = DataResource.objects.create(
+            name="公开胡杨样地",
+            code="guest-public-resource",
+            data_type=DataResource.DataType.VECTOR,
+            maintainer=owner,
+            status=DataResource.Status.ACTIVE,
+        )
+        private_resource = DataResource.objects.create(
+            name="内部胡杨样地",
+            code="guest-private-resource",
+            data_type=DataResource.DataType.VECTOR,
+            maintainer=owner,
+            status=DataResource.Status.ACTIVE,
+        )
+        public_resource.access_groups.add(guest_group)
+        private_resource.access_groups.add(private_group)
+        self.client.force_login(guest)
+
+        response = self.client.get("/api/catalog/resources/")
+
+        self.assertEqual(response.status_code, 200)
+        resource_ids = {item["id"] for item in response.json()["items"]}
+        self.assertIn(public_resource.id, resource_ids)
+        self.assertNotIn(private_resource.id, resource_ids)
+
+
+class ResourceQueryApiTests(IsolatedCatalogStorageMixin, TestCase):
     def setUp(self):
+        self.isolate_catalog_storage()
         self.user = get_user_model().objects.create_user(
             username="resource-tester", password="pass12345"
         )
@@ -319,8 +434,9 @@ class ResourceQueryApiTests(TestCase):
         self.assertEqual(response.json()["detail"], "无权访问该数据资源")
 
 
-class CatalogBusinessScenarioTests(TestCase):
+class CatalogBusinessScenarioTests(IsolatedCatalogStorageMixin, TestCase):
     def setUp(self):
+        self.isolate_catalog_storage()
         suffix = uuid4().hex[:8]
         self.research_group = Group.objects.create(name=f"科研用户-{suffix}")
         self.researcher = get_user_model().objects.create_user(
@@ -586,8 +702,9 @@ class CatalogBusinessScenarioTests(TestCase):
         self.assertNotIn(self.resource.id, resource_ids)
 
 
-class CatalogScanTests(TestCase):
+class CatalogScanTests(IsolatedCatalogStorageMixin, TestCase):
     def setUp(self):
+        self.isolate_catalog_storage()
         self.user = get_user_model().objects.create_user(
             username="catalog-scanner", password="pass12345"
         )
@@ -797,6 +914,8 @@ class WorkspaceSceneApiTests(TestCase):
         self.client.force_login(self.user)
 
     def test_create_list_load_update_and_delete_workspace_scene(self):
+        shared_group = Group.objects.create(name="工程协作组")
+        _, superadmin_group = ensure_superadmin_defaults(create_account=False)
         snapshot = {
             "layerGroups": [
                 {
@@ -817,6 +936,7 @@ class WorkspaceSceneApiTests(TestCase):
                     "name": "现场判读工程",
                     "description": "用于恢复当前图层顺序和符号化",
                     "snapshot": snapshot,
+                    "accessGroupIds": [shared_group.id],
                 }
             ),
             content_type="application/json",
@@ -828,6 +948,18 @@ class WorkspaceSceneApiTests(TestCase):
         self.assertEqual(created["name"], "现场判读工程")
         self.assertEqual(created["snapshot"], snapshot)
         self.assertEqual(created["owner"]["username"], self.user.username)
+        self.assertTrue(created["isOwner"])
+        self.assertTrue(created["canEdit"])
+        self.assertTrue(created["canDelete"])
+        self.assertEqual(
+            [group["id"] for group in created["accessGroups"]],
+            [shared_group.id],
+        )
+        scene = WorkspaceScene.objects.get(pk=created["id"])
+        self.assertEqual(
+            set(scene.access_groups.values_list("id", flat=True)),
+            {shared_group.id, superadmin_group.id},
+        )
         self.assertTrue(
             OperationLog.objects.filter(
                 user=self.user,
@@ -842,18 +974,16 @@ class WorkspaceSceneApiTests(TestCase):
             ).exists()
         )
 
-        WorkspaceScene.objects.create(
-            owner=self.user,
-            kind=WorkspaceScene.Kind.TOPIC,
-            name="退化专题",
-            snapshot={"layerGroups": []},
-        )
-
         list_response = self.client.get("/api/catalog/workspaces/?kind=project")
 
         self.assertEqual(list_response.status_code, 200)
-        items = list_response.json()["items"]
+        list_payload = list_response.json()
+        items = list_payload["items"]
         self.assertEqual([item["name"] for item in items], ["现场判读工程"])
+        self.assertNotIn(
+            superadmin_group.id,
+            [group["id"] for group in list_payload["availableAccessGroups"]],
+        )
 
         detail_response = self.client.get(f"/api/catalog/workspaces/{created['id']}/")
 
@@ -912,7 +1042,7 @@ class WorkspaceSceneApiTests(TestCase):
             ).exists()
         )
 
-    def test_workspace_scene_is_private_to_owner(self):
+    def test_workspace_scene_hides_items_without_owner_or_group_access(self):
         other = get_user_model().objects.create_user(
             username="other-workspace-owner", password="pass12345"
         )
@@ -926,7 +1056,154 @@ class WorkspaceSceneApiTests(TestCase):
         response = self.client.get(f"/api/catalog/workspaces/{scene.id}/")
 
         self.assertEqual(response.status_code, 404)
-        self.assertEqual(response.json()["detail"], "工程或专题不存在")
+        self.assertEqual(response.json()["detail"], "工程不存在")
+
+    def test_shared_workspace_scene_can_be_listed_and_loaded_but_not_modified(self):
+        owner = get_user_model().objects.create_user(
+            username="shared-workspace-owner", password="pass12345"
+        )
+        shared_group = Group.objects.create(name="共享工程组")
+        self.user.groups.add(shared_group)
+        scene = WorkspaceScene.objects.create(
+            owner=owner,
+            kind=WorkspaceScene.Kind.PROJECT,
+            name="共享退化工程",
+            snapshot={"groups": []},
+        )
+        scene.access_groups.add(shared_group)
+
+        list_response = self.client.get("/api/catalog/workspaces/?kind=project")
+        detail_response = self.client.get(f"/api/catalog/workspaces/{scene.id}/")
+        update_response = self.client.post(
+            f"/api/catalog/workspaces/{scene.id}/",
+            data=json.dumps({"name": "越权修改"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        shared_item = list_response.json()["items"][0]
+        self.assertEqual(shared_item["name"], "共享退化工程")
+        self.assertFalse(shared_item["isOwner"])
+        self.assertFalse(shared_item["canEdit"])
+        self.assertFalse(shared_item["canDelete"])
+        self.assertFalse(shared_item["canManageAccess"])
+        self.assertEqual(detail_response.status_code, 200)
+        self.assertEqual(update_response.status_code, 404)
+        scene.refresh_from_db()
+        self.assertEqual(scene.name, "共享退化工程")
+
+    def test_owner_can_update_access_scope_without_general_change_permission(self):
+        change_permission = Permission.objects.get(
+            content_type__app_label="catalog",
+            codename="change_workspacescene",
+        )
+        self.user.user_permissions.remove(change_permission)
+        shared_group = Group.objects.create(name="仅共享配置组")
+        _, superadmin_group = ensure_superadmin_defaults(create_account=False)
+        scene = WorkspaceScene.objects.create(
+            owner=self.user,
+            kind=WorkspaceScene.Kind.PROJECT,
+            name="仅权限维护工程",
+            snapshot={"groups": []},
+        )
+
+        access_response = self.client.post(
+            f"/api/catalog/workspaces/{scene.id}/",
+            data=json.dumps({"accessGroupIds": [shared_group.id]}),
+            content_type="application/json",
+        )
+        edit_response = self.client.post(
+            f"/api/catalog/workspaces/{scene.id}/",
+            data=json.dumps({"name": "不允许修改名称"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(access_response.status_code, 200)
+        self.assertEqual(edit_response.status_code, 403)
+        scene.refresh_from_db()
+        self.assertEqual(scene.name, "仅权限维护工程")
+        self.assertEqual(
+            set(scene.access_groups.values_list("id", flat=True)),
+            {shared_group.id, superadmin_group.id},
+        )
+
+    def test_superuser_lists_and_loads_every_active_workspace(self):
+        other = get_user_model().objects.create_user(
+            username="workspace-uploader", password="pass12345"
+        )
+        scene = WorkspaceScene.objects.create(
+            owner=other,
+            kind=WorkspaceScene.Kind.PROJECT,
+            name="上传用户工程",
+            snapshot={"groups": []},
+        )
+        superuser = get_user_model().objects.create_superuser(
+            username="workspace-superuser",
+            password="pass12345",
+            email="workspace-superuser@example.com",
+        )
+        self.client.force_login(superuser)
+
+        list_response = self.client.get("/api/catalog/workspaces/?kind=project")
+        detail_response = self.client.get(f"/api/catalog/workspaces/{scene.id}/")
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertIn(
+            "上传用户工程",
+            [item["name"] for item in list_response.json()["items"]],
+        )
+        self.assertEqual(detail_response.status_code, 200)
+
+    def test_platform_admin_lists_and_maintains_every_workspace(self):
+        superadmin, _ = ensure_superadmin_defaults()
+        platform_group = Group.objects.get(name=PLATFORM_ADMIN_GROUP_NAME)
+        platform_admin = get_user_model().objects.create_user(
+            username="workspace-platform-admin", password="pass12345"
+        )
+        platform_admin.groups.add(platform_group)
+        other = get_user_model().objects.create_user(
+            username="workspace-platform-owner", password="pass12345"
+        )
+        scene = WorkspaceScene.objects.create(
+            owner=other,
+            kind=WorkspaceScene.Kind.PROJECT,
+            name="平台维护工程",
+            snapshot={"groups": []},
+        )
+        hidden_owner_scene = WorkspaceScene.objects.create(
+            owner=superadmin,
+            kind=WorkspaceScene.Kind.PROJECT,
+            name="系统维护工程",
+            snapshot={"groups": []},
+        )
+        self.client.force_login(platform_admin)
+
+        list_response = self.client.get("/api/catalog/workspaces/?kind=project")
+        admin_list_response = self.client.get("/api/admin/workspaces/?kind=project")
+        update_response = self.client.post(
+            f"/api/admin/workspaces/{scene.id}/",
+            data=json.dumps({"action": "setStatus", "status": "inactive"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertIn(scene.id, {item["id"] for item in list_response.json()["items"]})
+        hidden_item = next(
+            item
+            for item in list_response.json()["items"]
+            if item["id"] == hidden_owner_scene.id
+        )
+        self.assertEqual(hidden_item["owner"]["id"], 0)
+        self.assertEqual(hidden_item["owner"]["username"], "")
+        self.assertEqual(hidden_item["owner"]["displayName"], "系统维护")
+        self.assertEqual(admin_list_response.status_code, 200)
+        self.assertIn(
+            scene.id,
+            {item["id"] for item in admin_list_response.json()["items"]},
+        )
+        self.assertEqual(update_response.status_code, 200)
+        scene.refresh_from_db()
+        self.assertEqual(scene.status, WorkspaceScene.Status.INACTIVE)
 
     def test_workspace_scene_rejects_duplicate_name_per_owner_and_kind(self):
         WorkspaceScene.objects.create(
@@ -949,7 +1226,23 @@ class WorkspaceSceneApiTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(response.json()["detail"], "同名工程或专题已存在")
+        self.assertEqual(response.json()["detail"], "同名工程已存在")
+
+    def test_workspace_scene_rejects_legacy_topic_kind(self):
+        response = self.client.post(
+            "/api/catalog/workspaces/",
+            data=json.dumps(
+                {
+                    "kind": "topic",
+                    "name": "旧专题入口",
+                    "snapshot": {"groups": []},
+                }
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["detail"], "kind 仅支持 project")
 
     def test_workspace_scene_rejects_embedded_geojson_data(self):
         response = self.client.post(
@@ -982,7 +1275,7 @@ class WorkspaceSceneApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(
             response.json()["detail"],
-            "工程或专题快照只能保存查询、范围、资源引用和图层结构，不能包含原始数据",
+            "工程快照只能保存查询、范围、资源引用和图层结构，不能包含原始数据",
         )
 
     def test_workspace_scene_rejects_oversized_payload_with_json_error(self):
@@ -1002,22 +1295,22 @@ class WorkspaceSceneApiTests(TestCase):
         self.assertEqual(response.json()["detail"], "请求体过大")
 
     def test_admin_workspace_management_updates_status_access_and_delete(self):
-        group = Group.objects.create(name="专题协作组")
+        group = Group.objects.create(name="工程协作组")
         _, superadmin_group = ensure_superadmin_defaults(create_account=False)
         scene = WorkspaceScene.objects.create(
             owner=self.user,
-            kind=WorkspaceScene.Kind.TOPIC,
-            name="退化监测专题",
+            kind=WorkspaceScene.Kind.PROJECT,
+            name="退化监测工程",
             description="后台管理测试",
             snapshot={"layerGroups": []},
         )
 
-        list_response = self.client.get("/api/admin/workspaces/?kind=topic")
+        list_response = self.client.get("/api/admin/workspaces/?kind=project")
 
         self.assertEqual(list_response.status_code, 200)
         payload = list_response.json()
         self.assertEqual(payload["total"], 1)
-        self.assertEqual(payload["items"][0]["name"], "退化监测专题")
+        self.assertEqual(payload["items"][0]["name"], "退化监测工程")
         self.assertEqual(payload["items"][0]["status"], "active")
         self.assertTrue(payload["items"][0]["canManageAccess"])
 
@@ -1050,7 +1343,7 @@ class WorkspaceSceneApiTests(TestCase):
         )
         delete_response = self.client.post(
             f"/api/admin/workspaces/{scene.id}/",
-            data=json.dumps({"action": "delete", "confirmationName": "退化监测专题"}),
+            data=json.dumps({"action": "delete", "confirmationName": "退化监测工程"}),
             content_type="application/json",
         )
 
@@ -1060,11 +1353,11 @@ class WorkspaceSceneApiTests(TestCase):
         self.assertTrue(
             OperationLog.objects.filter(
                 module="数据管理",
-                action="删除专题",
+                action="删除工程",
                 target_type="workspace_scene",
                 target_id=scene.id,
-                target_code=WorkspaceScene.Kind.TOPIC,
-                target_name="退化监测专题",
+                target_code=WorkspaceScene.Kind.PROJECT,
+                target_name="退化监测工程",
             ).exists()
         )
 
@@ -1079,14 +1372,7 @@ class WorkspaceSceneApiTests(TestCase):
             name="不可见工程",
             snapshot={"groups": []},
         )
-        topic = WorkspaceScene.objects.create(
-            owner=other,
-            kind=WorkspaceScene.Kind.TOPIC,
-            name="不可见专题",
-            snapshot={"groups": []},
-        )
         project.access_groups.add(restricted_group)
-        topic.access_groups.add(restricted_group)
 
         list_response = self.client.get("/api/admin/workspaces/")
         update_response = self.client.post(
@@ -1098,14 +1384,47 @@ class WorkspaceSceneApiTests(TestCase):
         self.assertEqual(list_response.status_code, 200)
         names = {item["name"] for item in list_response.json()["items"]}
         self.assertNotIn("不可见工程", names)
-        self.assertNotIn("不可见专题", names)
         self.assertEqual(update_response.status_code, 404)
         project.refresh_from_db()
         self.assertEqual(project.status, WorkspaceScene.Status.ACTIVE)
 
+    def test_admin_superuser_sees_all_workspaces_without_selectable_superadmin_scope(
+        self,
+    ):
+        other = get_user_model().objects.create_user(
+            username="other-superadmin-workspace-owner", password="pass12345"
+        )
+        WorkspaceScene.objects.create(
+            owner=other,
+            kind=WorkspaceScene.Kind.PROJECT,
+            name="超级管理员全量可见工程",
+            snapshot={"groups": []},
+        )
+        _, superadmin_group = ensure_superadmin_defaults(create_account=False)
+        superuser = get_user_model().objects.create_superuser(
+            username="workspace-admin-superuser",
+            password="pass12345",
+            email="workspace-admin-superuser@example.com",
+        )
+        self.client.force_login(superuser)
 
-class DataImportApiTests(TestCase):
+        response = self.client.get("/api/admin/workspaces/?kind=project")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertIn(
+            "超级管理员全量可见工程",
+            [item["name"] for item in payload["items"]],
+        )
+        self.assertNotIn(
+            superadmin_group.id,
+            [group["id"] for group in payload["availableAccessGroups"]],
+        )
+
+
+class DataImportApiTests(IsolatedCatalogStorageMixin, TestCase):
     def setUp(self):
+        self.isolate_catalog_storage()
         self.user = get_user_model().objects.create_user(
             username="importer", password="pass12345"
         )
@@ -1756,6 +2075,164 @@ class DataImportApiTests(TestCase):
         self.assertEqual(columns, ["name", "value"])
         self.assertIsNone(hidden_metadata)
 
+    def test_vector_import_preview_reads_geojson_metadata(self):
+        response = self.client.post(
+            "/api/catalog/vector-import/preview/",
+            data={"file": self._geojson_file("xinjiang_boundary.geojson")},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["sourceFormat"], "GEOJSON")
+        self.assertEqual(len(payload["layers"]), 1)
+        layer = payload["layers"][0]
+        self.assertEqual(layer["sourceLayerName"], "xinjiang_boundary")
+        self.assertEqual(layer["geometryType"], "Polygon")
+        self.assertEqual(layer["featureCount"], 1)
+        self.assertEqual(layer["quality"]["invalidCount"], 0)
+        self.assertIn("name", [field["name"] for field in layer["fields"]])
+
+    def test_vector_import_preview_rejects_standalone_shapefile(self):
+        response = self.client.post(
+            "/api/catalog/vector-import/preview/",
+            data={
+                "file": SimpleUploadedFile("boundary.shp", b"not-a-complete-shapefile")
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("打包为 ZIP", response.json()["detail"])
+
+    def test_vector_import_preview_rejects_incomplete_shapefile_zip(self):
+        archive = io.BytesIO()
+        with zipfile.ZipFile(archive, "w") as output:
+            output.writestr("boundary.shp", b"shape")
+        response = self.client.post(
+            "/api/catalog/vector-import/preview/",
+            data={
+                "file": SimpleUploadedFile(
+                    "boundary.zip",
+                    archive.getvalue(),
+                    content_type="application/zip",
+                )
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("缺少必要组件", response.json()["detail"])
+
+    def test_vector_import_commit_creates_resource_dataset_layer_and_domain(self):
+        response = self.client.post(
+            "/api/catalog/vector-import/commit/",
+            data={
+                "file": self._geojson_file("xinjiang_boundary.geojson"),
+                "payload": json.dumps(
+                    {
+                        "name": "新疆自治区边界",
+                        "domainType": "vector",
+                        "sourceLayerName": "xinjiang_boundary",
+                        "tableName": "xinjiang_boundary",
+                        "duplicateConfirmed": False,
+                        "repairInvalidGeometries": False,
+                        "skipInvalidGeometries": False,
+                        "accessGroupIds": [],
+                        "fieldMetadata": {"name": "行政区名称"},
+                    }
+                ),
+            },
+        )
+
+        self.assertEqual(response.status_code, 201, response.content)
+        payload = response.json()
+        self.assertEqual(payload["mode"], "vector")
+        self.assertEqual(payload["importedFeatures"], 1)
+        self.assertEqual(payload["geometryType"], "Polygon")
+        resource = DataResource.objects.get(pk=payload["resourceId"])
+        self.assertEqual(resource.data_type, DataResource.DataType.VECTOR)
+        self.assertEqual(resource.domain_type, DataDomainType.VECTOR)
+        self.assertEqual(resource.coordinate_system, "EPSG:4326")
+        dataset = VectorDataset.objects.get(resource=resource)
+        self.assertEqual(dataset.source_format, VectorDataset.SourceFormat.GEOJSON)
+        self.assertEqual(dataset.feature_count, 1)
+        self.assertEqual(dataset.normalized_epsg, 4326)
+        layer = MapLayer.objects.get(data_resource=resource)
+        self.assertEqual(layer.geometry_type, MapLayer.GeometryType.POLYGON)
+        self.assertEqual(layer.name, "新疆自治区边界")
+        domain = ResourceDomain.objects.get(resource=resource)
+        self.assertEqual(domain.domain_type, DataDomainType.VECTOR)
+        self.assertTrue(SourceDataset.objects.filter(resource=resource).exists())
+        vector_original_path(dataset.source_archive_path).unlink(missing_ok=True)
+
+    def test_vector_import_validate_requires_crs_when_source_has_none(self):
+        content = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"name": "A"},
+                    "geometry": {"type": "Point", "coordinates": [87.6, 43.8]},
+                }
+            ],
+        }
+        with patch("apps.catalog.vector_importer.read_vector_layer") as reader:
+            import geopandas as gpd
+
+            reader.return_value = (
+                gpd.GeoDataFrame(
+                    [{"name": "A", "geometry": Point(87.6, 43.8)}], crs=None
+                ),
+                None,
+            )
+            response = self.client.post(
+                "/api/catalog/vector-import/validate/",
+                data={
+                    "file": SimpleUploadedFile(
+                        "point.geojson",
+                        json.dumps(content).encode("utf-8"),
+                        content_type="application/geo+json",
+                    ),
+                    "payload": json.dumps(
+                        {
+                            "name": "无坐标系点",
+                            "sourceLayerName": "point",
+                            "tableName": "point_without_crs",
+                        }
+                    ),
+                },
+            )
+
+        self.assertEqual(response.status_code, 200)
+        issues = response.json()["validationIssues"]
+        self.assertTrue(any(issue["code"] == "missing_crs" for issue in issues))
+
+    def _geojson_file(self, name: str) -> SimpleUploadedFile:
+        content = {
+            "type": "FeatureCollection",
+            "features": [
+                {
+                    "type": "Feature",
+                    "properties": {"name": "新疆自治区"},
+                    "geometry": {
+                        "type": "Polygon",
+                        "coordinates": [
+                            [
+                                [73.5, 34.3],
+                                [96.3, 34.3],
+                                [96.3, 49.1],
+                                [73.5, 49.1],
+                                [73.5, 34.3],
+                            ]
+                        ],
+                    },
+                }
+            ],
+        }
+        return SimpleUploadedFile(
+            name,
+            json.dumps(content, ensure_ascii=False).encode("utf-8"),
+            content_type="application/geo+json",
+        )
+
     def _csv_file(self, name: str, content: str) -> SimpleUploadedFile:
         return SimpleUploadedFile(
             name, content.encode("utf-8"), content_type="text/csv"
@@ -1939,8 +2416,9 @@ class ExportApiTests(TestCase):
         }
 
 
-class AdminDataResourceApiTests(TestCase):
+class AdminDataResourceApiTests(IsolatedCatalogStorageMixin, TestCase):
     def setUp(self):
+        self.isolate_catalog_storage()
         self.user = get_user_model().objects.create_user(
             username="data-admin", password="pass12345"
         )
@@ -1958,6 +2436,7 @@ class AdminDataResourceApiTests(TestCase):
             name="存量样地数据",
             code="inventory-plots",
             data_type=DataResource.DataType.VECTOR,
+            domain_type="field_survey",
             source="用户导入",
             provider="平台组",
             file_format="GPKG",
@@ -1977,6 +2456,7 @@ class AdminDataResourceApiTests(TestCase):
         self.assertEqual(payload["total"], 1)
         self.assertEqual(payload["items"][0]["name"], "存量样地数据")
         self.assertEqual(payload["items"][0]["status"], "inactive")
+        self.assertEqual(payload["items"][0]["domainType"], "field_survey")
 
     def test_admin_data_resource_groups_persist_and_clear_on_delete(self):
         create_response = self.client.post(
@@ -2218,6 +2698,43 @@ class AdminDataResourceApiTests(TestCase):
         self.assertIn(self.resource.id, item_ids)
         self.assertNotIn(restricted_resource.id, item_ids)
 
+    def test_platform_admin_can_list_and_maintain_all_data_resources(self):
+        ensure_superadmin_defaults(create_account=False)
+        platform_group = Group.objects.get(name=PLATFORM_ADMIN_GROUP_NAME)
+        platform_admin = get_user_model().objects.create_user(
+            username="inventory-platform-admin", password="pass12345"
+        )
+        platform_admin.groups.add(platform_group)
+        restricted_group = Group.objects.create(name="平台管理员全局数据测试组")
+        other_user = get_user_model().objects.create_user(
+            username="platform-admin-data-owner", password="pass12345"
+        )
+        restricted_resource = DataResource.objects.create(
+            name="平台管理员维护数据",
+            code="platform-admin-maintained-resource",
+            data_type=DataResource.DataType.TABLE,
+            storage_path="platform_admin_maintained_resource",
+            maintainer=other_user,
+        )
+        restricted_resource.access_groups.add(restricted_group)
+        self.client.force_login(platform_admin)
+
+        list_response = self.client.get("/api/admin/data/resources/")
+        update_response = self.client.post(
+            f"/api/admin/data/resources/{restricted_resource.id}/",
+            data=json.dumps({"action": "setStatus", "status": "inactive"}),
+            content_type="application/json",
+        )
+
+        self.assertEqual(list_response.status_code, 200)
+        self.assertIn(
+            restricted_resource.id,
+            {item["id"] for item in list_response.json()["items"]},
+        )
+        self.assertEqual(update_response.status_code, 200)
+        restricted_resource.refresh_from_db()
+        self.assertEqual(restricted_resource.status, DataResource.Status.INACTIVE)
+
     def test_admin_data_resource_list_hides_superadmin_uploader_identity(self):
         superadmin_user, superadmin_group = ensure_superadmin_defaults()
         self.user.groups.add(self.group)
@@ -2274,19 +2791,26 @@ class AdminDataResourceApiTests(TestCase):
         superadmin_user, superadmin_group = ensure_superadmin_defaults()
         grant(superadmin_user, ("catalog", "view_dataresource"))
         visible_group = Group.objects.create(name="超级管理员导入可选角色")
+        self.resource.access_groups.add(superadmin_group, visible_group)
         self.client.force_login(superadmin_user)
 
         response = self.client.get("/api/admin/data/resources/?current=1&pageSize=1")
 
         self.assertEqual(response.status_code, 200)
-        option_names = {
-            item["name"] for item in response.json()["availableAccessGroups"]
-        }
+        payload = response.json()
+        option_names = {item["name"] for item in payload["availableAccessGroups"]}
         self.assertIn(visible_group.name, option_names)
         self.assertNotIn(SUPERADMIN_GROUP_NAME, option_names)
         self.assertNotIn(
             superadmin_group.id,
-            {item["id"] for item in response.json()["availableAccessGroups"]},
+            {item["id"] for item in payload["availableAccessGroups"]},
+        )
+        resource_item = next(
+            item for item in payload["items"] if item["id"] == self.resource.id
+        )
+        self.assertEqual(
+            {item["id"] for item in resource_item["accessGroups"]},
+            {visible_group.id},
         )
 
     def test_admin_data_export_hides_inaccessible_resources(self):

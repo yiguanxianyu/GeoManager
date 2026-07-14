@@ -876,7 +876,25 @@ function mapStyleSupportsGlyphs(map: MapboxMap) {
 }
 
 export function removeLoadedLayerGroup(map: MapboxMap, sourceId: string) {
-  removeLayerGroup(map, sourceId, [
+  removeLayerGroup(map, sourceId, loadedStyleLayerIds(sourceId));
+}
+
+export function setLoadedLayerGroupVisibility(
+  map: MapboxMap,
+  sourceId: string,
+  visible: boolean,
+) {
+  if (!hasMapStyle(map)) return;
+  const visibility = visible ? "visible" : "none";
+  for (const layerId of loadedStyleLayerIds(sourceId)) {
+    if (map.getLayer(layerId)) {
+      map.setLayoutProperty(layerId, "visibility", visibility);
+    }
+  }
+}
+
+export function loadedStyleLayerIds(sourceId: string) {
+  return [
     `${sourceId}-raster`,
     `${sourceId}-heatmap`,
     `${sourceId}-fill`,
@@ -885,7 +903,7 @@ export function removeLoadedLayerGroup(map: MapboxMap, sourceId: string) {
     `${sourceId}-cluster-count`,
     `${sourceId}-point`,
     `${sourceId}-symbol`,
-  ]);
+  ];
 }
 
 export function removeLayerGroup(
@@ -912,16 +930,7 @@ export function reorderLoadedStyleLayers(
   if (!hasMapStyle(map)) return;
   for (const layer of [...layers].reverse()) {
     const sourceId = sourceIdFor(layer.id);
-    for (const styleLayerId of [
-      `${sourceId}-raster`,
-      `${sourceId}-heatmap`,
-      `${sourceId}-fill`,
-      `${sourceId}-line`,
-      `${sourceId}-cluster`,
-      `${sourceId}-cluster-count`,
-      `${sourceId}-point`,
-      `${sourceId}-symbol`,
-    ]) {
+    for (const styleLayerId of loadedStyleLayerIds(sourceId)) {
       if (map.getLayer(styleLayerId)) map.moveLayer(styleLayerId);
     }
   }

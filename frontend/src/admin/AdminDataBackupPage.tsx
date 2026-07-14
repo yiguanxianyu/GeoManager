@@ -31,6 +31,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { api } from "../api/client";
 import type {
+  AdminDashboard,
   AdminBackupOverview,
   AdminBackupRun,
   AdminBackupSettings,
@@ -108,6 +109,7 @@ export default function AdminDataBackupPage() {
   const { message } = App.useApp();
   const [form] = Form.useForm<BackupFormValues>();
   const [overview, setOverview] = useState<AdminBackupOverview | null>(null);
+  const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
   const [runs, setRuns] = useState<AdminBackupRun[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -118,12 +120,14 @@ export default function AdminDataBackupPage() {
   const [pollRunId, setPollRunId] = useState<number | null>(null);
 
   const loadData = useCallback(async () => {
-    const [overviewData, runData] = await Promise.all([
+    const [overviewData, runData, dashboardData] = await Promise.all([
       api.adminBackupOverview(),
       api.adminBackupRuns({ current: 1, pageSize: 20 }),
+      api.adminDashboard("day").catch(() => null),
     ]);
     setOverview(overviewData);
     setRuns(runData.items);
+    setDashboard(dashboardData);
     form.setFieldsValue(settingsToFormValues(overviewData.settings));
   }, [form]);
 
@@ -231,14 +235,17 @@ export default function AdminDataBackupPage() {
     }
   }
 
-  const handleDownload = useCallback(async (run: AdminBackupRun) => {
-    try {
-      const result = await api.downloadAdminBackupRun(run.id);
-      downloadBlob(result.blob, result.filename || run.archiveName);
-    } catch (error) {
-      message.error(error instanceof Error ? error.message : "备份下载失败");
-    }
-  }, [message]);
+  const handleDownload = useCallback(
+    async (run: AdminBackupRun) => {
+      try {
+        const result = await api.downloadAdminBackupRun(run.id);
+        downloadBlob(result.blob, result.filename || run.archiveName);
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "备份下载失败");
+      }
+    },
+    [message],
+  );
 
   const activeRun = useMemo(
     () =>
@@ -251,6 +258,7 @@ export default function AdminDataBackupPage() {
     () => backupRunColumns(handleDownload),
     [handleDownload],
   );
+  const visibleInventoryScope = dashboard?.cards.dataOverview?.visibleResources;
 
   if (loading) {
     return (
@@ -273,7 +281,7 @@ export default function AdminDataBackupPage() {
       <Alert
         type="info"
         showIcon
-        message="数据备份仅限超级管理员使用"
+        message="数据备份属于系统级维护功能"
         description="推荐使用云端对象存储作为异地备份目标；本地目录仅适合作为临时导出或内网备份选项，不能替代容灾。"
       />
 
@@ -294,6 +302,13 @@ export default function AdminDataBackupPage() {
               <Typography.Text type="secondary">
                 {summary.fileCount} 个可备份文件
               </Typography.Text>
+              {summary.planType === "platform" && visibleInventoryScope ? (
+                <Typography.Text type="secondary">
+                  存量登记 {formatBytes(visibleInventoryScope.totalSizeBytes)} /{" "}
+                  {visibleInventoryScope.totalResources} 项 /{" "}
+                  {visibleInventoryScope.totalItemCount} 条
+                </Typography.Text>
+              ) : null}
             </Space>
           </ProCard>
         ))}

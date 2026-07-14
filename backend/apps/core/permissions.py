@@ -189,6 +189,47 @@ FEATURE_PERMISSIONS: tuple[FeaturePermissionDef, ...] = (
         "catalog", "WorkspaceScene", "delete_workspacescene", "删除工程专题", "数据权限"
     ),
     FeaturePermissionDef(
+        "catalog", "MapComposition", "add_mapcomposition", "新建专题出图稿", "数据权限"
+    ),
+    FeaturePermissionDef(
+        "catalog", "MapComposition", "view_mapcomposition", "查看专题出图稿", "数据权限"
+    ),
+    FeaturePermissionDef(
+        "catalog",
+        "MapComposition",
+        "change_mapcomposition",
+        "编辑专题出图稿",
+        "数据权限",
+    ),
+    FeaturePermissionDef(
+        "catalog",
+        "MapComposition",
+        "delete_mapcomposition",
+        "归档专题出图稿",
+        "数据权限",
+    ),
+    FeaturePermissionDef(
+        "catalog",
+        "MapComposition",
+        "export_mapcomposition",
+        "导出专题图成果",
+        "数据权限",
+    ),
+    FeaturePermissionDef(
+        "catalog",
+        "MapComposition",
+        "publish_mapcomposition",
+        "发布专题图成果",
+        "数据权限",
+    ),
+    FeaturePermissionDef(
+        "catalog",
+        "MapComposition",
+        "restore_mapcomposition",
+        "还原专题图为工程",
+        "数据权限",
+    ),
+    FeaturePermissionDef(
         "raster",
         "RasterDataset",
         "manage_raster_dataset",

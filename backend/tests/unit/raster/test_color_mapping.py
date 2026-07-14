@@ -117,3 +117,28 @@ class ArrayToRgbaTests(SimpleTestCase):
         metadata = {"bands": [{"band": 1}]}
         result = array_to_rgba(data, rules, metadata)
         self.assertEqual(result[0, 0, 3], 0)
+
+    def test_rgb_all_zero_warp_border_becomes_transparent(self):
+        data = np.ma.MaskedArray(
+            np.array([[[0, 100]], [[0, 100]], [[0, 100]]], dtype=np.float32),
+            mask=False,
+        )
+        rules = {
+            "mode": "rgb",
+            "bands": [1, 2, 3],
+            "nodata": {"enabled": True},
+            "stretch": {
+                "enabled": True,
+                "perBand": {
+                    "1": {"min": 0, "max": 255},
+                    "2": {"min": 0, "max": 255},
+                    "3": {"min": 0, "max": 255},
+                },
+            },
+        }
+        metadata = {"bands": [{"band": 1}, {"band": 2}, {"band": 3}]}
+
+        result = array_to_rgba(data, rules, metadata)
+
+        self.assertEqual(result[0, 0, 3], 0)
+        self.assertEqual(result[0, 1, 3], 255)

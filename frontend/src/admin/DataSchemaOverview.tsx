@@ -37,6 +37,7 @@ const domainColors: Record<string, string> = {
   field_survey: "orange",
   remote_sensing: "blue",
   molecular: "purple",
+  vector: "magenta",
   other: "default",
 };
 

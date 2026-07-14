@@ -49,6 +49,15 @@ backend/apps/
     └── service.py      # log_operation 工具函数
 ```
 
+## 专题制图对象与权限边界
+
+- `WorkspaceScene` 只表示可编辑工程，`kind` 固定为 `project`；历史 `topic` 数据由 catalog 迁移直接清理。
+- `MapComposition` 表示出图稿，发布前仅所属用户、平台管理员和超级管理员可见。
+- `MapCompositionVersion` 是不可变成果版本，同时固化版式快照和工程快照；正式发布通过 `published_version` 指向一个固定版本。
+- `audience_groups` 只在专题状态为 `published` 时生效。发布范围用户的预览、下载和还原能力仍由功能权限决定。
+- 平台管理员、超级管理员通过统一的 `user_has_full_data_access` 获得全部工程和专题对象范围；具体操作仍由功能权限和后端接口校验。
+- 还原专题时始终新建工程，不覆盖来源工程，并过滤当前用户不可访问或已失效的数据资源。
+
 ### 后端架构原则
 
 - `services/__init__.py` 作为栅格服务包的当前公共导出入口，供视图层和测试按稳定模块边界导入。
@@ -64,17 +73,18 @@ backend/apps/
 - 当前后端迁移基线面向全新部署生成，不保留旧数据库升级兼容迁移。重新部署时应使用空业务数据库运行 `python manage.py migrate --noinput`，历史迁移链、旧权限清理和旧表结构升级逻辑不作为交付路径。
 - 使用 Django 内置 auth、session、permission；平台后台是登录后的功能入口，所有登录用户可进入，后台内部菜单、页面和操作通过平台功能权限决定是否显示和访问。
 - 管理后台使用前端 `/admin/` SPA 路由承载。
-- 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。首个注册用户自动成为系统管理员，后续注册用户为普通账号。
+- 自助注册默认由 TOML 的 `system.allow_registration` 开启；迁移会创建单例 `SystemSetting`，管理员可在后台关闭注册。系统初始化单独创建 `admin` 并加入 `超级管理员`，所有自助注册账号始终先加入 `普通用户`，不存在“首个注册用户自动成为管理员”的规则。
 - 本地前后端分离开发时，Vite dev server 代理 `/api` 到 Django；`[runtime].debug = true` 且未显式设置 `csrf_trusted_origins` 时，后端默认信任本地开发服务器地址，确保首次注册和登录的 CSRF Origin 校验通过。
 - 运行日志统一写入业务数据根目录的 `logs/`：Django 应用日志、Django 框架日志和安全日志都落在该目录；容器运行时的 Waitress 进程日志由容器标准输出收集。
 - Docker 镜像使用 `backend/pixi.lock` 安装 Pixi 后端运行环境，使用 pnpm 构建 `frontend/dist`，由 Django/WhiteNoise 在 WSGI 进程内提供前端静态资源和 SPA fallback；宿主机如需公网访问，可在容器端口前自行配置反向代理。
-- Docker 启动入口必须先创建固定业务/地理/非地理数据子目录，再执行 `python manage.py migrate --noinput` 和 `collectstatic`，确保空 appdata 首次启动可以直接注册首个管理员。
+- Docker 启动入口必须先创建固定业务/地理/非地理数据子目录，再执行 `python manage.py migrate --noinput` 和 `collectstatic`，确保空 appdata 首次启动即可使用初始化生成的管理员账号。
 - SQLite 数据库放在业务数据根目录的 `database/` 下。
 - 所有矢量数据统一从地理数据根目录下的 `vector/vector.gpkg` 读取；业务库中的矢量 `storage_path` 和图层 `source_path` 字段填写该 GeoPackage 内的图层名，后端读取并输出 GeoJSON。
-- Excel/CSV 导入分为预检与提交两步。预检只读取第一张表、按文本读取全部字段、自动推测常见经纬度列并计算坐标量化误差范围；提交时由用户选择地理/非地理导入、经纬度列、字段元数据和空坐标处理策略。
+- Excel/CSV 导入分为预检与提交两步。预检按当前工作表读取全部字段并自动推测常见经纬度列；未识别到经纬度时前端默认选择非地理表格入库并明确提示最终列表去向，只有显式选择有效经纬度列并通过校验后才能以地理点表提交。
 - 导入的地理表统一写入 `vector/vector.gpkg` 的点图层，并创建对应 `DataResource`，`DataResource.name` 保存用户填写的数据名称，`storage_path` 保存 GeoPackage 图层名。资源列表只展示业务库中登记的 `DataResource`。
 - 导入的地理表字段级描述写入 GeoPackage `gpkg_data_columns`，记录键为 `table_name + column_name + description`。强行导入空坐标时允许 GeoPackage 保留空几何记录，但图层要素接口和查询 GeoJSON 输出会过滤空几何，避免前端地图渲染异常。
 - 导入的非地理表统一写入 `table/data.sqlite`，业务表之外维护 `data_columns(table_name, column_name, description)` 作为 SQLite 侧字段元数据实现。非地理导入只登记 `DataResource`，不创建 `MapLayer`，资源 `storage_path` 记录 SQLite 内的表名。
+- `DataResource.spatial_class` 由实际资源形态统一派生：`vector/raster -> spatial`，`table/gene/document/image -> non_spatial`。`GET /api/catalog/resources/` 使用 `spatialClass` 参数隔离地理与非地理工作台；`domainType` 仅负责业务专题归类，不能将无坐标表格带入地图资源列表。
 - 坐标量化误差按经纬度文本小数位数估算：每个坐标分量取最后一位小数半个单位作为最大角度误差，纬度方向按 111320 m/deg 换算，经度方向乘以 `cos(latitude)`，再合成平面最大可能误差；该值只表示坐标记录精度引入的位置不确定性，不包含测量设备误差。
 - 栅格数据统一放在地理数据根目录的 `raster/` 总目录下：源文件放在 `raster/original/`，导入后预处理 COG 放在 `raster/preprocessed/`，两份 `gdalinfo -json` 元数据放在 `raster/metadata/source/` 和 `raster/metadata/preprocessed/`。
 - 非地理数据统一放在非地理数据根目录下：基因数据放在 `gene/`，表格数据放在 `table/`。后端目录扫描会登记 `gene` 和 `table` 类型的 `DataResource`，不创建地图图层。
@@ -98,6 +108,10 @@ backend/apps/
 - 功能权限元数据按 `后台权限`、`数据权限`、`人员权限` 三类返回，前端认证授权页按该分组展示和维护。
 - 迁移后初始化会先按注册表统一创建或更新 Django `Permission` 记录，再同步 `超级管理员` 用户组并补齐全部功能权限，同时创建 `普通用户` 用户组并授予全部科研数据相关权限，包括浏览、查询、导入、导出、存量数据维护、工程/专题增删查改、矢量/栅格加载、自定义符号化和栅格数据管理。
 - 管理员新建普通用户和修改普通用户组归属时必须保留至少一个用户组；自助注册用户默认加入 `普通用户` 用户组。
+- 自助注册和后台新建用户的邮箱均为必填项。后端统一去除首尾空格并转为小写，`UserProfile.normalized_email` 作为非空邮箱唯一身份；`auth_user.email` 继续作为 Django 用户联系字段并与其同步。游客系统账号不占用邮箱身份。
+- 注册请求使用 `accountPurpose=standard|research` 表达账号用途，而不是直接选择实际角色。`research` 会创建独立 `RoleApplication` 待审核记录，审核前仍为普通用户；具备 `core.manage_auth` 的管理员批准后移除普通用户角色、加入科研用户角色并保留其他自定义角色，拒绝时不改变现有权限。
+- 平台管理员属于受控管理角色：只有超级管理员可以在后台创建用户或调整角色时分配平台管理员角色；科研用户申请仍可由具备 `core.manage_auth` 的日常管理员审核。
+- 当前过渡阶段不发送邮箱验证码，也不开放邮件找回密码。登录页忘记密码入口明确引导联系管理员，管理员继续通过现有重置密码接口生成仅展示一次的临时密码。
 - 数据资源和图层的 `access_groups` 继续控制“能看见哪些对象”；功能权限控制“能对可见对象做什么”。
 - 首批平台功能权限包括：功能权限配置、数据浏览、数据查询、矢量加载、栅格加载、自定义符号化等后台内部功能权限。
 - 数据和工程/专题的增删查改均使用 Django 模型 CRUD 权限并纳入同一用户组配置入口：`catalog.add/view/change/delete_dataresource`、`catalog.add/view/change/delete_workspacescene`。`catalog.add_dataresource` 控制后台导入，`catalog.change_dataresource` 控制存量数据启停、默认可视化和访问范围配置，`catalog.delete_dataresource` 控制删除确认。
@@ -107,6 +121,7 @@ backend/apps/
 - `core.load_raster_layer` 控制按默认规则加载栅格和访问 XYZ；`core.custom_symbolization` 只控制用户打开符号化编辑器并提交自定义规则。
 - 栅格渲染 API 使用 `rulesMode` 区分默认/自定义：默认加载不传 `rules` 或传 `rulesMode: "default"`；自定义符号化传 `rulesMode: "custom"` 和 `rules`。
 - 游客访问使用专用系统账号 `guest` 和独立 `游客` 用户组实现，不再复用 `普通用户` 组。`普通用户` 继续用于自助注册和后台创建的常规账号，默认保留全部科研数据相关权限；`游客` 默认不授予任何功能权限。`guest` 账号密码不可用，只能通过 `/api/auth/guest-login/` 建立会话，并在后台管理中禁止删除、停用、重置密码、改组或单独授予直授权限。
+- Dashboard 的活跃账号与登录次数使用两套独立口径：认证中间件按本地时区每用户每小时最多写入一条 `UserActivityHour`，用于日/周/月去重活跃账号和柱状图；成功建立会话通过 `OperationLog.event_code` 的稳定认证事件编码统计，包含账号密码、游客和注册自动登录。迁移会从历史成功操作日志回填小时活跃记录，并为历史认证日志回填事件编码，禁止再次使用中文模块/动作文本作为统计主键。
 - `游客` 内置组与 `guest` 游客账号都不可删除；前端禁用删除入口，后端继续作为强制安全边界。
 
 ## 前端模块结构
@@ -177,6 +192,7 @@ frontend/src/
 - 主交互地图保持 Mapbox GL JS 默认的 `preserveDrawingBuffer=false`，避免持续拖慢 WebGL 渲染；仅地图图片导出的离屏 Mapbox 实例启用绘图缓冲。
 - 前端矢量 GeoJSON source 选项按图层 `geometryType`、要素数量和符号化配置确定：点图层使用 `buffer: 0` 和较低 `maxzoom`；只有非热力点图层显式设置 `symbolization.cluster.enabled=true` 时才启用 Mapbox source clustering，默认保持独立点显示；大型线/面图层启用 source `tolerance`，避免在每次同步时重扫 GeoJSON。
 - 空间范围绘制的多边形预览在点数不足 3 个时使用 `LineString`，点数满足闭合条件后再切换为 `Polygon`；预览填充层和线层都带几何类型过滤，避免向 Mapbox 图层传入不匹配几何导致运行时异常。
+- 工作台图层显隐统一通过 Mapbox 样式层的 `layout.visibility` 切换：从未显示过的隐藏图层保持延迟创建，已经加载的矢量和栅格 source 在隐藏后继续保留，只有图层真正移出工作区时才删除 source。首次底图样式同步由 `style.load` 驱动，后续图层状态变化不得再以 `isStyleLoaded()` 配合一次性 `load` 事件作为同步门槛，避免 source 或瓦片加载期间丢失显隐操作。
 - Mapbox `error` 事件通过地图页统一转成中文消息提示，并对相同错误做短时间去重；底图、sprite、glyph、瓦片和业务图层加载异常不再只停留在控制台。
 - 鼠标经纬度面板先用 Mapbox `map.isPointOnSurface(event.point)` 判断鼠标是否落在地球表面；不在地球表面时清空显示，在表面时使用 `event.lngLat.wrap()` 并限制到合法经纬度范围。不从屏幕像素、瓦片坐标或墨卡托坐标自行换算。
 
@@ -540,5 +556,48 @@ CREATE TABLE gpkg_data_columns (
 
 - 矢量 `symbolization.renderer` 增加 `graduated` 类型，继续复用现有 `MapLayer.symbolization` JSONField、图层序列化和默认可视化保存链路，不新增数据库迁移或分类接口。
 - 前端符号化面板支持按海拔、NDVI、盐分等连续字段生成等距分级或分位数分级；字段类型不是数值但当前属性值可解析为数字时也允许分级，无法解析的值进入默认“无数值/空值”类。
+
+# 2026-07-13 矢量源文件导入与矢量业务类型
+
+- `DataDomainType` 在原九类基础上新增 `vector/矢量数据`，用于直接以点、线、面图层为主体管理的资源；`DataResource.data_type=vector` 继续表示技术资源类型，两者职责保持分离。
+- 原始 Shapefile 以 ZIP 上传，后端验证 `.shp/.shx/.dbf` 组件完整性，忽略 ArcGIS 锁文件，并支持 `.cpg` 或人工 DBF 编码覆盖。
+- 矢量预检、校验、提交使用独立 `/api/catalog/vector-import/*` 契约，不修改现有 Excel/CSV 导入行为。
+- 导入成功后保留原始单文件归档，地图用数据统一转换为 EPSG:4326 写入 `vector/vector.gpkg`，并创建 `DataResource`、`VectorDataset`、`MapLayer`、`ResourceDomain` 和 `SourceDataset`。
+- `VectorDataset` 保存源格式、源图层、编码、源 CRS、几何类型、要素/顶点/字段数量、几何质量、边界、SHA256 和渲染策略；当前渲染策略保持 GeoJSON，后续可在不改变资源模型的情况下扩展矢量瓦片。
+- 所有 GeoPackage 写入在当前进程内串行执行；数据库登记失败时清理本次新写入图层和原始归档，不覆盖已有资源。
 - Mapbox 渲染使用 `case + to-number` 表达式驱动点、线、面颜色、大小和可见性；点图标仍使用 `gm-*--color` 运行时图片 ID 并在渲染前注册，避免平台内置图标加载失败。
 - 自定义分级复用同一个 `GraduatedRenderer`，以 `method=manual` 标记。用户调整等级数量时只增删 `classes`，已有区间、颜色、图标、大小和显隐保持不变；调整任一区间上下限后，前端即时刷新该区间计数和 Mapbox 表达式。
+
+# 2026-07-13 栅格数据包导入与稳定渲染
+
+- 栅格上传由单文件扩展为数据包：GeoTIFF/COG 和 IMG 可单文件上传；ENVI DAT/BSQ/BIL/BIP 必须包含同名 HDR；VRT 只允许引用上传包内同目录相对文件，禁止绝对路径、上级路径和网络 URL。
+- 前端不再使用 `geotiff.js` 读取所有栅格或把整个文件载入浏览器内存；权威预检统一由 `/api/raster/import/preview/` 调用 GDAL 完成。
+- 新上传包保存到 `raster/original/uploaded/{uuid}/`，保留原始文件名并生成 `manifest.json` 和主文件 SHA256；`RasterDataset.source_manifest` 保存可查询清单，展示 COG 继续写入 `raster/preprocessed/`。
+- `RasterProcessingJob` 持久化任务状态、阶段、稀疏进度检查点和结果；内存状态仍作为高频热缓存，数据库短暂繁忙不会中断 GDAL 子进程。后续切换 Celery/Redis 时保持同一任务接口。
+- `RasterStyle` 持久化 `(dataset, styleHash, rules)`，服务重启后旧瓦片 URL 可从数据库恢复样式；瓦片结果增加有界内存 LRU、ETag 和私有 HTTP 缓存。
+- 栅格最终发布使用短事务同步 `DataResource`、`MapLayer`、`RasterDataset`、访问组和 `RasterBand`，重投影过程不持有数据库事务。分类栅格默认最近邻，连续栅格和多波段影像默认双线性，也允许人工选择 cubic。
+
+# 2026-07-13 存量数据业务类型分组
+
+- 存量数据页的系统分组固定为“全部数据”以及 `DataDomainType` 对应的十个业务类型分组；系统分组由前端根据管理列表接口返回的 `domainType` 动态生成，不创建 `DataResourceGroup` 数据库记录。
+- `DataResourceGroup`、`inventoryGroups` 和 `inventoryGroupId` 只表示用户新建的自定义分组。资源可同时出现在“全部数据”、一个业务类型系统分组和至多一个自定义分组中；删除自定义分组只清空归档关系，不影响资源及其业务分类。
+- 历史资源 `domainType` 为空时归入“其他类型”，避免存量资源从业务分组中遗漏。
+
+# 2026-07-14 专题制图第一阶段
+
+- 正式制图使用 `WorkspaceScene(project) -> MapComposition -> MapCompositionVersion` 三层结构。工程保存可恢复工作状态，出图稿保存轻量版式，版本保存不可变成果和版式快照；旧 `WorkspaceScene(topic)` 继续在专题 Tab 的兼容区加载，不再作为正式出图成果。
+- 前端出图工作台支持 A4/A3 横竖版、主地图框、标题/副标题、图例、指北针、比例尺、区位副图、经纬网、Web Mercator 投影格网、数据来源、制图说明、预览检查和 PNG/JPG/PDF 生成。图例从当前可见图层及唯一值/分级符号化自动派生。
+- 前端使用 Mapbox 离屏地图复用当前样式和已授权图层生成 PNG 母图；范围绘制等临时覆盖层不进入成果。栅格仍使用后端 XYZ 瓦片，不读取原始栅格文件或在浏览器重新符号化。
+- 经纬网和投影格网会按主图范围推荐间隔，小范围工程允许使用 0.0001 度或 10 米起的间隔；切换格网类型时重新给出适合当前范围的推荐值。
+- 编辑器只在首次打开某个出图稿时装载持久化版式，地图视角或来源摘要在后台变化时不会覆盖尚未保存的版式调整。
+- 后端只接收经过前端版式合成的 PNG 母图，验证 PNG、DPI、宽高、8192 单边和 3600 万总像素限制后，使用 Pillow 写入 PNG/JPG/PDF。成果路径固定在 TOML 驱动的 `app_data/exports/map-compositions/{compositionId}/v{version}/`。
+- 出图稿独立使用 Django 权限 `catalog.add/view/change/delete_mapcomposition`、`catalog.export_mapcomposition` 和 `catalog.publish_mapcomposition`。归档为软归档，保留成果文件用于审计，不执行目录批量删除。
+## 工程专题可见性与加载规则（2026-07-14）
+
+- `WorkspaceScene` 不再作为仅所属用户可见的私有快照：启用对象按“所属用户本人 + access_groups + 超级管理员全量绕过”返回，禁用对象只在后台管理中保留。
+- 所属用户本人和内置 `超级管理员` 角色是不可取消的固定可见范围；新建、普通工作台更新和后台更新都会由后端补齐超级管理员角色，数据迁移为历史工程专题补齐该关系。
+- 地图工作台可发现并加载其他用户共享的工程专题，但普通接口仍只允许所属用户修改或删除；超级管理员维护他人对象使用后台管理接口。
+- 普通保存/编辑表单只展示可选择的额外角色，不返回也不允许手动选择超级管理员角色，避免把平台不变量误解为可取消选项。
+# Test data isolation
+
+- Backend pytest runs use `geomanager.test_settings`, which replaces the configured application and research data roots with a process-specific directory under the system temporary directory. Integration tests that create or remove `vector.gpkg`, SQLite tables, uploads, or archives must never operate on the development or deployment data roots from the runtime TOML file.

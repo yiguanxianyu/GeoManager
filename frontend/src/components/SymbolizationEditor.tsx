@@ -450,9 +450,7 @@ export function VectorSymbolizationEditor({
   }
 
   function hasGermplasmSexField(fieldName: string) {
-    return ["性别", "雌雄", "雌/雄"].some((name) =>
-      fieldName.includes(name),
-    );
+    return ["性别", "雌雄", "雌/雄"].some((name) => fieldName.includes(name));
   }
 
   function createRendererForField(fieldName: string): UniqueValueRenderer {
@@ -523,7 +521,9 @@ export function VectorSymbolizationEditor({
     });
   }
 
-  function createGraduatedRendererForField(fieldName: string): GraduatedRenderer {
+  function createGraduatedRendererForField(
+    fieldName: string,
+  ): GraduatedRenderer {
     const { values, nonNumericCount } = numericDataForField(fieldName);
     const renderer = buildGraduatedRenderer(fieldName, values, {
       iconImage: selectedIconImage || value.symbol.iconImage,
@@ -593,8 +593,7 @@ export function VectorSymbolizationEditor({
           ...item,
           [key]: typeof nextValue === "number" ? nextValue : item[key],
         };
-        const shouldSyncLabel =
-          !item.label || item.label === oldAutoLabel;
+        const shouldSyncLabel = !item.label || item.label === oldAutoLabel;
         return {
           ...nextItem,
           label: shouldSyncLabel
@@ -612,9 +611,7 @@ export function VectorSymbolizationEditor({
     });
   }
 
-  function updateDefaultGraduatedClass(
-    patch: Partial<GraduatedSymbolClass>,
-  ) {
+  function updateDefaultGraduatedClass(patch: Partial<GraduatedSymbolClass>) {
     updateGraduatedRenderer((renderer) => ({
       ...renderer,
       defaultClass: {
@@ -679,7 +676,8 @@ export function VectorSymbolizationEditor({
         renderer: { ...nextRenderer, updatedByUser: true },
         symbol: {
           ...value.symbol,
-          iconImage: nextRenderer.classes[0]?.iconImage ?? value.symbol.iconImage,
+          iconImage:
+            nextRenderer.classes[0]?.iconImage ?? value.symbol.iconImage,
         },
       });
       return;
@@ -697,7 +695,8 @@ export function VectorSymbolizationEditor({
         renderer: { ...nextRenderer, updatedByUser: true },
         symbol: {
           ...value.symbol,
-          iconImage: nextRenderer.classes[0]?.iconImage ?? value.symbol.iconImage,
+          iconImage:
+            nextRenderer.classes[0]?.iconImage ?? value.symbol.iconImage,
         },
       });
       return;
@@ -773,11 +772,13 @@ export function VectorSymbolizationEditor({
   const fallbackClassifyField =
     categoricalFieldOptions[0]?.value ?? fields[0]?.name ?? "";
   const defaultClassifyField =
-    categoricalFieldOptions.find((option) =>
-      hasGermplasmSexField(option.value),
-    )?.value ?? fallbackClassifyField;
+    categoricalFieldOptions.find((option) => hasGermplasmSexField(option.value))
+      ?.value ?? fallbackClassifyField;
   const uniqueRenderer = isUniqueValueRenderer(value.renderer)
-    ? refreshUniqueValueCounts(value.renderer, countsForField(value.renderer.field))
+    ? refreshUniqueValueCounts(
+        value.renderer,
+        countsForField(value.renderer.field),
+      )
     : null;
   const rawGraduatedRenderer = isGraduatedRenderer(value.renderer)
     ? value.renderer
@@ -821,8 +822,9 @@ export function VectorSymbolizationEditor({
     group.options.some((option) => option.value === selectedIconImage),
   );
   const selectedIconLabel =
-    selectedIconGroup?.options.find((option) => option.value === selectedIconImage)
-      ?.label ?? selectedIconImage;
+    selectedIconGroup?.options.find(
+      (option) => option.value === selectedIconImage,
+    )?.label ?? selectedIconImage;
   const iconPickerGroups: IconPickerGroup[] = [
     ...(selectedIconGroup
       ? []
@@ -952,7 +954,12 @@ export function VectorSymbolizationEditor({
     <Card
       className="symbolization-card symbolization-card-redesigned"
       size="small"
-      title={<SymbolizationTitle title="图层样式" onApply={readOnly ? undefined : onApply} />}
+      title={
+        <SymbolizationTitle
+          title="图层样式"
+          onApply={readOnly ? undefined : onApply}
+        />
+      }
     >
       <Space orientation="vertical" className="full-width symbolization-stack">
         {showRecommendedSection && (
@@ -994,9 +1001,7 @@ export function VectorSymbolizationEditor({
                           {template.name}
                         </Typography.Text>
                         <Space size={4}>
-                          {template.isPrimary && (
-                            <Tag color="green">默认</Tag>
-                          )}
+                          {template.isPrimary && <Tag color="green">默认</Tag>}
                           <Tag>
                             {recommendedRendererLabel(template.rendererType)}
                           </Tag>
@@ -1065,1180 +1070,1216 @@ export function VectorSymbolizationEditor({
           />
         ) : (
           <>
-        <section className="symbolization-section">
-          <div className="symbolization-section-head">
-            <div>
-              <Typography.Text strong>表达方式</Typography.Text>
-              <Typography.Text type="secondary">
-                {geometrySummary} · 先选择图层要如何被看见
-              </Typography.Text>
-            </div>
-          </div>
-          {(geometry.hasPoint || geometry.hasLine || geometry.hasPolygon) && (
-            <ControlRow label="字段表达">
-              <Segmented
-                block
-                value={expressionMode}
-                options={[
-                  { value: "single", label: "单一符号" },
-                  { value: "uniqueValue", label: "唯一值分类" },
-                  { value: "graduated", label: "数值分级" },
-                  ...(geometry.hasPoint
-                    ? [{ value: "heatmap", label: "密度热力" }]
-                    : []),
-                ]}
-                onChange={(mode) =>
-                  changeExpressionMode(mode as VectorExpressionMode)
-                }
-              />
-            </ControlRow>
-          )}
-          {geometry.hasPoint && expressionMode === "single" && (
-            <ControlRow label="点符号类型">
-              <Segmented
-                block
-                value={value.pointMode === "heatmap" ? "circle" : value.pointMode}
-                options={[
-                  { value: "circle", label: "圆点" },
-                  { value: "symbol", label: "图标" },
-                ]}
-                onChange={(mode) =>
-                  updateRoot(
-                    "pointMode",
-                    mode as VectorSymbolization["pointMode"],
-                  )
-                }
-              />
-            </ControlRow>
-          )}
-          {(geometry.hasLine || geometry.hasPolygon) && (
-            <div className="symbolization-preset-grid">
-              {geometry.hasLine && (
-                <>
-                  <Button
-                    className="symbolization-preset-button"
-                    onClick={() => applyPreset("line")}
-                  >
-                    <span>河流线</span>
-                    <small>连续线条，适合河道边界</small>
-                  </Button>
-                  <Button
-                    className="symbolization-preset-button"
-                    onClick={() => {
-                      applyPreset("line");
-                      updateLinePattern("dash");
-                    }}
-                  >
-                    <span>虚线辅助线</span>
-                    <small>适合规划线和参考线</small>
-                  </Button>
-                </>
-              )}
-              {geometry.hasPolygon && (
-                <>
-                  <Button
-                    className="symbolization-preset-button"
-                    onClick={() => applyPreset("fill")}
-                  >
-                    <span>保护区</span>
-                    <small>半透明填充保留底图信息</small>
-                  </Button>
-                  <Button
-                    className="symbolization-preset-button"
-                    onClick={() =>
-                      onChange({
-                        ...value,
-                        fill: {
-                          ...value.fill,
-                          fillColor: "#8fb9d9",
-                          fillOpacity: 0.36,
-                          fillOutlineColor: "#174f46",
-                        },
-                      })
-                    }
-                  >
-                    <span>分区填色</span>
-                    <small>弱化填充，突出边界</small>
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-        </section>
-
-        {expressionMode === "uniqueValue" && uniqueRenderer && (
-          <section className="symbolization-section unique-symbolization-section">
-            <div className="symbolization-section-head">
-              <div>
-                <Typography.Text strong>字段分类</Typography.Text>
-                <Typography.Text type="secondary">
-                  一个图例类别可以包含多个原始值，用于合并别名和录入变体
-                </Typography.Text>
-              </div>
-              {uniqueRenderer.templateId === germplasmDnaSexTemplateId && (
-                <Tag color="green">种质默认模板</Tag>
-              )}
-            </div>
-            <Space
-              orientation="vertical"
-              className="full-width symbolization-stack"
-            >
-              <ControlRow label="分类字段">
-                <Select
-                  className="full-width"
-                  value={uniqueRenderer.field}
-                  options={uniqueFieldOptions}
-                  onChange={changeUniqueField}
-                />
-              </ControlRow>
-              {uniqueRenderer.normalizationNotes?.length ? (
-                <Alert
-                  type="info"
-                  showIcon
-                  title="已应用分类值合并"
-                  description={uniqueRenderer.normalizationNotes.join(" ")}
-                />
-              ) : null}
-              <div className="unique-class-list">
-                {uniqueRenderer.classes.map((item) => (
-                  <div className="unique-class-row" key={item.id}>
-                    <div className="unique-class-preview">
-                      <span
-                        className="unique-class-swatch"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <Switch
-                        size="small"
-                        checked={item.visible}
-                        onChange={(visible) =>
-                          updateUniqueClass(item.id, { visible })
-                        }
-                      />
-                    </div>
-                    <Input
-                      className="unique-class-label"
-                      value={item.label}
-                      maxLength={24}
-                      onChange={(event) =>
-                        updateUniqueClass(item.id, {
-                          label: event.target.value,
-                        })
-                      }
-                    />
-                    <Select
-                      className="unique-class-values"
-                      mode="tags"
-                      value={item.values}
-                      options={uniqueValueOptions}
-                      placeholder="包含原始值"
-                      onChange={(values) =>
-                        updateUniqueClass(item.id, { values })
-                      }
-                    />
-                    <ColorPicker
-                      value={item.color}
-                      onChangeComplete={(color) =>
-                        updateUniqueClass(item.id, {
-                          color: color.toHexString(),
-                        })
-                      }
-                    />
-                    <Select
-                      className="unique-class-icon"
-                      value={item.iconImage}
-                      showSearch
-                      optionFilterProp="label"
-                      popupMatchSelectWidth={false}
-                      options={uniqueIconOptions}
-                      onChange={(iconImage) =>
-                        updateUniqueClass(item.id, { iconImage })
-                      }
-                    />
-                    <InputNumber
-                      className="unique-class-size"
-                      value={item.size}
-                      min={0.2}
-                      max={5}
-                      step={0.05}
-                      onChange={(size) =>
-                        updateUniqueClass(item.id, {
-                          size: typeof size === "number" ? size : 1,
-                        })
-                      }
-                    />
-                    <Typography.Text className="unique-class-count">
-                      {item.count} 条
-                    </Typography.Text>
-                  </div>
-                ))}
-                <div className="unique-class-row unique-class-row-default">
-                  <div className="unique-class-preview">
-                    <span
-                      className="unique-class-swatch"
-                      style={{ backgroundColor: uniqueRenderer.defaultClass.color }}
-                    />
-                    <Switch
-                      size="small"
-                      checked={uniqueRenderer.defaultClass.visible}
-                      onChange={(visible) =>
-                        updateDefaultUniqueClass({ visible })
-                      }
-                    />
-                  </div>
-                  <Input
-                    className="unique-class-label"
-                    value={uniqueRenderer.defaultClass.label}
-                    maxLength={24}
-                    onChange={(event) =>
-                      updateDefaultUniqueClass({
-                        label: event.target.value,
-                      })
-                    }
-                  />
-                  <Typography.Text className="unique-class-values-readonly">
-                    {classValuesLabel(uniqueRenderer.defaultClass)}
-                  </Typography.Text>
-                  <ColorPicker
-                    value={uniqueRenderer.defaultClass.color}
-                    onChangeComplete={(color) =>
-                      updateDefaultUniqueClass({
-                        color: color.toHexString(),
-                      })
-                    }
-                  />
-                  <Select
-                    className="unique-class-icon"
-                    value={uniqueRenderer.defaultClass.iconImage}
-                    showSearch
-                    optionFilterProp="label"
-                    popupMatchSelectWidth={false}
-                    options={uniqueIconOptions}
-                    onChange={(iconImage) =>
-                      updateDefaultUniqueClass({ iconImage })
-                    }
-                  />
-                  <InputNumber
-                    className="unique-class-size"
-                    value={uniqueRenderer.defaultClass.size}
-                    min={0.2}
-                    max={5}
-                    step={0.05}
-                    onChange={(size) =>
-                      updateDefaultUniqueClass({
-                        size: typeof size === "number" ? size : 1,
-                      })
-                    }
-                  />
-                  <Typography.Text className="unique-class-count">
-                    {uniqueRenderer.defaultClass.count} 条
+            <section className="symbolization-section">
+              <div className="symbolization-section-head">
+                <div>
+                  <Typography.Text strong>表达方式</Typography.Text>
+                  <Typography.Text type="secondary">
+                    {geometrySummary} · 先选择图层要如何被看见
                   </Typography.Text>
                 </div>
               </div>
-            </Space>
-          </section>
-        )}
-
-        {expressionMode === "graduated" && graduatedRenderer && (
-          <section className="symbolization-section unique-symbolization-section graduated-symbolization-section">
-            <div className="symbolization-section-head">
-              <div>
-                <Typography.Text strong>数值分级</Typography.Text>
-                <Typography.Text type="secondary">
-                  按连续字段区间生成图例，适合海拔、NDVI、盐分等数值型属性
-                </Typography.Text>
-              </div>
-            </div>
-            <Space
-              orientation="vertical"
-              className="full-width symbolization-stack"
-            >
-              <ControlRow label="分级字段">
-                <Select
-                  className="full-width"
-                  value={graduatedRenderer.field}
-                  options={graduatedFieldOptions}
-                  onChange={changeGraduatedField}
-                />
-              </ControlRow>
-              <ControlRow label="分级方法">
-                <Segmented
-                  block
-                  value={graduatedRenderer.method}
-                  options={[
-                    { value: "equalInterval", label: "等距分级" },
-                    { value: "quantile", label: "分位数" },
-                    { value: "manual", label: "自定义" },
-                  ]}
-                  onChange={(method) =>
-                    updateGraduatedRenderer((renderer) =>
-                      rebuildGraduatedWith(renderer, {
-                        method: method as GraduatedClassificationMethod,
-                      }),
-                    )
-                  }
-                />
-              </ControlRow>
-              <div className="graduated-control-grid">
-                <ControlRow label="分级数量">
-                  <InputNumber
-                    className="full-width"
-                    value={graduatedRenderer.classCount}
-                    min={graduatedRenderer.method === "manual" ? 1 : 3}
-                    max={graduatedRenderer.method === "manual" ? 24 : 9}
-                    step={1}
-                    onChange={(classCount) =>
-                      updateGraduatedRenderer((renderer) =>
-                        rebuildGraduatedWith(renderer, {
-                          classCount:
-                            typeof classCount === "number"
-                              ? classCount
-                              : renderer.classes.length || 5,
-                        }),
-                      )
-                    }
-                  />
-                </ControlRow>
-                <ControlRow label="小数位">
-                  <InputNumber
-                    className="full-width"
-                    value={graduatedRenderer.precision}
-                    min={0}
-                    max={6}
-                    step={1}
-                    onChange={(precision) =>
-                      updateGraduatedRenderer((renderer) =>
-                        rebuildGraduatedWith(renderer, {
-                          precision:
-                            typeof precision === "number" ? precision : 2,
-                        }),
-                      )
-                    }
-                  />
-                </ControlRow>
-              </div>
-              <ControlRow
-                label={
-                  graduatedRenderer.method === "manual" ? "新增级色带" : "色带"
-                }
-              >
-                <Select
-                  className="full-width"
-                  value={graduatedRenderer.colorRamp}
-                  options={graduatedRampOptions}
-                  onChange={(colorRamp) =>
-                    updateGraduatedRenderer((renderer) =>
-                      rebuildGraduatedWith(renderer, {
-                        colorRamp: colorRamp as GraduatedColorRamp,
-                      }),
-                    )
-                  }
-                />
-              </ControlRow>
-              {graduatedRenderer.classes.length === 0 && (
-                <Alert
-                  type="warning"
-                  showIcon
-                  title="当前字段没有可用于分级的数值"
-                  description="请切换到海拔、NDVI、盐分等可解析为数字的字段，或检查原始属性值。"
-                />
-              )}
-              <div className="unique-class-list">
-                {graduatedRenderer.classes.map((item) => (
-                  <div
-                    className="unique-class-row graduated-class-row"
-                    key={item.id}
-                  >
-                    <div className="unique-class-preview">
-                      <span
-                        className="unique-class-swatch"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <Switch
-                        size="small"
-                        checked={item.visible}
-                        onChange={(visible) =>
-                          updateGraduatedClass(item.id, { visible })
-                        }
-                      />
-                    </div>
-                    <Input
-                      className="unique-class-label"
-                      value={item.label}
-                      maxLength={32}
-                      onChange={(event) =>
-                        updateGraduatedClass(item.id, {
-                          label: event.target.value,
-                        })
-                      }
-                    />
-                    {graduatedRenderer.method === "manual" ? (
-                      <Space.Compact className="graduated-range-editor">
-                        <InputNumber
-                          value={item.min}
-                          step={1}
-                          onChange={(next) =>
-                            updateManualGraduatedRange(
-                              item.id,
-                              "min",
-                              typeof next === "number" ? next : null,
-                            )
-                          }
-                        />
-                        <InputNumber
-                          value={item.max}
-                          step={1}
-                          onChange={(next) =>
-                            updateManualGraduatedRange(
-                              item.id,
-                              "max",
-                              typeof next === "number" ? next : null,
-                            )
-                          }
-                        />
-                      </Space.Compact>
-                    ) : (
-                      <Typography.Text
-                        className="unique-class-values-readonly graduated-class-range"
-                        title={graduatedRangeLabel(item)}
-                      >
-                        {graduatedRangeLabel(item)}
-                      </Typography.Text>
-                    )}
-                    <ColorPicker
-                      value={item.color}
-                      onChangeComplete={(color) =>
-                        updateGraduatedClass(item.id, {
-                          color: color.toHexString(),
-                        })
-                      }
-                    />
-                    <Select
-                      className="unique-class-icon"
-                      value={item.iconImage}
-                      showSearch
-                      optionFilterProp="label"
-                      popupMatchSelectWidth={false}
-                      options={uniqueIconOptions}
-                      onChange={(iconImage) =>
-                        updateGraduatedClass(item.id, { iconImage })
-                      }
-                    />
-                    <InputNumber
-                      className="unique-class-size"
-                      value={item.size}
-                      min={0.2}
-                      max={5}
-                      step={0.05}
-                      onChange={(size) =>
-                        updateGraduatedClass(item.id, {
-                          size: typeof size === "number" ? size : 1,
-                        })
-                      }
-                    />
-                    <Typography.Text className="unique-class-count">
-                      {item.count} 条
-                    </Typography.Text>
-                  </div>
-                ))}
-                <div className="unique-class-row unique-class-row-default graduated-class-row">
-                  <div className="unique-class-preview">
-                    <span
-                      className="unique-class-swatch"
-                      style={{
-                        backgroundColor: graduatedRenderer.defaultClass.color,
-                      }}
-                    />
-                    <Switch
-                      size="small"
-                      checked={graduatedRenderer.defaultClass.visible}
-                      onChange={(visible) =>
-                        updateDefaultGraduatedClass({ visible })
-                      }
-                    />
-                  </div>
-                  <Input
-                    className="unique-class-label"
-                    value={graduatedRenderer.defaultClass.label}
-                    maxLength={24}
-                    onChange={(event) =>
-                      updateDefaultGraduatedClass({
-                        label: event.target.value,
-                      })
-                    }
-                  />
-                  <Typography.Text className="unique-class-values-readonly graduated-class-range">
-                    {graduatedRangeLabel(graduatedRenderer.defaultClass)}
-                  </Typography.Text>
-                  <ColorPicker
-                    value={graduatedRenderer.defaultClass.color}
-                    onChangeComplete={(color) =>
-                      updateDefaultGraduatedClass({
-                        color: color.toHexString(),
-                      })
-                    }
-                  />
-                  <Select
-                    className="unique-class-icon"
-                    value={graduatedRenderer.defaultClass.iconImage}
-                    showSearch
-                    optionFilterProp="label"
-                    popupMatchSelectWidth={false}
-                    options={uniqueIconOptions}
-                    onChange={(iconImage) =>
-                      updateDefaultGraduatedClass({ iconImage })
-                    }
-                  />
-                  <InputNumber
-                    className="unique-class-size"
-                    value={graduatedRenderer.defaultClass.size}
-                    min={0.2}
-                    max={5}
-                    step={0.05}
-                    onChange={(size) =>
-                      updateDefaultGraduatedClass({
-                        size: typeof size === "number" ? size : 1,
-                      })
-                    }
-                  />
-                  <Typography.Text className="unique-class-count">
-                    {graduatedRenderer.defaultClass.count} 条
-                  </Typography.Text>
-                </div>
-              </div>
-            </Space>
-          </section>
-        )}
-
-        <section className="symbolization-section">
-          <div className="symbolization-section-head">
-            <div>
-              <Typography.Text strong>基础样式</Typography.Text>
-              <Typography.Text type="secondary">
-                只保留最常改、最容易判断效果的样式项
-              </Typography.Text>
-            </div>
-          </div>
-          <Space
-            orientation="vertical"
-            className="full-width symbolization-stack"
-          >
-            <ControlRow label="图层透明度">
-              <Slider
-                value={value.opacity}
-                min={5}
-                max={100}
-                onChange={(opacity) => updateRoot("opacity", opacity)}
-              />
-            </ControlRow>
-
-            {geometry.hasPoint &&
-              expressionMode === "single" &&
-              value.pointMode === "circle" && (
-              <>
-                <ColorField
-                  label="点颜色"
-                  value={value.circle.circleColor}
-                  onChange={(next) => updateCircle("circleColor", next)}
-                />
-                <NumberField
-                  label="点大小"
-                  value={value.circle.circleRadius}
-                  min={2}
-                  max={80}
-                  step={0.5}
-                  onChange={(next) => updateCircle("circleRadius", next)}
-                />
-                <ColorField
-                  label="描边颜色"
-                  value={value.circle.circleStrokeColor}
-                  onChange={(next) => updateCircle("circleStrokeColor", next)}
-                />
-                <NumberField
-                  label="描边粗细"
-                  value={value.circle.circleStrokeWidth}
-                  min={0}
-                  max={20}
-                  step={0.2}
-                  onChange={(next) => updateCircle("circleStrokeWidth", next)}
-                />
-              </>
-            )}
-
-            {geometry.hasPoint &&
-              expressionMode === "single" &&
-              value.pointMode === "symbol" && (
-              <>
-                <ControlRow label="图标类型">
-                  <Popover
-                    trigger="click"
-                    placement="bottomLeft"
-                    arrow={false}
-                    open={iconPickerOpen}
-                    onOpenChange={(open) => {
-                      setIconPickerOpen(open);
-                      if (open) {
-                        setActiveIconGroupLabel(resolvedActiveIconGroup);
-                      }
-                    }}
-                    overlayClassName="symbol-icon-picker-popover"
-                    content={
-                      <div className="symbol-icon-picker-menu">
-                        {iconPickerGroups.map((group) => {
-                          const isActive =
-                            group.label === resolvedActiveIconGroup;
-                          return (
-                            <div
-                              className={
-                                isActive
-                                  ? "symbol-icon-picker-group is-active"
-                                  : "symbol-icon-picker-group"
-                              }
-                              key={group.label}
-                            >
-                              <button
-                                type="button"
-                                className="symbol-icon-picker-group-button"
-                                aria-expanded={isActive}
-                                onClick={() =>
-                                  setActiveIconGroupLabel(group.label)
-                                }
-                              >
-                                <span>{group.label}</span>
-                                <small>{group.options.length} 个</small>
-                              </button>
-                              {isActive && (
-                                <div className="symbol-icon-picker-options">
-                                  {group.options.map((option) => {
-                                    const isSelected =
-                                      option.value === selectedIconImage;
-                                    return (
-                                      <button
-                                        type="button"
-                                        key={option.value}
-                                        className={
-                                          isSelected
-                                            ? "symbol-icon-picker-option is-selected"
-                                            : "symbol-icon-picker-option"
-                                        }
-                                        aria-pressed={isSelected}
-                                        onClick={() => {
-                                          updateSymbol(
-                                            "iconImage",
-                                            option.value,
-                                          );
-                                          setActiveIconGroupLabel(group.label);
-                                          setIconPickerOpen(false);
-                                        }}
-                                      >
-                                        {option.label}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    }
-                  >
-                    <button
-                      type="button"
-                      className="symbol-icon-picker-trigger"
-                      aria-haspopup="menu"
-                      aria-expanded={iconPickerOpen}
-                    >
-                      <span className="symbol-icon-picker-value">
-                        {selectedIconGroup
-                          ? `${selectedIconGroup.label} / ${selectedIconLabel}`
-                          : selectedIconLabel}
-                      </span>
-                      <span className="symbol-icon-picker-caret" aria-hidden>
-                        ▾
-                      </span>
-                    </button>
-                  </Popover>
-                </ControlRow>
-                <ColorField
-                  label="图标颜色"
-                  value={value.symbol.iconColor}
-                  onChange={(next) => updateSymbol("iconColor", next)}
-                />
-                <NumberField
-                  label="图标大小"
-                  value={value.symbol.iconSize}
-                  min={0.2}
-                  max={5}
-                  step={0.05}
-                  onChange={(next) => updateSymbol("iconSize", next)}
-                />
-              </>
-            )}
-
-            {geometry.hasPoint && value.pointMode === "heatmap" && (
-              <>
-                <Alert
-                  type="info"
-                  showIcon
-                  title={
-                    selectedHeatmapWeightField
-                      ? `密度热力按 ${selectedHeatmapWeightField} 字段加权，缩放时自动淡出为点位明细。`
-                      : "密度热力用于显示点位聚集程度，当前按点位数量计算密度，缩放时自动淡出为点位明细。"
-                  }
-                />
-                <ControlRow label="权重字段">
-                  <Select
-                    className="full-width"
-                    value={selectedHeatmapWeightField}
-                    options={heatmapWeightFieldOptions}
-                    onChange={(next) =>
-                      updateHeatmap("heatmapWeightField", next)
-                    }
-                  />
-                </ControlRow>
-                {selectedHeatmapWeightField && (
-                  <NumberField
-                    label="权重上限"
-                    value={value.heatmap.heatmapWeightFieldMax ?? 1}
-                    min={1}
-                    max={100000}
-                    step={1}
-                    onChange={(next) =>
-                      updateHeatmap("heatmapWeightFieldMax", next)
-                    }
-                  />
-                )}
-                <ControlRow label="热力色带">
-                  <Select
-                    className="full-width"
-                    value={currentHeatmapColor}
-                    options={heatmapPaletteOptions}
-                    onChange={(next) =>
-                      updateHeatmap("heatmapColor", JSON.parse(next))
-                    }
-                  />
-                </ControlRow>
-                <NumberField
-                  label="影响半径"
-                  value={value.heatmap.heatmapRadius ?? 24}
-                  min={1}
-                  max={80}
-                  step={1}
-                  onChange={(next) => updateHeatmap("heatmapRadius", next)}
-                />
-                <NumberField
-                  label="热力强度"
-                  value={value.heatmap.heatmapIntensity ?? 0.9}
-                  min={0}
-                  max={3}
-                  step={0.1}
-                  onChange={(next) => updateHeatmap("heatmapIntensity", next)}
-                />
-                <NumberField
-                  label="热力透明度"
-                  value={value.heatmap.heatmapOpacity ?? 0.78}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateHeatmap("heatmapOpacity", next)}
-                />
-              </>
-            )}
-
-            {geometry.hasPoint && expressionMode === "single" && (
-              <ControlRow label="点位聚合">
-                <Switch
-                  checked={cluster.enabled}
-                  checkedChildren="开启"
-                  unCheckedChildren="关闭"
-                  onChange={(enabled) => updateCluster("enabled", enabled)}
-                />
-              </ControlRow>
-            )}
-
-            {geometry.hasLine && (
-              <>
-                <Divider className="symbolization-divider" />
-                <ColorField
-                  label="线颜色"
-                  value={value.line.lineColor}
-                  onChange={(next) => updateLine("lineColor", next)}
-                />
-                <NumberField
-                  label="线宽"
-                  value={value.line.lineWidth}
-                  min={0}
-                  max={40}
-                  step={0.2}
-                  onChange={(next) => updateLine("lineWidth", next)}
-                />
-                <ControlRow label="线型">
+              {(geometry.hasPoint ||
+                geometry.hasLine ||
+                geometry.hasPolygon) && (
+                <ControlRow label="字段表达">
                   <Segmented
                     block
-                    value={linePattern}
+                    value={expressionMode}
                     options={[
-                      { value: "solid", label: "实线" },
-                      { value: "dash", label: "虚线" },
-                      { value: "dot", label: "点线" },
+                      { value: "single", label: "单一符号" },
+                      { value: "uniqueValue", label: "唯一值分类" },
+                      { value: "graduated", label: "数值分级" },
+                      ...(geometry.hasPoint
+                        ? [{ value: "heatmap", label: "密度热力" }]
+                        : []),
                     ]}
-                    onChange={(next) => updateLinePattern(next as LinePattern)}
+                    onChange={(mode) =>
+                      changeExpressionMode(mode as VectorExpressionMode)
+                    }
                   />
                 </ControlRow>
-              </>
+              )}
+              {geometry.hasPoint && expressionMode === "single" && (
+                <ControlRow label="点符号类型">
+                  <Segmented
+                    block
+                    value={
+                      value.pointMode === "heatmap" ? "circle" : value.pointMode
+                    }
+                    options={[
+                      { value: "circle", label: "圆点" },
+                      { value: "symbol", label: "图标" },
+                    ]}
+                    onChange={(mode) =>
+                      updateRoot(
+                        "pointMode",
+                        mode as VectorSymbolization["pointMode"],
+                      )
+                    }
+                  />
+                </ControlRow>
+              )}
+              {(geometry.hasLine || geometry.hasPolygon) && (
+                <div className="symbolization-preset-grid">
+                  {geometry.hasLine && (
+                    <>
+                      <Button
+                        className="symbolization-preset-button"
+                        onClick={() => applyPreset("line")}
+                      >
+                        <span>河流线</span>
+                        <small>连续线条，适合河道边界</small>
+                      </Button>
+                      <Button
+                        className="symbolization-preset-button"
+                        onClick={() => {
+                          applyPreset("line");
+                          updateLinePattern("dash");
+                        }}
+                      >
+                        <span>虚线辅助线</span>
+                        <small>适合规划线和参考线</small>
+                      </Button>
+                    </>
+                  )}
+                  {geometry.hasPolygon && (
+                    <>
+                      <Button
+                        className="symbolization-preset-button"
+                        onClick={() => applyPreset("fill")}
+                      >
+                        <span>保护区</span>
+                        <small>半透明填充保留底图信息</small>
+                      </Button>
+                      <Button
+                        className="symbolization-preset-button"
+                        onClick={() =>
+                          onChange({
+                            ...value,
+                            fill: {
+                              ...value.fill,
+                              fillColor: "#8fb9d9",
+                              fillOpacity: 0.36,
+                              fillOutlineColor: "#174f46",
+                            },
+                          })
+                        }
+                      >
+                        <span>分区填色</span>
+                        <small>弱化填充，突出边界</small>
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+            </section>
+
+            {expressionMode === "uniqueValue" && uniqueRenderer && (
+              <section className="symbolization-section unique-symbolization-section">
+                <div className="symbolization-section-head">
+                  <div>
+                    <Typography.Text strong>字段分类</Typography.Text>
+                    <Typography.Text type="secondary">
+                      一个图例类别可以包含多个原始值，用于合并别名和录入变体
+                    </Typography.Text>
+                  </div>
+                  {uniqueRenderer.templateId === germplasmDnaSexTemplateId && (
+                    <Tag color="green">种质默认模板</Tag>
+                  )}
+                </div>
+                <Space
+                  orientation="vertical"
+                  className="full-width symbolization-stack"
+                >
+                  <ControlRow label="分类字段">
+                    <Select
+                      className="full-width"
+                      value={uniqueRenderer.field}
+                      options={uniqueFieldOptions}
+                      onChange={changeUniqueField}
+                    />
+                  </ControlRow>
+                  {uniqueRenderer.normalizationNotes?.length ? (
+                    <Alert
+                      type="info"
+                      showIcon
+                      title="已应用分类值合并"
+                      description={uniqueRenderer.normalizationNotes.join(" ")}
+                    />
+                  ) : null}
+                  <div className="unique-class-list">
+                    {uniqueRenderer.classes.map((item) => (
+                      <div className="unique-class-row" key={item.id}>
+                        <div className="unique-class-preview">
+                          <span
+                            className="unique-class-swatch"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <Switch
+                            size="small"
+                            checked={item.visible}
+                            onChange={(visible) =>
+                              updateUniqueClass(item.id, { visible })
+                            }
+                          />
+                        </div>
+                        <Input
+                          className="unique-class-label"
+                          value={item.label}
+                          maxLength={24}
+                          onChange={(event) =>
+                            updateUniqueClass(item.id, {
+                              label: event.target.value,
+                            })
+                          }
+                        />
+                        <Select
+                          className="unique-class-values"
+                          mode="tags"
+                          value={item.values}
+                          options={uniqueValueOptions}
+                          placeholder="包含原始值"
+                          onChange={(values) =>
+                            updateUniqueClass(item.id, { values })
+                          }
+                        />
+                        <ColorPicker
+                          value={item.color}
+                          onChangeComplete={(color) =>
+                            updateUniqueClass(item.id, {
+                              color: color.toHexString(),
+                            })
+                          }
+                        />
+                        <Select
+                          className="unique-class-icon"
+                          value={item.iconImage}
+                          showSearch
+                          optionFilterProp="label"
+                          popupMatchSelectWidth={false}
+                          options={uniqueIconOptions}
+                          onChange={(iconImage) =>
+                            updateUniqueClass(item.id, { iconImage })
+                          }
+                        />
+                        <InputNumber
+                          className="unique-class-size"
+                          aria-label={`${item.label} 图标大小倍数`}
+                          title="图标大小倍数：1 为默认大小，0.2 为默认大小的 20%，5 为 5 倍。"
+                          value={item.size}
+                          min={0.2}
+                          max={5}
+                          step={0.05}
+                          onChange={(size) =>
+                            updateUniqueClass(item.id, {
+                              size: typeof size === "number" ? size : 1,
+                            })
+                          }
+                        />
+                        <Typography.Text className="unique-class-count">
+                          {item.count} 条
+                        </Typography.Text>
+                      </div>
+                    ))}
+                    <div className="unique-class-row unique-class-row-default">
+                      <div className="unique-class-preview">
+                        <span
+                          className="unique-class-swatch"
+                          style={{
+                            backgroundColor: uniqueRenderer.defaultClass.color,
+                          }}
+                        />
+                        <Switch
+                          size="small"
+                          checked={uniqueRenderer.defaultClass.visible}
+                          onChange={(visible) =>
+                            updateDefaultUniqueClass({ visible })
+                          }
+                        />
+                      </div>
+                      <Input
+                        className="unique-class-label"
+                        value={uniqueRenderer.defaultClass.label}
+                        maxLength={24}
+                        onChange={(event) =>
+                          updateDefaultUniqueClass({
+                            label: event.target.value,
+                          })
+                        }
+                      />
+                      <Typography.Text className="unique-class-values-readonly">
+                        {classValuesLabel(uniqueRenderer.defaultClass)}
+                      </Typography.Text>
+                      <ColorPicker
+                        value={uniqueRenderer.defaultClass.color}
+                        onChangeComplete={(color) =>
+                          updateDefaultUniqueClass({
+                            color: color.toHexString(),
+                          })
+                        }
+                      />
+                      <Select
+                        className="unique-class-icon"
+                        value={uniqueRenderer.defaultClass.iconImage}
+                        showSearch
+                        optionFilterProp="label"
+                        popupMatchSelectWidth={false}
+                        options={uniqueIconOptions}
+                        onChange={(iconImage) =>
+                          updateDefaultUniqueClass({ iconImage })
+                        }
+                      />
+                      <InputNumber
+                        className="unique-class-size"
+                        aria-label={`${uniqueRenderer.defaultClass.label} 图标大小倍数`}
+                        title="图标大小倍数：1 为默认大小，0.2 为默认大小的 20%，5 为 5 倍。"
+                        value={uniqueRenderer.defaultClass.size}
+                        min={0.2}
+                        max={5}
+                        step={0.05}
+                        onChange={(size) =>
+                          updateDefaultUniqueClass({
+                            size: typeof size === "number" ? size : 1,
+                          })
+                        }
+                      />
+                      <Typography.Text className="unique-class-count">
+                        {uniqueRenderer.defaultClass.count} 条
+                      </Typography.Text>
+                    </div>
+                  </div>
+                </Space>
+              </section>
             )}
 
-            {geometry.hasPolygon && (
-              <>
-                <Divider className="symbolization-divider" />
-                <ColorField
-                  label="填充颜色"
-                  value={value.fill.fillColor}
-                  onChange={(next) => updateFill("fillColor", next)}
-                />
-                <NumberField
-                  label="填充透明度"
-                  value={value.fill.fillOpacity}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateFill("fillOpacity", next)}
-                />
-                <ColorField
-                  label="边界颜色"
-                  value={value.fill.fillOutlineColor}
-                  onChange={(next) => updateFill("fillOutlineColor", next)}
-                />
-              </>
+            {expressionMode === "graduated" && graduatedRenderer && (
+              <section className="symbolization-section unique-symbolization-section graduated-symbolization-section">
+                <div className="symbolization-section-head">
+                  <div>
+                    <Typography.Text strong>数值分级</Typography.Text>
+                    <Typography.Text type="secondary">
+                      按连续字段区间生成图例，适合海拔、NDVI、盐分等数值型属性
+                    </Typography.Text>
+                  </div>
+                </div>
+                <Space
+                  orientation="vertical"
+                  className="full-width symbolization-stack"
+                >
+                  <ControlRow label="分级字段">
+                    <Select
+                      className="full-width"
+                      value={graduatedRenderer.field}
+                      options={graduatedFieldOptions}
+                      onChange={changeGraduatedField}
+                    />
+                  </ControlRow>
+                  <ControlRow label="分级方法">
+                    <Segmented
+                      block
+                      value={graduatedRenderer.method}
+                      options={[
+                        { value: "equalInterval", label: "等距分级" },
+                        { value: "quantile", label: "分位数" },
+                        { value: "manual", label: "自定义" },
+                      ]}
+                      onChange={(method) =>
+                        updateGraduatedRenderer((renderer) =>
+                          rebuildGraduatedWith(renderer, {
+                            method: method as GraduatedClassificationMethod,
+                          }),
+                        )
+                      }
+                    />
+                  </ControlRow>
+                  <div className="graduated-control-grid">
+                    <ControlRow label="分级数量">
+                      <InputNumber
+                        className="full-width"
+                        value={graduatedRenderer.classCount}
+                        min={graduatedRenderer.method === "manual" ? 1 : 3}
+                        max={graduatedRenderer.method === "manual" ? 24 : 9}
+                        step={1}
+                        onChange={(classCount) =>
+                          updateGraduatedRenderer((renderer) =>
+                            rebuildGraduatedWith(renderer, {
+                              classCount:
+                                typeof classCount === "number"
+                                  ? classCount
+                                  : renderer.classes.length || 5,
+                            }),
+                          )
+                        }
+                      />
+                    </ControlRow>
+                    <ControlRow label="小数位">
+                      <InputNumber
+                        className="full-width"
+                        value={graduatedRenderer.precision}
+                        min={0}
+                        max={6}
+                        step={1}
+                        onChange={(precision) =>
+                          updateGraduatedRenderer((renderer) =>
+                            rebuildGraduatedWith(renderer, {
+                              precision:
+                                typeof precision === "number" ? precision : 2,
+                            }),
+                          )
+                        }
+                      />
+                    </ControlRow>
+                  </div>
+                  <ControlRow
+                    label={
+                      graduatedRenderer.method === "manual"
+                        ? "新增级色带"
+                        : "色带"
+                    }
+                  >
+                    <Select
+                      className="full-width"
+                      value={graduatedRenderer.colorRamp}
+                      options={graduatedRampOptions}
+                      onChange={(colorRamp) =>
+                        updateGraduatedRenderer((renderer) =>
+                          rebuildGraduatedWith(renderer, {
+                            colorRamp: colorRamp as GraduatedColorRamp,
+                          }),
+                        )
+                      }
+                    />
+                  </ControlRow>
+                  {graduatedRenderer.classes.length === 0 && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      title="当前字段没有可用于分级的数值"
+                      description="请切换到海拔、NDVI、盐分等可解析为数字的字段，或检查原始属性值。"
+                    />
+                  )}
+                  <div className="unique-class-list">
+                    {graduatedRenderer.classes.map((item) => (
+                      <div
+                        className="unique-class-row graduated-class-row"
+                        key={item.id}
+                      >
+                        <div className="unique-class-preview">
+                          <span
+                            className="unique-class-swatch"
+                            style={{ backgroundColor: item.color }}
+                          />
+                          <Switch
+                            size="small"
+                            checked={item.visible}
+                            onChange={(visible) =>
+                              updateGraduatedClass(item.id, { visible })
+                            }
+                          />
+                        </div>
+                        <Input
+                          className="unique-class-label"
+                          value={item.label}
+                          maxLength={32}
+                          onChange={(event) =>
+                            updateGraduatedClass(item.id, {
+                              label: event.target.value,
+                            })
+                          }
+                        />
+                        {graduatedRenderer.method === "manual" ? (
+                          <Space.Compact className="graduated-range-editor">
+                            <InputNumber
+                              value={item.min}
+                              step={1}
+                              onChange={(next) =>
+                                updateManualGraduatedRange(
+                                  item.id,
+                                  "min",
+                                  typeof next === "number" ? next : null,
+                                )
+                              }
+                            />
+                            <InputNumber
+                              value={item.max}
+                              step={1}
+                              onChange={(next) =>
+                                updateManualGraduatedRange(
+                                  item.id,
+                                  "max",
+                                  typeof next === "number" ? next : null,
+                                )
+                              }
+                            />
+                          </Space.Compact>
+                        ) : (
+                          <Typography.Text
+                            className="unique-class-values-readonly graduated-class-range"
+                            title={graduatedRangeLabel(item)}
+                          >
+                            {graduatedRangeLabel(item)}
+                          </Typography.Text>
+                        )}
+                        <ColorPicker
+                          value={item.color}
+                          onChangeComplete={(color) =>
+                            updateGraduatedClass(item.id, {
+                              color: color.toHexString(),
+                            })
+                          }
+                        />
+                        <Select
+                          className="unique-class-icon"
+                          value={item.iconImage}
+                          showSearch
+                          optionFilterProp="label"
+                          popupMatchSelectWidth={false}
+                          options={uniqueIconOptions}
+                          onChange={(iconImage) =>
+                            updateGraduatedClass(item.id, { iconImage })
+                          }
+                        />
+                        <InputNumber
+                          className="unique-class-size"
+                          aria-label={`${item.label} 图标大小倍数`}
+                          title="图标大小倍数：1 为默认大小，0.2 为默认大小的 20%，5 为 5 倍。"
+                          value={item.size}
+                          min={0.2}
+                          max={5}
+                          step={0.05}
+                          onChange={(size) =>
+                            updateGraduatedClass(item.id, {
+                              size: typeof size === "number" ? size : 1,
+                            })
+                          }
+                        />
+                        <Typography.Text className="unique-class-count">
+                          {item.count} 条
+                        </Typography.Text>
+                      </div>
+                    ))}
+                    <div className="unique-class-row unique-class-row-default graduated-class-row">
+                      <div className="unique-class-preview">
+                        <span
+                          className="unique-class-swatch"
+                          style={{
+                            backgroundColor:
+                              graduatedRenderer.defaultClass.color,
+                          }}
+                        />
+                        <Switch
+                          size="small"
+                          checked={graduatedRenderer.defaultClass.visible}
+                          onChange={(visible) =>
+                            updateDefaultGraduatedClass({ visible })
+                          }
+                        />
+                      </div>
+                      <Input
+                        className="unique-class-label"
+                        value={graduatedRenderer.defaultClass.label}
+                        maxLength={24}
+                        onChange={(event) =>
+                          updateDefaultGraduatedClass({
+                            label: event.target.value,
+                          })
+                        }
+                      />
+                      <Typography.Text className="unique-class-values-readonly graduated-class-range">
+                        {graduatedRangeLabel(graduatedRenderer.defaultClass)}
+                      </Typography.Text>
+                      <ColorPicker
+                        value={graduatedRenderer.defaultClass.color}
+                        onChangeComplete={(color) =>
+                          updateDefaultGraduatedClass({
+                            color: color.toHexString(),
+                          })
+                        }
+                      />
+                      <Select
+                        className="unique-class-icon"
+                        value={graduatedRenderer.defaultClass.iconImage}
+                        showSearch
+                        optionFilterProp="label"
+                        popupMatchSelectWidth={false}
+                        options={uniqueIconOptions}
+                        onChange={(iconImage) =>
+                          updateDefaultGraduatedClass({ iconImage })
+                        }
+                      />
+                      <InputNumber
+                        className="unique-class-size"
+                        aria-label={`${graduatedRenderer.defaultClass.label} 图标大小倍数`}
+                        title="图标大小倍数：1 为默认大小，0.2 为默认大小的 20%，5 为 5 倍。"
+                        value={graduatedRenderer.defaultClass.size}
+                        min={0.2}
+                        max={5}
+                        step={0.05}
+                        onChange={(size) =>
+                          updateDefaultGraduatedClass({
+                            size: typeof size === "number" ? size : 1,
+                          })
+                        }
+                      />
+                      <Typography.Text className="unique-class-count">
+                        {graduatedRenderer.defaultClass.count} 条
+                      </Typography.Text>
+                    </div>
+                  </div>
+                </Space>
+              </section>
             )}
-          </Space>
-        </section>
 
-        {geometry.hasPoint && value.pointMode !== "heatmap" && (
-          <section className="symbolization-section">
-            <div className="symbolization-section-head">
-              <div>
-                <Typography.Text strong>标注</Typography.Text>
-                <Typography.Text type="secondary">
-                  点位名称、编号等文字信息在这里统一设置
-                </Typography.Text>
+            <section className="symbolization-section">
+              <div className="symbolization-section-head">
+                <div>
+                  <Typography.Text strong>基础样式</Typography.Text>
+                  <Typography.Text type="secondary">
+                    只保留最常改、最容易判断效果的样式项
+                  </Typography.Text>
+                </div>
               </div>
-            </div>
-            <Space
-              orientation="vertical"
-              className="full-width symbolization-stack"
-            >
-              <ControlRow label="显示标注">
-                <Switch
-                  checked={labelEnabled}
-                  disabled={!defaultLabelField && !labelEnabled}
-                  onChange={updateLabelEnabled}
-                />
-              </ControlRow>
-              <ControlRow label="标注字段">
-                <Select
-                  className="full-width"
-                  disabled={!labelEnabled}
-                  value={value.symbol.textField}
-                  options={labelFieldOptions}
-                  onChange={(next) => updateSymbol("textField", next)}
-                />
-              </ControlRow>
-              <NumberField
-                label="字号"
-                value={value.symbol.textSize}
-                min={8}
-                max={48}
-                step={1}
-                onChange={(next) => updateSymbol("textSize", next)}
-              />
-              <ColorField
-                label="文字颜色"
-                value={value.symbol.textColor}
-                onChange={(next) => updateSymbol("textColor", next)}
-              />
-              <ColorField
-                label="描边颜色"
-                value={value.symbol.textHaloColor}
-                onChange={(next) => updateSymbol("textHaloColor", next)}
-              />
-              <ControlRow label="避让策略">
-                <Segmented
-                  block
-                  value={value.symbol.textAllowOverlap ? "overlap" : "avoid"}
-                  options={[
-                    { value: "avoid", label: "自动避让" },
-                    { value: "overlap", label: "允许重叠" },
-                  ]}
-                  onChange={(next) =>
-                    updateLabelCollision(next as "avoid" | "overlap")
-                  }
-                />
-              </ControlRow>
-            </Space>
-          </section>
-        )}
+              <Space
+                orientation="vertical"
+                className="full-width symbolization-stack"
+              >
+                <ControlRow label="图层透明度">
+                  <Slider
+                    value={value.opacity}
+                    min={5}
+                    max={100}
+                    onChange={(opacity) => updateRoot("opacity", opacity)}
+                  />
+                </ControlRow>
 
-        <details className="symbolization-advanced">
-          <summary>
-            <span>高级设置</span>
-          </summary>
-          <Space
-            orientation="vertical"
-            className="full-width symbolization-stack"
-          >
-            <Button size="small" onClick={copyJson}>
-              复制符号化 JSON
-            </Button>
+                {geometry.hasPoint &&
+                  expressionMode === "single" &&
+                  value.pointMode === "circle" && (
+                    <>
+                      <ColorField
+                        label="点颜色"
+                        value={value.circle.circleColor}
+                        onChange={(next) => updateCircle("circleColor", next)}
+                      />
+                      <NumberField
+                        label="点大小"
+                        value={value.circle.circleRadius}
+                        min={2}
+                        max={80}
+                        step={0.5}
+                        onChange={(next) => updateCircle("circleRadius", next)}
+                      />
+                      <ColorField
+                        label="描边颜色"
+                        value={value.circle.circleStrokeColor}
+                        onChange={(next) =>
+                          updateCircle("circleStrokeColor", next)
+                        }
+                      />
+                      <NumberField
+                        label="描边粗细"
+                        value={value.circle.circleStrokeWidth}
+                        min={0}
+                        max={20}
+                        step={0.2}
+                        onChange={(next) =>
+                          updateCircle("circleStrokeWidth", next)
+                        }
+                      />
+                    </>
+                  )}
 
-            {geometry.hasPoint && value.pointMode === "circle" && (
-              <>
-                <Typography.Text strong>圆点高级</Typography.Text>
-                <NumberField
-                  label="circle-blur"
-                  value={value.circle.circleBlur}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateCircle("circleBlur", next)}
-                />
-                <NumberField
-                  label="circle-opacity"
-                  value={value.circle.circleOpacity}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateCircle("circleOpacity", next)}
-                />
-                <NumberField
-                  label="circle-sort-key"
-                  value={value.circle.circleSortKey}
-                  step={1}
-                  onChange={(next) => updateCircle("circleSortKey", next)}
-                />
-                <Tuple2Field
-                  label="circle-translate"
-                  value={value.circle.circleTranslate}
-                  onChange={(next) => updateCircle("circleTranslate", next)}
-                />
-              </>
-            )}
+                {geometry.hasPoint &&
+                  expressionMode === "single" &&
+                  value.pointMode === "symbol" && (
+                    <>
+                      <ControlRow label="图标类型">
+                        <Popover
+                          trigger="click"
+                          placement="bottomLeft"
+                          arrow={false}
+                          open={iconPickerOpen}
+                          onOpenChange={(open) => {
+                            setIconPickerOpen(open);
+                            if (open) {
+                              setActiveIconGroupLabel(resolvedActiveIconGroup);
+                            }
+                          }}
+                          overlayClassName="symbol-icon-picker-popover"
+                          content={
+                            <div className="symbol-icon-picker-menu">
+                              {iconPickerGroups.map((group) => {
+                                const isActive =
+                                  group.label === resolvedActiveIconGroup;
+                                return (
+                                  <div
+                                    className={
+                                      isActive
+                                        ? "symbol-icon-picker-group is-active"
+                                        : "symbol-icon-picker-group"
+                                    }
+                                    key={group.label}
+                                  >
+                                    <button
+                                      type="button"
+                                      className="symbol-icon-picker-group-button"
+                                      aria-expanded={isActive}
+                                      onClick={() =>
+                                        setActiveIconGroupLabel(group.label)
+                                      }
+                                    >
+                                      <span>{group.label}</span>
+                                      <small>{group.options.length} 个</small>
+                                    </button>
+                                    {isActive && (
+                                      <div className="symbol-icon-picker-options">
+                                        {group.options.map((option) => {
+                                          const isSelected =
+                                            option.value === selectedIconImage;
+                                          return (
+                                            <button
+                                              type="button"
+                                              key={option.value}
+                                              className={
+                                                isSelected
+                                                  ? "symbol-icon-picker-option is-selected"
+                                                  : "symbol-icon-picker-option"
+                                              }
+                                              aria-pressed={isSelected}
+                                              onClick={() => {
+                                                updateSymbol(
+                                                  "iconImage",
+                                                  option.value,
+                                                );
+                                                setActiveIconGroupLabel(
+                                                  group.label,
+                                                );
+                                                setIconPickerOpen(false);
+                                              }}
+                                            >
+                                              {option.label}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          }
+                        >
+                          <button
+                            type="button"
+                            className="symbol-icon-picker-trigger"
+                            aria-haspopup="menu"
+                            aria-expanded={iconPickerOpen}
+                          >
+                            <span className="symbol-icon-picker-value">
+                              {selectedIconGroup
+                                ? `${selectedIconGroup.label} / ${selectedIconLabel}`
+                                : selectedIconLabel}
+                            </span>
+                            <span
+                              className="symbol-icon-picker-caret"
+                              aria-hidden
+                            >
+                              ▾
+                            </span>
+                          </button>
+                        </Popover>
+                      </ControlRow>
+                      <ColorField
+                        label="图标颜色"
+                        value={value.symbol.iconColor}
+                        onChange={(next) => updateSymbol("iconColor", next)}
+                      />
+                      <NumberField
+                        label="图标大小"
+                        value={value.symbol.iconSize}
+                        min={0.2}
+                        max={5}
+                        step={0.05}
+                        onChange={(next) => updateSymbol("iconSize", next)}
+                      />
+                    </>
+                  )}
 
-            {geometry.hasPoint && value.pointMode === "symbol" && (
-              <>
-                <Typography.Text strong>图标高级</Typography.Text>
-                <TextField
-                  label="icon-image"
-                  value={value.symbol.iconImage}
-                  onChange={(next) => updateSymbol("iconImage", next)}
-                />
-                <SelectField
-                  label="symbol-placement"
-                  value={value.symbol.symbolPlacement}
-                  options={["point", "line", "line-center"]}
-                  onChange={(next) => updateSymbol("symbolPlacement", next)}
-                />
-                <NumberField
-                  label="symbol-spacing"
-                  value={value.symbol.symbolSpacing}
-                  min={1}
-                  step={1}
-                  onChange={(next) => updateSymbol("symbolSpacing", next)}
-                />
-                <NumberField
-                  label="icon-padding"
-                  value={value.symbol.iconPadding}
-                  min={0}
-                  step={1}
-                  onChange={(next) => updateSymbol("iconPadding", next)}
-                />
-                <NumberField
-                  label="icon-rotate"
-                  value={value.symbol.iconRotate}
-                  min={-360}
-                  max={360}
-                  step={1}
-                  onChange={(next) => updateSymbol("iconRotate", next)}
-                />
-                <SelectField
-                  label="icon-anchor"
-                  value={value.symbol.iconAnchor}
-                  options={anchorOptions}
-                  onChange={(next) => updateSymbol("iconAnchor", next)}
-                />
-                <Tuple2Field
-                  label="icon-offset"
-                  value={value.symbol.iconOffset}
-                  onChange={(next) => updateSymbol("iconOffset", next)}
-                />
-                <Tuple4Field
-                  label="icon-text-fit-padding"
-                  value={value.symbol.iconTextFitPadding}
-                  onChange={(next) => updateSymbol("iconTextFitPadding", next)}
-                />
-                <BooleanField
-                  label="icon-allow-overlap"
-                  value={value.symbol.iconAllowOverlap}
-                  onChange={(next) => updateSymbol("iconAllowOverlap", next)}
-                />
-              </>
-            )}
-
-            {geometry.hasPoint && value.pointMode === "heatmap" && (
-              <>
-                <Typography.Text strong>热力高级</Typography.Text>
-                <NumberField
-                  label="heatmap-weight"
-                  value={value.heatmap.heatmapWeight ?? 0.72}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateHeatmap("heatmapWeight", next)}
-                />
-              </>
-            )}
-
-            {geometry.hasPoint && value.pointMode !== "heatmap" && (
-              <>
-                <Divider className="symbolization-divider" />
-                <Typography.Text strong>聚合高级</Typography.Text>
-                <BooleanField
-                  label="cluster-enabled"
-                  value={cluster.enabled}
-                  onChange={(next) => updateCluster("enabled", next)}
-                />
-                {cluster.enabled && (
+                {geometry.hasPoint && value.pointMode === "heatmap" && (
                   <>
+                    <Alert
+                      type="info"
+                      showIcon
+                      title={
+                        selectedHeatmapWeightField
+                          ? `密度热力按 ${selectedHeatmapWeightField} 字段加权，缩放时自动淡出为点位明细。`
+                          : "密度热力用于显示点位聚集程度，当前按点位数量计算密度，缩放时自动淡出为点位明细。"
+                      }
+                    />
+                    <ControlRow label="权重字段">
+                      <Select
+                        className="full-width"
+                        value={selectedHeatmapWeightField}
+                        options={heatmapWeightFieldOptions}
+                        onChange={(next) =>
+                          updateHeatmap("heatmapWeightField", next)
+                        }
+                      />
+                    </ControlRow>
+                    {selectedHeatmapWeightField && (
+                      <NumberField
+                        label="权重上限"
+                        value={value.heatmap.heatmapWeightFieldMax ?? 1}
+                        min={1}
+                        max={100000}
+                        step={1}
+                        onChange={(next) =>
+                          updateHeatmap("heatmapWeightFieldMax", next)
+                        }
+                      />
+                    )}
+                    <ControlRow label="热力色带">
+                      <Select
+                        className="full-width"
+                        value={currentHeatmapColor}
+                        options={heatmapPaletteOptions}
+                        onChange={(next) =>
+                          updateHeatmap("heatmapColor", JSON.parse(next))
+                        }
+                      />
+                    </ControlRow>
                     <NumberField
-                      label="cluster-max-zoom"
-                      value={cluster.maxZoom}
-                      min={0}
-                      max={22}
+                      label="影响半径"
+                      value={value.heatmap.heatmapRadius ?? 24}
+                      min={1}
+                      max={80}
                       step={1}
-                      onChange={(next) => updateCluster("maxZoom", next)}
+                      onChange={(next) => updateHeatmap("heatmapRadius", next)}
                     />
                     <NumberField
-                      label="cluster-radius"
-                      value={cluster.radius}
-                      min={1}
-                      max={200}
-                      step={1}
-                      onChange={(next) => updateCluster("radius", next)}
+                      label="热力强度"
+                      value={value.heatmap.heatmapIntensity ?? 0.9}
+                      min={0}
+                      max={3}
+                      step={0.1}
+                      onChange={(next) =>
+                        updateHeatmap("heatmapIntensity", next)
+                      }
+                    />
+                    <NumberField
+                      label="热力透明度"
+                      value={value.heatmap.heatmapOpacity ?? 0.78}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onChange={(next) => updateHeatmap("heatmapOpacity", next)}
                     />
                   </>
                 )}
-                <Divider className="symbolization-divider" />
-                <Typography.Text strong>标注高级</Typography.Text>
-                <TextListField
-                  label="text-font"
-                  value={value.symbol.textFont}
-                  onChange={(next) => updateSymbol("textFont", next)}
-                />
-                <NumberField
-                  label="text-max-width"
-                  value={value.symbol.textMaxWidth}
-                  min={0}
-                  step={0.5}
-                  onChange={(next) => updateSymbol("textMaxWidth", next)}
-                />
-                <Tuple2Field
-                  label="text-offset"
-                  value={value.symbol.textOffset}
-                  onChange={(next) => updateSymbol("textOffset", next)}
-                />
-                <MultiSelectField
-                  label="text-variable-anchor"
-                  value={value.symbol.textVariableAnchor}
-                  options={anchorOptions}
-                  onChange={(next) =>
-                    updateSymbol(
-                      "textVariableAnchor",
-                      next as SymbolLayerSymbolization["textVariableAnchor"],
-                    )
-                  }
-                />
-                <MultiSelectField
-                  label="text-writing-mode"
-                  value={value.symbol.textWritingMode}
-                  options={["horizontal", "vertical"]}
-                  onChange={(next) =>
-                    updateSymbol(
-                      "textWritingMode",
-                      next as SymbolLayerSymbolization["textWritingMode"],
-                    )
-                  }
-                />
-                <NumberField
-                  label="text-halo-width"
-                  value={value.symbol.textHaloWidth}
-                  min={0}
-                  max={20}
-                  step={0.5}
-                  onChange={(next) => updateSymbol("textHaloWidth", next)}
-                />
-              </>
+
+                {geometry.hasPoint && expressionMode === "single" && (
+                  <ControlRow label="点位聚合">
+                    <Switch
+                      checked={cluster.enabled}
+                      checkedChildren="开启"
+                      unCheckedChildren="关闭"
+                      onChange={(enabled) => updateCluster("enabled", enabled)}
+                    />
+                  </ControlRow>
+                )}
+
+                {geometry.hasLine && (
+                  <>
+                    <Divider className="symbolization-divider" />
+                    <ColorField
+                      label="线颜色"
+                      value={value.line.lineColor}
+                      onChange={(next) => updateLine("lineColor", next)}
+                    />
+                    <NumberField
+                      label="线宽"
+                      value={value.line.lineWidth}
+                      min={0}
+                      max={40}
+                      step={0.2}
+                      onChange={(next) => updateLine("lineWidth", next)}
+                    />
+                    <ControlRow label="线型">
+                      <Segmented
+                        block
+                        value={linePattern}
+                        options={[
+                          { value: "solid", label: "实线" },
+                          { value: "dash", label: "虚线" },
+                          { value: "dot", label: "点线" },
+                        ]}
+                        onChange={(next) =>
+                          updateLinePattern(next as LinePattern)
+                        }
+                      />
+                    </ControlRow>
+                  </>
+                )}
+
+                {geometry.hasPolygon && (
+                  <>
+                    <Divider className="symbolization-divider" />
+                    <ColorField
+                      label="填充颜色"
+                      value={value.fill.fillColor}
+                      onChange={(next) => updateFill("fillColor", next)}
+                    />
+                    <NumberField
+                      label="填充透明度"
+                      value={value.fill.fillOpacity}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onChange={(next) => updateFill("fillOpacity", next)}
+                    />
+                    <ColorField
+                      label="边界颜色"
+                      value={value.fill.fillOutlineColor}
+                      onChange={(next) => updateFill("fillOutlineColor", next)}
+                    />
+                  </>
+                )}
+              </Space>
+            </section>
+
+            {geometry.hasPoint && value.pointMode !== "heatmap" && (
+              <section className="symbolization-section">
+                <div className="symbolization-section-head">
+                  <div>
+                    <Typography.Text strong>标注</Typography.Text>
+                    <Typography.Text type="secondary">
+                      点位名称、编号等文字信息在这里统一设置
+                    </Typography.Text>
+                  </div>
+                </div>
+                <Space
+                  orientation="vertical"
+                  className="full-width symbolization-stack"
+                >
+                  <ControlRow label="显示标注">
+                    <Switch
+                      checked={labelEnabled}
+                      disabled={!defaultLabelField && !labelEnabled}
+                      onChange={updateLabelEnabled}
+                    />
+                  </ControlRow>
+                  <ControlRow label="标注字段">
+                    <Select
+                      className="full-width"
+                      disabled={!labelEnabled}
+                      value={value.symbol.textField}
+                      options={labelFieldOptions}
+                      onChange={(next) => updateSymbol("textField", next)}
+                    />
+                  </ControlRow>
+                  <NumberField
+                    label="字号"
+                    value={value.symbol.textSize}
+                    min={8}
+                    max={48}
+                    step={1}
+                    onChange={(next) => updateSymbol("textSize", next)}
+                  />
+                  <ColorField
+                    label="文字颜色"
+                    value={value.symbol.textColor}
+                    onChange={(next) => updateSymbol("textColor", next)}
+                  />
+                  <ColorField
+                    label="描边颜色"
+                    value={value.symbol.textHaloColor}
+                    onChange={(next) => updateSymbol("textHaloColor", next)}
+                  />
+                  <ControlRow label="避让策略">
+                    <Segmented
+                      block
+                      value={
+                        value.symbol.textAllowOverlap ? "overlap" : "avoid"
+                      }
+                      options={[
+                        { value: "avoid", label: "自动避让" },
+                        { value: "overlap", label: "允许重叠" },
+                      ]}
+                      onChange={(next) =>
+                        updateLabelCollision(next as "avoid" | "overlap")
+                      }
+                    />
+                  </ControlRow>
+                </Space>
+              </section>
             )}
 
-            {geometry.hasLine && (
-              <>
-                <Divider className="symbolization-divider" />
-                <Typography.Text strong>线高级</Typography.Text>
-                <NumberField
-                  label="line-opacity"
-                  value={value.line.lineOpacity}
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  onChange={(next) => updateLine("lineOpacity", next)}
-                />
-                <SelectField
-                  label="line-cap"
-                  value={value.line.lineCap}
-                  options={["butt", "round", "square"]}
-                  onChange={(next) => updateLine("lineCap", next)}
-                />
-                <SelectField
-                  label="line-join"
-                  value={value.line.lineJoin}
-                  options={["bevel", "round", "miter", "none"]}
-                  onChange={(next) => updateLine("lineJoin", next)}
-                />
-                <Tuple2Field
-                  label="line-dasharray"
-                  value={value.line.lineDasharray}
-                  onChange={(next) => updateLine("lineDasharray", next)}
-                />
-                <Tuple2Field
-                  label="line-translate"
-                  value={value.line.lineTranslate}
-                  onChange={(next) => updateLine("lineTranslate", next)}
-                />
-              </>
-            )}
+            <details className="symbolization-advanced">
+              <summary>
+                <span>高级设置</span>
+              </summary>
+              <Space
+                orientation="vertical"
+                className="full-width symbolization-stack"
+              >
+                <Button size="small" onClick={copyJson}>
+                  复制符号化 JSON
+                </Button>
 
-            {geometry.hasPolygon && (
-              <>
-                <Divider className="symbolization-divider" />
-                <Typography.Text strong>面高级</Typography.Text>
-                <BooleanField
-                  label="fill-antialias"
-                  value={value.fill.fillAntialias}
-                  onChange={(next) => updateFill("fillAntialias", next)}
-                />
-                <NumberField
-                  label="fill-sort-key"
-                  value={value.fill.fillSortKey}
-                  step={1}
-                  onChange={(next) => updateFill("fillSortKey", next)}
-                />
-                <Tuple2Field
-                  label="fill-translate"
-                  value={value.fill.fillTranslate}
-                  onChange={(next) => updateFill("fillTranslate", next)}
-                />
-              </>
-            )}
-          </Space>
-        </details>
+                {geometry.hasPoint && value.pointMode === "circle" && (
+                  <>
+                    <Typography.Text strong>圆点高级</Typography.Text>
+                    <NumberField
+                      label="circle-blur"
+                      value={value.circle.circleBlur}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onChange={(next) => updateCircle("circleBlur", next)}
+                    />
+                    <NumberField
+                      label="circle-opacity"
+                      value={value.circle.circleOpacity}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onChange={(next) => updateCircle("circleOpacity", next)}
+                    />
+                    <NumberField
+                      label="circle-sort-key"
+                      value={value.circle.circleSortKey}
+                      step={1}
+                      onChange={(next) => updateCircle("circleSortKey", next)}
+                    />
+                    <Tuple2Field
+                      label="circle-translate"
+                      value={value.circle.circleTranslate}
+                      onChange={(next) => updateCircle("circleTranslate", next)}
+                    />
+                  </>
+                )}
+
+                {geometry.hasPoint && value.pointMode === "symbol" && (
+                  <>
+                    <Typography.Text strong>图标高级</Typography.Text>
+                    <TextField
+                      label="icon-image"
+                      value={value.symbol.iconImage}
+                      onChange={(next) => updateSymbol("iconImage", next)}
+                    />
+                    <SelectField
+                      label="symbol-placement"
+                      value={value.symbol.symbolPlacement}
+                      options={["point", "line", "line-center"]}
+                      onChange={(next) => updateSymbol("symbolPlacement", next)}
+                    />
+                    <NumberField
+                      label="symbol-spacing"
+                      value={value.symbol.symbolSpacing}
+                      min={1}
+                      step={1}
+                      onChange={(next) => updateSymbol("symbolSpacing", next)}
+                    />
+                    <NumberField
+                      label="icon-padding"
+                      value={value.symbol.iconPadding}
+                      min={0}
+                      step={1}
+                      onChange={(next) => updateSymbol("iconPadding", next)}
+                    />
+                    <NumberField
+                      label="icon-rotate"
+                      value={value.symbol.iconRotate}
+                      min={-360}
+                      max={360}
+                      step={1}
+                      onChange={(next) => updateSymbol("iconRotate", next)}
+                    />
+                    <SelectField
+                      label="icon-anchor"
+                      value={value.symbol.iconAnchor}
+                      options={anchorOptions}
+                      onChange={(next) => updateSymbol("iconAnchor", next)}
+                    />
+                    <Tuple2Field
+                      label="icon-offset"
+                      value={value.symbol.iconOffset}
+                      onChange={(next) => updateSymbol("iconOffset", next)}
+                    />
+                    <Tuple4Field
+                      label="icon-text-fit-padding"
+                      value={value.symbol.iconTextFitPadding}
+                      onChange={(next) =>
+                        updateSymbol("iconTextFitPadding", next)
+                      }
+                    />
+                    <BooleanField
+                      label="icon-allow-overlap"
+                      value={value.symbol.iconAllowOverlap}
+                      onChange={(next) =>
+                        updateSymbol("iconAllowOverlap", next)
+                      }
+                    />
+                  </>
+                )}
+
+                {geometry.hasPoint && value.pointMode === "heatmap" && (
+                  <>
+                    <Typography.Text strong>热力高级</Typography.Text>
+                    <NumberField
+                      label="heatmap-weight"
+                      value={value.heatmap.heatmapWeight ?? 0.72}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onChange={(next) => updateHeatmap("heatmapWeight", next)}
+                    />
+                  </>
+                )}
+
+                {geometry.hasPoint && value.pointMode !== "heatmap" && (
+                  <>
+                    <Divider className="symbolization-divider" />
+                    <Typography.Text strong>聚合高级</Typography.Text>
+                    <BooleanField
+                      label="cluster-enabled"
+                      value={cluster.enabled}
+                      onChange={(next) => updateCluster("enabled", next)}
+                    />
+                    {cluster.enabled && (
+                      <>
+                        <NumberField
+                          label="cluster-max-zoom"
+                          value={cluster.maxZoom}
+                          min={0}
+                          max={22}
+                          step={1}
+                          onChange={(next) => updateCluster("maxZoom", next)}
+                        />
+                        <NumberField
+                          label="cluster-radius"
+                          value={cluster.radius}
+                          min={1}
+                          max={200}
+                          step={1}
+                          onChange={(next) => updateCluster("radius", next)}
+                        />
+                      </>
+                    )}
+                    <Divider className="symbolization-divider" />
+                    <Typography.Text strong>标注高级</Typography.Text>
+                    <TextListField
+                      label="text-font"
+                      value={value.symbol.textFont}
+                      onChange={(next) => updateSymbol("textFont", next)}
+                    />
+                    <NumberField
+                      label="text-max-width"
+                      value={value.symbol.textMaxWidth}
+                      min={0}
+                      step={0.5}
+                      onChange={(next) => updateSymbol("textMaxWidth", next)}
+                    />
+                    <Tuple2Field
+                      label="text-offset"
+                      value={value.symbol.textOffset}
+                      onChange={(next) => updateSymbol("textOffset", next)}
+                    />
+                    <MultiSelectField
+                      label="text-variable-anchor"
+                      value={value.symbol.textVariableAnchor}
+                      options={anchorOptions}
+                      onChange={(next) =>
+                        updateSymbol(
+                          "textVariableAnchor",
+                          next as SymbolLayerSymbolization["textVariableAnchor"],
+                        )
+                      }
+                    />
+                    <MultiSelectField
+                      label="text-writing-mode"
+                      value={value.symbol.textWritingMode}
+                      options={["horizontal", "vertical"]}
+                      onChange={(next) =>
+                        updateSymbol(
+                          "textWritingMode",
+                          next as SymbolLayerSymbolization["textWritingMode"],
+                        )
+                      }
+                    />
+                    <NumberField
+                      label="text-halo-width"
+                      value={value.symbol.textHaloWidth}
+                      min={0}
+                      max={20}
+                      step={0.5}
+                      onChange={(next) => updateSymbol("textHaloWidth", next)}
+                    />
+                  </>
+                )}
+
+                {geometry.hasLine && (
+                  <>
+                    <Divider className="symbolization-divider" />
+                    <Typography.Text strong>线高级</Typography.Text>
+                    <NumberField
+                      label="line-opacity"
+                      value={value.line.lineOpacity}
+                      min={0}
+                      max={1}
+                      step={0.05}
+                      onChange={(next) => updateLine("lineOpacity", next)}
+                    />
+                    <SelectField
+                      label="line-cap"
+                      value={value.line.lineCap}
+                      options={["butt", "round", "square"]}
+                      onChange={(next) => updateLine("lineCap", next)}
+                    />
+                    <SelectField
+                      label="line-join"
+                      value={value.line.lineJoin}
+                      options={["bevel", "round", "miter", "none"]}
+                      onChange={(next) => updateLine("lineJoin", next)}
+                    />
+                    <Tuple2Field
+                      label="line-dasharray"
+                      value={value.line.lineDasharray}
+                      onChange={(next) => updateLine("lineDasharray", next)}
+                    />
+                    <Tuple2Field
+                      label="line-translate"
+                      value={value.line.lineTranslate}
+                      onChange={(next) => updateLine("lineTranslate", next)}
+                    />
+                  </>
+                )}
+
+                {geometry.hasPolygon && (
+                  <>
+                    <Divider className="symbolization-divider" />
+                    <Typography.Text strong>面高级</Typography.Text>
+                    <BooleanField
+                      label="fill-antialias"
+                      value={value.fill.fillAntialias}
+                      onChange={(next) => updateFill("fillAntialias", next)}
+                    />
+                    <NumberField
+                      label="fill-sort-key"
+                      value={value.fill.fillSortKey}
+                      step={1}
+                      onChange={(next) => updateFill("fillSortKey", next)}
+                    />
+                    <Tuple2Field
+                      label="fill-translate"
+                      value={value.fill.fillTranslate}
+                      onChange={(next) => updateFill("fillTranslate", next)}
+                    />
+                  </>
+                )}
+              </Space>
+            </details>
           </>
         )}
       </Space>
@@ -2250,8 +2291,7 @@ function mergeRecommendedSymbolization(
   current: VectorSymbolization,
   template: RecommendedSymbolizationTemplate,
 ): VectorSymbolization {
-  const symbolization =
-    template.symbolization as Partial<VectorSymbolization>;
+  const symbolization = template.symbolization as Partial<VectorSymbolization>;
   const renderer = symbolization.renderer
     ? markRendererUpdated(
         symbolization.renderer as VectorSymbolization["renderer"],
@@ -2345,12 +2385,16 @@ export function RasterSymbolizationEditor({
   bands,
   onChange,
   onApply,
+  onRestoreDefault,
+  restoringDefault = false,
   datasetId,
 }: {
   value: RasterSymbolization;
   bands: RasterBandMetadata[];
   onChange: (value: RasterSymbolization) => void;
   onApply?: () => void;
+  onRestoreDefault?: () => void;
+  restoringDefault?: boolean;
   datasetId?: number;
 }) {
   const { message } = App.useApp();
@@ -2478,6 +2522,16 @@ export function RasterSymbolizationEditor({
         />
       }
     >
+      {onRestoreDefault ? (
+        <Button
+          block
+          className="symbolization-restore-default"
+          loading={restoringDefault}
+          onClick={onRestoreDefault}
+        >
+          恢复数据默认样式
+        </Button>
+      ) : null}
       <Tabs
         size="small"
         items={[

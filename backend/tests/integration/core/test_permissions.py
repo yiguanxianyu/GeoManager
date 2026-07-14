@@ -6,6 +6,9 @@ from apps.core.initialization import (
     DEFAULT_USER_GROUP_NAME,
     GUEST_GROUP_NAME,
     PLATFORM_ADMIN_GROUP_NAME,
+    PREVIOUS_GUEST_GROUP_PERMISSIONS,
+    PREVIOUS_PLATFORM_ADMIN_GROUP_PERMISSIONS,
+    PREVIOUS_RESEARCH_USER_GROUP_PERMISSIONS,
     RESEARCH_USER_GROUP_NAME,
     SUPERADMIN_GROUP_NAME,
     default_user_group_permissions,
@@ -163,7 +166,7 @@ class SuperadminInitializationTests(TestCase):
         self.assertEqual(group_permissions, set(protected_group_permissions()))
         self.assertIn("core.manage_data_backup", group_permissions)
 
-    def test_ensure_superadmin_defaults_creates_platform_admin_group_without_backup(
+    def test_ensure_superadmin_defaults_creates_platform_data_admin_group(
         self,
     ):
         ensure_superadmin_defaults(create_account=False)
@@ -175,6 +178,9 @@ class SuperadminInitializationTests(TestCase):
         self.assertIn("core.manage_feature_permissions", group_permissions)
         self.assertIn("catalog.change_dataresource", group_permissions)
         self.assertIn("raster.manage_raster_dataset", group_permissions)
+        self.assertNotIn("core.manage_system_settings", group_permissions)
+        self.assertNotIn("core.view_system_logs", group_permissions)
+        self.assertNotIn("core.view_dashboard_system_card", group_permissions)
         self.assertNotIn("core.manage_data_backup", group_permissions)
 
     def test_ensure_superadmin_defaults_creates_research_user_group(self):
@@ -186,10 +192,50 @@ class SuperadminInitializationTests(TestCase):
         self.assertIn("catalog.add_dataresource", group_permissions)
         self.assertIn("catalog.export_dataresource", group_permissions)
         self.assertIn("core.ai_interpretation", group_permissions)
+        self.assertIn("catalog.delete_workspacescene", group_permissions)
         self.assertNotIn("catalog.delete_dataresource", group_permissions)
         self.assertNotIn("core.manage_auth", group_permissions)
 
-    def test_ensure_superadmin_defaults_creates_default_user_group_with_data_create_permission(
+    def test_previous_builtin_role_defaults_are_migrated_to_stable_defaults(self):
+        migrations = (
+            (
+                PLATFORM_ADMIN_GROUP_NAME,
+                PREVIOUS_PLATFORM_ADMIN_GROUP_PERMISSIONS,
+                platform_admin_group_permissions(),
+            ),
+            (
+                RESEARCH_USER_GROUP_NAME,
+                PREVIOUS_RESEARCH_USER_GROUP_PERMISSIONS,
+                research_user_group_permissions(),
+            ),
+            (
+                GUEST_GROUP_NAME,
+                PREVIOUS_GUEST_GROUP_PERMISSIONS,
+                guest_group_permissions(),
+            ),
+        )
+        for group_name, previous_permissions, _ in migrations:
+            group = Group.objects.get(name=group_name)
+            group.permissions.set(
+                [
+                    Permission.objects.get(
+                        content_type__app_label=permission_name.split(".", 1)[0],
+                        codename=permission_name.split(".", 1)[1],
+                    )
+                    for permission_name in previous_permissions
+                ]
+            )
+
+        ensure_superadmin_defaults(create_account=False)
+
+        for group_name, _, expected_permissions in migrations:
+            with self.subTest(group_name=group_name):
+                group = Group.objects.get(name=group_name)
+                self.assertEqual(
+                    _group_feature_permissions(group), expected_permissions
+                )
+
+    def test_ensure_superadmin_defaults_creates_default_user_group_for_basic_browsing(
         self,
     ):
         ensure_superadmin_defaults(create_account=False)
@@ -197,12 +243,15 @@ class SuperadminInitializationTests(TestCase):
         group = Group.objects.get(name=DEFAULT_USER_GROUP_NAME)
         group_permissions = _group_feature_permissions(group)
         self.assertEqual(group_permissions, default_user_group_permissions())
-        self.assertIn("catalog.add_dataresource", group_permissions)
-        self.assertIn("catalog.add_workspacescene", group_permissions)
         self.assertIn("catalog.view_workspacescene", group_permissions)
-        self.assertIn("catalog.change_workspacescene", group_permissions)
+        self.assertIn("catalog.view_mapcomposition", group_permissions)
         self.assertIn("core.load_vector_layer", group_permissions)
         self.assertIn("core.load_raster_layer", group_permissions)
+        self.assertNotIn("catalog.add_dataresource", group_permissions)
+        self.assertNotIn("catalog.add_workspacescene", group_permissions)
+        self.assertNotIn("catalog.change_workspacescene", group_permissions)
+        self.assertNotIn("catalog.add_mapcomposition", group_permissions)
+        self.assertNotIn("catalog.change_mapcomposition", group_permissions)
         self.assertNotIn("catalog.view_dataresource", group_permissions)
         self.assertNotIn("catalog.change_dataresource", group_permissions)
         self.assertNotIn("catalog.delete_dataresource", group_permissions)
@@ -265,7 +314,7 @@ class SuperadminInitializationTests(TestCase):
         group.refresh_from_db()
         self.assertEqual(_group_feature_permissions(group), {"core.query_data"})
 
-    def test_ensure_superadmin_defaults_creates_guest_group_without_permissions(
+    def test_ensure_superadmin_defaults_creates_guest_group_for_public_browsing(
         self,
     ):
         ensure_superadmin_defaults(create_account=False)
@@ -273,7 +322,13 @@ class SuperadminInitializationTests(TestCase):
         group = Group.objects.get(name=GUEST_GROUP_NAME)
         group_permissions = _group_feature_permissions(group)
         self.assertEqual(group_permissions, guest_group_permissions())
-        self.assertEqual(group_permissions, set())
+        self.assertIn("core.browse_data", group_permissions)
+        self.assertIn("core.query_data", group_permissions)
+        self.assertIn("core.load_vector_layer", group_permissions)
+        self.assertIn("core.load_raster_layer", group_permissions)
+        self.assertIn("catalog.view_workspacescene", group_permissions)
+        self.assertNotIn("catalog.add_dataresource", group_permissions)
+        self.assertNotIn("catalog.export_dataresource", group_permissions)
         self.assertNotIn("core.manage_data_backup", group_permissions)
 
     def test_ensure_superadmin_defaults_preserves_guest_group_custom_permissions(

@@ -28,7 +28,6 @@ import {
   Typography,
   Upload,
 } from "antd";
-import { fromArrayBuffer } from "geotiff";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ApiError, api } from "../api/client";
@@ -41,15 +40,19 @@ import type {
   ImportCoordinateStats,
   ImportDuplicateTarget,
   ImportPreview,
+  RasterImportCommitPayload,
+  RasterImportPreview,
   RasterJob,
   ImportValidatePayload,
   ImportValidationIssue,
+  VectorImportCommitResult,
 } from "../types";
 import {
   normalizeImportValues,
   type ImportAccessScopeId,
   type ImportFormValues,
 } from "./importValues";
+import VectorImportWorkflow from "./VectorImportWorkflow";
 
 type IssueAction = "continue" | "import";
 type ImportKind = "tabular" | "raster" | "vector" | "unsupported";
@@ -77,6 +80,7 @@ const domainColors: Record<DataDomainType, string> = {
   field_survey: "orange",
   remote_sensing: "blue",
   molecular: "purple",
+  vector: "magenta",
   other: "default",
 };
 
@@ -182,6 +186,15 @@ const fallbackDomainDefinitions: DomainDefinition[] = [
     ],
   },
   {
+    code: "vector",
+    name: "矢量数据",
+    spatialClass: "spatial",
+    description:
+      "以点、线、面几何为主体的 Shapefile、GeoJSON、GeoPackage 等空间矢量资源，支持统一入库、查询、符号化和地图展示。",
+    recommendedResourceTypes: ["vector"],
+    coreEntities: ["DataResource", "VectorDataset", "MapLayer"],
+  },
+  {
     code: "other",
     name: "其他类型",
     spatialClass: "spatialized_table",
@@ -260,6 +273,7 @@ const domainFieldHints: Record<DataDomainType, string[]> = {
     "位点/标记",
     "结果文件",
   ],
+  vector: ["源图层", "几何类型", "坐标系", "空间范围", "属性字段", "几何质量"],
   other: [
     "资源编号",
     "来源文件",
@@ -277,6 +291,7 @@ export default function AdminDataImportPage() {
   const navigate = useNavigate();
   const allowNavigationRef = useRef(false);
   const currentPathRef = useRef("");
+  const rasterPreviewRequestRef = useRef(0);
   const [form] = Form.useForm<ImportFormValues>();
   const [schema, setSchema] = useState<DataSchemaSummary | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
@@ -316,6 +331,12 @@ export default function AdminDataImportPage() {
     string | null
   >(null);
   const [rasterFile, setRasterFile] = useState<File | null>(null);
+  const [rasterFiles, setRasterFiles] = useState<File[]>([]);
+  const [rasterPreview, setRasterPreview] =
+    useState<RasterImportPreview | null>(null);
+  const [rasterPreviewError, setRasterPreviewError] = useState<string | null>(
+    null,
+  );
   const [rasterName, setRasterName] = useState("");
   const [rasterDimensions, setRasterDimensions] =
     useState<RasterDimensions | null>(null);
@@ -325,11 +346,25 @@ export default function AdminDataImportPage() {
   const [completedRasterUploadProgress, setCompletedRasterUploadProgress] =
     useState(0);
   const [rasterJob, setRasterJob] = useState<RasterJob | null>(null);
+  const [rasterKind, setRasterKind] =
+    useState<RasterImportCommitPayload["rasterKind"]>("imagery");
+  const [rasterResampling, setRasterResampling] =
+    useState<RasterImportCommitPayload["resampling"]>("bilinear");
+  const [rasterDefaultRules, setRasterDefaultRules] = useState<
+    Record<string, unknown>
+  >({});
+  const [rasterAccessGroupIds, setRasterAccessGroupIds] = useState<number[]>(
+    [],
+  );
+  const [vectorFile, setVectorFile] = useState<File | null>(null);
+  const [vectorResult, setVectorResult] =
+    useState<VectorImportCommitResult | null>(null);
   const [unsupportedFile, setUnsupportedFile] = useState<File | null>(null);
   const hasUnfinishedImport = Boolean(
     (file && !result) ||
     (rasterFile && !rasterJob) ||
-    (rasterJob && isActiveRasterJob(rasterJob)),
+    (rasterJob && isActiveRasterJob(rasterJob)) ||
+    (vectorFile && !vectorResult),
   );
 
   const domainDefinitions = useMemo(
@@ -411,7 +446,7 @@ export default function AdminDataImportPage() {
     if (importKind === "vector") {
       return [
         { title: "选择文件", icon: <CloudUploadOutlined /> },
-        { title: "矢量识别", icon: <FileSearchOutlined /> },
+        { title: "预检与入库", icon: <DatabaseOutlined /> },
       ];
     }
     return [
@@ -642,6 +677,7 @@ export default function AdminDataImportPage() {
   }
 
   function resetImportState() {
+    rasterPreviewRequestRef.current += 1;
     setImportKind(null);
     setFile(null);
     setPreview(null);
@@ -659,6 +695,9 @@ export default function AdminDataImportPage() {
     setResult(null);
     setImportConfig({});
     setRasterFile(null);
+    setRasterFiles([]);
+    setRasterPreview(null);
+    setRasterPreviewError(null);
     setRasterName("");
     setRasterDimensions(null);
     setRasterInspecting(false);
@@ -666,33 +705,70 @@ export default function AdminDataImportPage() {
     setRasterUploading(false);
     setRasterUploadProgress(0);
     setCompletedRasterUploadProgress(0);
+    setRasterKind("imagery");
+    setRasterResampling("bilinear");
+    setRasterDefaultRules({});
+    setRasterAccessGroupIds([]);
+    setVectorFile(null);
+    setVectorResult(null);
     setUnsupportedFile(null);
     setCurrentStep(0);
     form.resetFields();
+  }
+
+  async function previewRasterFiles(
+    selectedFiles: File[],
+    primaryFileName?: string,
+  ) {
+    const requestId = rasterPreviewRequestRef.current + 1;
+    rasterPreviewRequestRef.current = requestId;
+    setRasterInspecting(true);
+    setRasterPreview(null);
+    setRasterPreviewError(null);
+    try {
+      const inspected = await api.previewRasterImport(
+        selectedFiles,
+        primaryFileName,
+      );
+      if (requestId !== rasterPreviewRequestRef.current) {
+        return;
+      }
+      setRasterPreview(inspected);
+      setRasterName((current) => current || inspected.suggestedName);
+      setRasterDimensions({
+        width: inspected.metadata.size[0] ?? 0,
+        height: inspected.metadata.size[1] ?? 0,
+      });
+      setRasterKind(inspected.rasterKind);
+      setRasterResampling(inspected.resampling);
+      setRasterDefaultRules(inspected.defaultRules);
+      message.success("栅格数据包预检完成，请确认导入与显示配置");
+    } catch (error) {
+      if (requestId !== rasterPreviewRequestRef.current) {
+        return;
+      }
+      setRasterDimensions(null);
+      const errorText =
+        error instanceof Error ? error.message : "栅格数据包预检失败";
+      setRasterPreviewError(errorText);
+      message.error(errorText);
+    } finally {
+      if (requestId === rasterPreviewRequestRef.current) {
+        setRasterInspecting(false);
+      }
+    }
   }
 
   async function handleFileSelected(selectedFile: File) {
     const kind = detectImportKind(selectedFile);
     resetImportState();
     if (kind === "raster") {
-      setRasterInspecting(true);
-      const validation = await validateRasterBeforeUpload(
-        selectedFile,
-        bootstrap.limits.uploadMaxMb,
-        bootstrap.limits.maxRasterSidePixels,
-      );
-      setRasterInspecting(false);
-      if (!validation.ok) {
-        setImportKind(null);
-        message.error(validation.error);
-        return;
-      }
       setImportKind("raster");
       setRasterFile(selectedFile);
+      setRasterFiles([selectedFile]);
       setRasterName(fileStem(selectedFile.name));
-      setRasterDimensions(validation.dimensions);
       setCurrentStep(1);
-      message.success("已识别为栅格数据，请确认名称后启动预处理");
+      void previewRasterFiles([selectedFile], selectedFile.name);
       return;
     }
     if (kind === "tabular") {
@@ -702,10 +778,10 @@ export default function AdminDataImportPage() {
     }
     if (kind === "vector") {
       setImportKind("vector");
-      setUnsupportedFile(selectedFile);
+      setVectorFile(selectedFile);
       setCurrentStep(1);
-      message.info(
-        "已识别为矢量数据，当前版本请走表格空间化或后续矢量导入流程。",
+      message.success(
+        "已识别为矢量数据，正在执行图层、编码、坐标系和几何质量预检",
       );
       return;
     }
@@ -821,9 +897,41 @@ export default function AdminDataImportPage() {
     await submitImport(ignoreCoordinateUncertainty);
   }
 
+  function addRasterCompanionFiles(selectedFiles: File[]) {
+    const merged = new Map(
+      rasterFiles.map((file) => [file.name.toLowerCase(), file] as const),
+    );
+    selectedFiles.forEach((file) => merged.set(file.name.toLowerCase(), file));
+    const nextFiles = Array.from(merged.values());
+    setRasterFiles(nextFiles);
+    const primaryName = rasterPreview?.primaryFileName ?? rasterFile?.name;
+    void previewRasterFiles(nextFiles, primaryName);
+  }
+
+  function updateRasterRgbBand(index: number, band: number) {
+    const current = Array.isArray(rasterDefaultRules.bands)
+      ? [...(rasterDefaultRules.bands as number[])]
+      : [1, 2, 3];
+    while (current.length < 3) current.push(current[current.length - 1] ?? 1);
+    current[index] = band;
+    setRasterDefaultRules((rules) => ({
+      ...rules,
+      mode: "rgb",
+      bands: current.slice(0, 3),
+    }));
+  }
+
   async function handleRasterImport() {
-    if (!rasterFile) {
+    if (!rasterFile || rasterFiles.length === 0) {
       message.warning("请先选择栅格文件");
+      return;
+    }
+    if (!rasterPreview) {
+      message.warning("请先通过栅格数据包预检");
+      return;
+    }
+    if (!rasterName.trim()) {
+      message.warning("请输入栅格数据名称");
       return;
     }
     setRasterUploading(true);
@@ -831,7 +939,15 @@ export default function AdminDataImportPage() {
     setCompletedRasterUploadProgress(0);
     setRasterJob(null);
     try {
-      const job = await api.importRaster(rasterFile, rasterName, (percent) => {
+      const payload: RasterImportCommitPayload = {
+        primaryFileName: rasterPreview.primaryFileName,
+        name: rasterName.trim(),
+        rasterKind,
+        resampling: rasterResampling,
+        defaultRules: rasterDefaultRules,
+        accessGroupIds: rasterAccessGroupIds,
+      };
+      const job = await api.importRaster(rasterFiles, payload, (percent) => {
         setRasterUploadProgress(percent);
       });
       setCompletedRasterUploadProgress(100);
@@ -985,8 +1101,9 @@ export default function AdminDataImportPage() {
                   选择或拖拽数据文件
                 </Typography.Title>
                 <Typography.Text type="secondary">
-                  支持 CSV、Excel 表格和 GeoTIFF、IMG、VRT
-                  栅格文件；系统会根据文件类型自动进入后续流程。
+                  支持 CSV、Excel、矢量文件，以及 GeoTIFF/COG、IMG、VRT、 ENVI
+                  DAT/BSQ/BIL/BIP + HDR
+                  栅格数据包；系统会根据文件类型自动进入后续流程。
                 </Typography.Text>
                 <div className="import-selected-file">
                   {previewing ? (
@@ -1040,7 +1157,9 @@ export default function AdminDataImportPage() {
                     {preview.columns.length}
                   </Descriptions.Item>
                   <Descriptions.Item label="自动识别">
-                    {preview.detected.isGeographic ? "经纬度表格" : "普通表格"}
+                    {preview.detected.isGeographic
+                      ? "地理数据（经纬度表格）"
+                      : "非地理数据（普通表格）"}
                   </Descriptions.Item>
                   <Descriptions.Item label="建议存储标识" span={2}>
                     {preview.suggestedTableName}
@@ -1353,10 +1472,10 @@ export default function AdminDataImportPage() {
 
               {!preview.detected.isGeographic && (
                 <Alert
-                  type="warning"
+                  type="info"
                   showIcon
-                  title="未自动识别经纬度列"
-                  description="可以手动选择经度列和纬度列后按空间点表入库，也可以保留为普通属性表，后续通过样品编号、样方编号或地点字段再做标准化关联。"
+                  title="已自动归类为非地理数据"
+                  description="当前工作表未识别到可用的经纬度列，系统已默认按普通属性表入库；提交后只会显示在非地理数据资源列表中。若文件实际使用非标准坐标列名，可手动切换为空间点表并明确选择经度列和纬度列。"
                 />
               )}
 
@@ -1377,7 +1496,7 @@ export default function AdminDataImportPage() {
                   type="primary"
                   icon={<CloudUploadOutlined style={{ fontSize: 16 }} />}
                   loading={rasterUploading}
-                  disabled={!rasterFile}
+                  disabled={!rasterPreview || rasterInspecting}
                   onClick={handleRasterImport}
                 >
                   上传并预处理
@@ -1387,9 +1506,62 @@ export default function AdminDataImportPage() {
               <Alert
                 type="info"
                 showIcon
-                title="已识别为栅格数据"
-                description={`上传前已校验文件大小不超过 ${bootstrap.limits.uploadMaxMb} MB、单边长度不超过 ${bootstrap.limits.maxRasterSidePixels} 像素；上传后后台会自动预处理为 EPSG:3857 COG，并实时显示任务进度。`}
+                title={
+                  rasterInspecting
+                    ? "正在预检栅格数据包"
+                    : rasterPreview
+                      ? "栅格数据包预检通过"
+                      : rasterPreviewError
+                        ? "栅格预检未通过"
+                        : "尚未完成栅格预检"
+                }
+                description={
+                  rasterInspecting
+                    ? "正在使用 GDAL 读取文件格式、坐标系、尺寸和波段信息，请稍候。"
+                    : rasterPreviewError
+                      ? rasterPreviewError
+                      : rasterFileNeedsCompanions(rasterFile.name)
+                        ? "该文件类型需要配套文件：DAT/BSQ/BIL/BIP 需同名 HDR；VRT 需同时上传全部引用文件。"
+                        : `单个 GeoTIFF/COG 或 IMG 可直接导入，无需辅助文件。后端会使用 GDAL 校验文件大小不超过 ${bootstrap.limits.uploadMaxMb} MB、单边长度不超过 ${bootstrap.limits.maxRasterSidePixels} 像素。`
+                }
               />
+
+              <section className="import-section">
+                <Typography.Title level={5}>栅格数据包</Typography.Title>
+                <Space size={[6, 6]} wrap>
+                  {rasterFiles.map((file) => (
+                    <Tag key={`${file.name}-${file.size}`}>{file.name}</Tag>
+                  ))}
+                </Space>
+                <div style={{ marginTop: 12 }}>
+                  <Upload
+                    multiple
+                    showUploadList={false}
+                    beforeUpload={(selectedFile, selectedBatch) => {
+                      if (selectedFile === selectedBatch[0]) {
+                        addRasterCompanionFiles(selectedBatch);
+                      }
+                      return false;
+                    }}
+                  >
+                    <Button
+                      icon={<CloudUploadOutlined />}
+                      loading={rasterInspecting}
+                    >
+                      补充 HDR、VRT 引用或可选辅助文件
+                    </Button>
+                  </Upload>
+                </div>
+                {rasterPreview?.warnings.map((warning) => (
+                  <Alert
+                    key={warning}
+                    type="warning"
+                    showIcon
+                    title={warning}
+                    style={{ marginTop: 10 }}
+                  />
+                ))}
+              </section>
 
               <section className="import-section">
                 <Typography.Title level={5}>
@@ -1420,7 +1592,8 @@ export default function AdminDataImportPage() {
                   {rasterFile.name}
                 </Descriptions.Item>
                 <Descriptions.Item label="文件类型">
-                  {rasterFileExtensionLabel(rasterFile.name)}
+                  {rasterPreview?.sourceFormat ??
+                    rasterFileExtensionLabel(rasterFile.name)}
                 </Descriptions.Item>
                 <Descriptions.Item label="像素尺寸">
                   {rasterDimensions
@@ -1429,6 +1602,12 @@ export default function AdminDataImportPage() {
                 </Descriptions.Item>
                 <Descriptions.Item label="大小上限">
                   {bootstrap.limits.uploadMaxMb} MB
+                </Descriptions.Item>
+                <Descriptions.Item label="坐标系">
+                  {rasterPreview?.metadata.coordinateSystem || "未识别"}
+                </Descriptions.Item>
+                <Descriptions.Item label="波段数">
+                  {rasterPreview?.metadata.bands.length ?? "-"}
                 </Descriptions.Item>
               </Descriptions>
 
@@ -1440,6 +1619,98 @@ export default function AdminDataImportPage() {
                   onChange={(event) => setRasterName(event.target.value)}
                   placeholder="栅格数据名称，默认取文件名"
                   disabled={rasterUploading}
+                />
+              </section>
+
+              <section className="import-section">
+                <Typography.Title level={5}>预处理与默认显示</Typography.Title>
+                <div className="import-config-grid">
+                  <div>
+                    <Typography.Text>栅格类型</Typography.Text>
+                    <Select
+                      value={rasterKind}
+                      style={{ width: "100%", marginTop: 6 }}
+                      options={[
+                        { value: "imagery", label: "多波段遥感影像" },
+                        { value: "continuous", label: "连续型指标/高程" },
+                        { value: "categorical", label: "分类栅格" },
+                      ]}
+                      onChange={(value) => {
+                        setRasterKind(value);
+                        setRasterResampling(
+                          value === "categorical" ? "nearest" : "bilinear",
+                        );
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <Typography.Text>重采样方式</Typography.Text>
+                    <Select
+                      value={rasterResampling}
+                      style={{ width: "100%", marginTop: 6 }}
+                      options={[
+                        { value: "nearest", label: "最近邻（分类数据）" },
+                        { value: "bilinear", label: "双线性（连续影像）" },
+                        { value: "cubic", label: "三次卷积（高质量影像）" },
+                      ]}
+                      onChange={setRasterResampling}
+                    />
+                  </div>
+                </div>
+
+                {(rasterPreview?.metadata.bands.length ?? 0) >= 3 && (
+                  <div style={{ marginTop: 14 }}>
+                    <Space wrap>
+                      <Typography.Text>RGB 波段：</Typography.Text>
+                      {[0, 1, 2].map((index) => (
+                        <Select
+                          key={index}
+                          aria-label={`RGB 波段 ${index + 1}`}
+                          value={
+                            (
+                              rasterDefaultRules.bands as number[] | undefined
+                            )?.[index] ?? index + 1
+                          }
+                          style={{ width: 110 }}
+                          options={(rasterPreview?.metadata.bands ?? []).map(
+                            (band) => ({
+                              value: band.band,
+                              label: `Band ${band.band}`,
+                            }),
+                          )}
+                          onChange={(band) => updateRasterRgbBand(index, band)}
+                        />
+                      ))}
+                      {(rasterPreview?.metadata.bands.length ?? 0) >= 8 && (
+                        <Button
+                          onClick={() =>
+                            setRasterDefaultRules((rules) => ({
+                              ...rules,
+                              mode: "rgb",
+                              bands: [5, 3, 2],
+                            }))
+                          }
+                        >
+                          WorldView 8 波段自然色
+                        </Button>
+                      )}
+                    </Space>
+                  </div>
+                )}
+              </section>
+
+              <section className="import-section">
+                <Typography.Title level={5}>数据可见权限</Typography.Title>
+                <Select
+                  mode="multiple"
+                  value={rasterAccessGroupIds}
+                  placeholder="选择额外可访问角色；上传者本人始终可见"
+                  style={{ width: "100%" }}
+                  options={availableAccessGroups.map((group) => ({
+                    value: group.id,
+                    label: group.name,
+                  }))}
+                  onChange={setRasterAccessGroupIds}
                 />
               </section>
 
@@ -1461,36 +1732,40 @@ export default function AdminDataImportPage() {
             </div>
           )}
 
-          {currentStep === 1 &&
-            (importKind === "unsupported" || importKind === "vector") && (
-              <section className="import-step-pane">
-                <Result
-                  status={importKind === "vector" ? "info" : "warning"}
-                  title={
-                    importKind === "vector"
-                      ? "已识别为矢量数据"
-                      : "暂不支持自动导入该文件类型"
-                  }
-                  subTitle={
-                    importKind === "vector" && unsupportedFile
-                      ? `${unsupportedFile.name} 属于矢量原始文件。当前页面已支持表格空间化和栅格预处理；矢量原始文件入库需要接入独立的几何校验、坐标系识别和字段映射流程。`
-                      : unsupportedFile
-                        ? `${unsupportedFile.name} 未匹配到当前可用的表格或栅格导入流程。`
-                        : "未匹配到当前可用的表格或栅格导入流程。"
-                  }
-                  extra={[
-                    <Button
-                      key="again"
-                      type="primary"
-                      icon={<ReloadOutlined />}
-                      onClick={resetImportState}
-                    >
-                      重新选择文件
-                    </Button>,
-                  ]}
-                />
-              </section>
-            )}
+          {currentStep === 1 && importKind === "vector" && vectorFile && (
+            <VectorImportWorkflow
+              key={`${vectorFile.name}-${vectorFile.lastModified}`}
+              file={vectorFile}
+              domainDefinitions={domainDefinitions}
+              availableAccessGroups={availableAccessGroups}
+              onReset={resetImportState}
+              onCompleted={setVectorResult}
+            />
+          )}
+
+          {currentStep === 1 && importKind === "unsupported" && (
+            <section className="import-step-pane">
+              <Result
+                status="warning"
+                title="暂不支持自动导入该文件类型"
+                subTitle={
+                  unsupportedFile
+                    ? `${unsupportedFile.name} 未匹配到当前可用的表格、栅格或矢量导入流程。`
+                    : "未匹配到当前可用的导入流程。"
+                }
+                extra={[
+                  <Button
+                    key="again"
+                    type="primary"
+                    icon={<ReloadOutlined />}
+                    onClick={resetImportState}
+                  >
+                    重新选择文件
+                  </Button>,
+                ]}
+              />
+            </section>
+          )}
 
           {currentStep === 2 && importKind === "tabular" && preview && (
             <section className="import-step-pane">
@@ -1500,6 +1775,16 @@ export default function AdminDataImportPage() {
                   title="数据导入完成"
                   subTitle={`已导入 ${result.resourceName}，共 ${result.importedRows} 行。`}
                   extra={[
+                    <Button
+                      key="view"
+                      onClick={() =>
+                        navigate(result.mode === "table" ? "/nongeo" : "/map")
+                      }
+                    >
+                      {result.mode === "table"
+                        ? "查看非地理数据"
+                        : "查看地理数据"}
+                    </Button>,
                     <Button
                       key="again"
                       type="primary"
@@ -2027,7 +2312,7 @@ function inferDomainTypeFromFile(
   fileName: string,
   preview?: ImportPreview,
 ): DataDomainType {
-  if (/\.(tif|tiff|img|vrt)$/i.test(fileName)) {
+  if (/\.(tif|tiff|img|vrt|dat|bsq|bil|bip)$/i.test(fileName)) {
     return "remote_sensing";
   }
   const text = `${fileName} ${preview?.columns.join(" ") ?? ""}`.toLowerCase();
@@ -2100,7 +2385,11 @@ function detectImportKind(file: File): ImportKind {
   if ([".csv", ".xls", ".xlsx"].includes(extension)) {
     return "tabular";
   }
-  if ([".tif", ".tiff", ".img", ".vrt"].includes(extension)) {
+  if (
+    [".tif", ".tiff", ".img", ".vrt", ".dat", ".bsq", ".bil", ".bip"].includes(
+      extension,
+    )
+  ) {
     return "raster";
   }
   if (
@@ -2123,49 +2412,18 @@ function rasterFileExtensionLabel(name: string) {
       return "IMG";
     case ".vrt":
       return "VRT";
+    case ".dat":
+    case ".bsq":
+    case ".bil":
+    case ".bip":
+      return "ENVI 栅格";
     default:
       return extension || "未知";
   }
 }
 
-async function validateRasterBeforeUpload(
-  file: File,
-  uploadMaxMb: number,
-  maxRasterSidePixels: number,
-): Promise<
-  { ok: true; dimensions: RasterDimensions } | { ok: false; error: string }
-> {
-  const maxBytes = uploadMaxMb * 1024 * 1024;
-  if (file.size > maxBytes) {
-    return {
-      ok: false,
-      error: `栅格文件大小不能超过 ${uploadMaxMb} MB`,
-    };
-  }
-
-  try {
-    const tiff = await fromArrayBuffer(await file.arrayBuffer());
-    const image = await tiff.getImage();
-    const dimensions = {
-      width: image.getWidth(),
-      height: image.getHeight(),
-    };
-    if (
-      dimensions.width > maxRasterSidePixels ||
-      dimensions.height > maxRasterSidePixels
-    ) {
-      return {
-        ok: false,
-        error: `栅格单边长度不能超过 ${maxRasterSidePixels} 像素，当前为 ${dimensions.width} x ${dimensions.height}`,
-      };
-    }
-    return { ok: true, dimensions };
-  } catch {
-    return {
-      ok: false,
-      error: "无法读取栅格尺寸，请确认文件为有效 GeoTIFF",
-    };
-  }
+function rasterFileNeedsCompanions(name: string) {
+  return /\.(dat|bsq|bil|bip|vrt)$/i.test(name);
 }
 
 function DuplicateTargetAlert({

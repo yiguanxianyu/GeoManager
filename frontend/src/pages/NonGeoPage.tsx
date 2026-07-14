@@ -38,10 +38,12 @@ import type { TableProps } from "antd";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { api } from "../api/client";
 import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useAppContext } from "../contexts/AppContext";
 import type { DataDomainType, DataResource, ResourceListItem } from "../types";
 import {
+  isNonGeographicResource,
   resourceCategoryName,
   resourceFormatLabel,
   resourceProvider,
@@ -242,6 +244,8 @@ const demoResources: DataResource[] = [
     name: "胡杨样地群落监测示例表",
     code: "demo-populus-community-table",
     dataType: "table",
+    spatialClass: "non_spatial",
+    domainType: "community",
     category: null,
     source: "前端演示数据",
     provider: "中亚胡杨林生态系统保护项目组",
@@ -263,6 +267,8 @@ const demoResources: DataResource[] = [
     name: "胡杨遗传标记示例集",
     code: "demo-populus-gene-table",
     dataType: "gene",
+    spatialClass: "non_spatial",
+    domainType: "molecular",
     category: null,
     source: "前端演示数据",
     provider: "中亚胡杨林生态系统保护项目组",
@@ -636,40 +642,58 @@ export default function NonGeoPage() {
   const loadResources = useCallback(async () => {
     if (!canBrowseData) {
       setResources([]);
+      setActiveResourceId(null);
       return;
     }
     setLoadingResources(true);
-    setResources(demoResources);
-    setActiveResourceId((current) =>
-      current !== null &&
-      demoResources.some((resource) => resource.id === current)
-        ? current
-        : (demoResources[0]?.id ?? null),
-    );
-    setLoadingResources(false);
-  }, [canBrowseData]);
+    try {
+      const response = await api.resources({
+        spatialClass: "non_spatial",
+        ...(selectedDomainType ? { domainType: selectedDomainType } : {}),
+      });
+      const items = response.items.filter(isNonGeographicResource);
+      setResources(items);
+      setActiveResourceId((current) =>
+        current !== null && items.some((resource) => resource.id === current)
+          ? current
+          : (items[0]?.id ?? null),
+      );
+    } catch (error) {
+      setResources([]);
+      setActiveResourceId(null);
+      message.error(
+        error instanceof Error ? error.message : "非地理数据资源加载失败",
+      );
+    } finally {
+      setLoadingResources(false);
+    }
+  }, [canBrowseData, message, selectedDomainType]);
 
-  const loadAnalytics = useCallback(async (resourceId: number) => {
-    setLoadingAnalytics(true);
-    setAnalyticsError("");
-    setTableResult(null);
-    const resource = demoResources.find((item) => item.id === resourceId);
-    setAnalytics(
-      resource
-        ? {
-            ...demoAnalytics,
-            resource,
-            tablePreview: {
-              ...demoTablePreview,
-              resourceId: resource.id,
-              resourceName: resource.name,
-            },
-          }
-        : null,
-    );
-    setAnalyticsError(resource ? "" : "未找到示例资源");
-    setLoadingAnalytics(false);
-  }, []);
+  const loadAnalytics = useCallback(
+    async (resourceId: number) => {
+      setLoadingAnalytics(true);
+      setAnalyticsError("");
+      setTableResult(null);
+      const resource = resources.find((item) => item.id === resourceId);
+      if (resource) {
+        setAnalytics({
+          ...demoAnalytics,
+          resource,
+          tablePreview: {
+            ...demoTablePreview,
+            resourceId: resource.id,
+            resourceName: resource.name,
+          },
+        });
+        setAnalyticsError("");
+      } else {
+        setAnalytics(null);
+        setAnalyticsError("未找到非地理数据资源");
+      }
+      setLoadingAnalytics(false);
+    },
+    [resources],
+  );
 
   const queryTable = useCallback(async () => {
     if (!activeResourceId) {
@@ -841,6 +865,7 @@ export default function NonGeoPage() {
               <Button
                 size="small"
                 type="text"
+                aria-label="刷新非地理数据资源"
                 icon={<ReloadOutlined />}
                 loading={loadingResources}
                 onClick={() => void loadResources()}
@@ -1355,7 +1380,7 @@ function ResourceRow({
   active: boolean;
   onSelect: () => void;
 }) {
-  const typeLabel = resource.dataType;
+  const typeLabel = nonGeoResourceTypeLabel(resource.dataType);
   const count = resource.itemCount;
   return (
     <button
@@ -1381,6 +1406,21 @@ function ResourceRow({
       </span>
     </button>
   );
+}
+
+function nonGeoResourceTypeLabel(dataType: ResourceListItem["dataType"]) {
+  switch (dataType) {
+    case "table":
+      return "表格";
+    case "gene":
+      return "遗传";
+    case "document":
+      return "文档";
+    case "image":
+      return "图片";
+    default:
+      return dataType;
+  }
 }
 
 function PanelTitle({

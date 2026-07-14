@@ -8,9 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Added role-scoped thematic publishing with immutable published versions, audience groups, object-level capabilities and restore-to-project workflow
+- Added workspace snapshots, resource manifests and SHA-256 checksums to thematic output versions for reproducible project restoration
+- Added project-to-thematic-map composition workflow with persisted layouts, immutable versions, PNG/JPG/PDF artifacts, preview, publish and archive actions
+- Added A4/A3 layouts, overview maps, geographic/Web Mercator grids, automatic legends, north arrows, scale bars, data sources and cartographic notes
 - Version management system with bump scripts for frontend and backend
 - Makefile for unified version management commands
 - CHANGELOG.md to track project changes
+
+### Fixed
+
+- Unified thematic inventory around `MapComposition`; removed the duplicate legacy `WorkspaceScene(topic)` creation and display flow
+- Kept draft and unpublished thematic maps private to their owners, platform administrators and super administrators
+- Preserve unsaved map-composition edits when the live map view or source summary changes
+- Recommend usable geographic and Web Mercator grid intervals for both local and regional extents
 
 ## [0.1.0] - 2026-05-28
 

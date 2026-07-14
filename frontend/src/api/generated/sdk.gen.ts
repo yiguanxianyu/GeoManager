@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateAdminBackupRunData, CreateAdminBackupRunErrors, CreateAdminBackupRunResponses, CreateAdminDataResourceGroupData, CreateAdminDataResourceGroupErrors, CreateAdminDataResourceGroupResponses, CreateCatalogWorkspaceData, CreateCatalogWorkspaceErrors, CreateCatalogWorkspaceResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DownloadAdminBackupRunData, DownloadAdminBackupRunErrors, DownloadAdminBackupRunResponses, DownloadExportData, DownloadExportErrors, DownloadExportResponses, ExportAdminDataResourcesData, ExportAdminDataResourcesErrors, ExportAdminDataResourcesResponses, ExportLayersAsyncData, ExportLayersAsyncErrors, ExportLayersAsyncResponses, ExportLayersData, ExportLayersErrors, ExportLayersResponses, GetAdminBackupOverviewData, GetAdminBackupOverviewErrors, GetAdminBackupOverviewResponses, GetAdminBackupRunData, GetAdminBackupRunErrors, GetAdminBackupRunResponses, GetAdminBackupSettingsData, GetAdminBackupSettingsErrors, GetAdminBackupSettingsResponses, GetAdminDashboardData, GetAdminDashboardErrors, GetAdminDashboardResponses, GetAdminDashboardServerData, GetAdminDashboardServerErrors, GetAdminDashboardServerResponses, GetAdminProfileData, GetAdminProfileErrors, GetAdminProfileResponses, GetAdminSettingsData, GetAdminSettingsErrors, GetAdminSettingsResponses, GetBootstrapData, GetBootstrapErrors, GetBootstrapResponses, GetCatalogWorkspaceData, GetCatalogWorkspaceErrors, GetCatalogWorkspaceResponses, GetCsrfCookieData, GetCsrfCookieErrors, GetCsrfCookieResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDataSchemaSummaryData, GetDataSchemaSummaryErrors, GetDataSchemaSummaryResponses, GetDirectoriesData, GetDirectoriesErrors, GetDirectoriesResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetJobStatusData, GetJobStatusErrors, GetJobStatusResponses, GetLayersData, GetLayersErrors, GetLayersResponses, GetLoginOverviewData, GetLoginOverviewErrors, GetLoginOverviewResponses, GetMapThumbnailTileData, GetMapThumbnailTileErrors, GetMapThumbnailTileResponses, GetRasterDatasetsData, GetRasterDatasetsErrors, GetRasterDatasetsResponses, GetResourceProfileData, GetResourceProfileErrors, GetResourceProfileResponses, GetResourcesData, GetResourcesErrors, GetResourcesResponses, GetResourceVisualizationSummaryData, GetResourceVisualizationSummaryErrors, GetResourceVisualizationSummaryResponses, GetTileData, GetTileErrors, GetTileResponses, GetUniqueValuesData, GetUniqueValuesErrors, GetUniqueValuesResponses, GetUserAvatarData, GetUserAvatarErrors, GetUserAvatarResponses, GuestLoginData, GuestLoginErrors, GuestLoginResponses, ImportCommitData, ImportCommitErrors, ImportCommitResponses, ImportPreviewData, ImportPreviewErrors, ImportPreviewResponses, ImportRasterData, ImportRasterErrors, ImportRasterResponses, ImportValidateData, ImportValidateErrors, ImportValidateResponses, ListAdminBackupRunsData, ListAdminBackupRunsErrors, ListAdminBackupRunsResponses, ListAdminDataResourcesData, ListAdminDataResourcesErrors, ListAdminDataResourcesResponses, ListAdminOperationLogsData, ListAdminOperationLogsErrors, ListAdminOperationLogsResponses, ListAdminSystemLogsData, ListAdminSystemLogsErrors, ListAdminSystemLogsResponses, ListAdminWorkspacesData, ListAdminWorkspacesErrors, ListAdminWorkspacesResponses, ListCatalogWorkspacesData, ListCatalogWorkspacesErrors, ListCatalogWorkspacesResponses, ListGermplasmAccessionsData, ListGermplasmAccessionsErrors, ListGermplasmAccessionsResponses, ListGroupsData, ListGroupsErrors, ListGroupsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, QueryResourceData, QueryResourceErrors, QueryResourceResponses, RegisterData, RegisterErrors, RegisterResponses, RenderRasterAsyncData, RenderRasterAsyncErrors, RenderRasterAsyncResponses, RenderRasterData, RenderRasterErrors, RenderRasterResponses, ResetUserPasswordData, ResetUserPasswordErrors, ResetUserPasswordResponses, ScanCatalogSourcesData, ScanCatalogSourcesErrors, ScanCatalogSourcesResponses, ScanRasterSourcesData, ScanRasterSourcesErrors, ScanRasterSourcesResponses, SearchData, SearchErrors, SearchResponses, TestAdminBackupTargetData, TestAdminBackupTargetErrors, TestAdminBackupTargetResponses, UpdateAdminBackupSettingsData, UpdateAdminBackupSettingsErrors, UpdateAdminBackupSettingsResponses, UpdateAdminDataResourceData, UpdateAdminDataResourceErrors, UpdateAdminDataResourceGroupData, UpdateAdminDataResourceGroupErrors, UpdateAdminDataResourceGroupResponses, UpdateAdminDataResourceResponses, UpdateAdminProfileData, UpdateAdminProfileErrors, UpdateAdminProfilePasswordData, UpdateAdminProfilePasswordErrors, UpdateAdminProfilePasswordResponses, UpdateAdminProfilePermissionsData, UpdateAdminProfilePermissionsErrors, UpdateAdminProfilePermissionsResponses, UpdateAdminProfileResponses, UpdateAdminSettingsData, UpdateAdminSettingsErrors, UpdateAdminSettingsResponses, UpdateAdminWorkspaceData, UpdateAdminWorkspaceErrors, UpdateAdminWorkspaceResponses, UpdateCatalogWorkspaceData, UpdateCatalogWorkspaceErrors, UpdateCatalogWorkspaceResponses, UpdateOrDeleteGroupData, UpdateOrDeleteGroupErrors, UpdateOrDeleteGroupResponses, UpdateUserGroupsData, UpdateUserGroupsErrors, UpdateUserGroupsResponses, UpdateUserOrDeleteData, UpdateUserOrDeleteErrors, UpdateUserOrDeleteResponses, UpdateUserPermissionsData, UpdateUserPermissionsErrors, UpdateUserPermissionsResponses, UploadAdminProfileAvatarData, UploadAdminProfileAvatarErrors, UploadAdminProfileAvatarResponses } from './types.gen';
+import type { CommitVectorImportData, CommitVectorImportErrors, CommitVectorImportResponses, CreateAdminBackupRunData, CreateAdminBackupRunErrors, CreateAdminBackupRunResponses, CreateAdminDataResourceGroupData, CreateAdminDataResourceGroupErrors, CreateAdminDataResourceGroupResponses, CreateCatalogWorkspaceData, CreateCatalogWorkspaceErrors, CreateCatalogWorkspaceResponses, CreateGroupData, CreateGroupErrors, CreateGroupResponses, CreateMapCompositionData, CreateMapCompositionErrors, CreateMapCompositionResponses, CreateMapCompositionVersionData, CreateMapCompositionVersionErrors, CreateMapCompositionVersionResponses, CreateUserData, CreateUserErrors, CreateUserResponses, DownloadAdminBackupRunData, DownloadAdminBackupRunErrors, DownloadAdminBackupRunResponses, DownloadExportData, DownloadExportErrors, DownloadExportResponses, DownloadMapCompositionVersionData, DownloadMapCompositionVersionErrors, DownloadMapCompositionVersionResponses, ExportAdminDataResourcesData, ExportAdminDataResourcesErrors, ExportAdminDataResourcesResponses, ExportLayersAsyncData, ExportLayersAsyncErrors, ExportLayersAsyncResponses, ExportLayersData, ExportLayersErrors, ExportLayersResponses, GetAdminBackupOverviewData, GetAdminBackupOverviewErrors, GetAdminBackupOverviewResponses, GetAdminBackupRunData, GetAdminBackupRunErrors, GetAdminBackupRunResponses, GetAdminBackupSettingsData, GetAdminBackupSettingsErrors, GetAdminBackupSettingsResponses, GetAdminDashboardData, GetAdminDashboardErrors, GetAdminDashboardResponses, GetAdminDashboardServerData, GetAdminDashboardServerErrors, GetAdminDashboardServerResponses, GetAdminProfileData, GetAdminProfileErrors, GetAdminProfileResponses, GetAdminSettingsData, GetAdminSettingsErrors, GetAdminSettingsResponses, GetBootstrapData, GetBootstrapErrors, GetBootstrapResponses, GetCatalogWorkspaceData, GetCatalogWorkspaceErrors, GetCatalogWorkspaceResponses, GetCsrfCookieData, GetCsrfCookieErrors, GetCsrfCookieResponses, GetCurrentUserData, GetCurrentUserErrors, GetCurrentUserResponses, GetDataSchemaSummaryData, GetDataSchemaSummaryErrors, GetDataSchemaSummaryResponses, GetDirectoriesData, GetDirectoriesErrors, GetDirectoriesResponses, GetHealthData, GetHealthErrors, GetHealthResponses, GetJobStatusData, GetJobStatusErrors, GetJobStatusResponses, GetLayersData, GetLayersErrors, GetLayersResponses, GetLoginOverviewData, GetLoginOverviewErrors, GetLoginOverviewResponses, GetMapCompositionData, GetMapCompositionErrors, GetMapCompositionResponses, GetMapThumbnailTileData, GetMapThumbnailTileErrors, GetMapThumbnailTileResponses, GetRasterDatasetsData, GetRasterDatasetsErrors, GetRasterDatasetsResponses, GetResourceProfileData, GetResourceProfileErrors, GetResourceProfileResponses, GetResourcesData, GetResourcesErrors, GetResourcesResponses, GetResourceVisualizationSummaryData, GetResourceVisualizationSummaryErrors, GetResourceVisualizationSummaryResponses, GetTileData, GetTileErrors, GetTileResponses, GetUniqueValuesData, GetUniqueValuesErrors, GetUniqueValuesResponses, GetUserAvatarData, GetUserAvatarErrors, GetUserAvatarResponses, GuestLoginData, GuestLoginErrors, GuestLoginResponses, ImportCommitData, ImportCommitErrors, ImportCommitResponses, ImportPreviewData, ImportPreviewErrors, ImportPreviewResponses, ImportRasterData, ImportRasterErrors, ImportRasterResponses, ImportValidateData, ImportValidateErrors, ImportValidateResponses, ListAdminBackupRunsData, ListAdminBackupRunsErrors, ListAdminBackupRunsResponses, ListAdminDataResourcesData, ListAdminDataResourcesErrors, ListAdminDataResourcesResponses, ListAdminOperationLogsData, ListAdminOperationLogsErrors, ListAdminOperationLogsResponses, ListAdminSystemLogsData, ListAdminSystemLogsErrors, ListAdminSystemLogsResponses, ListAdminWorkspacesData, ListAdminWorkspacesErrors, ListAdminWorkspacesResponses, ListCatalogWorkspacesData, ListCatalogWorkspacesErrors, ListCatalogWorkspacesResponses, ListGermplasmAccessionsData, ListGermplasmAccessionsErrors, ListGermplasmAccessionsResponses, ListGroupsData, ListGroupsErrors, ListGroupsResponses, ListMapCompositionsData, ListMapCompositionsErrors, ListMapCompositionsResponses, ListRoleApplicationsData, ListRoleApplicationsErrors, ListRoleApplicationsResponses, ListUsersData, ListUsersErrors, ListUsersResponses, LoginData, LoginErrors, LoginResponses, LogoutData, LogoutErrors, LogoutResponses, PreviewRasterImportData, PreviewRasterImportErrors, PreviewRasterImportResponses, PreviewVectorImportData, PreviewVectorImportErrors, PreviewVectorImportResponses, PublishMapCompositionData, PublishMapCompositionErrors, PublishMapCompositionResponses, QueryResourceData, QueryResourceErrors, QueryResourceResponses, RegisterData, RegisterErrors, RegisterResponses, RenderRasterAsyncData, RenderRasterAsyncErrors, RenderRasterAsyncResponses, RenderRasterData, RenderRasterErrors, RenderRasterResponses, ResetUserPasswordData, ResetUserPasswordErrors, ResetUserPasswordResponses, RestoreMapCompositionProjectData, RestoreMapCompositionProjectErrors, RestoreMapCompositionProjectResponses, ReviewRoleApplicationData, ReviewRoleApplicationErrors, ReviewRoleApplicationResponses, ScanCatalogSourcesData, ScanCatalogSourcesErrors, ScanCatalogSourcesResponses, ScanRasterSourcesData, ScanRasterSourcesErrors, ScanRasterSourcesResponses, SearchData, SearchErrors, SearchResponses, TestAdminBackupTargetData, TestAdminBackupTargetErrors, TestAdminBackupTargetResponses, UnpublishMapCompositionData, UnpublishMapCompositionErrors, UnpublishMapCompositionResponses, UpdateAdminBackupSettingsData, UpdateAdminBackupSettingsErrors, UpdateAdminBackupSettingsResponses, UpdateAdminDataResourceData, UpdateAdminDataResourceErrors, UpdateAdminDataResourceGroupData, UpdateAdminDataResourceGroupErrors, UpdateAdminDataResourceGroupResponses, UpdateAdminDataResourceResponses, UpdateAdminProfileData, UpdateAdminProfileErrors, UpdateAdminProfilePasswordData, UpdateAdminProfilePasswordErrors, UpdateAdminProfilePasswordResponses, UpdateAdminProfilePermissionsData, UpdateAdminProfilePermissionsErrors, UpdateAdminProfilePermissionsResponses, UpdateAdminProfileResponses, UpdateAdminSettingsData, UpdateAdminSettingsErrors, UpdateAdminSettingsResponses, UpdateAdminWorkspaceData, UpdateAdminWorkspaceErrors, UpdateAdminWorkspaceResponses, UpdateCatalogWorkspaceData, UpdateCatalogWorkspaceErrors, UpdateCatalogWorkspaceResponses, UpdateMapCompositionData, UpdateMapCompositionErrors, UpdateMapCompositionResponses, UpdateOrDeleteGroupData, UpdateOrDeleteGroupErrors, UpdateOrDeleteGroupResponses, UpdateUserGroupsData, UpdateUserGroupsErrors, UpdateUserGroupsResponses, UpdateUserOrDeleteData, UpdateUserOrDeleteErrors, UpdateUserOrDeleteResponses, UpdateUserPermissionsData, UpdateUserPermissionsErrors, UpdateUserPermissionsResponses, UploadAdminProfileAvatarData, UploadAdminProfileAvatarErrors, UploadAdminProfileAvatarResponses, ValidateVectorImportData, ValidateVectorImportErrors, ValidateVectorImportResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -74,7 +74,7 @@ export const login = <ThrowOnError extends boolean = false>(options: Options<Log
 /**
  * 游客登录
  *
- * 使用系统维护的专用 `guest` 账号建立游客会话。游客账号不可使用密码登录，只归属 `游客` 用户组；游客用户组默认不具备任何功能权限，管理员可在认证授权中调整游客角色权限。
+ * 使用系统维护的专用 `guest` 账号建立游客会话。游客账号不可使用密码登录，只归属 `游客` 用户组；默认仅具备公开数据浏览、查询、图层加载和共享成果查看权限，管理员可在认证授权中调整游客角色权限。
  *
  */
 export const guestLogin = <ThrowOnError extends boolean = false>(options?: Options<GuestLoginData, ThrowOnError>): RequestResult<GuestLoginResponses, GuestLoginErrors, ThrowOnError> => (options?.client ?? client).post<GuestLoginResponses, GuestLoginErrors, ThrowOnError>({ url: '/api/auth/guest-login/', ...options });
@@ -82,7 +82,9 @@ export const guestLogin = <ThrowOnError extends boolean = false>(options?: Optio
 /**
  * 用户注册
  *
- * 注册新用户。系统首次初始化会自动创建用户名为 `admin` 的完整功能账号和超级管理员用户组，注册用户保持普通账号。
+ * 注册新用户。系统首次初始化会自动创建用户名为 `admin` 的完整功能账号和超级管理员用户组，自助注册用户始终先加入普通用户角色。
+ * 邮箱为必填项，后端统一转为小写并保证非空邮箱唯一；当前阶段不发送验证邮件，邮箱将为后续账号验证和密码找回保留。
+ * `accountPurpose=research` 只提交科研用户角色申请，不会在注册时直接授予科研用户权限；申请审核前账号仍按普通用户权限使用。
  * 注册功能受系统配置 `allowRegistration` 控制。
  *
  */
@@ -298,7 +300,7 @@ export const listUsers = <ThrowOnError extends boolean = false>(options?: Option
 /**
  * 创建用户
  *
- * 具备 `core.manage_auth` 和 `core.create_user` 权限的管理员创建用户账号，创建时必须指定至少一个非超级管理员用户组。密码由后端自动生成并返回。该接口不受自助注册开关影响。
+ * 具备 `core.manage_auth` 和 `core.create_user` 权限的管理员创建用户账号，邮箱必填，创建时必须指定至少一个非超级管理员用户组。密码由后端自动生成并返回。该接口不受自助注册开关影响；只有超级管理员可以分配平台管理员角色。
  */
 export const createUser = <ThrowOnError extends boolean = false>(options: Options<CreateUserData, ThrowOnError>): RequestResult<CreateUserResponses, CreateUserErrors, ThrowOnError> => (options.client ?? client).post<CreateUserResponses, CreateUserErrors, ThrowOnError>({
     security: [{
@@ -317,7 +319,7 @@ export const createUser = <ThrowOnError extends boolean = false>(options: Option
 /**
  * 更新用户所属用户组
  *
- * 为指定用户设置所属用户组。普通用户必须保留至少一个用户组，非超级管理员主体不能看到或选择超级管理员用户组，不能修改超级管理员用户；当前登录用户的用户组不能在认证授权页修改。需要 `core.manage_auth`。
+ * 为指定用户设置所属用户组。普通用户必须保留至少一个用户组，非超级管理员主体不能看到或选择超级管理员用户组，也不能分配平台管理员角色；不能修改超级管理员用户；当前登录用户的用户组不能在认证授权页修改。需要 `core.manage_auth`。
  */
 export const updateUserGroups = <ThrowOnError extends boolean = false>(options: Options<UpdateUserGroupsData, ThrowOnError>): RequestResult<UpdateUserGroupsResponses, UpdateUserGroupsErrors, ThrowOnError> => (options.client ?? client).post<UpdateUserGroupsResponses, UpdateUserGroupsErrors, ThrowOnError>({
     security: [{
@@ -476,6 +478,44 @@ export const updateAdminSettings = <ThrowOnError extends boolean = false>(option
             type: 'apiKey'
         }],
     url: '/api/admin/settings/',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 查询角色申请
+ *
+ * 查询当前主体可见的科研用户角色申请，默认返回全部状态，可通过 `status` 筛选。
+ * 需要 `core.manage_auth`；非超级管理员主体仍受用户可见范围限制。
+ *
+ */
+export const listRoleApplications = <ThrowOnError extends boolean = false>(options?: Options<ListRoleApplicationsData, ThrowOnError>): RequestResult<ListRoleApplicationsResponses, ListRoleApplicationsErrors, ThrowOnError> => (options?.client ?? client).get<ListRoleApplicationsResponses, ListRoleApplicationsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/admin/role-applications/',
+    ...options
+});
+
+/**
+ * 审核角色申请
+ *
+ * 审核待处理的科研用户角色申请。通过后移除申请用户的普通用户角色并加入科研用户角色，同时保留其他自定义角色；拒绝后继续保留普通用户角色。
+ * 申请只能审核一次，审核人不能审核自己的申请。需要 `core.manage_auth`。
+ *
+ */
+export const reviewRoleApplication = <ThrowOnError extends boolean = false>(options: Options<ReviewRoleApplicationData, ThrowOnError>): RequestResult<ReviewRoleApplicationResponses, ReviewRoleApplicationErrors, ThrowOnError> => (options.client ?? client).post<ReviewRoleApplicationResponses, ReviewRoleApplicationErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/admin/role-applications/{applicationId}/review/',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -733,7 +773,7 @@ export const updateAdminDataResource = <ThrowOnError extends boolean = false>(op
 });
 
 /**
- * 获取工程专题管理列表
+ * 获取工程管理列表
  *
  * 返回工程和专题管理列表，支持按类型、状态和关键词筛选。需要 `catalog.view_workspacescene`、`catalog.change_workspacescene` 或 `catalog.delete_workspacescene`；后端仍需按对象所有者和访问用户组裁剪可见范围。
  */
@@ -748,9 +788,9 @@ export const listAdminWorkspaces = <ThrowOnError extends boolean = false>(option
 });
 
 /**
- * 操作单个工程专题
+ * 操作单个工程
  *
- * 支持更新工程专题状态、基础信息、访问用户组和删除确认。启停和信息修改需要 `catalog.change_workspacescene`；删除需要 `catalog.delete_workspacescene`；拥有者或具备 `catalog.change_workspacescene` 的用户可以通过 `updateAccess` 修改可见范围。成功操作会写入审计日志。
+ * 支持更新工程状态、基础信息、访问用户组和删除确认。启停和信息修改需要 `catalog.change_workspacescene`；删除需要 `catalog.delete_workspacescene`；所属用户、超级管理员和平台管理员可以修改可见范围。成功操作会写入审计日志。
  */
 export const updateAdminWorkspace = <ThrowOnError extends boolean = false>(options: Options<UpdateAdminWorkspaceData, ThrowOnError>): RequestResult<UpdateAdminWorkspaceResponses, UpdateAdminWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<UpdateAdminWorkspaceResponses, UpdateAdminWorkspaceErrors, ThrowOnError>({
     security: [{
@@ -784,7 +824,7 @@ export const getDirectories = <ThrowOnError extends boolean = false>(options?: O
 /**
  * 获取数据资源列表
  *
- * 支持多条件筛选的数据资源分页列表
+ * 支持多条件筛选的数据资源列表。资源空间分类由实际入库形态决定：vector/raster 为地理数据，table/gene/document/image 为非地理数据；domainType 仅表示业务专题，不改变资源所在工作台。需要 `core.browse_data`。
  */
 export const getResources = <ThrowOnError extends boolean = false>(options?: Options<GetResourcesData, ThrowOnError>): RequestResult<GetResourcesResponses, GetResourcesErrors, ThrowOnError> => (options?.client ?? client).get<GetResourcesResponses, GetResourcesErrors, ThrowOnError>({
     security: [{
@@ -814,7 +854,7 @@ export const scanCatalogSources = <ThrowOnError extends boolean = false>(options
 /**
  * 获取工程和专题列表
  *
- * 返回当前登录用户私有保存的工程或专题工作台快照。需要 `catalog.view_workspacescene`，可按 kind 过滤工程或专题。
+ * 返回当前登录用户拥有或其所属角色可访问的启用工程；超级管理员和平台管理员返回平台全部启用工程。需要 `catalog.view_workspacescene`，并返回保存时可选择的额外访问角色。
  */
 export const listCatalogWorkspaces = <ThrowOnError extends boolean = false>(options?: Options<ListCatalogWorkspacesData, ThrowOnError>): RequestResult<ListCatalogWorkspacesResponses, ListCatalogWorkspacesErrors, ThrowOnError> => (options?.client ?? client).get<ListCatalogWorkspacesResponses, ListCatalogWorkspacesErrors, ThrowOnError>({
     security: [{
@@ -827,9 +867,9 @@ export const listCatalogWorkspaces = <ThrowOnError extends boolean = false>(opti
 });
 
 /**
- * 保存工程或专题
+ * 保存工程
  *
- * 将当前工作台图层树、顺序、显隐、查询条件、范围、资源引用和可视化方案保存为当前用户私有工程或专题；需要 `catalog.add_workspacescene`，不提交原始 GeoJSON 要素集合或查询结果数据本体。
+ * 将当前工作台图层树、顺序、显隐、查询条件、范围、资源引用和可视化方案保存为工程；需要 `catalog.add_workspacescene`。上传者本人、超级管理员和平台管理员始终可见，accessGroupIds 配置额外可见角色；不得提交原始 GeoJSON 要素集合或查询结果数据本体。
  */
 export const createCatalogWorkspace = <ThrowOnError extends boolean = false>(options: Options<CreateCatalogWorkspaceData, ThrowOnError>): RequestResult<CreateCatalogWorkspaceResponses, CreateCatalogWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<CreateCatalogWorkspaceResponses, CreateCatalogWorkspaceErrors, ThrowOnError>({
     security: [{
@@ -846,9 +886,9 @@ export const createCatalogWorkspace = <ThrowOnError extends boolean = false>(opt
 });
 
 /**
- * 获取工程或专题详情
+ * 获取工程详情
  *
- * 返回当前用户拥有的单个工程或专题快照。需要 `catalog.view_workspacescene`。
+ * 返回当前用户拥有、所属角色获准访问或管理员全量可见的单个启用工程快照。需要 `catalog.view_workspacescene`。
  */
 export const getCatalogWorkspace = <ThrowOnError extends boolean = false>(options: Options<GetCatalogWorkspaceData, ThrowOnError>): RequestResult<GetCatalogWorkspaceResponses, GetCatalogWorkspaceErrors, ThrowOnError> => (options.client ?? client).get<GetCatalogWorkspaceResponses, GetCatalogWorkspaceErrors, ThrowOnError>({
     security: [{
@@ -861,9 +901,9 @@ export const getCatalogWorkspace = <ThrowOnError extends boolean = false>(option
 });
 
 /**
- * 更新或删除工程专题
+ * 更新或删除工程
  *
- * 更新当前用户拥有的工程/专题轻量快照，或提交 action=delete 删除；更新需要 `catalog.change_workspacescene`，删除需要 `catalog.delete_workspacescene`，snapshot 不得包含原始 GeoJSON 要素集合或查询结果数据本体。
+ * 所属用户可以维护自己的工程；超级管理员和平台管理员可以维护全部工程。名称、说明、类型和快照更新需要 `catalog.change_workspacescene`，删除需要 `catalog.delete_workspacescene`；后端始终保留管理员访问，snapshot 不得包含原始 GeoJSON 要素集合或查询结果数据本体。
  */
 export const updateCatalogWorkspace = <ThrowOnError extends boolean = false>(options: Options<UpdateCatalogWorkspaceData, ThrowOnError>): RequestResult<UpdateCatalogWorkspaceResponses, UpdateCatalogWorkspaceErrors, ThrowOnError> => (options.client ?? client).post<UpdateCatalogWorkspaceResponses, UpdateCatalogWorkspaceErrors, ThrowOnError>({
     security: [{
@@ -963,6 +1003,162 @@ export const getResourceProfile = <ThrowOnError extends boolean = false>(options
 });
 
 /**
+ * 获取出图稿列表
+ *
+ * 返回当前用户拥有的出图稿、超级管理员和平台管理员可管理的全部出图稿，以及已发布且发布范围包含当前用户角色的专题。未发布专题仅所属用户和管理员可见。需要 `catalog.view_mapcomposition`。
+ */
+export const listMapCompositions = <ThrowOnError extends boolean = false>(options?: Options<ListMapCompositionsData, ThrowOnError>): RequestResult<ListMapCompositionsResponses, ListMapCompositionsErrors, ThrowOnError> => (options?.client ?? client).get<ListMapCompositionsResponses, ListMapCompositionsErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/map-compositions/',
+    ...options
+});
+
+/**
+ * 新建出图稿
+ *
+ * 从当前用户拥有的工程创建版式出图草稿；超级管理员和平台管理员可从任意可用工程创建。创建时固化来源工程快照，发布前仅所属用户和管理员可见。需要 `catalog.add_mapcomposition`。
+ */
+export const createMapComposition = <ThrowOnError extends boolean = false>(options: Options<CreateMapCompositionData, ThrowOnError>): RequestResult<CreateMapCompositionResponses, CreateMapCompositionErrors, ThrowOnError> => (options.client ?? client).post<CreateMapCompositionResponses, CreateMapCompositionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/map-compositions/',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 获取出图稿详情
+ *
+ * 所属用户和管理员返回当前草稿及全部版本；发布范围内的普通用户只返回当前正式发布版本及对应版式。需要 `catalog.view_mapcomposition`。
+ */
+export const getMapComposition = <ThrowOnError extends boolean = false>(options: Options<GetMapCompositionData, ThrowOnError>): RequestResult<GetMapCompositionResponses, GetMapCompositionErrors, ThrowOnError> => (options.client ?? client).get<GetMapCompositionResponses, GetMapCompositionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/map-compositions/{compositionId}/',
+    ...options
+});
+
+/**
+ * 更新或归档出图稿
+ *
+ * 更新名称、说明和轻量版式，或执行 delete 归档。仅所属用户、超级管理员和平台管理员可以修改对象。发布和下架使用独立接口。
+ */
+export const updateMapComposition = <ThrowOnError extends boolean = false>(options: Options<UpdateMapCompositionData, ThrowOnError>): RequestResult<UpdateMapCompositionResponses, UpdateMapCompositionErrors, ThrowOnError> => (options.client ?? client).post<UpdateMapCompositionResponses, UpdateMapCompositionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/map-compositions/{compositionId}/',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 生成专题成果版本
+ *
+ * 接收前端按照版式渲染的 PNG 母图、导出参数和当前工作台快照，在业务数据 exports 目录中生成 PNG、JPG 或 PDF 成果并创建不可变版本。版本同时固化版式和工程状态。需要 `catalog.export_mapcomposition`。
+ */
+export const createMapCompositionVersion = <ThrowOnError extends boolean = false>(options: Options<CreateMapCompositionVersionData, ThrowOnError>): RequestResult<CreateMapCompositionVersionResponses, CreateMapCompositionVersionErrors, ThrowOnError> => (options.client ?? client).post<CreateMapCompositionVersionResponses, CreateMapCompositionVersionErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/map-compositions/{compositionId}/versions/',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * 发布专题成果版本
+ *
+ * 将指定不可变成果版本设为正式发布版本，并配置发布后的可见角色。发布前专题只对所属用户、超级管理员和平台管理员可见。需要 `catalog.publish_mapcomposition`。
+ */
+export const publishMapComposition = <ThrowOnError extends boolean = false>(options: Options<PublishMapCompositionData, ThrowOnError>): RequestResult<PublishMapCompositionResponses, PublishMapCompositionErrors, ThrowOnError> => (options.client ?? client).post<PublishMapCompositionResponses, PublishMapCompositionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/map-compositions/{compositionId}/publish/',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 下架专题
+ *
+ * 取消专题的公开角色访问并恢复为已完成状态；保留最后发布版本用于审计。需要 `catalog.publish_mapcomposition`。
+ */
+export const unpublishMapComposition = <ThrowOnError extends boolean = false>(options: Options<UnpublishMapCompositionData, ThrowOnError>): RequestResult<UnpublishMapCompositionResponses, UnpublishMapCompositionErrors, ThrowOnError> => (options.client ?? client).post<UnpublishMapCompositionResponses, UnpublishMapCompositionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/map-compositions/{compositionId}/unpublish/',
+    ...options
+});
+
+/**
+ * 将专题版本还原为新工程
+ *
+ * 根据成果版本固化的工作台快照创建新的 project 工程，不覆盖来源工程。所属用户和管理员可选择任意版本；发布范围内用户只能还原正式发布版本。需要 `catalog.restore_mapcomposition` 和 `catalog.add_workspacescene`。
+ */
+export const restoreMapCompositionProject = <ThrowOnError extends boolean = false>(options: Options<RestoreMapCompositionProjectData, ThrowOnError>): RequestResult<RestoreMapCompositionProjectResponses, RestoreMapCompositionProjectErrors, ThrowOnError> => (options.client ?? client).post<RestoreMapCompositionProjectResponses, RestoreMapCompositionProjectErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/map-compositions/{compositionId}/restore-project/',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * 下载或预览专题成果文件
+ *
+ * 返回指定版本的正式成果文件或 PNG 预览图。需要 `catalog.view_mapcomposition`；正式成果下载还需要 `catalog.export_mapcomposition`。
+ */
+export const downloadMapCompositionVersion = <ThrowOnError extends boolean = false>(options: Options<DownloadMapCompositionVersionData, ThrowOnError>): RequestResult<DownloadMapCompositionVersionResponses, DownloadMapCompositionVersionErrors, ThrowOnError> => (options.client ?? client).get<DownloadMapCompositionVersionResponses, DownloadMapCompositionVersionErrors, ThrowOnError>({
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/map-compositions/{compositionId}/versions/{versionNumber}/file/',
+    ...options
+});
+
+/**
  * 获取数据资源可视化聚合摘要
  *
  * 返回右侧数据洞察面板所需的轻量聚合统计，包括分类字段 TopN、数值字段分布、空间覆盖摘要、数据质量问题和监测功能占位信息。
@@ -978,6 +1174,75 @@ export const getResourceVisualizationSummary = <ThrowOnError extends boolean = f
         }],
     url: '/api/catalog/resources/{id}/visualization-summary/',
     ...options
+});
+
+/**
+ * 矢量文件导入预检
+ *
+ * 解析上传的 Shapefile ZIP、GeoJSON 或 GeoPackage，返回可导入图层、属性字段、坐标系、
+ * 空间范围、几何类型、要素数量、顶点数量、中文编码识别结果和几何质量摘要，不写入科研数据。
+ * Shapefile 必须以 ZIP 上传并至少包含同名 `.shp`、`.shx`、`.dbf`；`.prj` 缺失时提交导入前必须人工指定坐标系。
+ * 需要 `catalog.add_dataresource`。
+ *
+ */
+export const previewVectorImport = <ThrowOnError extends boolean = false>(options: Options<PreviewVectorImportData, ThrowOnError>): RequestResult<PreviewVectorImportResponses, PreviewVectorImportErrors, ThrowOnError> => (options.client ?? client).post<PreviewVectorImportResponses, PreviewVectorImportErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/vector-import/preview/',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * 矢量文件导入校验
+ *
+ * 根据选定源图层、编码、人工坐标系和几何修复策略执行完整矢量导入校验，不写入数据。
+ * 返回结构化质量问题和同名资源检测结果。需要 `catalog.add_dataresource`。
+ *
+ */
+export const validateVectorImport = <ThrowOnError extends boolean = false>(options: Options<ValidateVectorImportData, ThrowOnError>): RequestResult<ValidateVectorImportResponses, ValidateVectorImportErrors, ThrowOnError> => (options.client ?? client).post<ValidateVectorImportResponses, ValidateVectorImportErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/vector-import/validate/',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * 提交矢量文件导入
+ *
+ * 将选定矢量图层标准化为 EPSG:4326 后写入统一 GeoPackage，保留原始上传文件归档，
+ * 并创建 DataResource、VectorDataset 和 MapLayer。`payload.domainType` 必须使用 DataDomainType，
+ * 矢量文件默认使用新增的 `vector` 业务类型；需要 `catalog.add_dataresource`。
+ *
+ */
+export const commitVectorImport = <ThrowOnError extends boolean = false>(options: Options<CommitVectorImportData, ThrowOnError>): RequestResult<CommitVectorImportResponses, CommitVectorImportErrors, ThrowOnError> => (options.client ?? client).post<CommitVectorImportResponses, CommitVectorImportErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/catalog/vector-import/commit/',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
 });
 
 /**
@@ -1094,9 +1359,33 @@ export const getRasterDatasets = <ThrowOnError extends boolean = false>(options?
 });
 
 /**
+ * 栅格数据包导入预检
+ *
+ * 对一个或多个栅格文件执行只读预检，不写入科研数据目录。支持 GeoTIFF/COG、
+ * ENVI DAT/BSQ/BIL/BIP 与 HDR 配套文件、ERDAS IMG，以及引用文件完整的 VRT 数据包。
+ * 后端使用 GDAL 驱动识别真实格式，并校验文件组合、坐标系、像素尺寸、波段和空间范围。
+ * 需要 `raster.manage_raster_dataset`。
+ *
+ */
+export const previewRasterImport = <ThrowOnError extends boolean = false>(options: Options<PreviewRasterImportData, ThrowOnError>): RequestResult<PreviewRasterImportResponses, PreviewRasterImportErrors, ThrowOnError> => (options.client ?? client).post<PreviewRasterImportResponses, PreviewRasterImportErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    security: [{
+            in: 'cookie',
+            name: 'sessionid',
+            type: 'apiKey'
+        }],
+    url: '/api/raster/import/preview/',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
  * 导入栅格文件
  *
- * 导入或上传栅格源文件。上传文件会先按系统配置的 `application.limits.upload_max_mb` 校验文件大小，并读取栅格元信息校验单边像素长度不超过 `application.limits.max_raster_side_pixels`；校验失败返回 `400 ErrorResponse`，不会提交异步任务。
+ * 导入或上传栅格源文件包。上传文件总大小会先按系统配置的 `application.limits.upload_max_mb` 校验，并读取主栅格元信息校验单边像素长度不超过 `application.limits.max_raster_side_pixels`；校验失败返回 `400 ErrorResponse`，不会提交异步任务。
  *
  */
 export const importRaster = <ThrowOnError extends boolean = false>(options: Options<ImportRasterData, ThrowOnError>): RequestResult<ImportRasterResponses, ImportRasterErrors, ThrowOnError> => (options.client ?? client).post<ImportRasterResponses, ImportRasterErrors, ThrowOnError>({

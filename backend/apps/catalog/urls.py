@@ -1,6 +1,6 @@
 from django.urls import path
 
-from apps.catalog import views
+from apps.catalog import map_compositions, views
 
 
 urlpatterns = [
@@ -11,6 +11,41 @@ urlpatterns = [
         "catalog/workspaces/<int:workspace_id>/",
         views.workspace_detail,
         name="catalog-workspace-detail",
+    ),
+    path(
+        "catalog/map-compositions/",
+        map_compositions.map_compositions,
+        name="catalog-map-compositions",
+    ),
+    path(
+        "catalog/map-compositions/<int:composition_id>/",
+        map_compositions.map_composition_detail,
+        name="catalog-map-composition-detail",
+    ),
+    path(
+        "catalog/map-compositions/<int:composition_id>/versions/",
+        map_compositions.create_map_composition_version,
+        name="catalog-map-composition-versions",
+    ),
+    path(
+        "catalog/map-compositions/<int:composition_id>/versions/<int:version_number>/file/",
+        map_compositions.map_composition_version_file,
+        name="catalog-map-composition-version-file",
+    ),
+    path(
+        "catalog/map-compositions/<int:composition_id>/publish/",
+        map_compositions.publish_map_composition,
+        name="catalog-map-composition-publish",
+    ),
+    path(
+        "catalog/map-compositions/<int:composition_id>/unpublish/",
+        map_compositions.unpublish_map_composition,
+        name="catalog-map-composition-unpublish",
+    ),
+    path(
+        "catalog/map-compositions/<int:composition_id>/restore-project/",
+        map_compositions.restore_map_composition_project,
+        name="catalog-map-composition-restore-project",
     ),
     path("admin/workspaces/", views.admin_workspaces, name="admin-workspaces"),
     path(
@@ -28,6 +63,21 @@ urlpatterns = [
         name="catalog-import-validate",
     ),
     path("catalog/import/commit/", views.import_commit, name="catalog-import-commit"),
+    path(
+        "catalog/vector-import/preview/",
+        views.vector_import_preview,
+        name="catalog-vector-import-preview",
+    ),
+    path(
+        "catalog/vector-import/validate/",
+        views.vector_import_validate,
+        name="catalog-vector-import-validate",
+    ),
+    path(
+        "catalog/vector-import/commit/",
+        views.vector_import_commit,
+        name="catalog-vector-import-commit",
+    ),
     path(
         "catalog/resources/<int:pk>/profile/",
         views.resource_profile,

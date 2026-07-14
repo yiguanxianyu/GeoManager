@@ -26,10 +26,21 @@ import type { TablePaginationConfig } from "antd/es/table/interface";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 import type { AdminDataResourceList } from "../types";
+import {
+  type AccessScopeId,
+  ownerAccessScopeId,
+  realAccessGroupIds,
+  selectableAccessScopeIds,
+  withFixedAccessScopes,
+} from "./accessScopes";
 
-export const ownerAccessScopeId = "__owner__";
-
-export type AccessScopeId = number | typeof ownerAccessScopeId;
+export {
+  ownerAccessScopeId,
+  realAccessGroupIds,
+  selectableAccessScopeIds,
+  withFixedAccessScopes,
+};
+export type { AccessScopeId };
 
 export type AccessGroup =
   AdminDataResourceList["availableAccessGroups"][number];
@@ -83,6 +94,7 @@ interface ManagedCollectionPageProps<TItem extends ManagedItemBase> {
   deleteTitle: string;
   deleteDescription: ReactNode;
   ownerScopeLabel: string;
+  accessScopeNotice?: ReactNode;
   canMaintain: boolean;
   canDelete?: boolean;
   canExport?: boolean;
@@ -113,6 +125,7 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
   deleteTitle,
   deleteDescription,
   ownerScopeLabel,
+  accessScopeNotice,
   canMaintain,
   canDelete = canMaintain,
   canExport = false,
@@ -201,7 +214,14 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
 
   function openDrawer(item: TItem) {
     setSelectedItem(item);
-    editForm.setFieldsValue(formInitialValues(item));
+    const initialValues = formInitialValues(item);
+    editForm.setFieldsValue({
+      ...initialValues,
+      accessGroupIds: selectableAccessScopeIds(
+        initialValues.accessGroupIds,
+        accessGroups,
+      ),
+    });
     setDrawerOpen(true);
   }
 
@@ -379,6 +399,7 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
                   ]}
                 />
               </Form.Item>
+              {accessScopeNotice}
               {hasGuestAccess(drawerAccessGroupIds, accessGroups) && (
                 <Alert
                   type="warning"
@@ -420,17 +441,6 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
       </Modal>
     </div>
   );
-}
-
-export function withFixedAccessScopes(
-  values: AccessScopeId[] = [],
-): AccessScopeId[] {
-  const optionalValues = values.filter((value) => value !== ownerAccessScopeId);
-  return [ownerAccessScopeId, ...optionalValues];
-}
-
-export function realAccessGroupIds(values: AccessScopeId[] = []): number[] {
-  return values.filter((value): value is number => typeof value === "number");
 }
 
 function isGuestGroup(group: AccessGroup) {

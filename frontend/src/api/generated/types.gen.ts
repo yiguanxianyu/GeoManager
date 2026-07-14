@@ -284,9 +284,9 @@ export type RegisterRequest = {
      */
     username: string;
     /**
-     * 邮箱
+     * 必填邮箱；后端去除首尾空格、统一转为小写并保证非空邮箱唯一
      */
-    email?: string;
+    email: string;
     /**
      * 密码
      */
@@ -295,6 +295,22 @@ export type RegisterRequest = {
      * 确认密码
      */
     passwordConfirm: string;
+    /**
+     * 账号用途；standard 直接注册普通用户，research 注册普通用户并提交科研用户角色申请
+     */
+    accountPurpose: 'standard' | 'research';
+    /**
+     * 显示名称；申请科研用户时必填
+     */
+    displayName?: string;
+    /**
+     * 单位或部门；申请科研用户时必填
+     */
+    department?: string;
+    /**
+     * 科研用户申请说明；accountPurpose 为 research 时必填
+     */
+    applicationReason?: string;
 };
 
 export type RegisterResponse = {
@@ -303,6 +319,96 @@ export type RegisterResponse = {
      * 注册结果说明
      */
     detail: string;
+    /**
+     * 科研用户角色申请；普通用户注册时为 null
+     */
+    roleApplication: RoleApplication | null;
+};
+
+/**
+ * 角色申请状态
+ */
+export type RoleApplicationStatus = 'pending' | 'approved' | 'rejected';
+
+export type RoleApplication = {
+    /**
+     * 角色申请 ID
+     */
+    id: number;
+    /**
+     * 申请用户 ID
+     */
+    userId: number;
+    /**
+     * 申请的受控角色；当前仅支持科研用户
+     */
+    requestedRole: 'research';
+    status: RoleApplicationStatus;
+    /**
+     * 用户提交的申请说明
+     */
+    reason: string;
+    /**
+     * 管理员审核说明，未审核时为空字符串
+     */
+    reviewNote: string;
+    /**
+     * 申请时间
+     */
+    createdAt: string;
+    /**
+     * 审核时间，未审核时为 null
+     */
+    reviewedAt: string | null;
+};
+
+export type RoleApplicationListItem = RoleApplication & {
+    user: RoleApplicationUserSummary;
+    /**
+     * 审核人，未审核时为 null
+     */
+    reviewer: RoleApplicationUserSummary | null;
+};
+
+export type RoleApplicationUserSummary = {
+    /**
+     * 用户 ID
+     */
+    id: number;
+    /**
+     * 登录用户名
+     */
+    username: string;
+    /**
+     * 显示名称
+     */
+    displayName: string;
+    /**
+     * 用户邮箱
+     */
+    email: string;
+    /**
+     * 用户单位或部门
+     */
+    department: string;
+};
+
+export type RoleApplicationListResponse = {
+    /**
+     * 当前主体可见的角色申请
+     */
+    items: Array<RoleApplicationListItem>;
+};
+
+export type RoleApplicationReviewRequest = {
+    /**
+     * 审核动作
+     */
+    action: 'approve' | 'reject';
+    /**
+     * 审核说明；拒绝时建议填写原因
+     */
+    reviewNote?: string;
 };
 
 export type UserInfoResponse = {
@@ -498,6 +604,34 @@ export type UserPermissions = {
      */
     canDeleteWorkspaces: boolean;
     /**
+     * 是否可查看正式出图稿，对应 `catalog.view_mapcomposition`
+     */
+    canViewMapCompositions: boolean;
+    /**
+     * 是否可从工程新建出图稿，对应 `catalog.add_mapcomposition`
+     */
+    canCreateMapCompositions: boolean;
+    /**
+     * 是否可编辑出图稿版式，对应 `catalog.change_mapcomposition`
+     */
+    canChangeMapCompositions: boolean;
+    /**
+     * 是否可归档出图稿，对应 `catalog.delete_mapcomposition`
+     */
+    canDeleteMapCompositions: boolean;
+    /**
+     * 是否可生成并下载 PNG、JPG 或 PDF 专题成果，对应 `catalog.export_mapcomposition`
+     */
+    canExportMapCompositions: boolean;
+    /**
+     * 是否可发布或下架专题成果，对应 `catalog.publish_mapcomposition`
+     */
+    canPublishMapCompositions: boolean;
+    /**
+     * 是否可将专题成果版本还原为新工程，对应 `catalog.restore_mapcomposition`
+     */
+    canRestoreMapCompositions: boolean;
+    /**
      * 是否可管理栅格数据集
      */
     canManageRasterData: boolean;
@@ -556,7 +690,7 @@ export type AdminProfileUpdateRequest = {
      */
     displayName?: string;
     /**
-     * 新邮箱
+     * 新邮箱；提交时不能为空，后端统一转为小写并保证非空邮箱唯一
      */
     email?: string;
     /**
@@ -1000,15 +1134,15 @@ export type AdminDashboardActiveUsers = {
      */
     rangeEnd: string;
     /**
-     * 周期内成功登录的去重用户数量
+     * 周期内至少发起过一次已认证 API 请求的去重账号数量；保持既有会话跨日继续访问也计入当天活跃
      */
     count: number;
     /**
-     * 周期内成功登录总次数
+     * 周期内成功建立会话的总次数，包含账号密码登录、游客登录和自助注册后的自动登录
      */
     loginCount: number;
     /**
-     * 柱状图序列，day 按小时统计，week/month 按日期统计
+     * 活跃账号柱状图序列，day 按小时去重，week/month 按日期去重
      */
     series: Array<AdminDashboardActiveUserSeriesItem>;
     /**
@@ -1027,7 +1161,7 @@ export type AdminDashboardActiveUserSeriesItem = {
      */
     label: string;
     /**
-     * 该序列项内成功登录次数
+     * 该小时或日期内发起过已认证 API 请求的去重账号数量
      */
     count: number;
 };
@@ -1217,9 +1351,9 @@ export type UserCreateRequest = {
      */
     displayName?: string;
     /**
-     * 用户邮箱
+     * 必填用户邮箱；后端统一转为小写并保证非空邮箱唯一
      */
-    email?: string;
+    email: string;
     /**
      * 用户所在部门
      */
@@ -1694,14 +1828,19 @@ export type AdminBackupOverviewResponse = {
 };
 
 /**
- * 甲方确认的业务数据类型编码。
+ * 甲方确认的业务数据类型编码；vector 表示直接以点、线、面几何图层为主体管理的矢量数据。
  */
-export type DataDomainType = 'germplasm' | 'genome' | 'individual' | 'community' | 'population' | 'field_survey' | 'remote_sensing' | 'molecular' | 'other';
+export type DataDomainType = 'germplasm' | 'genome' | 'individual' | 'community' | 'population' | 'field_survey' | 'remote_sensing' | 'molecular' | 'vector' | 'other';
 
 /**
  * 数据与空间几何的关系。
  */
 export type SpatialClass = 'spatial' | 'non_spatial' | 'spatialized_table' | 'derived_from_spatial';
+
+/**
+ * 数据资源工作台分类；spatial 表示可直接在地图工作台使用的矢量或栅格资源，non_spatial 表示不含可用空间几何的表格、基因、文档或图片资源。
+ */
+export type ResourceSpatialClass = 'spatial' | 'non_spatial';
 
 /**
  * 数据记录粒度。
@@ -1959,10 +2098,11 @@ export type DataResource = {
      * 数据资源类型
      */
     dataType: 'vector' | 'raster' | 'gene' | 'table' | 'document' | 'image';
+    spatialClass: ResourceSpatialClass;
     /**
      * 平台确认的业务数据类型；历史资源或尚未归类资源为 null
      */
-    domainType?: DataDomainType | null;
+    domainType: DataDomainType | null;
     /**
      * 数据分类，未分类时为 null
      */
@@ -2104,6 +2244,10 @@ export type AdminDataResource = {
      */
     dataType: 'vector' | 'raster' | 'gene' | 'table' | 'document' | 'image';
     /**
+     * 导入或登记时选择的数据业务类型；历史资源尚未分类时为 null，存量数据界面将其归入“其他类型”系统分组
+     */
+    domainType: DataDomainType | null;
+    /**
      * 数据分类，未分类时为 null
      */
     category: DictionaryItem | null;
@@ -2162,7 +2306,7 @@ export type AdminDataResource = {
      */
     status: 'active' | 'inactive';
     /**
-     * 存量数据内容组别 ID；为 null 时表示默认分组
+     * 存量数据自定义内容组别 ID；为 null 时表示未加入自定义组，资源仍会出现在“全部数据”和对应业务类型系统分组中
      */
     inventoryGroupId: number | null;
     /**
@@ -2224,7 +2368,7 @@ export type AdminDataResourceListResponse = {
      */
     availableAccessGroups: Array<AdminDataResourceAccessGroup>;
     /**
-     * 可用于存量数据管理内容分组的持久化组别列表；默认分组不在该数组中，资源 `inventoryGroupId` 为 null 时属于默认分组
+     * 用户新建的持久化自定义组别列表；“全部数据”和十个业务类型系统分组由前端依据资源 `domainType` 自动生成，不在该数组中
      */
     inventoryGroups: Array<AdminDataResourceGroup>;
 };
@@ -2307,30 +2451,22 @@ export type AdminDataResourceUpdateRequest = {
 
 export type AdminWorkspaceScene = WorkspaceScene & {
     /**
-     * 工程专题状态；禁用后不在普通工作台检索和加载入口展示
+     * 工程状态；禁用后不在普通工作台检索和加载入口展示
      */
     status: 'active' | 'inactive';
-    /**
-     * 允许访问该工程专题且对当前主体可见的用户组；所属用户本人和超级管理员始终可见
-     */
-    accessGroups: Array<AdminDataResourceAccessGroup>;
-    /**
-     * 当前用户是否可修改该工程专题的可见范围；拥有者本人或具备 `catalog.change_workspacescene` 时为 true
-     */
-    canManageAccess: boolean;
 };
 
 export type AdminWorkspaceSceneListResponse = {
     /**
-     * 工程专题管理列表
+     * 工程管理列表
      */
     items: Array<AdminWorkspaceScene>;
     /**
-     * 符合筛选条件的工程专题总数
+     * 符合筛选条件的工程总数
      */
     total: number;
     /**
-     * 可用于配置工程专题访问范围的用户组列表
+     * 可用于配置工程额外访问范围的用户组列表；不返回超级管理员角色，后端始终保留管理员可见规则
      */
     availableAccessGroups: Array<AdminDataResourceAccessGroup>;
 };
@@ -2341,27 +2477,27 @@ export type AdminWorkspaceSceneUpdateRequest = {
      */
     action: 'update' | 'setStatus' | 'updateAccess' | 'delete';
     /**
-     * setStatus 或 update 时写入的工程专题状态
+     * setStatus 或 update 时写入的工程状态
      */
     status?: 'active' | 'inactive';
     /**
-     * update 时写入的工程专题类型
+     * update 时写入的工程类型
      */
-    kind?: 'project' | 'topic';
+    kind?: 'project';
     /**
-     * update 时写入的工程专题名称
+     * update 时写入的工程名称
      */
     name?: string;
     /**
-     * update 时写入的工程专题说明
+     * update 时写入的工程说明
      */
     description?: string;
     /**
-     * updateAccess 或 update 时写入的额外可见用户组 ID 列表；非超级管理员主体不能选择超级管理员用户组，后端会强制补齐超级管理员用户组，所属用户本人始终可见。包含游客用户组时表示未登录用户可通过游客会话访问该工程专题。
+     * updateAccess 或 update 时写入的额外可见用户组 ID 列表；不能选择超级管理员用户组，后端会强制保留管理员访问，所属用户本人始终可见。包含游客用户组时表示游客会话可以访问该工程。
      */
     accessGroupIds?: Array<number>;
     /**
-     * delete 操作要求传入与工程专题名称完全一致的确认文本
+     * delete 操作要求传入与工程名称完全一致的确认文本
      */
     confirmationName?: string;
 };
@@ -2405,13 +2541,13 @@ export type WorkspaceSceneSnapshot = {
 
 export type WorkspaceScene = {
     /**
-     * 工程或专题 ID
+     * 工程 ID
      */
     id: number;
     /**
-     * 场景类型：工程或专题
+     * 场景类型，固定为工程
      */
-    kind: 'project' | 'topic';
+    kind: 'project';
     /**
      * 工程或专题名称
      */
@@ -2422,6 +2558,26 @@ export type WorkspaceScene = {
     description: string;
     snapshot: WorkspaceSceneSnapshot;
     owner: WorkspaceSceneOwner;
+    /**
+     * 除所属用户本人和超级管理员外，允许访问该工程专题的额外角色；超级管理员角色不在该数组中返回
+     */
+    accessGroups: Array<AdminDataResourceAccessGroup>;
+    /**
+     * 当前用户是否为该工程专题所属用户
+     */
+    isOwner: boolean;
+    /**
+     * 当前用户是否可在普通工作台编辑该工程专题；仅所属用户且具备 `catalog.change_workspacescene` 时为 true
+     */
+    canEdit: boolean;
+    /**
+     * 当前用户是否可在普通工作台删除该工程专题；仅所属用户且具备 `catalog.delete_workspacescene` 时为 true
+     */
+    canDelete: boolean;
+    /**
+     * 当前用户是否可在普通工作台维护额外可见角色；所属用户为 true
+     */
+    canManageAccess: boolean;
     /**
      * 创建时间
      */
@@ -2434,16 +2590,20 @@ export type WorkspaceScene = {
 
 export type WorkspaceSceneListResponse = {
     /**
-     * 当前用户保存的工程或专题
+     * 当前用户拥有或获准加载的启用工程/专题；超级管理员返回全部启用对象
      */
     items: Array<WorkspaceScene>;
+    /**
+     * 保存或编辑本人工程专题时可选择的额外访问角色；不返回超级管理员角色
+     */
+    availableAccessGroups: Array<AdminDataResourceAccessGroup>;
 };
 
 export type WorkspaceSceneCreateRequest = {
     /**
-     * 保存类型
+     * 保存类型，固定为工程
      */
-    kind: 'project' | 'topic';
+    kind: 'project';
     /**
      * 工程或专题名称
      */
@@ -2453,6 +2613,10 @@ export type WorkspaceSceneCreateRequest = {
      */
     description?: string;
     snapshot: WorkspaceSceneSnapshot;
+    /**
+     * 除所属用户本人和超级管理员外的额外可见角色 ID；后端自动补齐超级管理员角色
+     */
+    accessGroupIds?: Array<number>;
 };
 
 export type WorkspaceSceneUpdateRequest = {
@@ -2461,9 +2625,9 @@ export type WorkspaceSceneUpdateRequest = {
      */
     action?: 'delete';
     /**
-     * 更新后的类型
+     * 更新后的类型，固定为工程
      */
-    kind?: 'project' | 'topic';
+    kind?: 'project';
     /**
      * 更新后的名称
      */
@@ -2473,6 +2637,241 @@ export type WorkspaceSceneUpdateRequest = {
      */
     description?: string;
     snapshot?: WorkspaceSceneSnapshot;
+    /**
+     * 更新后的额外可见角色 ID；仅所属用户可修改，后端自动保留超级管理员角色
+     */
+    accessGroupIds?: Array<number>;
+};
+
+/**
+ * 轻量专题制图版式 JSON。可包含纸张尺寸、DPI、地图范围、地图框、标题、图例、指北针、比例尺、区位副图、经纬网或 Web Mercator 投影格网、数据来源和制图说明；不得包含原始 GeoJSON 要素集合、属性表、Blob URL 或图片 Data URL。
+ */
+export type MapCompositionLayout = {
+    [key: string]: unknown;
+};
+
+/**
+ * draft 为版式草稿，completed 为已生成成果，published 为已发布专题
+ */
+export type MapCompositionStatus = 'draft' | 'completed' | 'published';
+
+export type MapCompositionVersion = {
+    /**
+     * 成果版本记录 ID
+     */
+    id: number;
+    /**
+     * 所属出图稿 ID
+     */
+    compositionId: number;
+    /**
+     * 出图稿内递增的版本号
+     */
+    versionNumber: number;
+    /**
+     * 正式成果格式
+     */
+    format: 'png' | 'jpg' | 'pdf';
+    /**
+     * 输出 DPI
+     */
+    dpi: number;
+    /**
+     * 输出宽度像素
+     */
+    widthPx: number;
+    /**
+     * 输出高度像素
+     */
+    heightPx: number;
+    /**
+     * 版本说明
+     */
+    note?: string;
+    /**
+     * 工程快照结构版本
+     */
+    snapshotSchemaVersion: number;
+    /**
+     * 版式和工程快照的 SHA-256 校验值
+     */
+    snapshotChecksum: string;
+    /**
+     * PNG 预览地址
+     */
+    previewUrl: string;
+    /**
+     * 正式成果下载地址
+     */
+    downloadUrl: string;
+    /**
+     * 版本生成时间
+     */
+    createdAt: string;
+};
+
+export type MapComposition = {
+    /**
+     * 出图稿 ID
+     */
+    id: number;
+    /**
+     * 来源工程 ID
+     */
+    projectId: number;
+    /**
+     * 来源工程名称
+     */
+    projectName: string;
+    /**
+     * 专题图名称
+     */
+    name: string;
+    /**
+     * 专题图说明
+     */
+    description: string;
+    status: MapCompositionStatus;
+    layout: MapCompositionLayout;
+    owner: WorkspaceSceneOwner;
+    /**
+     * 专题正式发布后可以访问的角色；未发布时不产生普通用户可见性
+     */
+    audienceGroups: Array<AdminDataResourceAccessGroup>;
+    /**
+     * 最近生成的成果版本；尚未生成时为 null
+     */
+    currentVersion?: MapCompositionVersion | null;
+    /**
+     * 当前正式发布版本；未发布时为 null
+     */
+    publishedVersion?: MapCompositionVersion | null;
+    /**
+     * 按版本号倒序返回的成果版本
+     */
+    versions: Array<MapCompositionVersion>;
+    isOwner: boolean;
+    canPreview: boolean;
+    canDownload: boolean;
+    canEditLayout: boolean;
+    canPublish: boolean;
+    canUnpublish: boolean;
+    canRestoreProject: boolean;
+    canLoadSourceProject: boolean;
+    canArchive: boolean;
+    publishedAt?: string | null;
+    publishedBy?: WorkspaceSceneOwner | null;
+    /**
+     * 创建时间
+     */
+    createdAt: string;
+    /**
+     * 更新时间
+     */
+    updatedAt: string;
+};
+
+export type MapCompositionListResponse = {
+    /**
+     * 当前用户拥有的出图稿列表
+     */
+    items: Array<MapComposition>;
+    /**
+     * 当前用户发布专题时可选择的角色
+     */
+    availableAudienceGroups: Array<AdminDataResourceAccessGroup>;
+};
+
+export type MapCompositionCreateRequest = {
+    /**
+     * 当前用户拥有的来源工程 ID，必须是 project 类型
+     */
+    projectId: number;
+    /**
+     * 专题图名称
+     */
+    name: string;
+    /**
+     * 专题图说明
+     */
+    description?: string;
+    layout: MapCompositionLayout;
+};
+
+export type MapCompositionUpdateRequest = {
+    /**
+     * update 更新版式；delete 归档
+     */
+    action?: 'update' | 'delete';
+    /**
+     * 更新后的专题图名称
+     */
+    name?: string;
+    /**
+     * 更新后的专题图说明
+     */
+    description?: string;
+    layout?: MapCompositionLayout;
+};
+
+export type MapCompositionVersionCreatePayload = {
+    /**
+     * 正式成果格式
+     */
+    format: 'png' | 'jpg' | 'pdf';
+    /**
+     * 输出 DPI
+     */
+    dpi: number;
+    /**
+     * PNG 母图宽度
+     */
+    widthPx: number;
+    /**
+     * PNG 母图高度
+     */
+    heightPx: number;
+    /**
+     * 版本说明
+     */
+    note?: string;
+    workspaceSnapshot: WorkspaceSceneSnapshot;
+};
+
+export type MapCompositionPublishRequest = {
+    /**
+     * 要设为正式发布版本的成果版本号
+     */
+    versionNumber: number;
+    /**
+     * 专题发布后的可见角色 ID
+     */
+    audienceGroupIds: Array<number>;
+};
+
+export type MapCompositionRestoreProjectRequest = {
+    /**
+     * 要还原的成果版本号；发布范围用户只能提交正式发布版本
+     */
+    versionNumber: number;
+    /**
+     * 新工程名称
+     */
+    name: string;
+    description?: string;
+    accessGroupIds?: Array<number>;
+    unavailableResourcePolicy?: 'skip' | 'fail';
+};
+
+export type MapCompositionRestoreWarning = {
+    code: string;
+    message: string;
+    resourceId?: number | null;
+};
+
+export type MapCompositionRestoreProjectResponse = {
+    project: WorkspaceScene;
+    warnings: Array<MapCompositionRestoreWarning>;
 };
 
 export type ResourceListItem = DataResource;
@@ -2860,6 +3259,26 @@ export type RasterDataset = {
      */
     processedAt: string | null;
     metadata: RasterMetadata;
+    /**
+     * 用户上传或目录扫描时的主栅格原始文件名
+     */
+    sourceFileName: string;
+    /**
+     * GDAL 识别到的源格式或驱动简称
+     */
+    sourceFormat: string;
+    /**
+     * 原始栅格数据包内的文件清单
+     */
+    sourceManifest: Array<RasterSourceAsset>;
+    /**
+     * 主栅格文件 SHA256；未计算时为空字符串
+     */
+    sourceChecksumSha256: string;
+    /**
+     * 栅格数据语义，用于选择默认重采样和符号化策略
+     */
+    rasterKind: 'imagery' | 'continuous' | 'categorical';
 };
 
 export type RasterMetadata = {
@@ -2932,6 +3351,10 @@ export type AsyncJobResponse = {
      * 任务状态
      */
     status: 'queued' | 'running' | 'ready' | 'failed';
+    /**
+     * 当前处理阶段，例如 queued、validating、preprocessing、publishing、ready 或 failed
+     */
+    stage: string;
     /**
      * 任务进度百分比
      */
@@ -3263,6 +3686,241 @@ export type TableImportCommitResponse = {
     coordinateStats: CoordinateStats | null;
     /**
      * 非地理导入固定为空数组
+     */
+    validationIssues: Array<ValidationIssue>;
+};
+
+export type VectorImportFieldPreview = {
+    /**
+     * 源属性字段名
+     */
+    name: string;
+    /**
+     * GeoPandas/Pandas 字段类型
+     */
+    type: string;
+    /**
+     * 字段是否包含空值
+     */
+    nullable: boolean;
+    /**
+     * 前若干个非空样例值
+     */
+    sampleValues: Array<string | number | boolean | null>;
+};
+
+export type VectorGeometryQuality = {
+    /**
+     * 有效几何数量
+     */
+    validCount: number;
+    /**
+     * 无效几何数量
+     */
+    invalidCount: number;
+    /**
+     * 空几何数量
+     */
+    emptyCount: number;
+    /**
+     * null 几何数量
+     */
+    nullCount: number;
+    /**
+     * 是否存在多种基础几何类型
+     */
+    mixedGeometry: boolean;
+};
+
+export type VectorImportLayerPreview = {
+    /**
+     * 源文件中的图层名称；GeoJSON 为文件名去扩展名
+     */
+    sourceLayerName: string;
+    /**
+     * 建议的数据资源显示名称
+     */
+    suggestedName: string;
+    /**
+     * 建议写入统一 GeoPackage 的图层名
+     */
+    suggestedTableName: string;
+    /**
+     * Point、LineString、Polygon、MultiPoint、MultiLineString、MultiPolygon 或 Mixed
+     */
+    geometryType: string;
+    /**
+     * 要素总数
+     */
+    featureCount: number;
+    /**
+     * 几何坐标顶点总数
+     */
+    vertexCount: number;
+    /**
+     * 源坐标系边界 [minX, minY, maxX, maxY]
+     */
+    bounds: Array<number>;
+    /**
+     * 解析到的坐标系文本；缺失时为 null
+     */
+    coordinateSystem: string | null;
+    /**
+     * 解析到的 EPSG 编码；无法识别时为 null
+     */
+    epsg: number | null;
+    /**
+     * Shapefile DBF 使用的编码；其他格式可能为 null
+     */
+    encoding: string | null;
+    /**
+     * 属性字段预览
+     */
+    fields: Array<VectorImportFieldPreview>;
+    /**
+     * 前若干行属性预览，不包含几何坐标
+     */
+    previewRows: Array<{
+        [key: string]: unknown;
+    }>;
+    quality: VectorGeometryQuality;
+};
+
+export type VectorImportPreviewResponse = {
+    /**
+     * 原始上传文件名
+     */
+    sourceFileName: string;
+    /**
+     * 识别到的矢量源格式
+     */
+    sourceFormat: 'SHAPEFILE' | 'GEOJSON' | 'GPKG';
+    /**
+     * 文件中可选择导入的矢量图层
+     */
+    layers: Array<VectorImportLayerPreview>;
+    /**
+     * 当前矢量导入限制和处理提示
+     */
+    limitations: Array<string>;
+};
+
+export type VectorImportValidateRequest = {
+    /**
+     * 数据资源显示名称
+     */
+    name: string;
+    /**
+     * 预检结果中的源图层名称
+     */
+    sourceLayerName: string;
+    /**
+     * 建议写入统一 GeoPackage 的图层名
+     */
+    tableName: string;
+    /**
+     * Shapefile DBF 编码覆盖值
+     */
+    encoding?: string | null;
+    /**
+     * 源文件缺少坐标系时人工指定的 EPSG 编码或 CRS 字符串
+     */
+    sourceCrs?: string | null;
+    /**
+     * 是否使用 make_valid 尝试修复无效几何
+     */
+    repairInvalidGeometries?: boolean;
+    /**
+     * 是否跳过修复后仍无效、空或 null 的几何
+     */
+    skipInvalidGeometries?: boolean;
+};
+
+export type VectorImportValidateResponse = {
+    layer: VectorImportLayerPreview;
+    /**
+     * 坐标系、编码和几何质量问题
+     */
+    validationIssues: Array<ValidationIssue>;
+    /**
+     * 同名数据资源；无重复时为 null
+     */
+    duplicateTarget: ImportDuplicateTarget | null;
+};
+
+export type VectorImportCommitRequest = VectorImportValidateRequest & {
+    domainType: DataDomainType;
+    /**
+     * 是否已确认创建同名数据资源
+     */
+    duplicateConfirmed: boolean;
+    /**
+     * 额外可访问用户组 ID
+     */
+    accessGroupIds: Array<number>;
+    /**
+     * 字段名到中文说明的映射
+     */
+    fieldMetadata: {
+        [key: string]: string;
+    };
+};
+
+export type VectorImportCommitResponse = {
+    /**
+     * 矢量文件导入模式
+     */
+    mode: 'vector';
+    /**
+     * 创建的数据资源 ID
+     */
+    resourceId: number;
+    /**
+     * 创建的数据资源显示名称
+     */
+    resourceName: string;
+    /**
+     * 创建的 VectorDataset 技术元数据记录 ID
+     */
+    vectorDatasetId: number;
+    /**
+     * 创建的 MapLayer ID
+     */
+    layerId: number;
+    /**
+     * 写入统一 GeoPackage 的唯一图层名
+     */
+    layerName: string;
+    /**
+     * 源文件中的图层名称
+     */
+    sourceLayerName: string;
+    /**
+     * 成功写入的有效要素数量
+     */
+    importedFeatures: number;
+    /**
+     * 因空、null 或无效几何被跳过的要素数量
+     */
+    skippedFeatures: number;
+    /**
+     * EPSG:4326 边界 [minLng, minLat, maxLng, maxLat]
+     */
+    bounds: Array<number>;
+    /**
+     * 标准化后的几何类型
+     */
+    geometryType: string;
+    /**
+     * 标准化存储坐标系，固定为 EPSG:4326
+     */
+    coordinateSystem: string;
+    /**
+     * 源 Shapefile DBF 编码；其他格式可能为 null
+     */
+    sourceEncoding: string | null;
+    /**
+     * 导入时确认或处理的质量问题
      */
     validationIssues: Array<ValidationIssue>;
 };
@@ -3856,13 +4514,97 @@ export type RasterImportRequest = {
 
 export type RasterImportUploadRequest = {
     /**
-     * 上传的栅格源文件，支持 GeoTIFF、IMG 和 VRT。文件大小不得超过系统配置的 upload_max_mb，单边像素长度不得超过 max_raster_side_pixels。后端保存到科研数据根目录的 raster/original/uploaded/ 后异步预处理。
+     * 兼容旧调用的单个栅格文件。新前端应使用 files。
      */
-    file: Blob | File;
+    file?: Blob | File;
+    /**
+     * 栅格主文件及配套文件，支持 GeoTIFF/COG、IMG、VRT 数据包和 ENVI DAT/BSQ/BIL/BIP + HDR。
+     */
+    files?: Array<Blob | File>;
     /**
      * 前端显示的数据集名称；为空时默认取上传文件名，不展示后端保存到 uploaded/ 目录的唯一存储文件名
      */
     name?: string;
+    /**
+     * JSON 字符串，结构遵循 RasterImportCommitRequest；省略时使用兼容默认值。
+     */
+    payload?: string;
+};
+
+export type RasterSourceAsset = {
+    /**
+     * 数据包内文件名
+     */
+    name: string;
+    /**
+     * 文件大小，单位字节
+     */
+    size: number;
+    /**
+     * 文件在栅格数据包中的作用
+     */
+    role: 'primary' | 'header' | 'auxiliary' | 'referenced';
+};
+
+export type RasterImportPreviewResponse = {
+    /**
+     * 识别到的主栅格文件名
+     */
+    primaryFileName: string;
+    /**
+     * GDAL 驱动简称，例如 GTiff、ENVI、HFA 或 VRT
+     */
+    sourceFormat: string;
+    /**
+     * 数据包文件及角色
+     */
+    files: Array<RasterSourceAsset>;
+    metadata: RasterMetadata;
+    /**
+     * WGS84 空间范围 [west, south, east, north]
+     */
+    bounds4326: Array<number>;
+    defaultRules: RasterSymbolizationRules;
+    /**
+     * 建议的资源显示名称
+     */
+    suggestedName: string;
+    /**
+     * 根据波段数量和数据类型推断的栅格语义
+     */
+    rasterKind: 'imagery' | 'continuous' | 'categorical';
+    /**
+     * 建议的预处理重采样方式
+     */
+    resampling: 'nearest' | 'bilinear' | 'cubic';
+    /**
+     * 非阻断预检提示，例如缺少波段语义或无法识别 EPSG
+     */
+    warnings: Array<string>;
+};
+
+export type RasterImportCommitRequest = {
+    /**
+     * 预检确认的主栅格文件名
+     */
+    primaryFileName: string;
+    /**
+     * 数据资源、栅格数据集和地图图层的显示名称
+     */
+    name: string;
+    /**
+     * 栅格数据语义
+     */
+    rasterKind: 'imagery' | 'continuous' | 'categorical';
+    /**
+     * 生成 EPSG:3857 展示 COG 时使用的重采样方式
+     */
+    resampling: 'nearest' | 'bilinear' | 'cubic';
+    defaultRules: RasterSymbolizationRules;
+    /**
+     * 除上传者本人和超级管理员外可访问该数据的用户组 ID
+     */
+    accessGroupIds: Array<number>;
 };
 
 export type RasterRenderRequest = {
@@ -5105,6 +5847,86 @@ export type UpdateAdminSettingsResponses = {
 
 export type UpdateAdminSettingsResponse = UpdateAdminSettingsResponses[keyof UpdateAdminSettingsResponses];
 
+export type ListRoleApplicationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 申请状态筛选
+         */
+        status?: RoleApplicationStatus;
+    };
+    url: '/api/admin/role-applications/';
+};
+
+export type ListRoleApplicationsErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+};
+
+export type ListRoleApplicationsError = ListRoleApplicationsErrors[keyof ListRoleApplicationsErrors];
+
+export type ListRoleApplicationsResponses = {
+    /**
+     * 角色申请列表
+     */
+    200: RoleApplicationListResponse;
+};
+
+export type ListRoleApplicationsResponse = ListRoleApplicationsResponses[keyof ListRoleApplicationsResponses];
+
+export type ReviewRoleApplicationData = {
+    body: RoleApplicationReviewRequest;
+    path: {
+        /**
+         * 角色申请 ID
+         */
+        applicationId: number;
+    };
+    query?: never;
+    url: '/api/admin/role-applications/{applicationId}/review/';
+};
+
+export type ReviewRoleApplicationErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+    /**
+     * 资源不存在
+     */
+    404: ErrorResponse;
+};
+
+export type ReviewRoleApplicationError = ReviewRoleApplicationErrors[keyof ReviewRoleApplicationErrors];
+
+export type ReviewRoleApplicationResponses = {
+    /**
+     * 审核后的角色申请
+     */
+    200: RoleApplicationListItem;
+};
+
+export type ReviewRoleApplicationResponse = ReviewRoleApplicationResponses[keyof ReviewRoleApplicationResponses];
+
 export type GetAdminBackupOverviewData = {
     body?: never;
     path?: never;
@@ -5745,15 +6567,15 @@ export type ListAdminWorkspacesData = {
     path?: never;
     query?: {
         /**
-         * 按工程专题名称、说明或所属用户进行快速检索
+         * 按工程名称、说明或所属用户进行快速检索
          */
         q?: string;
         /**
-         * 工程专题类型筛选
+         * 工程类型筛选
          */
-        kind?: 'project' | 'topic';
+        kind?: 'project';
         /**
-         * 工程专题状态筛选
+         * 工程状态筛选
          */
         status?: 'active' | 'inactive';
         /**
@@ -5794,7 +6616,7 @@ export type UpdateAdminWorkspaceData = {
     body: AdminWorkspaceSceneUpdateRequest;
     path: {
         /**
-         * 工程专题 ID
+         * 工程 ID
          */
         workspaceId: number;
     };
@@ -5873,6 +6695,10 @@ export type GetResourcesData = {
          * 数据类型筛选
          */
         dataType?: 'vector' | 'raster' | 'gene' | 'table' | 'document' | 'image';
+        /**
+         * 按资源是否可直接参与地图空间展示筛选；spatial 仅返回 vector/raster，non_spatial 返回 table/gene/document/image；无效编码返回 400 ErrorResponse
+         */
+        spatialClass?: ResourceSpatialClass;
         /**
          * 按平台确认的业务数据类型筛选，例如种质数据、个体数据、遥感影像数据、分子数据、基因组数据或其他类型；无效编码返回 400 ErrorResponse
          */
@@ -5963,7 +6789,7 @@ export type ListCatalogWorkspacesData = {
         /**
          * 工作台快照类型；project 表示工程，topic 表示专题
          */
-        kind?: 'project' | 'topic';
+        kind?: 'project';
     };
     url: '/api/catalog/workspaces/';
 };
@@ -6023,7 +6849,7 @@ export type GetCatalogWorkspaceData = {
     body?: never;
     path: {
         /**
-         * 工程或专题 ID
+         * 工程 ID
          */
         workspaceId: number;
     };
@@ -6061,7 +6887,7 @@ export type UpdateCatalogWorkspaceData = {
     body: WorkspaceSceneUpdateRequest;
     path: {
         /**
-         * 工程或专题 ID
+         * 工程 ID
          */
         workspaceId: number;
     };
@@ -6264,6 +7090,380 @@ export type GetResourceProfileResponses = {
 
 export type GetResourceProfileResponse = GetResourceProfileResponses[keyof GetResourceProfileResponses];
 
+export type ListMapCompositionsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * 按来源工程 ID 筛选
+         */
+        projectId?: number;
+        /**
+         * 按出图稿状态筛选
+         */
+        status?: 'draft' | 'completed' | 'published';
+    };
+    url: '/api/catalog/map-compositions/';
+};
+
+export type ListMapCompositionsErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+};
+
+export type ListMapCompositionsError = ListMapCompositionsErrors[keyof ListMapCompositionsErrors];
+
+export type ListMapCompositionsResponses = {
+    /**
+     * 成功
+     */
+    200: MapCompositionListResponse;
+};
+
+export type ListMapCompositionsResponse = ListMapCompositionsResponses[keyof ListMapCompositionsResponses];
+
+export type CreateMapCompositionData = {
+    body: MapCompositionCreateRequest;
+    path?: never;
+    query?: never;
+    url: '/api/catalog/map-compositions/';
+};
+
+export type CreateMapCompositionErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+};
+
+export type CreateMapCompositionError = CreateMapCompositionErrors[keyof CreateMapCompositionErrors];
+
+export type CreateMapCompositionResponses = {
+    /**
+     * 创建成功
+     */
+    201: MapComposition;
+};
+
+export type CreateMapCompositionResponse = CreateMapCompositionResponses[keyof CreateMapCompositionResponses];
+
+export type GetMapCompositionData = {
+    body?: never;
+    path: {
+        /**
+         * 出图稿 ID
+         */
+        compositionId: number;
+    };
+    query?: never;
+    url: '/api/catalog/map-compositions/{compositionId}/';
+};
+
+export type GetMapCompositionErrors = {
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+    /**
+     * 资源不存在
+     */
+    404: ErrorResponse;
+};
+
+export type GetMapCompositionError = GetMapCompositionErrors[keyof GetMapCompositionErrors];
+
+export type GetMapCompositionResponses = {
+    /**
+     * 成功
+     */
+    200: MapComposition;
+};
+
+export type GetMapCompositionResponse = GetMapCompositionResponses[keyof GetMapCompositionResponses];
+
+export type UpdateMapCompositionData = {
+    body: MapCompositionUpdateRequest;
+    path: {
+        /**
+         * 出图稿 ID
+         */
+        compositionId: number;
+    };
+    query?: never;
+    url: '/api/catalog/map-compositions/{compositionId}/';
+};
+
+export type UpdateMapCompositionErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+    /**
+     * 资源不存在
+     */
+    404: ErrorResponse;
+};
+
+export type UpdateMapCompositionError = UpdateMapCompositionErrors[keyof UpdateMapCompositionErrors];
+
+export type UpdateMapCompositionResponses = {
+    /**
+     * 操作成功
+     */
+    200: MapComposition | DetailResponse;
+};
+
+export type UpdateMapCompositionResponse = UpdateMapCompositionResponses[keyof UpdateMapCompositionResponses];
+
+export type CreateMapCompositionVersionData = {
+    body: {
+        /**
+         * 前端渲染的 PNG 母图
+         */
+        image: Blob | File;
+        /**
+         * JSON 字符串，结构为 MapCompositionVersionCreatePayload
+         */
+        payload: string;
+    };
+    path: {
+        /**
+         * 出图稿 ID
+         */
+        compositionId: number;
+    };
+    query?: never;
+    url: '/api/catalog/map-compositions/{compositionId}/versions/';
+};
+
+export type CreateMapCompositionVersionErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+    /**
+     * 资源不存在
+     */
+    404: ErrorResponse;
+};
+
+export type CreateMapCompositionVersionError = CreateMapCompositionVersionErrors[keyof CreateMapCompositionVersionErrors];
+
+export type CreateMapCompositionVersionResponses = {
+    /**
+     * 版本生成成功
+     */
+    201: MapCompositionVersion;
+};
+
+export type CreateMapCompositionVersionResponse = CreateMapCompositionVersionResponses[keyof CreateMapCompositionVersionResponses];
+
+export type PublishMapCompositionData = {
+    body: MapCompositionPublishRequest;
+    path: {
+        compositionId: number;
+    };
+    query?: never;
+    url: '/api/catalog/map-compositions/{compositionId}/publish/';
+};
+
+export type PublishMapCompositionErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+    /**
+     * 资源不存在
+     */
+    404: ErrorResponse;
+};
+
+export type PublishMapCompositionError = PublishMapCompositionErrors[keyof PublishMapCompositionErrors];
+
+export type PublishMapCompositionResponses = {
+    /**
+     * 发布成功
+     */
+    200: MapComposition;
+};
+
+export type PublishMapCompositionResponse = PublishMapCompositionResponses[keyof PublishMapCompositionResponses];
+
+export type UnpublishMapCompositionData = {
+    body?: never;
+    path: {
+        compositionId: number;
+    };
+    query?: never;
+    url: '/api/catalog/map-compositions/{compositionId}/unpublish/';
+};
+
+export type UnpublishMapCompositionErrors = {
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+    /**
+     * 资源不存在
+     */
+    404: ErrorResponse;
+};
+
+export type UnpublishMapCompositionError = UnpublishMapCompositionErrors[keyof UnpublishMapCompositionErrors];
+
+export type UnpublishMapCompositionResponses = {
+    /**
+     * 下架成功
+     */
+    200: MapComposition;
+};
+
+export type UnpublishMapCompositionResponse = UnpublishMapCompositionResponses[keyof UnpublishMapCompositionResponses];
+
+export type RestoreMapCompositionProjectData = {
+    body: MapCompositionRestoreProjectRequest;
+    path: {
+        compositionId: number;
+    };
+    query?: never;
+    url: '/api/catalog/map-compositions/{compositionId}/restore-project/';
+};
+
+export type RestoreMapCompositionProjectErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+    /**
+     * 资源不存在
+     */
+    404: ErrorResponse;
+    /**
+     * 当前资源状态或名称发生冲突
+     */
+    409: ErrorResponse;
+};
+
+export type RestoreMapCompositionProjectError = RestoreMapCompositionProjectErrors[keyof RestoreMapCompositionProjectErrors];
+
+export type RestoreMapCompositionProjectResponses = {
+    /**
+     * 工程创建成功
+     */
+    201: MapCompositionRestoreProjectResponse;
+};
+
+export type RestoreMapCompositionProjectResponse = RestoreMapCompositionProjectResponses[keyof RestoreMapCompositionProjectResponses];
+
+export type DownloadMapCompositionVersionData = {
+    body?: never;
+    path: {
+        /**
+         * 出图稿 ID
+         */
+        compositionId: number;
+        /**
+         * 成果版本号
+         */
+        versionNumber: number;
+    };
+    query?: {
+        /**
+         * artifact 返回正式成果并触发下载；preview 返回 PNG 预览
+         */
+        variant?: 'artifact' | 'preview';
+    };
+    url: '/api/catalog/map-compositions/{compositionId}/versions/{versionNumber}/file/';
+};
+
+export type DownloadMapCompositionVersionErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+    /**
+     * 资源不存在
+     */
+    404: ErrorResponse;
+};
+
+export type DownloadMapCompositionVersionError = DownloadMapCompositionVersionErrors[keyof DownloadMapCompositionVersionErrors];
+
+export type DownloadMapCompositionVersionResponses = {
+    /**
+     * 文件内容
+     */
+    200: Blob | File;
+};
+
+export type DownloadMapCompositionVersionResponse = DownloadMapCompositionVersionResponses[keyof DownloadMapCompositionVersionResponses];
+
 export type GetResourceVisualizationSummaryData = {
     body?: never;
     path: {
@@ -6314,6 +7514,132 @@ export type GetResourceVisualizationSummaryResponses = {
 };
 
 export type GetResourceVisualizationSummaryResponse = GetResourceVisualizationSummaryResponses[keyof GetResourceVisualizationSummaryResponses];
+
+export type PreviewVectorImportData = {
+    body: {
+        /**
+         * .zip、.geojson、.json 或 .gpkg 文件
+         */
+        file: Blob | File;
+        /**
+         * 可选的 Shapefile DBF 编码覆盖值，例如 GB18030、GBK 或 UTF-8
+         */
+        encoding?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/catalog/vector-import/preview/';
+};
+
+export type PreviewVectorImportErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+};
+
+export type PreviewVectorImportError = PreviewVectorImportErrors[keyof PreviewVectorImportErrors];
+
+export type PreviewVectorImportResponses = {
+    /**
+     * 预检成功
+     */
+    200: VectorImportPreviewResponse;
+};
+
+export type PreviewVectorImportResponse = PreviewVectorImportResponses[keyof PreviewVectorImportResponses];
+
+export type ValidateVectorImportData = {
+    body: {
+        /**
+         * 与预检一致的矢量文件
+         */
+        file: Blob | File;
+        /**
+         * JSON 字符串，结构遵循 VectorImportValidateRequest
+         */
+        payload: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/catalog/vector-import/validate/';
+};
+
+export type ValidateVectorImportErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+};
+
+export type ValidateVectorImportError = ValidateVectorImportErrors[keyof ValidateVectorImportErrors];
+
+export type ValidateVectorImportResponses = {
+    /**
+     * 校验完成
+     */
+    200: VectorImportValidateResponse;
+};
+
+export type ValidateVectorImportResponse = ValidateVectorImportResponses[keyof ValidateVectorImportResponses];
+
+export type CommitVectorImportData = {
+    body: {
+        /**
+         * 与预检一致的矢量文件
+         */
+        file: Blob | File;
+        /**
+         * JSON 字符串，结构遵循 VectorImportCommitRequest
+         */
+        payload: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/catalog/vector-import/commit/';
+};
+
+export type CommitVectorImportErrors = {
+    /**
+     * 文件、坐标系、几何质量或导入配置不符合要求
+     */
+    400: ImportErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+};
+
+export type CommitVectorImportError = CommitVectorImportErrors[keyof CommitVectorImportErrors];
+
+export type CommitVectorImportResponses = {
+    /**
+     * 矢量导入成功
+     */
+    201: VectorImportCommitResponse;
+};
+
+export type CommitVectorImportResponse = CommitVectorImportResponses[keyof CommitVectorImportResponses];
 
 export type QueryResourceData = {
     body: QueryRequest;
@@ -6552,6 +7878,48 @@ export type GetRasterDatasetsResponses = {
 };
 
 export type GetRasterDatasetsResponse = GetRasterDatasetsResponses[keyof GetRasterDatasetsResponses];
+
+export type PreviewRasterImportData = {
+    body: {
+        /**
+         * 栅格主文件及其配套文件；DAT/BSQ/BIL/BIP 必须同时上传 HDR，VRT 必须包含其引用文件。
+         */
+        files: Array<Blob | File>;
+        /**
+         * 主栅格文件名；仅有一个候选主文件时可以省略。
+         */
+        primaryFileName?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/api/raster/import/preview/';
+};
+
+export type PreviewRasterImportErrors = {
+    /**
+     * 请求错误
+     */
+    400: ErrorResponse;
+    /**
+     * 未认证
+     */
+    401: ErrorResponse;
+    /**
+     * 权限不足或 CSRF 校验失败
+     */
+    403: ErrorResponse;
+};
+
+export type PreviewRasterImportError = PreviewRasterImportErrors[keyof PreviewRasterImportErrors];
+
+export type PreviewRasterImportResponses = {
+    /**
+     * 预检成功
+     */
+    200: RasterImportPreviewResponse;
+};
+
+export type PreviewRasterImportResponse = PreviewRasterImportResponses[keyof PreviewRasterImportResponses];
 
 export type ImportRasterData = {
     body: RasterImportRequest;

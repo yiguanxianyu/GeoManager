@@ -36,16 +36,24 @@ function resourceRouteFor(user: User | null) {
       icon: <DatabaseOutlined />,
     });
   }
-  if (
+  const canManageWorkspaces =
     user?.permissions.canViewWorkspaces ||
     user?.permissions.canChangeWorkspaces ||
-    user?.permissions.canDeleteWorkspaces
-  ) {
+    user?.permissions.canDeleteWorkspaces;
+  const canManageTopics =
+    canManageWorkspaces ||
+    user?.permissions.canViewMapCompositions ||
+    user?.permissions.canChangeMapCompositions ||
+    user?.permissions.canDeleteMapCompositions ||
+    user?.permissions.canPublishMapCompositions;
+  if (canManageWorkspaces) {
     routes.push({
       path: "/resources/manage/projects",
       name: "工程管理",
       icon: <FolderOpenOutlined />,
     });
+  }
+  if (canManageTopics) {
     routes.push({
       path: "/resources/manage/topics",
       name: "专题管理",

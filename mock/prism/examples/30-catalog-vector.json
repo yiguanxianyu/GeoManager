@@ -65,6 +65,7 @@
           "name": "Traim",
           "code": "raster-91d2a5ecd116",
           "dataType": "raster",
+          "spatialClass": "spatial",
           "domainType": "remote_sensing",
           "category": null,
           "source": "栅格导入",
@@ -87,6 +88,7 @@
           "name": "Traim_result",
           "code": "raster-fa42b738b42f",
           "dataType": "raster",
+          "spatialClass": "spatial",
           "domainType": "remote_sensing",
           "category": null,
           "source": "栅格导入",
@@ -109,6 +111,7 @@
           "name": "塔里木河胡杨样地监测点",
           "code": "survey-points-2026",
           "dataType": "vector",
+          "spatialClass": "spatial",
           "domainType": "field_survey",
           "category": {
             "id": 101,
@@ -136,6 +139,7 @@
           "name": "胡杨群落生物多样性与功能性状数据表",
           "code": "nongeo-poplar-community-traits-2024",
           "dataType": "table",
+          "spatialClass": "non_spatial",
           "domainType": "community",
           "category": {
             "id": 104,
@@ -163,6 +167,7 @@
           "name": "胡杨林项目临时资料汇总表",
           "code": "other-project-notes-2026",
           "dataType": "table",
+          "spatialClass": "non_spatial",
           "domainType": "other",
           "category": null,
           "source": "用户导入",
@@ -226,8 +231,34 @@
             "username": "admin",
             "displayName": "系统管理员"
           },
+          "accessGroups": [
+            {
+              "id": 2,
+              "name": "普通用户",
+              "isGuest": false,
+              "isSuperadmin": false
+            }
+          ],
+          "isOwner": true,
+          "canEdit": true,
+          "canDelete": true,
+          "canManageAccess": true,
           "createdAt": "2026-06-16T10:20:00+08:00",
           "updatedAt": "2026-06-16T10:20:00+08:00"
+        }
+      ],
+      "availableAccessGroups": [
+        {
+          "id": 2,
+          "name": "普通用户",
+          "isGuest": false,
+          "isSuperadmin": false
+        },
+        {
+          "id": 3,
+          "name": "游客",
+          "isGuest": true,
+          "isSuperadmin": false
         }
       ]
     }
@@ -250,6 +281,11 @@
         "username": "admin",
         "displayName": "系统管理员"
       },
+      "accessGroups": [],
+      "isOwner": true,
+      "canEdit": true,
+      "canDelete": true,
+      "canManageAccess": true,
       "createdAt": "2026-06-16T10:30:00+08:00",
       "updatedAt": "2026-06-16T10:30:00+08:00"
     }
@@ -272,6 +308,18 @@
         "username": "admin",
         "displayName": "系统管理员"
       },
+      "accessGroups": [
+        {
+          "id": 2,
+          "name": "普通用户",
+          "isGuest": false,
+          "isSuperadmin": false
+        }
+      ],
+      "isOwner": true,
+      "canEdit": true,
+      "canDelete": true,
+      "canManageAccess": true,
       "createdAt": "2026-06-16T10:20:00+08:00",
       "updatedAt": "2026-06-16T10:20:00+08:00"
     }
@@ -1294,6 +1342,72 @@
           "itemCount": 3
         }
       ]
+    }
+  },
+  "POST /api/catalog/vector-import/preview/": {
+    "200": {
+      "sourceFileName": "新疆自治区边界.zip",
+      "sourceFormat": "SHAPEFILE",
+      "layers": [
+        {
+          "sourceLayerName": "新疆自治区_中华人民共和国",
+          "suggestedName": "新疆自治区_中华人民共和国",
+          "suggestedTableName": "xinjiang_boundary_2026",
+          "geometryType": "Polygon",
+          "featureCount": 1,
+          "vertexCount": 27139,
+          "bounds": [73.49901303, 34.33631216, 96.38533386, 49.18141068],
+          "coordinateSystem": "EPSG:4326",
+          "epsg": 4326,
+          "encoding": "GB18030",
+          "fields": [
+            {"name": "Name", "type": "object", "nullable": false, "sampleValues": ["中华人民共和国"]},
+            {"name": "adcode", "type": "object", "nullable": false, "sampleValues": ["100000"]}
+          ],
+          "previewRows": [{"Name": "中华人民共和国", "adcode": "100000"}],
+          "quality": {"validCount": 1, "invalidCount": 0, "emptyCount": 0, "nullCount": 0, "mixedGeometry": false}
+        }
+      ],
+      "limitations": ["Shapefile 请以 ZIP 上传，并包含同名 .shp、.shx、.dbf。"]
+    }
+  },
+  "POST /api/catalog/vector-import/validate/": {
+    "200": {
+      "layer": {
+        "sourceLayerName": "新疆自治区_中华人民共和国",
+        "suggestedName": "新疆自治区边界",
+        "suggestedTableName": "xinjiang_boundary_2026",
+        "geometryType": "Polygon",
+        "featureCount": 1,
+        "vertexCount": 27139,
+        "bounds": [73.49901303, 34.33631216, 96.38533386, 49.18141068],
+        "coordinateSystem": "EPSG:4326",
+        "epsg": 4326,
+        "encoding": "GB18030",
+        "fields": [{"name": "Name", "type": "object", "nullable": false, "sampleValues": ["中华人民共和国"]}],
+        "previewRows": [{"Name": "中华人民共和国"}],
+        "quality": {"validCount": 1, "invalidCount": 0, "emptyCount": 0, "nullCount": 0, "mixedGeometry": false}
+      },
+      "validationIssues": [],
+      "duplicateTarget": null
+    }
+  },
+  "POST /api/catalog/vector-import/commit/": {
+    "201": {
+      "mode": "vector",
+      "resourceId": 31,
+      "resourceName": "新疆自治区边界",
+      "vectorDatasetId": 7,
+      "layerId": 31,
+      "layerName": "xinjiang_boundary_2026",
+      "sourceLayerName": "新疆自治区_中华人民共和国",
+      "importedFeatures": 1,
+      "skippedFeatures": 0,
+      "bounds": [73.49901303, 34.33631216, 96.38533386, 49.18141068],
+      "geometryType": "Polygon",
+      "coordinateSystem": "EPSG:4326",
+      "sourceEncoding": "GB18030",
+      "validationIssues": []
     }
   },
   "GET /api/catalog/export/jobs/{job_id}/download/": {

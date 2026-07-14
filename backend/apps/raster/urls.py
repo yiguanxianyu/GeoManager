@@ -5,6 +5,7 @@ from apps.raster import views
 
 urlpatterns = [
     path("datasets/", views.datasets, name="raster-datasets"),
+    path("import/preview/", views.preview_import, name="raster-import-preview"),
     path("import/", views.import_raster, name="raster-import"),
     path("scan/", views.scan_sources, name="raster-scan"),
     path("render/", views.render, name="raster-render"),

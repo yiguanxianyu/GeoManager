@@ -41,6 +41,8 @@ const mockApi = vi.hoisted(() => ({
   adminOperationLogs: vi.fn(),
   adminSystemLogs: vi.fn(),
   adminUsers: vi.fn(),
+  roleApplications: vi.fn(),
+  reviewRoleApplication: vi.fn(),
   createAdminUser: vi.fn(),
   updateAdminUserGroups: vi.fn(),
   updateAdminUser: vi.fn(),
@@ -63,6 +65,7 @@ const mockApi = vi.hoisted(() => ({
   importPreview: vi.fn(),
   importValidate: vi.fn(),
   importCommit: vi.fn(),
+  previewRasterImport: vi.fn(),
   importRaster: vi.fn(),
   rasterJob: vi.fn(),
   adminDataResources: vi.fn(),
@@ -78,16 +81,10 @@ const mockApi = vi.hoisted(() => ({
   adminDashboardServer: vi.fn(),
 }));
 
-const mockGeoTiff = vi.hoisted(() => ({
-  fromArrayBuffer: vi.fn(),
-}));
-
 vi.mock("../api/client", () => ({
   ApiError: class ApiError extends Error {},
   api: mockApi,
 }));
-
-vi.mock("geotiff", () => mockGeoTiff);
 
 const bootstrap: Bootstrap = {
   systemName: "中亚胡杨林生态系统保护数据共享平台",
@@ -444,7 +441,6 @@ describe("admin routes", () => {
       fn.mockReset();
     }
     mockApi.bootstrap.mockResolvedValue(bootstrap);
-    mockGeoTiff.fromArrayBuffer.mockReset();
     mockApi.logout.mockResolvedValue({ detail: "已退出" });
     mockApi.adminProfile.mockResolvedValue({
       user: adminUser,
@@ -472,6 +468,7 @@ describe("admin routes", () => {
       detail: "密码已更新",
     });
     mockApi.adminUsers.mockResolvedValue({ items: [adminApiUser] });
+    mockApi.roleApplications.mockResolvedValue({ items: [] });
     mockApi.updateAdminUser.mockImplementation((userId, payload) =>
       Promise.resolve({
         ...adminApiUser,
@@ -496,6 +493,32 @@ describe("admin routes", () => {
       items: [adminGroup],
       availablePermissions,
     });
+    mockApi.reviewRoleApplication.mockImplementation((applicationId, payload) =>
+      Promise.resolve({
+        id: applicationId,
+        userId: 8,
+        requestedRole: "research",
+        status: payload.action === "approve" ? "approved" : "rejected",
+        reason: "需要上传长期监测数据",
+        reviewNote: payload.reviewNote,
+        createdAt: "2026-07-14T10:30:00+08:00",
+        reviewedAt: "2026-07-14T11:00:00+08:00",
+        user: {
+          id: 8,
+          username: "research_applicant",
+          displayName: "张研究员",
+          email: "research.applicant@example.com",
+          department: "生态监测组",
+        },
+        reviewer: {
+          id: 1,
+          username: "admin",
+          displayName: "系统管理员",
+          email: "admin@example.local",
+          department: "平台运维组",
+        },
+      }),
+    );
     mockApi.adminSettings.mockResolvedValue(adminSettings);
     mockApi.updateAdminSettings.mockResolvedValue(adminSettings);
     mockApi.adminBackupOverview.mockResolvedValue(backupOverview);
@@ -572,7 +595,7 @@ describe("admin routes", () => {
           series: Array.from({ length: 24 }, (_, hour) => ({
             key: String(hour),
             label: `${String(hour).padStart(2, "0")}:00`,
-            count: hour === 9 ? 2 : 0,
+            count: hour === 9 ? 1 : 0,
           })),
           ranking: [
             {
@@ -831,16 +854,37 @@ describe("admin routes", () => {
       importedRows: 1,
       validationIssues: [],
     });
-    mockGeoTiff.fromArrayBuffer.mockResolvedValue({
-      getImage: vi.fn().mockResolvedValue({
-        getWidth: vi.fn().mockReturnValue(256),
-        getHeight: vi.fn().mockReturnValue(128),
-      }),
+    mockApi.previewRasterImport.mockResolvedValue({
+      primaryFileName: "raster.tif",
+      sourceFormat: "GTiff",
+      files: [{ name: "raster.tif", size: 1024, role: "primary" }],
+      metadata: {
+        size: [256, 128],
+        driver: "GTiff",
+        coordinateSystem: 32645,
+        bands: [
+          {
+            band: 1,
+            type: "Byte",
+            description: "Band 1",
+            colorInterpretation: "Gray",
+            min: 0,
+            max: 255,
+            isInteger: true,
+          },
+        ],
+      },
+      bounds4326: [88, 40, 88.1, 40.1],
+      defaultRules: { mode: "gray", bands: [1] },
+      suggestedName: "raster",
+      rasterKind: "continuous",
+      resampling: "bilinear",
+      warnings: [],
     });
     mockApi.importRaster.mockImplementation(
       (
-        _file: File,
-        _name: string,
+        _files: File[],
+        _payload: Record<string, unknown>,
         onUploadProgress?: (percent: number) => void,
       ) => {
         onUploadProgress?.(42);
@@ -848,6 +892,7 @@ describe("admin routes", () => {
           id: "raster-job-1",
           kind: "import",
           status: "running",
+          stage: "preprocessing",
           progressPercent: 35,
           messages: ["已上传栅格文件", "开始 gdalwarp 预处理"],
           result: null,
@@ -875,6 +920,7 @@ describe("admin routes", () => {
           name: "胡杨林样地点",
           code: "populus-plots",
           dataType: "vector",
+          domainType: "field_survey",
           category: null,
           source: "用户导入",
           provider: "平台组",
@@ -907,6 +953,7 @@ describe("admin routes", () => {
         name: "胡杨林样地点",
         code: "populus-plots",
         dataType: "vector",
+        domainType: "field_survey",
         category: null,
         source: "用户导入",
         provider: "平台组",
@@ -970,6 +1017,9 @@ describe("admin routes", () => {
             updatedAt: "2026-06-01T10:00:00+08:00",
             status: "active",
             accessGroups: [],
+            isOwner: true,
+            canEdit: true,
+            canDelete: true,
             canManageAccess: true,
           },
         ],
@@ -995,6 +1045,9 @@ describe("admin routes", () => {
         updatedAt: "2026-06-01T10:00:00+08:00",
         status: payload.status ?? "active",
         accessGroups: [],
+        isOwner: true,
+        canEdit: true,
+        canDelete: true,
         canManageAccess: true,
       }),
     );
@@ -1007,7 +1060,7 @@ describe("admin routes", () => {
       "workspace-switch-card-active",
     );
     expect(await screen.findByText("用户信息")).toBeInTheDocument();
-    expect(screen.getAllByText("活跃用户").length).toBeGreaterThan(0);
+    expect(screen.getByText("账号活跃与登录")).toBeInTheDocument();
     expect(screen.getByText("服务器信息")).toBeInTheDocument();
     expect(screen.queryByText("图层数")).not.toBeInTheDocument();
   });
@@ -1226,6 +1279,52 @@ describe("admin routes", () => {
     });
     const drawer = screen.getByRole("dialog", { name: "用户详情" });
     expect(within(drawer).getByText("平台运维组")).toBeInTheDocument();
+  }, 30000);
+
+  it("shows and approves pending research role applications", async () => {
+    mockApi.roleApplications.mockResolvedValue({
+      items: [
+        {
+          id: 12,
+          userId: 8,
+          requestedRole: "research",
+          status: "pending",
+          reason: "需要上传长期监测数据",
+          reviewNote: "",
+          createdAt: "2026-07-14T10:30:00+08:00",
+          reviewedAt: null,
+          user: {
+            id: 8,
+            username: "research_applicant",
+            displayName: "张研究员",
+            email: "research.applicant@example.com",
+            department: "生态监测组",
+          },
+          reviewer: null,
+        },
+      ],
+    });
+
+    renderWithProviders(
+      <MemoryRouter initialEntries={["/admin/auth/users"]}>
+        <AdminAuthPage />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("科研用户申请")).toBeInTheDocument();
+    expect(await screen.findByText("张研究员")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /通过/ }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "确认通过科研用户申请？",
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: /通\s*过/ }));
+
+    await waitFor(() => {
+      expect(mockApi.reviewRoleApplication).toHaveBeenCalledWith(12, {
+        action: "approve",
+        reviewNote: "",
+      });
+    });
   }, 30000);
 
   it("puts current user first in auth management", async () => {
@@ -1524,6 +1623,9 @@ describe("admin routes", () => {
   }, 30000);
 
   it("rejects a raster file above the configured upload size before submitting", async () => {
+    mockApi.previewRasterImport.mockRejectedValueOnce(
+      new Error("栅格数据包总大小不能超过 512 MB"),
+    );
     renderAdminRoute("/resources/data/import");
 
     const rasterInput = document.querySelector(
@@ -1539,19 +1641,15 @@ describe("admin routes", () => {
     fireEvent.change(rasterInput, { target: { files: [oversizedFile] } });
 
     expect(
-      await screen.findByText(/栅格文件大小不能超过 512 MB/),
+      await screen.findByText(/栅格数据包总大小不能超过 512 MB/),
     ).toBeInTheDocument();
-    expect(mockGeoTiff.fromArrayBuffer).not.toHaveBeenCalled();
     expect(mockApi.importRaster).not.toHaveBeenCalled();
   }, 30000);
 
   it("rejects a raster file above the pixel side limit before submitting", async () => {
-    mockGeoTiff.fromArrayBuffer.mockResolvedValueOnce({
-      getImage: vi.fn().mockResolvedValue({
-        getWidth: vi.fn().mockReturnValue(10001),
-        getHeight: vi.fn().mockReturnValue(9000),
-      }),
-    });
+    mockApi.previewRasterImport.mockRejectedValueOnce(
+      new Error("栅格单边长度不能超过 10000 像素，当前为 10001 x 9000"),
+    );
     renderAdminRoute("/resources/data/import");
 
     const rasterInput = document.querySelector(
@@ -1640,7 +1738,23 @@ describe("admin routes", () => {
     renderAdminRoute("/resources/data/inventory");
 
     expect(await screen.findByText("胡杨林样地点")).toBeInTheDocument();
-    expect(screen.getAllByText("默认分组").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("全部数据").length).toBeGreaterThan(0);
+    for (const groupName of [
+      "种质数据",
+      "基因组数据",
+      "个体数据",
+      "群落数据",
+      "种群数据",
+      "野外调查数据",
+      "遥感影像数据",
+      "分子数据",
+      "矢量数据",
+      "其他类型",
+    ]) {
+      expect(
+        screen.getByRole("button", { name: `删除系统分组${groupName}` }),
+      ).toBeDisabled();
+    }
     expect(screen.getByText("CSV")).toBeInTheDocument();
     expect(screen.getByText("本页启用")).toBeInTheDocument();
     expect(screen.queryByText("populus-plots")).not.toBeInTheDocument();
@@ -1660,6 +1774,7 @@ describe("admin routes", () => {
       name: "科研共享样地",
       code: "research-plots",
       dataType: "vector",
+      domainType: "field_survey",
       category: null,
       source: "用户导入",
       provider: "平台组",
@@ -1698,9 +1813,9 @@ describe("admin routes", () => {
 
     renderAdminRoute("/resources/data/inventory");
 
-    expect(await screen.findByText("默认分组")).toBeInTheDocument();
+    expect(await screen.findByText("全部数据")).toBeInTheDocument();
     const groupCheckbox = screen.getByRole("checkbox", {
-      name: "默认分组组别状态",
+      name: "全部数据组别状态",
     });
     expect(groupCheckbox).toBeChecked();
 
@@ -1720,6 +1835,7 @@ describe("admin routes", () => {
       name: "科研共享样地",
       code: "research-plots",
       dataType: "vector",
+      domainType: "field_survey",
       category: null,
       source: "用户导入",
       provider: "平台组",
@@ -1765,10 +1881,10 @@ describe("admin routes", () => {
 
     renderAdminRoute("/resources/data/inventory");
 
-    expect(await screen.findByText("部分启用")).toBeInTheDocument();
     const groupCheckbox = screen.getByRole("checkbox", {
-      name: "默认分组组别状态",
+      name: "全部数据组别状态",
     });
+    expect(screen.getAllByText("部分启用").length).toBeGreaterThan(0);
     expect(groupCheckbox).toBePartiallyChecked();
 
     fireEvent.click(groupCheckbox);
@@ -1806,7 +1922,7 @@ describe("admin routes", () => {
 
     expect(
       await screen.findByText(
-        "删除后该组内数据会进入默认分组，数据本身不会被删除。",
+        "删除后仅移除自定义归档关系，数据仍保留在全部数据和对应业务类型分组中。",
       ),
     ).toBeInTheDocument();
   });
@@ -1831,7 +1947,14 @@ describe("admin routes", () => {
           qualityNote: "",
           defaultVisualization: {},
           status: "active",
-          accessGroups: [],
+          accessGroups: [
+            {
+              id: 3,
+              name: "超级管理员",
+              isGuest: false,
+              isSuperadmin: true,
+            },
+          ],
           canManageAccess: true,
           maintainer: "",
           uploader: null,
@@ -1856,6 +1979,7 @@ describe("admin routes", () => {
 
     expect(await screen.findByText("访问权限")).toBeInTheDocument();
     expect(screen.queryByText("超级管理员可见")).not.toBeInTheDocument();
+    expect(screen.queryByTitle("3")).not.toBeInTheDocument();
   });
 
   it("uses usernames when uploader display names are empty in data management", async () => {
@@ -1879,6 +2003,9 @@ describe("admin routes", () => {
           defaultVisualization: {},
           status: "active",
           accessGroups: [],
+          isOwner: true,
+          canEdit: true,
+          canDelete: true,
           canManageAccess: true,
           maintainer: "",
           uploader: {

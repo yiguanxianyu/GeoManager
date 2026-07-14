@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Callable
 
-from django.db import OperationalError, ProgrammingError
+from django.db import OperationalError, ProgrammingError, transaction
 from django.utils import timezone
 
 from apps.core.runtime_config import (
@@ -20,7 +20,7 @@ from apps.core.storage import (
     raster_processed_path,
     raster_source_path,
 )
-from apps.raster.models import RasterDataset
+from apps.raster.models import RasterBand, RasterDataset
 from apps.raster.services.catalog_sync import upsert_catalog_records
 from apps.raster.services.constants import RASTER_EXTENSIONS
 from apps.raster.services.exceptions import RasterImportError
@@ -31,7 +31,7 @@ from apps.raster.services.geo_utils import (
     image_coordinates_from_gdalinfo,
 )
 from apps.raster.services.progress import normalize_progress_text
-from apps.raster.services.rules_engine import default_raster_rules
+from apps.raster.services.rules_engine import default_raster_rules, normalize_rules
 
 
 def is_raster_file(path: Path) -> bool:
@@ -121,12 +121,24 @@ def cleanup_uploaded_import_files(source_path: Path) -> None:
     processed_metadata_relative = metadata_relative_path(
         "preprocessed", processed_relative
     )
-    for path in (
+    cleanup_paths = [
         source_path,
         raster_processed_path(processed_relative),
         raster_metadata_path(source_metadata_relative),
         raster_metadata_path(processed_metadata_relative),
-    ):
+    ]
+    manifest_path = source_path.parent / "manifest.json"
+    if manifest_path.exists():
+        try:
+            manifest_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            manifest_data = {}
+        for item in manifest_data.get("files") or []:
+            name = Path(str(item.get("name") or "")).name
+            if name:
+                cleanup_paths.append(source_path.parent / name)
+        cleanup_paths.append(manifest_path)
+    for path in dict.fromkeys(cleanup_paths):
         path.unlink(missing_ok=True)
     RasterDataset.objects.filter(source_relative_path=source_relative).delete()
 
@@ -217,6 +229,13 @@ def import_raster_file(
     *,
     name: str = "",
     progress: Callable[[str], None] | None = None,
+    source_manifest: list[dict[str, Any]] | None = None,
+    source_checksum_sha256: str = "",
+    raster_kind: str = RasterDataset.RasterKind.IMAGERY,
+    resampling: str = "bilinear",
+    requested_default_rules: dict[str, Any] | None = None,
+    uploader_id: int | None = None,
+    access_group_ids: list[int] | None = None,
 ) -> RasterDataset:
     input_path = input_path.expanduser().resolve()
     if not input_path.exists() or not input_path.is_file():
@@ -232,25 +251,44 @@ def import_raster_file(
         "preprocessed", processed_relative
     )
 
+    manifest = source_manifest or [
+        {
+            "name": source_path.name,
+            "size": source_path.stat().st_size,
+            "role": "primary",
+        }
+    ]
+    source_total_size = sum(int(item.get("size") or 0) for item in manifest)
+    if raster_kind not in RasterDataset.RasterKind.values:
+        raise RasterImportError(f"不支持的栅格数据语义：{raster_kind}")
+    if resampling not in {"nearest", "bilinear", "cubic"}:
+        raise RasterImportError(f"不支持的栅格重采样方式：{resampling}")
+
     dataset, _ = RasterDataset.objects.update_or_create(
         source_relative_path=source_relative,
         defaults={
             "name": name.strip() or input_path.stem,
             "code": stable_code("raster", source_relative),
+            "source_file_name": input_path.name,
+            "source_manifest": manifest,
+            "source_checksum_sha256": source_checksum_sha256,
+            "raster_kind": raster_kind,
+            "resampling": resampling,
             "processed_relative_path": processed_relative,
             "source_metadata_relative_path": source_metadata_relative,
             "processed_metadata_relative_path": processed_metadata_relative,
             "status": RasterDataset.Status.PROCESSING,
             "error_message": "",
-            "source_file_size": source_path.stat().st_size,
+            "source_file_size": source_total_size or source_path.stat().st_size,
         },
     )
     try:
         if progress:
             progress("gdalinfo -json 源文件")
-        source_info = gdalinfo_json(source_path)
+        source_info = gdalinfo_json(source_path, calculate_statistics=True)
         validate_raster_pixel_size(source_info)
         save_metadata(source_metadata_relative, source_info)
+        dataset.source_format = str(source_info.get("driverShortName") or "")
 
         processed_path.parent.mkdir(parents=True, exist_ok=True)
         if processed_path.exists():
@@ -258,7 +296,8 @@ def import_raster_file(
 
         if progress:
             progress(
-                "gdalwarp -t_srs EPSG:3857 -r nearest -co COMPRESS=DEFLATE -of COG"
+                f"gdalwarp -t_srs EPSG:3857 -r {resampling} "
+                "-co COMPRESS=DEFLATE -of COG"
             )
         run_gdal_command(
             [
@@ -266,9 +305,15 @@ def import_raster_file(
                 "-t_srs",
                 "EPSG:3857",
                 "-r",
-                "nearest",
+                resampling,
                 "-co",
                 "COMPRESS=DEFLATE",
+                "-co",
+                "BLOCKSIZE=512",
+                "-co",
+                "BIGTIFF=IF_SAFER",
+                "-co",
+                "NUM_THREADS=ALL_CPUS",
                 "-of",
                 "COG",
                 str(source_path),
@@ -281,37 +326,45 @@ def import_raster_file(
 
         if progress:
             progress("gdalinfo -json 预处理文件")
-        processed_info = gdalinfo_json(processed_path)
+        processed_info = gdalinfo_json(processed_path, calculate_statistics=True)
         save_metadata(processed_metadata_relative, processed_info)
 
-        default_rules = default_raster_rules(processed_info, source_info)
+        default_rules = normalize_rules(
+            requested_default_rules
+            or default_raster_rules(source_info, processed_info),
+            processed_info,
+        )
         bounds_3857 = bounds_from_gdalinfo(processed_info)
         bounds_4326 = bounds_4326_from_gdalinfo(processed_info)
         image_coordinates = image_coordinates_from_gdalinfo(processed_info)
         dataset.processed_file_size = processed_path.stat().st_size
-        data_resource, map_layer = upsert_catalog_records(
-            dataset=dataset,
-            source_info=source_info,
-            processed_info=processed_info,
-            default_rules=default_rules,
-            bounds_4326=bounds_4326,
-        )
+        with transaction.atomic():
+            data_resource, map_layer = upsert_catalog_records(
+                dataset=dataset,
+                source_info=source_info,
+                processed_info=processed_info,
+                default_rules=default_rules,
+                bounds_4326=bounds_4326,
+                uploader_id=uploader_id,
+                access_group_ids=access_group_ids,
+            )
 
-        dataset.source_gdalinfo = source_info
-        dataset.processed_gdalinfo = processed_info
-        dataset.default_rules = default_rules
-        dataset.bounds_3857 = bounds_3857
-        dataset.bounds_4326 = bounds_4326
-        dataset.image_coordinates = image_coordinates
-        dataset.band_count = len(processed_info.get("bands") or [])
-        dataset.data_resource = data_resource
-        dataset.map_layer = map_layer
-        dataset.status = RasterDataset.Status.READY
-        dataset.error_message = ""
-        dataset.processed_at = timezone.now()
+            dataset.source_gdalinfo = source_info
+            dataset.processed_gdalinfo = processed_info
+            dataset.default_rules = default_rules
+            dataset.bounds_3857 = bounds_3857
+            dataset.bounds_4326 = bounds_4326
+            dataset.image_coordinates = image_coordinates
+            dataset.band_count = len(processed_info.get("bands") or [])
+            dataset.data_resource = data_resource
+            dataset.map_layer = map_layer
+            dataset.status = RasterDataset.Status.READY
+            dataset.error_message = ""
+            dataset.processed_at = timezone.now()
+            dataset.save()
+            _sync_band_records(dataset, processed_info)
         if progress:
             progress("导入完成")
-        dataset.save()
         return dataset
     except Exception as exc:
         dataset.status = RasterDataset.Status.FAILED
@@ -320,6 +373,31 @@ def import_raster_file(
             progress(f"导入失败：{exc}")
         dataset.save(update_fields=("status", "error_message", "updated_at"))
         raise
+
+
+def _sync_band_records(dataset: RasterDataset, metadata: dict[str, Any]) -> None:
+    seen: set[int] = set()
+    for raw_band in metadata.get("bands") or []:
+        band_index = int(raw_band.get("band") or len(seen) + 1)
+        seen.add(band_index)
+        band_metadata = raw_band.get("metadata") or {}
+        minimum = raw_band.get("min", raw_band.get("minimum"))
+        maximum = raw_band.get("max", raw_band.get("maximum"))
+        RasterBand.objects.update_or_create(
+            dataset=dataset,
+            band_index=band_index,
+            defaults={
+                "name": str(raw_band.get("description") or f"Band {band_index}"),
+                "data_type": str(raw_band.get("type") or ""),
+                "color_interpretation": str(raw_band.get("colorInterpretation") or ""),
+                "nodata": raw_band.get("noDataValue"),
+                "unit": str(raw_band.get("unit") or ""),
+                "minimum": float(minimum) if minimum is not None else None,
+                "maximum": float(maximum) if maximum is not None else None,
+                "metadata": band_metadata,
+            },
+        )
+    RasterBand.objects.filter(dataset=dataset).exclude(band_index__in=seen).delete()
 
 
 def dataset_for_layer(layer: Any) -> RasterDataset:

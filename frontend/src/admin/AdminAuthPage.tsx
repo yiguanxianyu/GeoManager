@@ -1,4 +1,6 @@
 import {
+  CheckOutlined,
+  CloseOutlined,
   DeleteOutlined,
   EllipsisOutlined,
   EyeOutlined,
@@ -42,6 +44,7 @@ import type {
   AdminOperationLog,
   AdminPermissionItem,
   Group,
+  RoleApplicationListItem,
   User,
 } from "../types";
 import { PermissionPanel } from "./PermissionPanel";
@@ -70,8 +73,8 @@ const builtinRoleInfo: Record<
   },
   平台管理员: {
     color: "blue",
-    tag: "日常运维",
-    summary: "管理用户、角色、系统、日志和数据，默认不含数据备份。",
+    tag: "数据运维",
+    summary: "管理用户、角色、业务日志和全部数据，不开放底层系统维护能力。",
   },
   科研用户: {
     color: "green",
@@ -81,12 +84,12 @@ const builtinRoleInfo: Record<
   普通用户: {
     color: "cyan",
     tag: "基础数据",
-    summary: "可上传数据，浏览、查询、加载自己或共享范围内的数据。",
+    summary: "可浏览、查询和加载授权范围内的数据与共享成果。",
   },
   游客: {
     color: "default",
-    tag: "默认关闭",
-    summary: "默认不开放功能权限，可按需要单独启用。",
+    tag: "公开浏览",
+    summary: "仅可浏览、查询和加载明确公开共享的数据与成果。",
   },
 };
 
@@ -110,6 +113,7 @@ export default function AdminAuthPage() {
   const canManagePermissions = Boolean(
     user?.permissions.canManageFeaturePermissions,
   );
+  const isSuperadmin = Boolean(user?.roles.includes("超级管理员"));
   const [createGroupForm] = Form.useForm<{ name: string }>();
   const [createUserForm] = Form.useForm<{
     username: string;
@@ -121,6 +125,9 @@ export default function AdminAuthPage() {
     isActive?: boolean;
   }>();
   const [users, setUsers] = useState<User[]>([]);
+  const [roleApplications, setRoleApplications] = useState<
+    RoleApplicationListItem[]
+  >([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [availablePermissions, setAvailablePermissions] = useState<
     AdminPermissionItem[]
@@ -151,12 +158,14 @@ export default function AdminAuthPage() {
     }
     setLoading(true);
     try {
-      const [userData, groupData] = await Promise.all([
+      const [userData, groupData, roleApplicationData] = await Promise.all([
         api.adminUsers(),
         api.adminGroups(),
+        api.roleApplications(),
       ]);
       setUsers(userData.items);
       setGroups(groupData.items);
+      setRoleApplications(roleApplicationData.items);
       setAvailablePermissions(groupData.availablePermissions);
       setGroupDrafts(
         Object.fromEntries(
@@ -206,9 +215,11 @@ export default function AdminAuthPage() {
       groups.map((group) => ({
         label: group.name,
         value: group.id,
-        disabled: isGroupMembershipLocked(group),
+        disabled:
+          isGroupMembershipLocked(group) ||
+          (group.name === "平台管理员" && !isSuperadmin),
       })),
-    [groups],
+    [groups, isSuperadmin],
   );
   const sortedUsers = useMemo(() => {
     if (!user) return users;
@@ -359,6 +370,98 @@ export default function AdminAuthPage() {
     },
   ];
 
+  const roleApplicationColumns: ProColumns<RoleApplicationListItem>[] = [
+    {
+      title: "申请用户",
+      dataIndex: ["user", "username"],
+      width: 190,
+      render: (_, record) => (
+        <Space orientation="vertical" size={0}>
+          <Typography.Text strong>
+            {record.user.displayName || record.user.username}
+          </Typography.Text>
+          <Typography.Text type="secondary">
+            {record.user.username}
+          </Typography.Text>
+        </Space>
+      ),
+    },
+    {
+      title: "联系信息",
+      dataIndex: ["user", "email"],
+      width: 230,
+      render: (_, record) => (
+        <Space orientation="vertical" size={0}>
+          <Typography.Text>{record.user.email}</Typography.Text>
+          <Typography.Text type="secondary">
+            {record.user.department}
+          </Typography.Text>
+        </Space>
+      ),
+    },
+    {
+      title: "申请说明",
+      dataIndex: "reason",
+      width: 300,
+      ellipsis: true,
+    },
+    {
+      title: "状态",
+      dataIndex: "status",
+      width: 100,
+      render: (_, record) => {
+        const statusMeta = (
+          {
+            pending: { color: "processing", label: "待审核" },
+            approved: { color: "success", label: "已通过" },
+            rejected: { color: "error", label: "已拒绝" },
+          } satisfies Record<
+            RoleApplicationListItem["status"],
+            { color: string; label: string }
+          >
+        )[record.status];
+        return <Tag color={statusMeta.color}>{statusMeta.label}</Tag>;
+      },
+    },
+    {
+      title: "申请时间",
+      dataIndex: "createdAt",
+      width: 180,
+      render: (_, record) => new Date(record.createdAt).toLocaleString("zh-CN"),
+    },
+    {
+      title: "操作",
+      valueType: "option",
+      width: 160,
+      render: (_, record) =>
+        record.status === "pending"
+          ? [
+              <Button
+                key="approve"
+                type="link"
+                icon={<CheckOutlined />}
+                onClick={() => handleRoleApplicationReview(record, "approve")}
+              >
+                通过
+              </Button>,
+              <Button
+                key="reject"
+                type="link"
+                danger
+                icon={<CloseOutlined />}
+                onClick={() => handleRoleApplicationReview(record, "reject")}
+              >
+                拒绝
+              </Button>,
+            ]
+          : [
+              <Typography.Text key="reviewer" type="secondary">
+                {record.reviewer?.displayName || "已审核"}
+              </Typography.Text>,
+            ],
+    },
+  ];
+
   const groupColumns: ProColumns<Group>[] = [
     {
       title: "角色",
@@ -370,10 +473,14 @@ export default function AdminAuthPage() {
           <Space orientation="vertical" size={2}>
             <Space size={6} wrap>
               <Typography.Text strong>{record.name}</Typography.Text>
-              {roleInfo ? <Tag color={roleInfo.color}>{roleInfo.tag}</Tag> : null}
+              {roleInfo ? (
+                <Tag color={roleInfo.color}>{roleInfo.tag}</Tag>
+              ) : null}
             </Space>
             {roleInfo ? (
-              <Typography.Text type="secondary">{roleInfo.summary}</Typography.Text>
+              <Typography.Text type="secondary">
+                {roleInfo.summary}
+              </Typography.Text>
             ) : null}
             <Space size={[6, 6]} wrap>
               <Tag color="blue">{record.userCount} 人</Tag>
@@ -698,6 +805,57 @@ export default function AdminAuthPage() {
     });
   }
 
+  function handleRoleApplicationReview(
+    application: RoleApplicationListItem,
+    action: "approve" | "reject",
+  ) {
+    let reviewNote = "";
+    modal.confirm({
+      title:
+        action === "approve"
+          ? "确认通过科研用户申请？"
+          : "确认拒绝科研用户申请？",
+      content: (
+        <div className="admin-page-stack">
+          <Typography.Paragraph>
+            {application.user.displayName || application.user.username}：
+            {application.reason}
+          </Typography.Paragraph>
+          <Input.TextArea
+            placeholder={
+              action === "approve" ? "可填写审核说明" : "请填写拒绝原因"
+            }
+            maxLength={500}
+            showCount
+            onChange={(event) => {
+              reviewNote = event.target.value;
+            }}
+          />
+        </div>
+      ),
+      okText: action === "approve" ? "通过" : "拒绝",
+      okButtonProps: { danger: action === "reject" },
+      cancelText: "取消",
+      onOk: async () => {
+        if (action === "reject" && !reviewNote.trim()) {
+          message.error("请填写拒绝原因");
+          return Promise.reject();
+        }
+        const updated = await api.reviewRoleApplication(application.id, {
+          action,
+          reviewNote: reviewNote.trim(),
+        });
+        setRoleApplications((current) =>
+          current.map((item) => (item.id === updated.id ? updated : item)),
+        );
+        await loadAuthData();
+        message.success(
+          action === "approve" ? "科研用户申请已通过" : "科研用户申请已拒绝",
+        );
+      },
+    });
+  }
+
   function openPermissionDrawer(group: Group) {
     setGroupDrafts((current) => ({
       ...current,
@@ -819,6 +977,31 @@ export default function AdminAuthPage() {
         <Spin spinning={loading}>
           <div className="admin-page-stack">
             <UserSummaryCards metrics={userStats} />
+            <ProTable<RoleApplicationListItem>
+              className="admin-table"
+              rowKey="id"
+              headerTitle={
+                <Space>
+                  <span>科研用户申请</span>
+                  <Tag color="processing">
+                    待审核{" "}
+                    {
+                      roleApplications.filter(
+                        (item) => item.status === "pending",
+                      ).length
+                    }
+                  </Tag>
+                </Space>
+              }
+              columns={roleApplicationColumns}
+              dataSource={roleApplications}
+              cardBordered
+              options={false}
+              pagination={false}
+              scroll={{ x: 1060 }}
+              search={false}
+              locale={{ emptyText: "暂无科研用户申请" }}
+            />
             <ProTable<User>
               className="admin-table"
               rowKey="id"
@@ -1038,13 +1221,7 @@ export default function AdminAuthPage() {
             <Select
               mode="multiple"
               value={selectedGroupIds}
-              options={groups.map((group) => ({
-                label: group.name,
-                value: group.id,
-                disabled:
-                  isGroupMembershipLocked(group) &&
-                  !groupUser.groupIds.includes(group.id),
-              }))}
+              options={groupOptions}
               onChange={setSelectedGroupIds}
               style={{ width: "100%" }}
             />
@@ -1227,7 +1404,10 @@ export default function AdminAuthPage() {
           <Form.Item
             name="email"
             label="邮箱"
-            rules={[{ type: "email", message: "请输入有效邮箱" }]}
+            rules={[
+              { required: true, message: "请输入邮箱" },
+              { type: "email", message: "请输入有效邮箱" },
+            ]}
           >
             <Input />
           </Form.Item>

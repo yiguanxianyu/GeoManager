@@ -38,6 +38,15 @@ export function fitBoundsOptions(basePadding = 72) {
   };
 }
 
+export function rasterFitBoundsOptions(basePadding = 80) {
+  return {
+    ...fitBoundsOptions(basePadding),
+    maxZoom: 19,
+    bearing: 0,
+    pitch: 0,
+  };
+}
+
 function normalizeLngLat(lngLat: {
   lng: number;
   lat: number;

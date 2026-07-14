@@ -138,6 +138,11 @@ function scene(
       username: user.username,
       displayName: user.displayName,
     },
+    accessGroups: [],
+    isOwner: true,
+    canEdit: true,
+    canDelete: true,
+    canManageAccess: true,
     createdAt: "2026-06-18T12:00:00+08:00",
     updatedAt: "2026-06-18T12:00:00+08:00",
   };
@@ -279,12 +284,12 @@ describe("WorkspaceHeader", () => {
     expect(screen.getByTestId("location-path")).toHaveTextContent("/map");
   });
 
-  it("keeps the intelligent interpretation navigation button as a frontend placeholder", () => {
+  it("does not render the intelligent interpretation placeholder in navigation", () => {
     renderHeader();
 
-    fireEvent.click(screen.getByRole("button", { name: "智能解译" }));
-
-    expect(screen.getByTestId("location-path")).toHaveTextContent("/");
+    expect(
+      screen.queryByRole("button", { name: "智能解译" }),
+    ).not.toBeInTheDocument();
   });
 
   it("clears cached layer state when the user logs out", async () => {

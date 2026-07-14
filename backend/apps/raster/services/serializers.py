@@ -33,6 +33,11 @@ def serialize_raster_dataset(dataset: RasterDataset) -> dict[str, Any]:
         "processedAt": dataset.processed_at.isoformat()
         if dataset.processed_at
         else None,
+        "sourceFileName": dataset.source_file_name,
+        "sourceFormat": dataset.source_format,
+        "sourceManifest": dataset.source_manifest,
+        "sourceChecksumSha256": dataset.source_checksum_sha256,
+        "rasterKind": dataset.raster_kind,
         "metadata": compact_raster_metadata(
             dataset.processed_gdalinfo or dataset.source_gdalinfo,
             dataset.source_gdalinfo,

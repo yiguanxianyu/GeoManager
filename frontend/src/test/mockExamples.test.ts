@@ -42,14 +42,16 @@ describe("Prism mock example business consistency", () => {
         permissions: { canUploadData: boolean };
         effectivePermissions: string[];
       };
+      roleApplication: { status: string };
     }>(examples, "POST /api/auth/register/");
 
-    expect(register.user.permissions.canUploadData).toBe(true);
-    expect(register.user.effectivePermissions).toContain(
+    expect(register.user.permissions.canUploadData).toBe(false);
+    expect(register.user.effectivePermissions).not.toContain(
       "catalog.add_dataresource",
     );
     expect(register.user.roles).toContain("普通用户");
     expect(register.user.roles).not.toContain("游客");
+    expect(register.roleApplication.status).toBe("pending");
   });
 
   it("links raster resources, map layers, and raster datasets by shared ids", () => {

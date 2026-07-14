@@ -7,8 +7,15 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
 
+from apps.audit.events import (
+    AUTH_GUEST_LOGIN_SUCCESS,
+    AUTH_LOGIN_FAILED,
+    AUTH_LOGIN_SUCCESS,
+    AUTH_REGISTER_LOGIN_SUCCESS,
+)
 from apps.audit.service import log_operation
 from apps.core.api import api_login_required
+from apps.core.emails import AccountEmailError, validate_account_email
 from apps.core.initialization import (
     ensure_default_user_group,
     ensure_guest_user,
@@ -16,6 +23,7 @@ from apps.core.initialization import (
     is_superadmin_user,
 )
 from apps.core.passwords import password_validation_errors
+from apps.core.models import RoleApplication, UserProfile
 from apps.core.permissions import (
     direct_feature_permissions,
     effective_feature_permissions,
@@ -23,6 +31,7 @@ from apps.core.permissions import (
     has_feature_perm,
 )
 from apps.core.principal_visibility import visible_group_ids_for
+from apps.core.role_applications import serialize_role_application
 from apps.core.views import registration_allowed
 
 
@@ -51,13 +60,22 @@ def login_view(request):
             "failed",
             f"登录失败：{username}",
             request,
+            event_code=AUTH_LOGIN_FAILED,
         )
         return JsonResponse({"detail": "账号或密码错误"}, status=400)
 
     login(request, user)
     if not remember:
         request.session.set_expiry(0)
-    log_operation(user, "认证授权", "用户登录", "success", "登录成功", request)
+    log_operation(
+        user,
+        "认证授权",
+        "用户登录",
+        "success",
+        "登录成功",
+        request,
+        event_code=AUTH_LOGIN_SUCCESS,
+    )
     return JsonResponse({"user": serialize_user(user)})
 
 
@@ -67,7 +85,15 @@ def guest_login_view(request):
     user = ensure_guest_user()
     login(request, user)
     request.session.set_expiry(0)
-    log_operation(user, "认证授权", "游客登录", "success", "游客登录成功", request)
+    log_operation(
+        user,
+        "认证授权",
+        "游客登录",
+        "success",
+        "游客登录成功",
+        request,
+        event_code=AUTH_GUEST_LOGIN_SUCCESS,
+    )
     return JsonResponse({"user": serialize_user(user)})
 
 
@@ -82,11 +108,37 @@ def register_view(request):
         return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
 
     username = str(payload.get("username", "")).strip()
-    email = str(payload.get("email", "")).strip()
+    account_purpose = str(payload.get("accountPurpose", "")).strip()
+    display_name = str(payload.get("displayName", "")).strip()
+    department = str(payload.get("department", "")).strip()
+    application_reason = str(payload.get("applicationReason", "")).strip()
     password = str(payload.get("password", ""))
     password_confirm = str(payload.get("passwordConfirm", ""))
     if not username:
         return JsonResponse({"detail": "请输入账号"}, status=400)
+    if account_purpose not in {"standard", "research"}:
+        return JsonResponse(
+            {"detail": "accountPurpose 必须是 standard 或 research"}, status=400
+        )
+    try:
+        email = validate_account_email(payload.get("email"))
+    except AccountEmailError as exc:
+        return JsonResponse({"detail": str(exc)}, status=400)
+    if account_purpose == "research":
+        if not display_name:
+            return JsonResponse({"detail": "申请科研用户时请输入姓名"}, status=400)
+        if len(display_name) > 150:
+            return JsonResponse({"detail": "姓名不能超过 150 个字符"}, status=400)
+        if not department:
+            return JsonResponse(
+                {"detail": "申请科研用户时请输入单位或部门"}, status=400
+            )
+        if len(department) > 120:
+            return JsonResponse({"detail": "单位或部门不能超过 120 个字符"}, status=400)
+        if not application_reason:
+            return JsonResponse({"detail": "申请科研用户时请输入申请说明"}, status=400)
+        if len(application_reason) > 500:
+            return JsonResponse({"detail": "申请说明不能超过 500 个字符"}, status=400)
     if password != password_confirm:
         return JsonResponse({"detail": "两次输入的密码不一致"}, status=400)
     password_errors = password_validation_errors(password)
@@ -96,19 +148,57 @@ def register_view(request):
     ensure_superadmin_defaults(attach_existing_superusers=False)
     default_user_group = ensure_default_user_group()
     User = get_user_model()
-    user = User(username=username, email=email)
+    if User.objects.filter(username=username).exists():
+        return JsonResponse({"detail": "账号已存在"}, status=400)
+    user = User(username=username, email=email, first_name=display_name)
+    role_application = None
     try:
         with transaction.atomic():
             user.set_password(password)
             user.save()
             user.groups.add(default_user_group)
+            UserProfile.objects.create(
+                user=user,
+                department=department,
+                normalized_email=email,
+            )
+            if account_purpose == "research":
+                role_application = RoleApplication.objects.create(
+                    user=user,
+                    requested_role=RoleApplication.RequestedRole.RESEARCH,
+                    reason=application_reason,
+                )
     except IntegrityError:
+        if User.objects.filter(email__iexact=email).exists():
+            return JsonResponse({"detail": "邮箱已被使用"}, status=400)
         return JsonResponse({"detail": "账号已存在"}, status=400)
 
     login(request, user)
-    message = "用户注册成功"
-    log_operation(user, "认证授权", "用户注册", "success", message, request)
-    return JsonResponse({"user": serialize_user(user), "detail": message})
+    message = (
+        "用户注册成功，科研用户权限申请已提交"
+        if role_application
+        else "用户注册成功，已分配普通用户角色"
+    )
+    log_operation(
+        user,
+        "认证授权",
+        "用户注册",
+        "success",
+        message,
+        request,
+        event_code=AUTH_REGISTER_LOGIN_SUCCESS,
+    )
+    return JsonResponse(
+        {
+            "user": serialize_user(user),
+            "detail": message,
+            "roleApplication": (
+                serialize_role_application(role_application, include_user=False)
+                if role_application
+                else None
+            ),
+        }
+    )
 
 
 @require_POST
@@ -139,6 +229,10 @@ def serialize_user(user):
     can_view_workspace = has_feature_perm(user, "catalog.view_workspacescene")
     can_change_workspace = has_feature_perm(user, "catalog.change_workspacescene")
     can_delete_workspace = has_feature_perm(user, "catalog.delete_workspacescene")
+    can_create_map_composition = has_feature_perm(user, "catalog.add_mapcomposition")
+    can_view_map_composition = has_feature_perm(user, "catalog.view_mapcomposition")
+    can_change_map_composition = has_feature_perm(user, "catalog.change_mapcomposition")
+    can_delete_map_composition = has_feature_perm(user, "catalog.delete_mapcomposition")
     permissions = {
         "canAccessAdmin": True,
         "canManageFeaturePermissions": has_feature_perm(
@@ -199,6 +293,19 @@ def serialize_user(user):
         "canCreateWorkspaces": can_create_workspace,
         "canChangeWorkspaces": can_change_workspace,
         "canDeleteWorkspaces": can_delete_workspace,
+        "canViewMapCompositions": can_view_map_composition,
+        "canCreateMapCompositions": can_create_map_composition,
+        "canChangeMapCompositions": can_change_map_composition,
+        "canDeleteMapCompositions": can_delete_map_composition,
+        "canExportMapCompositions": has_feature_perm(
+            user, "catalog.export_mapcomposition"
+        ),
+        "canPublishMapCompositions": has_feature_perm(
+            user, "catalog.publish_mapcomposition"
+        ),
+        "canRestoreMapCompositions": has_feature_perm(
+            user, "catalog.restore_mapcomposition"
+        ),
         "canManageRasterData": has_feature_perm(user, "raster.manage_raster_dataset")
         or can_change_data,
     }

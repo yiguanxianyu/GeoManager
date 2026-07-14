@@ -209,7 +209,7 @@ paths:
       tags: [认证接口]
       summary: 游客登录
       description: |
-        使用系统维护的专用 `guest` 账号建立游客会话。游客账号不可使用密码登录，只归属 `游客` 用户组；游客用户组默认不具备任何功能权限，管理员可在认证授权中调整游客角色权限。
+        使用系统维护的专用 `guest` 账号建立游客会话。游客账号不可使用密码登录，只归属 `游客` 用户组；默认仅具备公开数据浏览、查询、图层加载和共享成果查看权限，管理员可在认证授权中调整游客角色权限。
       operationId: guestLogin
       security: []
       responses:
@@ -227,7 +227,9 @@ paths:
       tags: [认证接口]
       summary: 用户注册
       description: |
-        注册新用户。系统首次初始化会自动创建用户名为 `admin` 的完整功能账号和超级管理员用户组，注册用户保持普通账号。
+        注册新用户。系统首次初始化会自动创建用户名为 `admin` 的完整功能账号和超级管理员用户组，自助注册用户始终先加入普通用户角色。
+        邮箱为必填项，后端统一转为小写并保证非空邮箱唯一；当前阶段不发送验证邮件，邮箱将为后续账号验证和密码找回保留。
+        `accountPurpose=research` 只提交科研用户角色申请，不会在注册时直接授予科研用户权限；申请审核前账号仍按普通用户权限使用。
         注册功能受系统配置 `allowRegistration` 控制。
       operationId: register
       security: []
@@ -639,7 +641,7 @@ paths:
     post:
       tags: [用户管理]
       summary: 创建用户
-      description: 具备 `core.manage_auth` 和 `core.create_user` 权限的管理员创建用户账号，创建时必须指定至少一个非超级管理员用户组。密码由后端自动生成并返回。该接口不受自助注册开关影响。
+      description: 具备 `core.manage_auth` 和 `core.create_user` 权限的管理员创建用户账号，邮箱必填，创建时必须指定至少一个非超级管理员用户组。密码由后端自动生成并返回。该接口不受自助注册开关影响；只有超级管理员可以分配平台管理员角色。
       operationId: createUser
       security:
         - sessionAuth: []
@@ -667,7 +669,7 @@ paths:
     post:
       tags: [用户管理]
       summary: 更新用户所属用户组
-      description: 为指定用户设置所属用户组。普通用户必须保留至少一个用户组，非超级管理员主体不能看到或选择超级管理员用户组，不能修改超级管理员用户；当前登录用户的用户组不能在认证授权页修改。需要 `core.manage_auth`。
+      description: 为指定用户设置所属用户组。普通用户必须保留至少一个用户组，非超级管理员主体不能看到或选择超级管理员用户组，也不能分配平台管理员角色；不能修改超级管理员用户；当前登录用户的用户组不能在认证授权页修改。需要 `core.manage_auth`。
       operationId: updateUserGroups
       security:
         - sessionAuth: []
@@ -963,6 +965,76 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+
+  /api/admin/role-applications/:
+    get:
+      tags: [管理后台]
+      summary: 查询角色申请
+      description: |
+        查询当前主体可见的科研用户角色申请，默认返回全部状态，可通过 `status` 筛选。
+        需要 `core.manage_auth`；非超级管理员主体仍受用户可见范围限制。
+      operationId: listRoleApplications
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: 申请状态筛选
+          schema:
+            $ref: '#/components/schemas/RoleApplicationStatus'
+      responses:
+        '200':
+          description: 角色申请列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleApplicationListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/admin/role-applications/{applicationId}/review/:
+    post:
+      tags: [管理后台]
+      summary: 审核角色申请
+      description: |
+        审核待处理的科研用户角色申请。通过后移除申请用户的普通用户角色并加入科研用户角色，同时保留其他自定义角色；拒绝后继续保留普通用户角色。
+        申请只能审核一次，审核人不能审核自己的申请。需要 `core.manage_auth`。
+      operationId: reviewRoleApplication
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: applicationId
+          in: path
+          required: true
+          description: 角色申请 ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoleApplicationReviewRequest'
+      responses:
+        '200':
+          description: 审核后的角色申请
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleApplicationListItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /api/admin/backups/overview/:
     get:
@@ -1532,7 +1604,7 @@ paths:
   /api/admin/workspaces/:
     get:
       tags: [管理后台]
-      summary: 获取工程专题管理列表
+      summary: 获取工程管理列表
       description: 返回工程和专题管理列表，支持按类型、状态和关键词筛选。需要 `catalog.view_workspacescene`、`catalog.change_workspacescene` 或 `catalog.delete_workspacescene`；后端仍需按对象所有者和访问用户组裁剪可见范围。
       operationId: listAdminWorkspaces
       security:
@@ -1542,19 +1614,19 @@ paths:
           in: query
           schema:
             type: string
-          description: 按工程专题名称、说明或所属用户进行快速检索
+          description: 按工程名称、说明或所属用户进行快速检索
         - name: kind
           in: query
           schema:
             type: string
-            enum: [project, topic]
-          description: 工程专题类型筛选
+            enum: [project]
+          description: 工程类型筛选
         - name: status
           in: query
           schema:
             type: string
             enum: [active, inactive]
-          description: 工程专题状态筛选
+          description: 工程状态筛选
         - name: current
           in: query
           schema:
@@ -1582,8 +1654,8 @@ paths:
   /api/admin/workspaces/{workspaceId}/:
     post:
       tags: [管理后台]
-      summary: 操作单个工程专题
-      description: 支持更新工程专题状态、基础信息、访问用户组和删除确认。启停和信息修改需要 `catalog.change_workspacescene`；删除需要 `catalog.delete_workspacescene`；拥有者或具备 `catalog.change_workspacescene` 的用户可以通过 `updateAccess` 修改可见范围。成功操作会写入审计日志。
+      summary: 操作单个工程
+      description: 支持更新工程状态、基础信息、访问用户组和删除确认。启停和信息修改需要 `catalog.change_workspacescene`；删除需要 `catalog.delete_workspacescene`；所属用户、超级管理员和平台管理员可以修改可见范围。成功操作会写入审计日志。
       operationId: updateAdminWorkspace
       security:
         - sessionAuth: []
@@ -1593,7 +1665,7 @@ paths:
           required: true
           schema:
             type: integer
-          description: 工程专题 ID
+          description: 工程 ID
       requestBody:
         required: true
         content:
@@ -1642,7 +1714,7 @@ paths:
     get:
       tags: [数据目录]
       summary: 获取数据资源列表
-      description: 支持多条件筛选的数据资源分页列表
+      description: 支持多条件筛选的数据资源列表。资源空间分类由实际入库形态决定：vector/raster 为地理数据，table/gene/document/image 为非地理数据；domainType 仅表示业务专题，不改变资源所在工作台。需要 `core.browse_data`。
       operationId: getResources
       security:
         - sessionAuth: []
@@ -1658,6 +1730,11 @@ paths:
             type: string
             enum: [vector, raster, gene, table, document, image]
           description: 数据类型筛选
+        - name: spatialClass
+          in: query
+          schema:
+            $ref: '#/components/schemas/ResourceSpatialClass'
+          description: 按资源是否可直接参与地图空间展示筛选；spatial 仅返回 vector/raster，non_spatial 返回 table/gene/document/image；无效编码返回 400 ErrorResponse
         - name: domainType
           in: query
           schema:
@@ -1704,7 +1781,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                detail: 无效的数据业务类型
+                detail: 无效的空间数据分类
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
@@ -1734,7 +1811,7 @@ paths:
     get:
       tags: [数据目录]
       summary: 获取工程和专题列表
-      description: 返回当前登录用户私有保存的工程或专题工作台快照。需要 `catalog.view_workspacescene`，可按 kind 过滤工程或专题。
+      description: 返回当前登录用户拥有或其所属角色可访问的启用工程；超级管理员和平台管理员返回平台全部启用工程。需要 `catalog.view_workspacescene`，并返回保存时可选择的额外访问角色。
       operationId: listCatalogWorkspaces
       security:
         - sessionAuth: []
@@ -1743,7 +1820,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [project, topic]
+            enum: [project]
           description: 工作台快照类型；project 表示工程，topic 表示专题
       responses:
         '200':
@@ -1758,8 +1835,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
     post:
       tags: [数据目录]
-      summary: 保存工程或专题
-      description: 将当前工作台图层树、顺序、显隐、查询条件、范围、资源引用和可视化方案保存为当前用户私有工程或专题；需要 `catalog.add_workspacescene`，不提交原始 GeoJSON 要素集合或查询结果数据本体。
+      summary: 保存工程
+      description: 将当前工作台图层树、顺序、显隐、查询条件、范围、资源引用和可视化方案保存为工程；需要 `catalog.add_workspacescene`。上传者本人、超级管理员和平台管理员始终可见，accessGroupIds 配置额外可见角色；不得提交原始 GeoJSON 要素集合或查询结果数据本体。
       operationId: createCatalogWorkspace
       security:
         - sessionAuth: []
@@ -1784,8 +1861,8 @@ paths:
   /api/catalog/workspaces/{workspaceId}/:
     get:
       tags: [数据目录]
-      summary: 获取工程或专题详情
-      description: 返回当前用户拥有的单个工程或专题快照。需要 `catalog.view_workspacescene`。
+      summary: 获取工程详情
+      description: 返回当前用户拥有、所属角色获准访问或管理员全量可见的单个启用工程快照。需要 `catalog.view_workspacescene`。
       operationId: getCatalogWorkspace
       security:
         - sessionAuth: []
@@ -1795,7 +1872,7 @@ paths:
           required: true
           schema:
             type: integer
-          description: 工程或专题 ID
+          description: 工程 ID
       responses:
         '200':
           description: 成功
@@ -1811,8 +1888,8 @@ paths:
           $ref: '#/components/responses/NotFound'
     post:
       tags: [数据目录]
-      summary: 更新或删除工程专题
-      description: 更新当前用户拥有的工程/专题轻量快照，或提交 action=delete 删除；更新需要 `catalog.change_workspacescene`，删除需要 `catalog.delete_workspacescene`，snapshot 不得包含原始 GeoJSON 要素集合或查询结果数据本体。
+      summary: 更新或删除工程
+      description: 所属用户可以维护自己的工程；超级管理员和平台管理员可以维护全部工程。名称、说明、类型和快照更新需要 `catalog.change_workspacescene`，删除需要 `catalog.delete_workspacescene`；后端始终保留管理员访问，snapshot 不得包含原始 GeoJSON 要素集合或查询结果数据本体。
       operationId: updateCatalogWorkspace
       security:
         - sessionAuth: []
@@ -1822,7 +1899,7 @@ paths:
           required: true
           schema:
             type: integer
-          description: 工程或专题 ID
+          description: 工程 ID
       requestBody:
         required: true
         content:
@@ -2005,6 +2082,331 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /api/catalog/map-compositions/:
+    get:
+      tags: [专题制图]
+      summary: 获取出图稿列表
+      description: 返回当前用户拥有的出图稿、超级管理员和平台管理员可管理的全部出图稿，以及已发布且发布范围包含当前用户角色的专题。未发布专题仅所属用户和管理员可见。需要 `catalog.view_mapcomposition`。
+      operationId: listMapCompositions
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: integer
+          description: 按来源工程 ID 筛选
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, completed, published]
+          description: 按出图稿状态筛选
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapCompositionListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [专题制图]
+      summary: 新建出图稿
+      description: 从当前用户拥有的工程创建版式出图草稿；超级管理员和平台管理员可从任意可用工程创建。创建时固化来源工程快照，发布前仅所属用户和管理员可见。需要 `catalog.add_mapcomposition`。
+      operationId: createMapComposition
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MapCompositionCreateRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapComposition'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/catalog/map-compositions/{compositionId}/:
+    get:
+      tags: [专题制图]
+      summary: 获取出图稿详情
+      description: 所属用户和管理员返回当前草稿及全部版本；发布范围内的普通用户只返回当前正式发布版本及对应版式。需要 `catalog.view_mapcomposition`。
+      operationId: getMapComposition
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: compositionId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 出图稿 ID
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapComposition'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [专题制图]
+      summary: 更新或归档出图稿
+      description: 更新名称、说明和轻量版式，或执行 delete 归档。仅所属用户、超级管理员和平台管理员可以修改对象。发布和下架使用独立接口。
+      operationId: updateMapComposition
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: compositionId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 出图稿 ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MapCompositionUpdateRequest'
+      responses:
+        '200':
+          description: 操作成功
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/MapComposition'
+                  - $ref: '#/components/schemas/DetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/catalog/map-compositions/{compositionId}/versions/:
+    post:
+      tags: [专题制图]
+      summary: 生成专题成果版本
+      description: 接收前端按照版式渲染的 PNG 母图、导出参数和当前工作台快照，在业务数据 exports 目录中生成 PNG、JPG 或 PDF 成果并创建不可变版本。版本同时固化版式和工程状态。需要 `catalog.export_mapcomposition`。
+      operationId: createMapCompositionVersion
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: compositionId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 出图稿 ID
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image, payload]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: 前端渲染的 PNG 母图
+                payload:
+                  type: string
+                  description: JSON 字符串，结构为 MapCompositionVersionCreatePayload
+      responses:
+        '201':
+          description: 版本生成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapCompositionVersion'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/catalog/map-compositions/{compositionId}/publish/:
+    post:
+      tags: [专题制图]
+      summary: 发布专题成果版本
+      description: 将指定不可变成果版本设为正式发布版本，并配置发布后的可见角色。发布前专题只对所属用户、超级管理员和平台管理员可见。需要 `catalog.publish_mapcomposition`。
+      operationId: publishMapComposition
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: compositionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MapCompositionPublishRequest'
+      responses:
+        '200':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapComposition'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/catalog/map-compositions/{compositionId}/unpublish/:
+    post:
+      tags: [专题制图]
+      summary: 下架专题
+      description: 取消专题的公开角色访问并恢复为已完成状态；保留最后发布版本用于审计。需要 `catalog.publish_mapcomposition`。
+      operationId: unpublishMapComposition
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: compositionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: 下架成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapComposition'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/catalog/map-compositions/{compositionId}/restore-project/:
+    post:
+      tags: [专题制图]
+      summary: 将专题版本还原为新工程
+      description: 根据成果版本固化的工作台快照创建新的 project 工程，不覆盖来源工程。所属用户和管理员可选择任意版本；发布范围内用户只能还原正式发布版本。需要 `catalog.restore_mapcomposition` 和 `catalog.add_workspacescene`。
+      operationId: restoreMapCompositionProject
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: compositionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MapCompositionRestoreProjectRequest'
+      responses:
+        '201':
+          description: 工程创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MapCompositionRestoreProjectResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/catalog/map-compositions/{compositionId}/versions/{versionNumber}/file/:
+    get:
+      tags: [专题制图]
+      summary: 下载或预览专题成果文件
+      description: 返回指定版本的正式成果文件或 PNG 预览图。需要 `catalog.view_mapcomposition`；正式成果下载还需要 `catalog.export_mapcomposition`。
+      operationId: downloadMapCompositionVersion
+      security:
+        - sessionAuth: []
+      parameters:
+        - name: compositionId
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 出图稿 ID
+        - name: versionNumber
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 成果版本号
+        - name: variant
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [artifact, preview]
+            default: artifact
+          description: artifact 返回正式成果并触发下载；preview 返回 PNG 预览
+      responses:
+        '200':
+          description: 文件内容
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: 正式成果文件名；预览模式使用 inline
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /api/catalog/resources/{id}/visualization-summary/:
     get:
       tags: [数据目录]
@@ -2052,6 +2454,7 @@ paths:
                       name: 塔里木河胡杨样地监测点
                       code: tarim-populus-plots
                       dataType: vector
+                      spatialClass: spatial
                       domainType: population
                       category:
                         id: 101
@@ -2200,6 +2603,130 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+
+  /api/catalog/vector-import/preview/:
+    post:
+      tags: [数据目录]
+      summary: 矢量文件导入预检
+      description: |
+        解析上传的 Shapefile ZIP、GeoJSON 或 GeoPackage，返回可导入图层、属性字段、坐标系、
+        空间范围、几何类型、要素数量、顶点数量、中文编码识别结果和几何质量摘要，不写入科研数据。
+        Shapefile 必须以 ZIP 上传并至少包含同名 `.shp`、`.shx`、`.dbf`；`.prj` 缺失时提交导入前必须人工指定坐标系。
+        需要 `catalog.add_dataresource`。
+      operationId: previewVectorImport
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: '.zip、.geojson、.json 或 .gpkg 文件'
+                encoding:
+                  type: string
+                  description: '可选的 Shapefile DBF 编码覆盖值，例如 GB18030、GBK 或 UTF-8'
+      responses:
+        '200':
+          description: 预检成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VectorImportPreviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/catalog/vector-import/validate/:
+    post:
+      tags: [数据目录]
+      summary: 矢量文件导入校验
+      description: |
+        根据选定源图层、编码、人工坐标系和几何修复策略执行完整矢量导入校验，不写入数据。
+        返回结构化质量问题和同名资源检测结果。需要 `catalog.add_dataresource`。
+      operationId: validateVectorImport
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, payload]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 与预检一致的矢量文件
+                payload:
+                  type: string
+                  description: JSON 字符串，结构遵循 VectorImportValidateRequest
+      responses:
+        '200':
+          description: 校验完成
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VectorImportValidateResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /api/catalog/vector-import/commit/:
+    post:
+      tags: [数据目录]
+      summary: 提交矢量文件导入
+      description: |
+        将选定矢量图层标准化为 EPSG:4326 后写入统一 GeoPackage，保留原始上传文件归档，
+        并创建 DataResource、VectorDataset 和 MapLayer。`payload.domainType` 必须使用 DataDomainType，
+        矢量文件默认使用新增的 `vector` 业务类型；需要 `catalog.add_dataresource`。
+      operationId: commitVectorImport
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, payload]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: 与预检一致的矢量文件
+                payload:
+                  type: string
+                  description: JSON 字符串，结构遵循 VectorImportCommitRequest
+      responses:
+        '201':
+          description: 矢量导入成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VectorImportCommitResponse'
+        '400':
+          description: 文件、坐标系、几何质量或导入配置不符合要求
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportErrorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
 
   /api/catalog/resources/{id}/query/:
     post:
@@ -2385,13 +2912,57 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
+  /api/raster/import/preview/:
+    post:
+      tags: [栅格数据]
+      summary: 栅格数据包导入预检
+      description: |
+        对一个或多个栅格文件执行只读预检，不写入科研数据目录。支持 GeoTIFF/COG、
+        ENVI DAT/BSQ/BIL/BIP 与 HDR 配套文件、ERDAS IMG，以及引用文件完整的 VRT 数据包。
+        后端使用 GDAL 驱动识别真实格式，并校验文件组合、坐标系、像素尺寸、波段和空间范围。
+        需要 `raster.manage_raster_dataset`。
+      operationId: previewRasterImport
+      security:
+        - sessionAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  minItems: 1
+                  description: 栅格主文件及其配套文件；DAT/BSQ/BIL/BIP 必须同时上传 HDR，VRT 必须包含其引用文件。
+                  items:
+                    type: string
+                    format: binary
+                primaryFileName:
+                  type: string
+                  description: 主栅格文件名；仅有一个候选主文件时可以省略。
+      responses:
+        '200':
+          description: 预检成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RasterImportPreviewResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
   /api/raster/import/:
     post:
       tags: [栅格数据]
       summary: 导入栅格文件
       description: >
-        导入或上传栅格源文件。上传文件会先按系统配置的 `application.limits.upload_max_mb`
-        校验文件大小，并读取栅格元信息校验单边像素长度不超过
+        导入或上传栅格源文件包。上传文件总大小会先按系统配置的 `application.limits.upload_max_mb`
+        校验，并读取主栅格元信息校验单边像素长度不超过
         `application.limits.max_raster_side_pixels`；校验失败返回
         `400 ErrorResponse`，不会提交异步任务。
       operationId: importRaster
@@ -2672,6 +3243,15 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
           example:
             detail: 未找到请求的资源
+
+    Conflict:
+      description: 当前资源状态或名称发生冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            detail: 同名工程已存在
 
   schemas:
     ErrorResponse:
@@ -3026,7 +3606,7 @@ components:
 
     RegisterRequest:
       type: object
-      required: [username, password, passwordConfirm]
+      required: [username, email, password, passwordConfirm, accountPurpose]
       properties:
         username:
           type: string
@@ -3034,7 +3614,7 @@ components:
         email:
           type: string
           format: email
-          description: 邮箱
+          description: 必填邮箱；后端去除首尾空格、统一转为小写并保证非空邮箱唯一
         password:
           type: string
           format: password
@@ -3043,16 +3623,134 @@ components:
           type: string
           format: password
           description: 确认密码
+        accountPurpose:
+          type: string
+          enum: [standard, research]
+          description: 账号用途；standard 直接注册普通用户，research 注册普通用户并提交科研用户角色申请
+        displayName:
+          type: string
+          maxLength: 150
+          description: 显示名称；申请科研用户时必填
+        department:
+          type: string
+          maxLength: 120
+          description: 单位或部门；申请科研用户时必填
+        applicationReason:
+          type: string
+          maxLength: 500
+          description: 科研用户申请说明；accountPurpose 为 research 时必填
 
     RegisterResponse:
       type: object
-      required: [user, detail]
+      required: [user, detail, roleApplication]
       properties:
         user:
           $ref: '#/components/schemas/UserInfo'
         detail:
           type: string
           description: 注册结果说明
+        roleApplication:
+          description: 科研用户角色申请；普通用户注册时为 null
+          oneOf:
+            - $ref: '#/components/schemas/RoleApplication'
+            - type: 'null'
+
+    RoleApplicationStatus:
+      type: string
+      enum: [pending, approved, rejected]
+      description: 角色申请状态
+
+    RoleApplication:
+      type: object
+      required:
+        [id, userId, requestedRole, status, reason, reviewNote, createdAt, reviewedAt]
+      properties:
+        id:
+          type: integer
+          description: 角色申请 ID
+        userId:
+          type: integer
+          description: 申请用户 ID
+        requestedRole:
+          type: string
+          enum: [research]
+          description: 申请的受控角色；当前仅支持科研用户
+        status:
+          $ref: '#/components/schemas/RoleApplicationStatus'
+        reason:
+          type: string
+          description: 用户提交的申请说明
+        reviewNote:
+          type: string
+          description: 管理员审核说明，未审核时为空字符串
+        createdAt:
+          type: string
+          format: date-time
+          description: 申请时间
+        reviewedAt:
+          description: 审核时间，未审核时为 null
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+
+    RoleApplicationListItem:
+      allOf:
+        - $ref: '#/components/schemas/RoleApplication'
+        - type: object
+          required: [user, reviewer]
+          properties:
+            user:
+              $ref: '#/components/schemas/RoleApplicationUserSummary'
+            reviewer:
+              description: 审核人，未审核时为 null
+              oneOf:
+                - $ref: '#/components/schemas/RoleApplicationUserSummary'
+                - type: 'null'
+
+    RoleApplicationUserSummary:
+      type: object
+      required: [id, username, displayName, email, department]
+      properties:
+        id:
+          type: integer
+          description: 用户 ID
+        username:
+          type: string
+          description: 登录用户名
+        displayName:
+          type: string
+          description: 显示名称
+        email:
+          type: string
+          format: email
+          description: 用户邮箱
+        department:
+          type: string
+          description: 用户单位或部门
+
+    RoleApplicationListResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          description: 当前主体可见的角色申请
+          items:
+            $ref: '#/components/schemas/RoleApplicationListItem'
+
+    RoleApplicationReviewRequest:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [approve, reject]
+          description: 审核动作
+        reviewNote:
+          type: string
+          maxLength: 500
+          description: 审核说明；拒绝时建议填写原因
 
     UserInfoResponse:
       type: object
@@ -3159,6 +3857,13 @@ components:
         - canCreateWorkspaces
         - canChangeWorkspaces
         - canDeleteWorkspaces
+        - canViewMapCompositions
+        - canCreateMapCompositions
+        - canChangeMapCompositions
+        - canDeleteMapCompositions
+        - canExportMapCompositions
+        - canPublishMapCompositions
+        - canRestoreMapCompositions
         - canManageRasterData
       properties:
         canAccessAdmin:
@@ -3263,6 +3968,27 @@ components:
         canDeleteWorkspaces:
           type: boolean
           description: 是否可删除工程和专题，对应 `catalog.delete_workspacescene`
+        canViewMapCompositions:
+          type: boolean
+          description: 是否可查看正式出图稿，对应 `catalog.view_mapcomposition`
+        canCreateMapCompositions:
+          type: boolean
+          description: 是否可从工程新建出图稿，对应 `catalog.add_mapcomposition`
+        canChangeMapCompositions:
+          type: boolean
+          description: 是否可编辑出图稿版式，对应 `catalog.change_mapcomposition`
+        canDeleteMapCompositions:
+          type: boolean
+          description: 是否可归档出图稿，对应 `catalog.delete_mapcomposition`
+        canExportMapCompositions:
+          type: boolean
+          description: 是否可生成并下载 PNG、JPG 或 PDF 专题成果，对应 `catalog.export_mapcomposition`
+        canPublishMapCompositions:
+          type: boolean
+          description: 是否可发布或下架专题成果，对应 `catalog.publish_mapcomposition`
+        canRestoreMapCompositions:
+          type: boolean
+          description: 是否可将专题成果版本还原为新工程，对应 `catalog.restore_mapcomposition`
         canManageRasterData:
           type: boolean
           description: 是否可管理栅格数据集
@@ -3338,7 +4064,7 @@ components:
         email:
           type: string
           format: email
-          description: 新邮箱
+          description: 新邮箱；提交时不能为空，后端统一转为小写并保证非空邮箱唯一
         avatarUrl:
           type: string
           description: 新头像 URL
@@ -3788,13 +4514,13 @@ components:
           description: 统计周期结束日期
         count:
           type: integer
-          description: 周期内成功登录的去重用户数量
+          description: 周期内至少发起过一次已认证 API 请求的去重账号数量；保持既有会话跨日继续访问也计入当天活跃
         loginCount:
           type: integer
-          description: 周期内成功登录总次数
+          description: 周期内成功建立会话的总次数，包含账号密码登录、游客登录和自助注册后的自动登录
         series:
           type: array
-          description: 柱状图序列，day 按小时统计，week/month 按日期统计
+          description: 活跃账号柱状图序列，day 按小时去重，week/month 按日期去重
           items:
             $ref: '#/components/schemas/AdminDashboardActiveUserSeriesItem'
         ranking:
@@ -3815,7 +4541,7 @@ components:
           description: 序列项显示标签
         count:
           type: integer
-          description: 该序列项内成功登录次数
+          description: 该小时或日期内发起过已认证 API 请求的去重账号数量
 
     AdminDashboardActiveUserRank:
       type: object
@@ -4030,7 +4756,7 @@ components:
 
     UserCreateRequest:
       type: object
-      required: [username, groupIds]
+      required: [username, email, groupIds]
       properties:
         username:
           type: string
@@ -4041,7 +4767,7 @@ components:
         email:
           type: string
           format: email
-          description: 用户邮箱
+          description: 必填用户邮箱；后端统一转为小写并保证非空邮箱唯一
         department:
           type: string
           description: 用户所在部门
@@ -4612,13 +5338,19 @@ components:
         - field_survey
         - remote_sensing
         - molecular
+        - vector
         - other
-      description: 甲方确认的业务数据类型编码。
+      description: 甲方确认的业务数据类型编码；vector 表示直接以点、线、面几何图层为主体管理的矢量数据。
 
     SpatialClass:
       type: string
       enum: [spatial, non_spatial, spatialized_table, derived_from_spatial]
       description: 数据与空间几何的关系。
+
+    ResourceSpatialClass:
+      type: string
+      enum: [spatial, non_spatial]
+      description: 数据资源工作台分类；spatial 表示可直接在地图工作台使用的矢量或栅格资源，non_spatial 表示不含可用空间几何的表格、基因、文档或图片资源。
 
     DataGranularity:
       type: string
@@ -4898,6 +5630,8 @@ components:
         - name
         - code
         - dataType
+        - spatialClass
+        - domainType
         - category
         - source
         - provider
@@ -4927,6 +5661,8 @@ components:
           type: string
           enum: [vector, raster, gene, table, document, image]
           description: 数据资源类型
+        spatialClass:
+          $ref: '#/components/schemas/ResourceSpatialClass'
         domainType:
           oneOf:
             - $ref: '#/components/schemas/DataDomainType'
@@ -5056,6 +5792,7 @@ components:
         - name
         - code
         - dataType
+        - domainType
         - category
         - source
         - provider
@@ -5092,6 +5829,11 @@ components:
           type: string
           enum: [vector, raster, gene, table, document, image]
           description: 数据资源类型
+        domainType:
+          oneOf:
+            - $ref: '#/components/schemas/DataDomainType'
+            - type: "null"
+          description: 导入或登记时选择的数据业务类型；历史资源尚未分类时为 null，存量数据界面将其归入“其他类型”系统分组
         category:
           oneOf:
             - $ref: '#/components/schemas/DictionaryItem'
@@ -5141,7 +5883,7 @@ components:
           description: 数据资源状态
         inventoryGroupId:
           type: [integer, "null"]
-          description: 存量数据内容组别 ID；为 null 时表示默认分组
+          description: 存量数据自定义内容组别 ID；为 null 时表示未加入自定义组，资源仍会出现在“全部数据”和对应业务类型系统分组中
         accessGroups:
           type: array
           description: 允许访问该数据资源且对当前主体可见的用户组；用户导入、目录扫描和栅格导入会在后台强制包含超级管理员用户组，上传者本人不依赖用户组也始终可见。
@@ -5205,7 +5947,7 @@ components:
             $ref: '#/components/schemas/AdminDataResourceAccessGroup'
         inventoryGroups:
           type: array
-          description: 可用于存量数据管理内容分组的持久化组别列表；默认分组不在该数组中，资源 `inventoryGroupId` 为 null 时属于默认分组
+          description: 用户新建的持久化自定义组别列表；“全部数据”和十个业务类型系统分组由前端依据资源 `domainType` 自动生成，不在该数组中
           items:
             $ref: '#/components/schemas/AdminDataResourceGroup'
 
@@ -5290,20 +6032,12 @@ components:
       allOf:
         - $ref: '#/components/schemas/WorkspaceScene'
         - type: object
-          required: [status, accessGroups, canManageAccess]
+          required: [status]
           properties:
             status:
               type: string
               enum: [active, inactive]
-              description: 工程专题状态；禁用后不在普通工作台检索和加载入口展示
-            accessGroups:
-              type: array
-              description: 允许访问该工程专题且对当前主体可见的用户组；所属用户本人和超级管理员始终可见
-              items:
-                $ref: '#/components/schemas/AdminDataResourceAccessGroup'
-            canManageAccess:
-              type: boolean
-              description: 当前用户是否可修改该工程专题的可见范围；拥有者本人或具备 `catalog.change_workspacescene` 时为 true
+              description: 工程状态；禁用后不在普通工作台检索和加载入口展示
 
     AdminWorkspaceSceneListResponse:
       type: object
@@ -5311,15 +6045,15 @@ components:
       properties:
         items:
           type: array
-          description: 工程专题管理列表
+          description: 工程管理列表
           items:
             $ref: '#/components/schemas/AdminWorkspaceScene'
         total:
           type: integer
-          description: 符合筛选条件的工程专题总数
+          description: 符合筛选条件的工程总数
         availableAccessGroups:
           type: array
-          description: 可用于配置工程专题访问范围的用户组列表
+          description: 可用于配置工程额外访问范围的用户组列表；不返回超级管理员角色，后端始终保留管理员可见规则
           items:
             $ref: '#/components/schemas/AdminDataResourceAccessGroup'
 
@@ -5334,25 +6068,25 @@ components:
         status:
           type: string
           enum: [active, inactive]
-          description: setStatus 或 update 时写入的工程专题状态
+          description: setStatus 或 update 时写入的工程状态
         kind:
           type: string
-          enum: [project, topic]
-          description: update 时写入的工程专题类型
+          enum: [project]
+          description: update 时写入的工程类型
         name:
           type: string
-          description: update 时写入的工程专题名称
+          description: update 时写入的工程名称
         description:
           type: string
-          description: update 时写入的工程专题说明
+          description: update 时写入的工程说明
         accessGroupIds:
           type: array
-          description: updateAccess 或 update 时写入的额外可见用户组 ID 列表；非超级管理员主体不能选择超级管理员用户组，后端会强制补齐超级管理员用户组，所属用户本人始终可见。包含游客用户组时表示未登录用户可通过游客会话访问该工程专题。
+          description: updateAccess 或 update 时写入的额外可见用户组 ID 列表；不能选择超级管理员用户组，后端会强制保留管理员访问，所属用户本人始终可见。包含游客用户组时表示游客会话可以访问该工程。
           items:
             type: integer
         confirmationName:
           type: string
-          description: delete 操作要求传入与工程专题名称完全一致的确认文本
+          description: delete 操作要求传入与工程名称完全一致的确认文本
 
     WorkspaceSceneOwner:
       type: object
@@ -5389,15 +6123,15 @@ components:
 
     WorkspaceScene:
       type: object
-      required: [id, kind, name, description, snapshot, owner, createdAt, updatedAt]
+      required: [id, kind, name, description, snapshot, owner, accessGroups, isOwner, canEdit, canDelete, canManageAccess, createdAt, updatedAt]
       properties:
         id:
           type: integer
-          description: 工程或专题 ID
+          description: 工程 ID
         kind:
           type: string
-          enum: [project, topic]
-          description: 场景类型：工程或专题
+          enum: [project]
+          description: 场景类型，固定为工程
         name:
           type: string
           description: 工程或专题名称
@@ -5408,6 +6142,23 @@ components:
           $ref: '#/components/schemas/WorkspaceSceneSnapshot'
         owner:
           $ref: '#/components/schemas/WorkspaceSceneOwner'
+        accessGroups:
+          type: array
+          description: 除所属用户本人和超级管理员外，允许访问该工程专题的额外角色；超级管理员角色不在该数组中返回
+          items:
+            $ref: '#/components/schemas/AdminDataResourceAccessGroup'
+        isOwner:
+          type: boolean
+          description: 当前用户是否为该工程专题所属用户
+        canEdit:
+          type: boolean
+          description: 当前用户是否可在普通工作台编辑该工程专题；仅所属用户且具备 `catalog.change_workspacescene` 时为 true
+        canDelete:
+          type: boolean
+          description: 当前用户是否可在普通工作台删除该工程专题；仅所属用户且具备 `catalog.delete_workspacescene` 时为 true
+        canManageAccess:
+          type: boolean
+          description: 当前用户是否可在普通工作台维护额外可见角色；所属用户为 true
         createdAt:
           type: string
           format: date-time
@@ -5419,13 +6170,18 @@ components:
 
     WorkspaceSceneListResponse:
       type: object
-      required: [items]
+      required: [items, availableAccessGroups]
       properties:
         items:
           type: array
-          description: 当前用户保存的工程或专题
+          description: 当前用户拥有或获准加载的启用工程/专题；超级管理员返回全部启用对象
           items:
             $ref: '#/components/schemas/WorkspaceScene'
+        availableAccessGroups:
+          type: array
+          description: 保存或编辑本人工程专题时可选择的额外访问角色；不返回超级管理员角色
+          items:
+            $ref: '#/components/schemas/AdminDataResourceAccessGroup'
 
     WorkspaceSceneCreateRequest:
       type: object
@@ -5433,8 +6189,8 @@ components:
       properties:
         kind:
           type: string
-          enum: [project, topic]
-          description: 保存类型
+          enum: [project]
+          description: 保存类型，固定为工程
         name:
           type: string
           description: 工程或专题名称
@@ -5443,6 +6199,11 @@ components:
           description: 工程或专题说明
         snapshot:
           $ref: '#/components/schemas/WorkspaceSceneSnapshot'
+        accessGroupIds:
+          type: array
+          description: 除所属用户本人和超级管理员外的额外可见角色 ID；后端自动补齐超级管理员角色
+          items:
+            type: integer
 
     WorkspaceSceneUpdateRequest:
       type: object
@@ -5453,8 +6214,8 @@ components:
           description: 传 delete 时删除该工程或专题；不传时更新字段
         kind:
           type: string
-          enum: [project, topic]
-          description: 更新后的类型
+          enum: [project]
+          description: 更新后的类型，固定为工程
         name:
           type: string
           description: 更新后的名称
@@ -5463,6 +6224,295 @@ components:
           description: 更新后的说明
         snapshot:
           $ref: '#/components/schemas/WorkspaceSceneSnapshot'
+        accessGroupIds:
+          type: array
+          description: 更新后的额外可见角色 ID；仅所属用户可修改，后端自动保留超级管理员角色
+          items:
+            type: integer
+
+    MapCompositionLayout:
+      type: object
+      additionalProperties: true
+      description: 轻量专题制图版式 JSON。可包含纸张尺寸、DPI、地图范围、地图框、标题、图例、指北针、比例尺、区位副图、经纬网或 Web Mercator 投影格网、数据来源和制图说明；不得包含原始 GeoJSON 要素集合、属性表、Blob URL 或图片 Data URL。
+
+    MapCompositionStatus:
+      type: string
+      enum: [draft, completed, published]
+      description: draft 为版式草稿，completed 为已生成成果，published 为已发布专题
+
+    MapCompositionVersion:
+      type: object
+      required: [id, compositionId, versionNumber, format, dpi, widthPx, heightPx, snapshotSchemaVersion, snapshotChecksum, previewUrl, downloadUrl, createdAt]
+      properties:
+        id:
+          type: integer
+          description: 成果版本记录 ID
+        compositionId:
+          type: integer
+          description: 所属出图稿 ID
+        versionNumber:
+          type: integer
+          minimum: 1
+          description: 出图稿内递增的版本号
+        format:
+          type: string
+          enum: [png, jpg, pdf]
+          description: 正式成果格式
+        dpi:
+          type: integer
+          minimum: 72
+          maximum: 600
+          description: 输出 DPI
+        widthPx:
+          type: integer
+          description: 输出宽度像素
+        heightPx:
+          type: integer
+          description: 输出高度像素
+        note:
+          type: string
+          description: 版本说明
+        snapshotSchemaVersion:
+          type: integer
+          minimum: 1
+          description: 工程快照结构版本
+        snapshotChecksum:
+          type: string
+          description: 版式和工程快照的 SHA-256 校验值
+        previewUrl:
+          type: string
+          description: PNG 预览地址
+        downloadUrl:
+          type: string
+          description: 正式成果下载地址
+        createdAt:
+          type: string
+          format: date-time
+          description: 版本生成时间
+
+    MapComposition:
+      type: object
+      required: [id, projectId, projectName, name, description, status, layout, owner, audienceGroups, versions, isOwner, canPreview, canDownload, canEditLayout, canPublish, canUnpublish, canRestoreProject, canLoadSourceProject, canArchive, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+          description: 出图稿 ID
+        projectId:
+          type: integer
+          description: 来源工程 ID
+        projectName:
+          type: string
+          description: 来源工程名称
+        name:
+          type: string
+          description: 专题图名称
+        description:
+          type: string
+          description: 专题图说明
+        status:
+          $ref: '#/components/schemas/MapCompositionStatus'
+        layout:
+          $ref: '#/components/schemas/MapCompositionLayout'
+        owner:
+          $ref: '#/components/schemas/WorkspaceSceneOwner'
+        audienceGroups:
+          type: array
+          description: 专题正式发布后可以访问的角色；未发布时不产生普通用户可见性
+          items:
+            $ref: '#/components/schemas/AdminDataResourceAccessGroup'
+        currentVersion:
+          oneOf:
+            - $ref: '#/components/schemas/MapCompositionVersion'
+            - type: 'null'
+          description: 最近生成的成果版本；尚未生成时为 null
+        publishedVersion:
+          oneOf:
+            - $ref: '#/components/schemas/MapCompositionVersion'
+            - type: 'null'
+          description: 当前正式发布版本；未发布时为 null
+        versions:
+          type: array
+          description: 按版本号倒序返回的成果版本
+          items:
+            $ref: '#/components/schemas/MapCompositionVersion'
+        isOwner:
+          type: boolean
+        canPreview:
+          type: boolean
+        canDownload:
+          type: boolean
+        canEditLayout:
+          type: boolean
+        canPublish:
+          type: boolean
+        canUnpublish:
+          type: boolean
+        canRestoreProject:
+          type: boolean
+        canLoadSourceProject:
+          type: boolean
+        canArchive:
+          type: boolean
+        publishedAt:
+          type: [string, 'null']
+          format: date-time
+        publishedBy:
+          oneOf:
+            - $ref: '#/components/schemas/WorkspaceSceneOwner'
+            - type: 'null'
+        createdAt:
+          type: string
+          format: date-time
+          description: 创建时间
+        updatedAt:
+          type: string
+          format: date-time
+          description: 更新时间
+
+    MapCompositionListResponse:
+      type: object
+      required: [items, availableAudienceGroups]
+      properties:
+        items:
+          type: array
+          description: 当前用户拥有的出图稿列表
+          items:
+            $ref: '#/components/schemas/MapComposition'
+        availableAudienceGroups:
+          type: array
+          description: 当前用户发布专题时可选择的角色
+          items:
+            $ref: '#/components/schemas/AdminDataResourceAccessGroup'
+
+    MapCompositionCreateRequest:
+      type: object
+      required: [projectId, name, layout]
+      properties:
+        projectId:
+          type: integer
+          description: 当前用户拥有的来源工程 ID，必须是 project 类型
+        name:
+          type: string
+          maxLength: 160
+          description: 专题图名称
+        description:
+          type: string
+          maxLength: 2000
+          description: 专题图说明
+        layout:
+          $ref: '#/components/schemas/MapCompositionLayout'
+
+    MapCompositionUpdateRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [update, delete]
+          default: update
+          description: update 更新版式；delete 归档
+        name:
+          type: string
+          maxLength: 160
+          description: 更新后的专题图名称
+        description:
+          type: string
+          maxLength: 2000
+          description: 更新后的专题图说明
+        layout:
+          $ref: '#/components/schemas/MapCompositionLayout'
+
+    MapCompositionVersionCreatePayload:
+      type: object
+      required: [format, dpi, widthPx, heightPx, workspaceSnapshot]
+      properties:
+        format:
+          type: string
+          enum: [png, jpg, pdf]
+          description: 正式成果格式
+        dpi:
+          type: integer
+          minimum: 72
+          maximum: 600
+          description: 输出 DPI
+        widthPx:
+          type: integer
+          minimum: 1
+          maximum: 8192
+          description: PNG 母图宽度
+        heightPx:
+          type: integer
+          minimum: 1
+          maximum: 8192
+          description: PNG 母图高度
+        note:
+          type: string
+          maxLength: 500
+          description: 版本说明
+        workspaceSnapshot:
+          $ref: '#/components/schemas/WorkspaceSceneSnapshot'
+
+    MapCompositionPublishRequest:
+      type: object
+      required: [versionNumber, audienceGroupIds]
+      properties:
+        versionNumber:
+          type: integer
+          minimum: 1
+          description: 要设为正式发布版本的成果版本号
+        audienceGroupIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          description: 专题发布后的可见角色 ID
+          items:
+            type: integer
+
+    MapCompositionRestoreProjectRequest:
+      type: object
+      required: [versionNumber, name]
+      properties:
+        versionNumber:
+          type: integer
+          minimum: 1
+          description: 要还原的成果版本号；发布范围用户只能提交正式发布版本
+        name:
+          type: string
+          maxLength: 160
+          description: 新工程名称
+        description:
+          type: string
+          maxLength: 2000
+        accessGroupIds:
+          type: array
+          uniqueItems: true
+          items:
+            type: integer
+        unavailableResourcePolicy:
+          type: string
+          enum: [skip, fail]
+          default: skip
+
+    MapCompositionRestoreWarning:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        resourceId:
+          type: [integer, 'null']
+
+    MapCompositionRestoreProjectResponse:
+      type: object
+      required: [project, warnings]
+      properties:
+        project:
+          $ref: '#/components/schemas/WorkspaceScene'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/MapCompositionRestoreWarning'
 
     ResourceListItem:
       $ref: '#/components/schemas/DataResource'
@@ -5798,6 +6848,11 @@ components:
         - importedAt
         - processedAt
         - metadata
+        - sourceFileName
+        - sourceFormat
+        - sourceManifest
+        - sourceChecksumSha256
+        - rasterKind
       properties:
         id:
           type: integer
@@ -5876,6 +6931,24 @@ components:
           description: 预处理完成时间
         metadata:
           $ref: '#/components/schemas/RasterMetadata'
+        sourceFileName:
+          type: string
+          description: 用户上传或目录扫描时的主栅格原始文件名
+        sourceFormat:
+          type: string
+          description: GDAL 识别到的源格式或驱动简称
+        sourceManifest:
+          type: array
+          description: 原始栅格数据包内的文件清单
+          items:
+            $ref: '#/components/schemas/RasterSourceAsset'
+        sourceChecksumSha256:
+          type: string
+          description: 主栅格文件 SHA256；未计算时为空字符串
+        rasterKind:
+          type: string
+          enum: [imagery, continuous, categorical]
+          description: 栅格数据语义，用于选择默认重采样和符号化策略
 
     RasterMetadata:
       type: object
@@ -5934,7 +7007,7 @@ components:
     AsyncJobResponse:
       type: object
       required:
-        [id, kind, status, progressPercent, messages, result, error, startedAt, finishedAt]
+        [id, kind, status, stage, progressPercent, messages, result, error, startedAt, finishedAt]
       properties:
         id:
           type: string
@@ -5947,6 +7020,9 @@ components:
           type: string
           enum: [queued, running, ready, failed]
           description: 任务状态
+        stage:
+          type: string
+          description: 当前处理阶段，例如 queued、validating、preprocessing、publishing、ready 或 failed
         progressPercent:
           type: integer
           minimum: 0
@@ -6297,6 +7373,243 @@ components:
         validationIssues:
           type: array
           description: 非地理导入固定为空数组
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+
+    VectorImportFieldPreview:
+      type: object
+      required: [name, type, nullable, sampleValues]
+      properties:
+        name:
+          type: string
+          description: 源属性字段名
+        type:
+          type: string
+          description: GeoPandas/Pandas 字段类型
+        nullable:
+          type: boolean
+          description: 字段是否包含空值
+        sampleValues:
+          type: array
+          description: 前若干个非空样例值
+          items:
+            oneOf:
+              - type: string
+              - type: number
+              - type: boolean
+              - type: 'null'
+
+    VectorGeometryQuality:
+      type: object
+      required: [validCount, invalidCount, emptyCount, nullCount, mixedGeometry]
+      properties:
+        validCount:
+          type: integer
+          description: 有效几何数量
+        invalidCount:
+          type: integer
+          description: 无效几何数量
+        emptyCount:
+          type: integer
+          description: 空几何数量
+        nullCount:
+          type: integer
+          description: null 几何数量
+        mixedGeometry:
+          type: boolean
+          description: 是否存在多种基础几何类型
+
+    VectorImportLayerPreview:
+      type: object
+      required:
+        [sourceLayerName, suggestedName, suggestedTableName, geometryType, featureCount, vertexCount, bounds, coordinateSystem, epsg, encoding, fields, previewRows, quality]
+      properties:
+        sourceLayerName:
+          type: string
+          description: 源文件中的图层名称；GeoJSON 为文件名去扩展名
+        suggestedName:
+          type: string
+          description: 建议的数据资源显示名称
+        suggestedTableName:
+          type: string
+          description: 建议写入统一 GeoPackage 的图层名
+        geometryType:
+          type: string
+          description: Point、LineString、Polygon、MultiPoint、MultiLineString、MultiPolygon 或 Mixed
+        featureCount:
+          type: integer
+          description: 要素总数
+        vertexCount:
+          type: integer
+          description: 几何坐标顶点总数
+        bounds:
+          type: array
+          description: 源坐标系边界 [minX, minY, maxX, maxY]
+          items:
+            type: number
+        coordinateSystem:
+          type: [string, 'null']
+          description: 解析到的坐标系文本；缺失时为 null
+        epsg:
+          type: [integer, 'null']
+          description: 解析到的 EPSG 编码；无法识别时为 null
+        encoding:
+          type: [string, 'null']
+          description: Shapefile DBF 使用的编码；其他格式可能为 null
+        fields:
+          type: array
+          description: 属性字段预览
+          items:
+            $ref: '#/components/schemas/VectorImportFieldPreview'
+        previewRows:
+          type: array
+          description: 前若干行属性预览，不包含几何坐标
+          items:
+            type: object
+            additionalProperties: true
+        quality:
+          $ref: '#/components/schemas/VectorGeometryQuality'
+
+    VectorImportPreviewResponse:
+      type: object
+      required: [sourceFileName, sourceFormat, layers, limitations]
+      properties:
+        sourceFileName:
+          type: string
+          description: 原始上传文件名
+        sourceFormat:
+          type: string
+          enum: [SHAPEFILE, GEOJSON, GPKG]
+          description: 识别到的矢量源格式
+        layers:
+          type: array
+          minItems: 1
+          description: 文件中可选择导入的矢量图层
+          items:
+            $ref: '#/components/schemas/VectorImportLayerPreview'
+        limitations:
+          type: array
+          description: 当前矢量导入限制和处理提示
+          items:
+            type: string
+
+    VectorImportValidateRequest:
+      type: object
+      required: [name, sourceLayerName, tableName]
+      properties:
+        name:
+          type: string
+          description: 数据资源显示名称
+        sourceLayerName:
+          type: string
+          description: 预检结果中的源图层名称
+        tableName:
+          type: string
+          description: 建议写入统一 GeoPackage 的图层名
+        encoding:
+          type: [string, 'null']
+          description: Shapefile DBF 编码覆盖值
+        sourceCrs:
+          type: [string, 'null']
+          description: 源文件缺少坐标系时人工指定的 EPSG 编码或 CRS 字符串
+        repairInvalidGeometries:
+          type: boolean
+          default: false
+          description: 是否使用 make_valid 尝试修复无效几何
+        skipInvalidGeometries:
+          type: boolean
+          default: false
+          description: 是否跳过修复后仍无效、空或 null 的几何
+
+    VectorImportValidateResponse:
+      type: object
+      required: [layer, validationIssues, duplicateTarget]
+      properties:
+        layer:
+          $ref: '#/components/schemas/VectorImportLayerPreview'
+        validationIssues:
+          type: array
+          description: 坐标系、编码和几何质量问题
+          items:
+            $ref: '#/components/schemas/ValidationIssue'
+        duplicateTarget:
+          oneOf:
+            - $ref: '#/components/schemas/ImportDuplicateTarget'
+            - type: 'null'
+          description: 同名数据资源；无重复时为 null
+
+    VectorImportCommitRequest:
+      allOf:
+        - $ref: '#/components/schemas/VectorImportValidateRequest'
+        - type: object
+          required: [domainType, duplicateConfirmed, accessGroupIds, fieldMetadata]
+          properties:
+            domainType:
+              $ref: '#/components/schemas/DataDomainType'
+            duplicateConfirmed:
+              type: boolean
+              description: 是否已确认创建同名数据资源
+            accessGroupIds:
+              type: array
+              description: 额外可访问用户组 ID
+              items:
+                type: integer
+            fieldMetadata:
+              type: object
+              description: 字段名到中文说明的映射
+              additionalProperties:
+                type: string
+
+    VectorImportCommitResponse:
+      type: object
+      required:
+        [mode, resourceId, resourceName, vectorDatasetId, layerId, layerName, sourceLayerName, importedFeatures, skippedFeatures, bounds, geometryType, coordinateSystem, sourceEncoding, validationIssues]
+      properties:
+        mode:
+          type: string
+          enum: [vector]
+          description: 矢量文件导入模式
+        resourceId:
+          type: integer
+          description: 创建的数据资源 ID
+        resourceName:
+          type: string
+          description: 创建的数据资源显示名称
+        vectorDatasetId:
+          type: integer
+          description: 创建的 VectorDataset 技术元数据记录 ID
+        layerId:
+          type: integer
+          description: 创建的 MapLayer ID
+        layerName:
+          type: string
+          description: 写入统一 GeoPackage 的唯一图层名
+        sourceLayerName:
+          type: string
+          description: 源文件中的图层名称
+        importedFeatures:
+          type: integer
+          description: 成功写入的有效要素数量
+        skippedFeatures:
+          type: integer
+          description: 因空、null 或无效几何被跳过的要素数量
+        bounds:
+          type: array
+          description: EPSG:4326 边界 [minLng, minLat, maxLng, maxLat]
+          items:
+            type: number
+        geometryType:
+          type: string
+          description: 标准化后的几何类型
+        coordinateSystem:
+          type: string
+          description: 标准化存储坐标系，固定为 EPSG:4326
+        sourceEncoding:
+          type: [string, 'null']
+          description: 源 Shapefile DBF 编码；其他格式可能为 null
+        validationIssues:
+          type: array
+          description: 导入时确认或处理的质量问题
           items:
             $ref: '#/components/schemas/ValidationIssue'
 
@@ -7010,15 +8323,108 @@ components:
 
     RasterImportUploadRequest:
       type: object
-      required: [file]
       properties:
         file:
           type: string
           format: binary
-          description: 上传的栅格源文件，支持 GeoTIFF、IMG 和 VRT。文件大小不得超过系统配置的 upload_max_mb，单边像素长度不得超过 max_raster_side_pixels。后端保存到科研数据根目录的 raster/original/uploaded/ 后异步预处理。
+          description: 兼容旧调用的单个栅格文件。新前端应使用 files。
+        files:
+          type: array
+          minItems: 1
+          description: 栅格主文件及配套文件，支持 GeoTIFF/COG、IMG、VRT 数据包和 ENVI DAT/BSQ/BIL/BIP + HDR。
+          items:
+            type: string
+            format: binary
         name:
           type: string
           description: 前端显示的数据集名称；为空时默认取上传文件名，不展示后端保存到 uploaded/ 目录的唯一存储文件名
+        payload:
+          type: string
+          description: JSON 字符串，结构遵循 RasterImportCommitRequest；省略时使用兼容默认值。
+
+    RasterSourceAsset:
+      type: object
+      required: [name, size, role]
+      properties:
+        name:
+          type: string
+          description: 数据包内文件名
+        size:
+          type: integer
+          minimum: 0
+          description: 文件大小，单位字节
+        role:
+          type: string
+          enum: [primary, header, auxiliary, referenced]
+          description: 文件在栅格数据包中的作用
+
+    RasterImportPreviewResponse:
+      type: object
+      required:
+        [primaryFileName, sourceFormat, files, metadata, bounds4326, defaultRules, suggestedName, rasterKind, resampling, warnings]
+      properties:
+        primaryFileName:
+          type: string
+          description: 识别到的主栅格文件名
+        sourceFormat:
+          type: string
+          description: GDAL 驱动简称，例如 GTiff、ENVI、HFA 或 VRT
+        files:
+          type: array
+          description: 数据包文件及角色
+          items:
+            $ref: '#/components/schemas/RasterSourceAsset'
+        metadata:
+          $ref: '#/components/schemas/RasterMetadata'
+        bounds4326:
+          type: array
+          description: WGS84 空间范围 [west, south, east, north]
+          items:
+            type: number
+        defaultRules:
+          $ref: '#/components/schemas/RasterSymbolizationRules'
+        suggestedName:
+          type: string
+          description: 建议的资源显示名称
+        rasterKind:
+          type: string
+          enum: [imagery, continuous, categorical]
+          description: 根据波段数量和数据类型推断的栅格语义
+        resampling:
+          type: string
+          enum: [nearest, bilinear, cubic]
+          description: 建议的预处理重采样方式
+        warnings:
+          type: array
+          description: 非阻断预检提示，例如缺少波段语义或无法识别 EPSG
+          items:
+            type: string
+
+    RasterImportCommitRequest:
+      type: object
+      required: [primaryFileName, name, rasterKind, resampling, defaultRules, accessGroupIds]
+      properties:
+        primaryFileName:
+          type: string
+          description: 预检确认的主栅格文件名
+        name:
+          type: string
+          description: 数据资源、栅格数据集和地图图层的显示名称
+        rasterKind:
+          type: string
+          enum: [imagery, continuous, categorical]
+          description: 栅格数据语义
+        resampling:
+          type: string
+          enum: [nearest, bilinear, cubic]
+          description: 生成 EPSG:3857 展示 COG 时使用的重采样方式
+        defaultRules:
+          $ref: '#/components/schemas/RasterSymbolizationRules'
+        accessGroupIds:
+          type: array
+          description: 除上传者本人和超级管理员外可访问该数据的用户组 ID
+          items:
+            type: integer
 
     RasterRenderRequest:
       type: object

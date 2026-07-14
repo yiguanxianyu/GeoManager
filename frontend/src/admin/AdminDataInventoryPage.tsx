@@ -12,6 +12,7 @@ import {
   Form,
   Input,
   Modal,
+  Pagination,
   Popconfirm,
   Space,
   Switch,
@@ -30,6 +31,7 @@ import type {
   AdminDataResourceFilters,
   AdminDataResourceGroup,
   AdminDataResourceList,
+  DataDomainType,
 } from "../types";
 import { downloadBlob } from "../utils/download";
 import DataSchemaOverview from "./DataSchemaOverview";
@@ -71,9 +73,14 @@ const initialList: AdminDataResourceList = {
   inventoryGroups: [],
 };
 
-const defaultInventoryGroupId = "__default__";
+const allInventoryGroupId = "__all__";
 
-type InventoryGroupId = number | typeof defaultInventoryGroupId;
+type BusinessInventoryGroupId = `__domain__:${DataDomainType}`;
+type InventoryGroupId =
+  | number
+  | typeof allInventoryGroupId
+  | BusinessInventoryGroupId;
+type InventoryGroupKind = "all" | "business" | "custom";
 type GroupModalState = { kind: "create" } | null;
 
 interface InventoryGroup {
@@ -84,22 +91,45 @@ interface InventoryGroup {
   itemCount: number;
   enabled: boolean;
   partiallyEnabled: boolean;
-  isDefault: boolean;
+  kind: InventoryGroupKind;
 }
 
 interface InventoryGroupDefinition {
   id: InventoryGroupId;
   name: string;
-  isDefault: boolean;
+  kind: InventoryGroupKind;
+  domainType?: DataDomainType;
 }
 
-const defaultInventoryGroup: InventoryGroupDefinition = {
-  id: defaultInventoryGroupId,
-  name: "默认分组",
-  isDefault: true,
+const allInventoryGroup: InventoryGroupDefinition = {
+  id: allInventoryGroupId,
+  name: "全部数据",
+  kind: "all",
 };
 
-const inventoryGroupNameColumnWidth = 144;
+const businessInventoryGroupEntries: Array<readonly [DataDomainType, string]> =
+  [
+    ["germplasm", "种质数据"],
+    ["genome", "基因组数据"],
+    ["individual", "个体数据"],
+    ["community", "群落数据"],
+    ["population", "种群数据"],
+    ["field_survey", "野外调查数据"],
+    ["remote_sensing", "遥感影像数据"],
+    ["molecular", "分子数据"],
+    ["vector", "矢量数据"],
+    ["other", "其他类型"],
+  ];
+
+const businessInventoryGroups: InventoryGroupDefinition[] =
+  businessInventoryGroupEntries.map(([domainType, name]) => ({
+    id: `__domain__:${domainType}` as BusinessInventoryGroupId,
+    name,
+    kind: "business",
+    domainType,
+  }));
+
+const inventoryGroupNameColumnWidth = 220;
 const inventoryResourceNameColumnWidth = 260;
 const inventoryActionColumnWidth = 112;
 const inventoryTableScrollX = 1280;
@@ -390,7 +420,7 @@ export default function AdminDataInventoryPage() {
   }
 
   async function saveInlineGroupName(group: InventoryGroup) {
-    if (group.isDefault || savingGroupId === group.id) {
+    if (group.kind !== "custom" || savingGroupId === group.id) {
       return;
     }
     const trimmedName = editingGroupName.trim();
@@ -475,7 +505,10 @@ export default function AdminDataInventoryPage() {
     if (!resource) {
       return;
     }
-    const nextGroupId = group.isDefault ? null : Number(group.id);
+    if (group.kind === "business") {
+      return;
+    }
+    const nextGroupId = group.kind === "all" ? null : Number(group.id);
     if (resource.inventoryGroupId === nextGroupId) {
       return;
     }
@@ -499,7 +532,7 @@ export default function AdminDataInventoryPage() {
   }
 
   async function deleteInventoryGroup(group: InventoryGroup) {
-    if (group.isDefault) {
+    if (group.kind !== "custom") {
       return;
     }
     setUpdatingGroupId(group.id);
@@ -518,7 +551,9 @@ export default function AdminDataInventoryPage() {
             : item,
         ),
       }));
-      message.success(`已删除组别：${group.name}，组内数据已进入默认分组`);
+      message.success(
+        `已删除组别：${group.name}，数据仍保留在全部数据和对应业务类型分组中`,
+      );
     } catch (error) {
       message.error(error instanceof Error ? error.message : "删除组别失败");
     } finally {
@@ -692,7 +727,7 @@ export default function AdminDataInventoryPage() {
                 <Typography.Text strong ellipsis={{ tooltip: group.name }}>
                   {group.name}
                 </Typography.Text>
-                {!group.isDefault && (
+                {group.kind === "custom" && (
                   <Tooltip title="编辑组名">
                     <Button
                       type="text"
@@ -704,6 +739,9 @@ export default function AdminDataInventoryPage() {
                     />
                   </Tooltip>
                 )}
+                <Tag color={inventoryGroupKindColor(group.kind)}>
+                  {inventoryGroupKindLabel(group.kind)}
+                </Tag>
               </>
             )}
           </Space>
@@ -714,18 +752,18 @@ export default function AdminDataInventoryPage() {
         key: "groupActions",
         width: inventoryActionColumnWidth,
         render: (_, group) =>
-          group.isDefault ? (
-            <Tooltip title="默认分组不可删除">
+          group.kind !== "custom" ? (
+            <Tooltip title="系统分组不可删除">
               <Button
                 icon={<DeleteOutlined />}
                 disabled
-                aria-label="删除默认分组"
+                aria-label={`删除系统分组${group.name}`}
               />
             </Tooltip>
           ) : (
             <Popconfirm
               title="删除组别"
-              description="删除后该组内数据会进入默认分组，数据本身不会被删除。"
+              description="删除后仅移除自定义归档关系，数据仍保留在全部数据和对应业务类型分组中。"
               okText="删除"
               cancelText="取消"
               onConfirm={() => deleteInventoryGroup(group)}
@@ -789,24 +827,6 @@ export default function AdminDataInventoryPage() {
       },
     ];
 
-    const groupPagination = {
-      ...pagination,
-      showTotal: (nextTotal: number) => (
-        <Space size={12} wrap>
-          <span>共 {nextTotal} 条</span>
-          <Button
-            icon={<PlusOutlined />}
-            aria-label="新增组别"
-            className="inventory-add-group-button"
-            disabled={!canChange}
-            onClick={openCreateGroupModal}
-          >
-            新增组别
-          </Button>
-        </Space>
-      ),
-    };
-
     return (
       <Space orientation="vertical" size={12} className="inventory-group-table">
         <Table<InventoryGroup>
@@ -816,23 +836,34 @@ export default function AdminDataInventoryPage() {
           dataSource={inventoryGroups}
           tableLayout="fixed"
           scroll={{ x: inventoryTableScrollX }}
-          pagination={groupPagination}
+          pagination={false}
           onRow={(group) => ({
-            onDragOver: (event) => event.preventDefault(),
+            onDragOver: (event) => {
+              if (group.kind !== "business") {
+                event.preventDefault();
+              }
+            },
             onDrop: () => {
-              if (draggingResourceId !== null) {
+              if (draggingResourceId !== null && group.kind !== "business") {
                 void moveResourceToGroup(draggingResourceId, group);
                 setDraggingResourceId(null);
               }
             },
           })}
           expandable={{
-            defaultExpandAllRows: true,
+            defaultExpandedRowKeys: [allInventoryGroupId],
             expandedRowRender: (group) => (
               <div
-                onDragOver={(event) => event.preventDefault()}
+                onDragOver={(event) => {
+                  if (group.kind !== "business") {
+                    event.preventDefault();
+                  }
+                }}
                 onDrop={() => {
-                  if (draggingResourceId !== null) {
+                  if (
+                    draggingResourceId !== null &&
+                    group.kind !== "business"
+                  ) {
                     void moveResourceToGroup(draggingResourceId, group);
                     setDraggingResourceId(null);
                   }
@@ -861,6 +892,25 @@ export default function AdminDataInventoryPage() {
             ),
           }}
         />
+        <div className="inventory-group-footer">
+          <Pagination
+            current={pagination.current}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            showSizeChanger={pagination.showSizeChanger}
+            onChange={pagination.onChange}
+            showTotal={(nextTotal) => `共 ${nextTotal} 条`}
+          />
+          <Button
+            icon={<PlusOutlined />}
+            aria-label="新增组别"
+            className="inventory-add-group-button"
+            disabled={!canChange}
+            onClick={openCreateGroupModal}
+          >
+            新增组别
+          </Button>
+        </div>
       </Space>
     );
   };
@@ -1120,20 +1170,25 @@ function buildInventoryGroups(
   persistedGroups: AdminDataResourceGroup[],
 ): InventoryGroup[] {
   const groupDefinitions: InventoryGroupDefinition[] = [
-    defaultInventoryGroup,
+    allInventoryGroup,
+    ...businessInventoryGroups,
     ...persistedGroups.map((group) => ({
       id: group.id,
       name: group.name,
-      isDefault: false,
+      kind: "custom" as const,
     })),
   ];
-  const validGroupIds = new Set(groupDefinitions.map((group) => group.id));
   return groupDefinitions.map((group) =>
     createInventoryGroup({
       ...group,
       resources: resources.filter((resource) => {
-        const assignedGroupId = resource.inventoryGroupId;
-        return group.id === normalizeGroupId(assignedGroupId, validGroupIds);
+        if (group.kind === "all") {
+          return true;
+        }
+        if (group.kind === "business") {
+          return inventoryDomainType(resource) === group.domainType;
+        }
+        return resource.inventoryGroupId === group.id;
       }),
     }),
   );
@@ -1143,12 +1198,12 @@ function createInventoryGroup({
   id,
   name,
   resources,
-  isDefault,
+  kind,
 }: {
   id: InventoryGroupId;
   name: string;
   resources: AdminDataResource[];
-  isDefault: boolean;
+  kind: InventoryGroupKind;
 }): InventoryGroup {
   const activeCount = resources.filter(
     (resource) => resource.status === "active",
@@ -1159,7 +1214,7 @@ function createInventoryGroup({
     resources,
     enabled: resources.length > 0 && activeCount === resources.length,
     partiallyEnabled: activeCount > 0 && activeCount < resources.length,
-    isDefault,
+    kind,
     sizeBytes: resources.reduce(
       (total, resource) => total + (resource.sizeBytes ?? 0),
       0,
@@ -1171,13 +1226,20 @@ function createInventoryGroup({
   };
 }
 
-function normalizeGroupId(
-  groupId: InventoryGroupId | null | undefined,
-  validGroupIds: Set<InventoryGroupId>,
-) {
-  return groupId && validGroupIds.has(groupId)
-    ? groupId
-    : defaultInventoryGroupId;
+function inventoryDomainType(resource: AdminDataResource): DataDomainType {
+  return resource.domainType ?? "other";
+}
+
+function inventoryGroupKindLabel(kind: InventoryGroupKind) {
+  if (kind === "all") return "汇总";
+  if (kind === "business") return "业务类型";
+  return "自定义";
+}
+
+function inventoryGroupKindColor(kind: InventoryGroupKind) {
+  if (kind === "all") return "blue";
+  if (kind === "business") return "green";
+  return "default";
 }
 
 function groupStatus(enabled: boolean): AdminDataResource["status"] {

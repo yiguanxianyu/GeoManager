@@ -1,6 +1,9 @@
 from django.db.models import Q
 
-from apps.core.initialization import SUPERADMIN_GROUP_NAME
+from apps.core.initialization import (
+    PLATFORM_ADMIN_GROUP_NAME,
+    SUPERADMIN_GROUP_NAME,
+)
 
 
 def user_group_ids(user) -> set[int]:
@@ -23,8 +26,29 @@ def user_is_superadmin_group_member(user) -> bool:
     return bool(cached)
 
 
+def user_is_platform_admin_group_member(user) -> bool:
+    if user.is_anonymous:
+        return False
+    cached = getattr(user, "_huyang_is_platform_admin_group_member", None)
+    if cached is None:
+        cached = user.groups.filter(name=PLATFORM_ADMIN_GROUP_NAME).exists()
+        setattr(user, "_huyang_is_platform_admin_group_member", cached)
+    return bool(cached)
+
+
+def user_has_full_data_access(user) -> bool:
+    return bool(
+        not user.is_anonymous
+        and (
+            user.is_superuser
+            or user_is_superadmin_group_member(user)
+            or user_is_platform_admin_group_member(user)
+        )
+    )
+
+
 def access_filter(user):
-    if user.is_superuser or user_is_superadmin_group_member(user):
+    if user_has_full_data_access(user):
         return Q()
     group_ids = user_group_ids(user)
     if not group_ids:
@@ -33,7 +57,7 @@ def access_filter(user):
 
 
 def resource_access_filter(user):
-    if user.is_superuser or user_is_superadmin_group_member(user):
+    if user_has_full_data_access(user):
         return Q()
     group_ids = user_group_ids(user)
     if not group_ids:
@@ -42,7 +66,7 @@ def resource_access_filter(user):
 
 
 def related_access_filter(user, relation: str):
-    if user.is_superuser or user_is_superadmin_group_member(user):
+    if user_has_full_data_access(user):
         return Q()
     group_ids = user_group_ids(user)
     maintainer_lookup = f"{relation}__maintainer"
@@ -57,7 +81,7 @@ def related_access_filter(user, relation: str):
 
 
 def filter_accessible(queryset, user):
-    if user.is_superuser or user_is_superadmin_group_member(user):
+    if user_has_full_data_access(user):
         return queryset
     if _model_has_field(queryset.model, "maintainer"):
         return queryset.filter(resource_access_filter(user)).distinct()
@@ -65,18 +89,16 @@ def filter_accessible(queryset, user):
 
 
 def filter_accessible_layers(queryset, user):
-    if user.is_superuser or user_is_superadmin_group_member(user):
+    if user_has_full_data_access(user):
         return queryset
-    query = (
-        access_filter(user) & related_access_filter(user, "data_resource")
-    )
+    query = access_filter(user) & related_access_filter(user, "data_resource")
     if user.is_authenticated:
         query |= Q(data_resource__maintainer=user)
     return queryset.filter(query).distinct()
 
 
 def user_can_access(obj, user) -> bool:
-    if user.is_superuser or user_is_superadmin_group_member(user):
+    if user_has_full_data_access(user):
         return True
     if getattr(obj, "maintainer_id", None) == getattr(user, "id", None):
         return True

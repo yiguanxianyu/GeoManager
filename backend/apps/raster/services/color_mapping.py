@@ -48,6 +48,11 @@ def array_to_rgba(
     output = np.zeros((values.shape[-2], values.shape[-1], 4), dtype=np.uint8)
 
     if mode == "rgb":
+        if (
+            rules.get("nodata", {}).get("enabled", True)
+            and values.shape[0] == 3
+        ):
+            valid &= ~np.all(values[:3] == 0, axis=0)
         for index, band_index in enumerate(output_source_bands(rules)[:3]):
             output[..., index] = scale_array(values[index], rules, metadata, band_index)
         if values.shape[0] > 3:

@@ -60,6 +60,16 @@ urlpatterns = [
         name="user-avatar-get",
     ),
     path("users/", admin_api.user_list, name="user-list"),
+    path(
+        "admin/role-applications/",
+        admin_api.role_application_list,
+        name="role-application-list",
+    ),
+    path(
+        "admin/role-applications/<int:application_id>/review/",
+        admin_api.role_application_review,
+        name="role-application-review",
+    ),
     path("users/<int:user_id>/", admin_api.user_detail, name="user-detail"),
     path(
         "users/<int:user_id>/password/reset/",

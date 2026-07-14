@@ -1,13 +1,13 @@
 import { App } from "antd";
 import type { Map as MapboxMap } from "mapbox-gl";
 import type { RefObject } from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type {
   LoadedLayerGroup,
   MapViewState,
   WorkspaceScene,
-  WorkspaceSceneKind,
+  WorkspaceAccessGroup,
   WorkspaceSceneSnapshot,
 } from "../types";
 import {
@@ -16,10 +16,15 @@ import {
   showWorkspaceRestoreIssues,
 } from "../workspace/workspaceNotifications";
 import { restoreWorkspaceGroups } from "../workspace/workspaceRestore";
+import {
+  isWorkspaceInventoryChange,
+  notifyWorkspaceInventoryChanged,
+  workspaceInventoryChangedEvent,
+} from "../workspace/workspaceSync";
 import { workspaceSnapshot } from "../workspace/workspaceSnapshot";
 
 interface UseWorkspaceScenesOptions {
-  canBrowseData: boolean;
+  canViewWorkspaces: boolean;
   canQueryData: boolean;
   canLoadVectorLayer: boolean;
   queryResultLimit: number;
@@ -33,7 +38,7 @@ interface UseWorkspaceScenesOptions {
 }
 
 export function useWorkspaceScenes({
-  canBrowseData,
+  canViewWorkspaces,
   canQueryData,
   canLoadVectorLayer,
   queryResultLimit,
@@ -47,14 +52,20 @@ export function useWorkspaceScenes({
 }: UseWorkspaceScenesOptions) {
   const { message, notification } = App.useApp();
   const [workspaceScenes, setWorkspaceScenes] = useState<WorkspaceScene[]>([]);
+  const [workspaceAccessGroups, setWorkspaceAccessGroups] = useState<
+    WorkspaceAccessGroup[]
+  >([]);
 
   const loadWorkspaceScenes = useCallback(async () => {
-    if (!canBrowseData) {
+    if (!canViewWorkspaces) {
+      setWorkspaceScenes([]);
+      setWorkspaceAccessGroups([]);
       return [];
     }
     try {
       const sceneResponse = await api.workspaces();
       setWorkspaceScenes(sceneResponse.items);
+      setWorkspaceAccessGroups(sceneResponse.availableAccessGroups);
       return sceneResponse.items;
     } catch (error) {
       message.warning(
@@ -62,15 +73,56 @@ export function useWorkspaceScenes({
       );
       return [];
     }
-  }, [canBrowseData, message]);
+  }, [canViewWorkspaces, message]);
+
+  useEffect(() => {
+    function refreshFromEvent(event: Event) {
+      const detail = event instanceof CustomEvent ? event.detail : undefined;
+      if (isWorkspaceInventoryChange(detail)) {
+        void loadWorkspaceScenes();
+      }
+    }
+    function refreshFromStorage(event: StorageEvent) {
+      if (event.key !== workspaceInventoryChangedEvent || !event.newValue) {
+        return;
+      }
+      try {
+        if (isWorkspaceInventoryChange(JSON.parse(event.newValue))) {
+          void loadWorkspaceScenes();
+        }
+      } catch {
+        return;
+      }
+    }
+    function refreshOnFocus() {
+      if (document.visibilityState === "visible") {
+        void loadWorkspaceScenes();
+      }
+    }
+    window.addEventListener(workspaceInventoryChangedEvent, refreshFromEvent);
+    window.addEventListener("storage", refreshFromStorage);
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", refreshOnFocus);
+    return () => {
+      window.removeEventListener(
+        workspaceInventoryChangedEvent,
+        refreshFromEvent,
+      );
+      window.removeEventListener("storage", refreshFromStorage);
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", refreshOnFocus);
+    };
+  }, [loadWorkspaceScenes]);
 
   const saveWorkspace = useCallback(
-    async (
-      kind: WorkspaceSceneKind,
-      values: { name: string; description?: string; targetId?: number },
-    ) => {
-      const label = kind === "project" ? "工程" : "专题";
-      const notificationKey = `workspace-save-${kind}-${Date.now()}`;
+    async (values: {
+      name: string;
+      description?: string;
+      targetId?: number;
+      accessGroupIds?: number[];
+    }) => {
+      const label = "工程";
+      const notificationKey = `workspace-save-project-${Date.now()}`;
       const targetName = values.name.trim();
       try {
         openWorkspaceProgressNotification(notification, {
@@ -94,22 +146,25 @@ export function useWorkspaceScenes({
         });
         const saved = values.targetId
           ? await api.updateWorkspace(values.targetId, {
-              kind,
+              kind: "project",
               name: targetName,
               description: values.description?.trim() ?? "",
               snapshot,
+              accessGroupIds: values.accessGroupIds ?? [],
             })
           : await api.createWorkspace({
-              kind,
+              kind: "project",
               name: targetName,
               description: values.description?.trim() ?? "",
               snapshot,
+              accessGroupIds: values.accessGroupIds ?? [],
             });
         if ("id" in saved) {
           setWorkspaceScenes((current) => {
             const others = current.filter((item) => item.id !== saved.id);
             return [saved, ...others];
           });
+          notifyWorkspaceInventoryChanged("workspace");
         }
         openWorkspaceProgressNotification(notification, {
           key: notificationKey,
@@ -232,14 +287,17 @@ export function useWorkspaceScenes({
     setWorkspaceScenes((current) =>
       current.map((item) => (item.id === scene.id ? scene : item)),
     );
+    notifyWorkspaceInventoryChanged("workspace");
   }, []);
 
   const deleteWorkspaceScene = useCallback((id: number) => {
     setWorkspaceScenes((current) => current.filter((item) => item.id !== id));
+    notifyWorkspaceInventoryChanged("workspace");
   }, []);
 
   return {
     workspaceScenes,
+    workspaceAccessGroups,
     loadWorkspaceScenes,
     saveWorkspace,
     loadWorkspaceScene,

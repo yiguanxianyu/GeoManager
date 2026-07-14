@@ -46,16 +46,38 @@ import type {
   ImportPreview,
   ImportValidatePayload,
   ImportValidateResult,
+  VectorImportCommitPayload,
+  VectorImportCommitResult,
+  VectorImportPreview,
+  VectorImportValidatePayload,
+  VectorImportValidateResult,
   MapLayerListItem,
+  MapComposition,
+  MapCompositionCreateRequest,
+  MapCompositionListResponse,
+  MapCompositionPublishRequest,
+  MapCompositionRestoreProjectRequest,
+  MapCompositionRestoreProjectResponse,
+  MapCompositionUpdateRequest,
+  MapCompositionVersion,
+  MapCompositionVersionCreatePayload,
   RasterJob,
+  RasterImportCommitPayload,
+  RasterImportPreview,
   RasterRenderResult,
   RasterUniqueValuesResult,
+  RegisterRequest,
+  RegisterResponse,
   ResourceFilters,
   ResourceListItem,
   ResourceQueryPayload,
   ResourceQueryResult,
   ResourceVisualizationSummary,
   SearchResult,
+  RoleApplicationListItem,
+  RoleApplicationListResponse,
+  RoleApplicationReviewRequest,
+  RoleApplicationStatus,
   User,
   UserCreateRequest,
   UserCreateResponse,
@@ -66,9 +88,11 @@ import type {
   WorkspaceScene,
   WorkspaceSceneCreateRequest,
   WorkspaceSceneKind,
+  WorkspaceSceneListResponse,
   WorkspaceSceneUpdateRequest,
 } from "../types";
 import type * as sdkTypes from "./generated/sdk.gen";
+import { filenameFromHeaders } from "./downloadFilename";
 
 interface ListResponse<T> {
   items: T[];
@@ -163,7 +187,7 @@ async function unwrapBlob(
   }
   return {
     blob: data,
-    filename: response ? filenameFromResponse(response) : "layers-export.zip",
+    filename: response ? filenameFromHeaders(response.headers) : "download.bin",
   };
 }
 
@@ -197,11 +221,6 @@ function stripHtml(text: string) {
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
-}
-
-function filenameFromResponse(response: Response) {
-  const disposition = response.headers.get("Content-Disposition") ?? "";
-  return disposition.match(/filename="([^"]+)"/)?.[1] ?? "layers-export.zip";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -373,16 +392,8 @@ export const api = {
     }),
   guestLogin: () =>
     requestJson<{ user: User }>("/api/auth/guest-login/", { method: "POST" }),
-  register: (
-    username: string,
-    email: string,
-    password: string,
-    passwordConfirm: string,
-  ) =>
-    requestJson<{ user: User; detail: string }>("/api/auth/register/", {
-      method: "POST",
-      body: { username, email, password, passwordConfirm },
-    }),
+  register: (payload: RegisterRequest) =>
+    unwrap<RegisterResponse>(sdk.register({ body: payload })),
   logout: () =>
     requestJson<{ detail: string }>("/api/auth/logout/", { method: "POST" }),
   adminProfile: () => unwrap<AdminProfile>(sdk.getAdminProfile()),
@@ -405,6 +416,20 @@ export const api = {
   adminDashboardServer: () =>
     unwrap<AdminDashboardServer>(sdk.getAdminDashboardServer()),
   adminUsers: () => unwrap<ListResponse<User>>(sdk.listUsers()),
+  roleApplications: (status?: RoleApplicationStatus) =>
+    unwrap<RoleApplicationListResponse>(
+      sdk.listRoleApplications({ query: status ? { status } : {} }),
+    ),
+  reviewRoleApplication: (
+    applicationId: number,
+    payload: RoleApplicationReviewRequest,
+  ) =>
+    unwrap<RoleApplicationListItem>(
+      sdk.reviewRoleApplication({
+        path: { applicationId },
+        body: payload,
+      }),
+    ),
   createAdminUser: (payload: UserCreateRequest) =>
     unwrap<UserCreateResponse>(sdk.createUser({ body: payload })),
   updateAdminUserGroups: (userId: number, payload: UserGroupUpdateRequest) =>
@@ -535,7 +560,7 @@ export const api = {
       sdk.scanCatalogSources(),
     ),
   workspaces: (kind?: WorkspaceSceneKind) =>
-    unwrap<ListResponse<WorkspaceScene>>(
+    unwrap<WorkspaceSceneListResponse>(
       sdk.listCatalogWorkspaces({ query: kind ? { kind } : {} }),
     ),
   createWorkspace: (payload: WorkspaceSceneCreateRequest) =>
@@ -559,6 +584,76 @@ export const api = {
         body: { action: "delete" },
       }),
     ),
+  mapCompositions: (
+    filters: {
+      projectId?: number;
+      status?: MapComposition["status"];
+    } = {},
+  ) =>
+    unwrap<MapCompositionListResponse>(
+      sdk.listMapCompositions({ query: filters }),
+    ),
+  createMapComposition: (payload: MapCompositionCreateRequest) =>
+    unwrap<MapComposition>(sdk.createMapComposition({ body: payload })),
+  mapComposition: (compositionId: number) =>
+    unwrap<MapComposition>(sdk.getMapComposition({ path: { compositionId } })),
+  updateMapComposition: (
+    compositionId: number,
+    payload: MapCompositionUpdateRequest,
+  ) =>
+    unwrap<MapComposition | { detail: string }>(
+      sdk.updateMapComposition({
+        path: { compositionId },
+        body: payload,
+      }),
+    ),
+  publishMapComposition: (
+    compositionId: number,
+    payload: MapCompositionPublishRequest,
+  ) =>
+    unwrap<MapComposition>(
+      sdk.publishMapComposition({
+        path: { compositionId },
+        body: payload,
+      }),
+    ),
+  unpublishMapComposition: (compositionId: number) =>
+    unwrap<MapComposition>(
+      sdk.unpublishMapComposition({ path: { compositionId } }),
+    ),
+  restoreMapCompositionProject: (
+    compositionId: number,
+    payload: MapCompositionRestoreProjectRequest,
+  ) =>
+    unwrap<MapCompositionRestoreProjectResponse>(
+      sdk.restoreMapCompositionProject({
+        path: { compositionId },
+        body: payload,
+      }),
+    ),
+  createMapCompositionVersion: (
+    compositionId: number,
+    image: Blob,
+    payload: MapCompositionVersionCreatePayload,
+  ) =>
+    unwrap<MapCompositionVersion>(
+      sdk.createMapCompositionVersion({
+        path: { compositionId },
+        body: { image, payload: JSON.stringify(payload) },
+      }),
+    ),
+  downloadMapCompositionVersion: (
+    compositionId: number,
+    versionNumber: number,
+    variant: "artifact" | "preview" = "artifact",
+  ) =>
+    unwrapBlob(
+      sdk.downloadMapCompositionVersion({
+        path: { compositionId, versionNumber },
+        query: { variant },
+        parseAs: "blob",
+      }),
+    ),
   importPreview: (file: File, sheetName?: string | null) => {
     const formData = new FormData();
     formData.append("file", file);
@@ -575,15 +670,49 @@ export const api = {
     unwrap<ImportValidateResult>(
       sdk.importValidate({ body: { file, payload: JSON.stringify(payload) } }),
     ),
+  previewVectorImport: (file: File, encoding?: string | null) =>
+    unwrap<VectorImportPreview>(
+      sdk.previewVectorImport({
+        body: { file, encoding: encoding?.trim() || undefined },
+      }),
+    ),
+  validateVectorImport: (file: File, payload: VectorImportValidatePayload) =>
+    unwrap<VectorImportValidateResult>(
+      sdk.validateVectorImport({
+        body: { file, payload: JSON.stringify(payload) },
+      }),
+    ),
+  commitVectorImport: (file: File, payload: VectorImportCommitPayload) =>
+    unwrap<VectorImportCommitResult>(
+      sdk.commitVectorImport({
+        body: { file, payload: JSON.stringify(payload) },
+      }),
+    ),
+  previewRasterImport: (files: File[], primaryFileName?: string) => {
+    const formData = new FormData();
+    files.forEach((file) => formData.append("files", file));
+    if (primaryFileName) {
+      formData.append("primaryFileName", primaryFileName);
+    }
+    return requestForm<RasterImportPreview>(
+      "/api/raster/import/preview/",
+      formData,
+    );
+  },
   importRaster: (
-    file: File,
-    name: string,
+    fileOrFiles: File | File[],
+    payloadOrName: RasterImportCommitPayload | string,
     onUploadProgress?: (percent: number) => void,
   ) => {
     const formData = new FormData();
-    formData.append("file", file);
-    if (name.trim()) {
-      formData.append("name", name.trim());
+    const files = Array.isArray(fileOrFiles) ? fileOrFiles : [fileOrFiles];
+    files.forEach((file) => formData.append("files", file));
+    if (typeof payloadOrName === "string") {
+      if (payloadOrName.trim()) {
+        formData.append("name", payloadOrName.trim());
+      }
+    } else {
+      formData.append("payload", JSON.stringify(payloadOrName));
     }
     return requestForm<RasterJob>("/api/raster/import/", formData, {
       onUploadProgress,

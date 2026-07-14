@@ -21,4 +21,21 @@ describe("normalizeImportValues", () => {
       accessGroupIds: [],
     });
   });
+
+  it("accepts the vector business domain type", () => {
+    expect(
+      normalizeImportValues({
+        name: " 新疆边界 ",
+        domainType: "vector",
+        importMode: "geographic",
+        longitudeColumn: "",
+        latitudeColumn: "",
+        accessGroupIds: [],
+      }),
+    ).toMatchObject({
+      name: "新疆边界",
+      domainType: "vector",
+      importMode: "geographic",
+    });
+  });
 });

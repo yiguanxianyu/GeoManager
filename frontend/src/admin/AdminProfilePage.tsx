@@ -54,7 +54,10 @@ function createProfileDescriptionColumns(
       dataIndex: "email",
       copyable: true,
       formItemProps: {
-        rules: [{ type: "email", message: "请输入有效邮箱" }],
+        rules: [
+          { required: true, message: "请输入邮箱" },
+          { type: "email", message: "请输入有效邮箱" },
+        ],
       },
     },
     {
