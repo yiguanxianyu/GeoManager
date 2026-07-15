@@ -28,7 +28,13 @@ from django.views.decorators.http import require_GET, require_http_methods
 from apps.audit.events import SUCCESSFUL_AUTH_EVENT_CODES
 from apps.audit.models import OperationLog, UserActivityHour
 from apps.audit.service import log_operation
-from apps.catalog.models import DataResource, DataResourceGroup, MapLayer, VectorDataset
+from apps.catalog.models import (
+    DATA_DOMAIN_TYPE_CHOICES,
+    DataResource,
+    DataResourceGroup,
+    MapLayer,
+    VectorDataset,
+)
 from apps.catalog.importer import ImportDataError, set_resource_access_groups
 from apps.catalog.permissions import (
     filter_accessible,
@@ -1091,7 +1097,12 @@ def admin_data_resources(request):
         queryset = filter_accessible(queryset, request.user)
     else:
         queryset = queryset.filter(maintainer=request.user)
-    total = queryset.count()
+    summary_queryset = DataResource.objects.filter(
+        pk__in=queryset.order_by().values("pk")
+    )
+    summary = _admin_data_resource_summary(summary_queryset)
+    inventory_groups = list(DataResourceGroup.objects.order_by("sort_order", "id"))
+    total = summary["total"]
     current = _positive_query_int(request.GET.get("current"), default=1)
     page_size = _positive_query_int(request.GET.get("pageSize"), default=20)
     if isinstance(current, JsonResponse):
@@ -1107,6 +1118,10 @@ def admin_data_resources(request):
                 for resource in queryset[start:end]
             ],
             "total": total,
+            "summary": summary,
+            "groupSummaries": _admin_data_resource_group_summaries(
+                summary_queryset, inventory_groups, summary
+            ),
             "availableAccessGroups": [
                 _serialize_access_group(group)
                 for group in selectable_access_groups_for(
@@ -1114,8 +1129,7 @@ def admin_data_resources(request):
                 )
             ],
             "inventoryGroups": [
-                _serialize_data_resource_group(group)
-                for group in DataResourceGroup.objects.order_by("sort_order", "id")
+                _serialize_data_resource_group(group) for group in inventory_groups
             ],
         }
     )
@@ -1867,6 +1881,133 @@ def _filter_admin_data_resources(queryset, params):
     if date_to:
         queryset = queryset.filter(data_date__lte=date_to)
     return queryset
+
+
+def _admin_data_resource_summary(queryset) -> dict[str, int]:
+    stats = _admin_data_resource_stat_values(queryset)
+    non_superadmin_groups = Group.objects.exclude(name=SUPERADMIN_GROUP_NAME).values(
+        "id"
+    )
+    restricted_count = (
+        queryset.filter(access_groups__in=non_superadmin_groups).distinct().count()
+    )
+    return {
+        "total": stats["resourceCount"],
+        "activeCount": stats["activeCount"],
+        "inactiveCount": stats["inactiveCount"],
+        "restrictedCount": restricted_count,
+        "sizeBytes": stats["sizeBytes"],
+        "itemCount": stats["itemCount"],
+    }
+
+
+def _admin_data_resource_group_summaries(
+    queryset,
+    inventory_groups: list[DataResourceGroup],
+    summary: dict[str, int],
+) -> list[dict[str, Any]]:
+    all_stats = {
+        "resourceCount": summary["total"],
+        "activeCount": summary["activeCount"],
+        "inactiveCount": summary["inactiveCount"],
+        "sizeBytes": summary["sizeBytes"],
+        "itemCount": summary["itemCount"],
+    }
+    domain_codes = [code for code, _label in DATA_DOMAIN_TYPE_CHOICES]
+    domain_stats = {code: _empty_admin_data_resource_stats() for code in domain_codes}
+    for row in (
+        queryset.order_by()
+        .values("domain_type")
+        .annotate(**_admin_data_resource_stat_annotations())
+    ):
+        domain_type = row.pop("domain_type") or "other"
+        if domain_type not in domain_stats:
+            domain_type = "other"
+        _merge_admin_data_resource_stats(domain_stats[domain_type], row)
+
+    custom_stats = {
+        row["inventory_group_id"]: row
+        for row in (
+            queryset.filter(inventory_group_id__isnull=False)
+            .order_by()
+            .values("inventory_group_id")
+            .annotate(**_admin_data_resource_stat_annotations())
+        )
+    }
+    summaries = [
+        _admin_data_resource_group_summary(key="__all__", kind="all", stats=all_stats)
+    ]
+    summaries.extend(
+        _admin_data_resource_group_summary(
+            key=f"__domain__:{domain_type}",
+            kind="business",
+            domain_type=domain_type,
+            stats=domain_stats[domain_type],
+        )
+        for domain_type in domain_codes
+    )
+    summaries.extend(
+        _admin_data_resource_group_summary(
+            key=f"__custom__:{group.id}",
+            kind="custom",
+            inventory_group_id=group.id,
+            stats=custom_stats.get(group.id, _empty_admin_data_resource_stats()),
+        )
+        for group in inventory_groups
+    )
+    return summaries
+
+
+def _admin_data_resource_stat_annotations() -> dict[str, Any]:
+    return {
+        "resourceCount": Count("id"),
+        "activeCount": Count("id", filter=Q(status=DataResource.Status.ACTIVE)),
+        "inactiveCount": Count("id", filter=Q(status=DataResource.Status.INACTIVE)),
+        "sizeBytes": Sum("size_bytes"),
+        "itemCount": Sum("item_count"),
+    }
+
+
+def _admin_data_resource_stat_values(queryset) -> dict[str, int]:
+    values = queryset.aggregate(**_admin_data_resource_stat_annotations())
+    return {key: int(value or 0) for key, value in values.items()}
+
+
+def _empty_admin_data_resource_stats() -> dict[str, int]:
+    return {
+        "resourceCount": 0,
+        "activeCount": 0,
+        "inactiveCount": 0,
+        "sizeBytes": 0,
+        "itemCount": 0,
+    }
+
+
+def _merge_admin_data_resource_stats(
+    target: dict[str, int], source: dict[str, Any]
+) -> None:
+    for key in target:
+        target[key] += int(source.get(key) or 0)
+
+
+def _admin_data_resource_group_summary(
+    *,
+    key: str,
+    kind: str,
+    stats: dict[str, Any],
+    domain_type: str | None = None,
+    inventory_group_id: int | None = None,
+) -> dict[str, Any]:
+    return {
+        "key": key,
+        "kind": kind,
+        "domainType": domain_type,
+        "inventoryGroupId": inventory_group_id,
+        **{
+            stat_key: int(stats.get(stat_key) or 0)
+            for stat_key in _empty_admin_data_resource_stats()
+        },
+    }
 
 
 def _serialize_admin_data_resource(

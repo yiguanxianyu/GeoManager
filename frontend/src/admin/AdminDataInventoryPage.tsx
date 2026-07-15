@@ -69,6 +69,15 @@ const statusLabels = {
 const initialList: AdminDataResourceList = {
   items: [],
   total: 0,
+  summary: {
+    total: 0,
+    activeCount: 0,
+    inactiveCount: 0,
+    restrictedCount: 0,
+    sizeBytes: 0,
+    itemCount: 0,
+  },
+  groupSummaries: [],
   availableAccessGroups: [],
   inventoryGroups: [],
 };
@@ -81,12 +90,14 @@ type InventoryGroupId =
   | typeof allInventoryGroupId
   | BusinessInventoryGroupId;
 type InventoryGroupKind = "all" | "business" | "custom";
+type InventoryGroupSummary = AdminDataResourceList["groupSummaries"][number];
 type GroupModalState = { kind: "create" } | null;
 
 interface InventoryGroup {
   id: InventoryGroupId;
   name: string;
   resources: AdminDataResource[];
+  resourceCount: number;
   sizeBytes: number;
   itemCount: number;
   enabled: boolean;
@@ -182,7 +193,7 @@ export default function AdminDataInventoryPage() {
   const { user } = useAppContext();
   const [filters, setFilters] = useState<AdminDataResourceFilters>({
     current: 1,
-    pageSize: 10,
+    pageSize: 50,
   });
   const [data, setData] = useState<AdminDataResourceList>(initialList);
   const [loading, setLoading] = useState(false);
@@ -212,20 +223,14 @@ export default function AdminDataInventoryPage() {
   const canOpenInventory =
     canView || canChange || canDelete || canUpload || canExport;
 
-  const metrics = useMemo(() => {
-    const active = data.items.filter((item) => item.status === "active").length;
-    const inactive = data.items.filter(
-      (item) => item.status === "inactive",
-    ).length;
-    const restricted = data.items.filter(
-      (item) => item.accessGroups.length > 0,
-    ).length;
-    return { active, inactive, restricted };
-  }, [data.items]);
-
   const inventoryGroups = useMemo(
-    () => buildInventoryGroups(data.items, data.inventoryGroups ?? []),
-    [data.inventoryGroups, data.items],
+    () =>
+      buildInventoryGroups(
+        data.items,
+        data.inventoryGroups ?? [],
+        data.groupSummaries,
+      ),
+    [data.groupSummaries, data.inventoryGroups, data.items],
   );
 
   const loadResources = useCallback(
@@ -271,6 +276,7 @@ export default function AdminDataInventoryPage() {
         });
         if ("id" in updated) {
           replaceResource(updated);
+          void loadResources(filters);
           message.success("数据可见范围已保存");
           return updated;
         }
@@ -301,6 +307,7 @@ export default function AdminDataInventoryPage() {
       });
       if ("id" in updated) {
         replaceResource(updated);
+        void loadResources(filters);
         message.success("数据权限与默认可视化方案已保存");
         return updated;
       }
@@ -323,6 +330,7 @@ export default function AdminDataInventoryPage() {
       if ("id" in updated) {
         replaceResource(updated);
       }
+      void loadResources(filters);
       message.success(`已${checked ? "启用" : "禁用"} ${resource.name}`);
     } catch (error) {
       message.error(error instanceof Error ? error.message : "状态更新失败");
@@ -365,6 +373,7 @@ export default function AdminDataInventoryPage() {
         items: current.items.filter((item) => item.id !== resource.id),
         total: Math.max(current.total - 1, 0),
       }));
+      void loadResources(filters);
       message.success("数据资源已删除");
     } catch (error) {
       message.error(error instanceof Error ? error.message : "删除失败");
@@ -409,6 +418,7 @@ export default function AdminDataInventoryPage() {
         ...current,
         inventoryGroups: [...(current.inventoryGroups ?? []), created],
       }));
+      void loadResources(filters);
       message.success(`已新增组别：${trimmedName}`);
       setGroupName("");
       setGroupModal(null);
@@ -451,6 +461,7 @@ export default function AdminDataInventoryPage() {
       });
       if ("id" in updated) {
         replaceInventoryGroup(updated);
+        void loadResources(filters);
         message.success("组别名称已更新");
       }
       setEditingGroupId(null);
@@ -482,6 +493,7 @@ export default function AdminDataInventoryPage() {
         }
       }
       replaceResources(updatedResources);
+      void loadResources(filters);
       message.success(`已${checked ? "启用" : "禁用"} ${group.name} 组内数据`);
     } catch (error) {
       message.error(
@@ -521,6 +533,7 @@ export default function AdminDataInventoryPage() {
       if ("id" in updated) {
         replaceResource(updated);
       }
+      void loadResources(filters);
       message.success(`已移动到${group.name}`);
     } catch (error) {
       message.error(
@@ -551,6 +564,7 @@ export default function AdminDataInventoryPage() {
             : item,
         ),
       }));
+      void loadResources(filters);
       message.success(
         `已删除组别：${group.name}，数据仍保留在全部数据和对应业务类型分组中`,
       );
@@ -788,16 +802,16 @@ export default function AdminDataInventoryPage() {
               type="secondary"
               className="admin-table-subtext"
               ellipsis={{
-                tooltip: `${group.itemCount} 条，${group.resources.length} 项数据`,
+                tooltip: `${group.itemCount} 条，${group.resourceCount} 项数据`,
               }}
             >
-              {group.itemCount} 条，{group.resources.length} 项数据
+              {group.itemCount} 条，{group.resourceCount} 项数据
             </Typography.Text>
           </Space>
         ),
       },
       {
-        title: "启用状态",
+        title: "当前页状态",
         key: "groupAccess",
         width: 150,
         render: (_, group) => {
@@ -829,6 +843,25 @@ export default function AdminDataInventoryPage() {
 
     return (
       <Space orientation="vertical" size={12} className="inventory-group-table">
+        <div className="inventory-group-footer">
+          <Pagination
+            current={pagination.current}
+            pageSize={pagination.pageSize}
+            total={pagination.total}
+            showSizeChanger={pagination.showSizeChanger}
+            onChange={pagination.onChange}
+            showTotal={(nextTotal) => `共 ${nextTotal} 项数据`}
+          />
+          <Button
+            icon={<PlusOutlined />}
+            aria-label="新增组别"
+            className="inventory-add-group-button"
+            disabled={!canChange}
+            onClick={openCreateGroupModal}
+          >
+            新增组别
+          </Button>
+        </div>
         <Table<InventoryGroup>
           rowKey={(group) => String(group.id)}
           loading={tableLoading}
@@ -869,6 +902,13 @@ export default function AdminDataInventoryPage() {
                   }
                 }}
               >
+                <div className="inventory-group-page-note">
+                  <Typography.Text type="secondary">
+                    {group.resources.length === group.resourceCount
+                      ? `本页已显示该组全部 ${group.resourceCount} 项数据`
+                      : `当前页显示 ${group.resources.length} 项，该组共 ${group.resourceCount} 项；可使用上方分页查看其余数据`}
+                  </Typography.Text>
+                </div>
                 <Table<AdminDataResource>
                   rowKey="id"
                   size="small"
@@ -892,25 +932,6 @@ export default function AdminDataInventoryPage() {
             ),
           }}
         />
-        <div className="inventory-group-footer">
-          <Pagination
-            current={pagination.current}
-            pageSize={pagination.pageSize}
-            total={pagination.total}
-            showSizeChanger={pagination.showSizeChanger}
-            onChange={pagination.onChange}
-            showTotal={(nextTotal) => `共 ${nextTotal} 条`}
-          />
-          <Button
-            icon={<PlusOutlined />}
-            aria-label="新增组别"
-            className="inventory-add-group-button"
-            disabled={!canChange}
-            onClick={openCreateGroupModal}
-          >
-            新增组别
-          </Button>
-        </div>
       </Space>
     );
   };
@@ -927,14 +948,18 @@ export default function AdminDataInventoryPage() {
         filterFields={filterFields}
         columns={columns}
         stats={[
-          { title: "当前结果", value: data.total },
-          { title: "本页启用", value: metrics.active, prefix: <EyeOutlined /> },
+          { title: "筛选结果总数", value: data.summary.total },
           {
-            title: "本页禁用",
-            value: metrics.inactive,
+            title: "启用数据",
+            value: data.summary.activeCount,
+            prefix: <EyeOutlined />,
+          },
+          {
+            title: "禁用数据",
+            value: data.summary.inactiveCount,
             prefix: <StopOutlined />,
           },
-          { title: "本页受限访问", value: metrics.restricted },
+          { title: "受限访问", value: data.summary.restrictedCount },
         ]}
         rowName={(item) => item.name}
         drawerTitle={canChange ? "存量数据配置" : "数据可见范围"}
@@ -1168,6 +1193,7 @@ function initialVisualizationValues(
 function buildInventoryGroups(
   resources: AdminDataResource[],
   persistedGroups: AdminDataResourceGroup[],
+  groupSummaries: InventoryGroupSummary[],
 ): InventoryGroup[] {
   const groupDefinitions: InventoryGroupDefinition[] = [
     allInventoryGroup,
@@ -1178,9 +1204,13 @@ function buildInventoryGroups(
       kind: "custom" as const,
     })),
   ];
+  const summaryByKey = new Map(
+    groupSummaries.map((summary) => [summary.key, summary]),
+  );
   return groupDefinitions.map((group) =>
     createInventoryGroup({
       ...group,
+      summary: summaryByKey.get(inventoryGroupSummaryKey(group)),
       resources: resources.filter((resource) => {
         if (group.kind === "all") {
           return true;
@@ -1199,11 +1229,13 @@ function createInventoryGroup({
   name,
   resources,
   kind,
+  summary,
 }: {
   id: InventoryGroupId;
   name: string;
   resources: AdminDataResource[];
   kind: InventoryGroupKind;
+  summary?: InventoryGroupSummary;
 }): InventoryGroup {
   const activeCount = resources.filter(
     (resource) => resource.status === "active",
@@ -1212,18 +1244,27 @@ function createInventoryGroup({
     id,
     name,
     resources,
+    resourceCount: summary?.resourceCount ?? resources.length,
     enabled: resources.length > 0 && activeCount === resources.length,
     partiallyEnabled: activeCount > 0 && activeCount < resources.length,
     kind,
-    sizeBytes: resources.reduce(
-      (total, resource) => total + (resource.sizeBytes ?? 0),
-      0,
-    ),
-    itemCount: resources.reduce(
-      (total, resource) => total + (resource.itemCount ?? 0),
-      0,
-    ),
+    sizeBytes:
+      summary?.sizeBytes ??
+      resources.reduce(
+        (total, resource) => total + (resource.sizeBytes ?? 0),
+        0,
+      ),
+    itemCount:
+      summary?.itemCount ??
+      resources.reduce(
+        (total, resource) => total + (resource.itemCount ?? 0),
+        0,
+      ),
   };
+}
+
+function inventoryGroupSummaryKey(group: InventoryGroupDefinition) {
+  return group.kind === "custom" ? `__custom__:${group.id}` : String(group.id);
 }
 
 function inventoryDomainType(resource: AdminDataResource): DataDomainType {

@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group
 from django.core.exceptions import RequestDataTooBig
 from django.db import IntegrityError, transaction
 from django.db.models import Q
+from django.db.models.deletion import ProtectedError
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
@@ -537,7 +538,7 @@ def workspace_detail(request, workspace_id: int):
         target_id = scene.id
         target_code = scene.kind
         kind_label = _workspace_kind_label(scene.kind)
-        scene.delete()
+        _delete_workspace_scene(scene)
         log_operation(
             request.user,
             "工作台",
@@ -849,6 +850,16 @@ def _admin_workspace_payload(payload: dict[str, Any]) -> dict[str, Any] | JsonRe
     return values
 
 
+def _delete_workspace_scene(scene: WorkspaceScene) -> bool:
+    try:
+        scene.delete()
+        return True
+    except ProtectedError:
+        scene.status = WorkspaceScene.Status.INACTIVE
+        scene.save(update_fields=["status", "updated_at"])
+        return False
+
+
 def _delete_admin_workspace(request, scene: WorkspaceScene, payload: dict[str, Any]):
     confirmation = str(payload.get("confirmationName", "")).strip()
     if confirmation != scene.name:
@@ -856,7 +867,7 @@ def _delete_admin_workspace(request, scene: WorkspaceScene, payload: dict[str, A
     name = scene.name
     target_id = scene.id
     target_code = scene.kind
-    scene.delete()
+    _delete_workspace_scene(scene)
     log_operation(
         request.user,
         "数据管理",

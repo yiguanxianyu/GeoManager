@@ -196,14 +196,22 @@ export default function RightSidePanel({
   mapConfig,
 }: Props) {
   const [activeEcoTab, setActiveEcoTab] = useState<EcoTabKey>(() =>
-    nextEcoTabForSelectedFeature("overview", selectedFeature),
+    nextEcoTabForSelectedFeature(
+      "overview",
+      selectedFeature,
+      selectedLayer?.id ?? null,
+    ),
   );
 
   useEffect(() => {
     setActiveEcoTab((currentTab) =>
-      nextEcoTabForSelectedFeature(currentTab, selectedFeature),
+      nextEcoTabForSelectedFeature(
+        currentTab,
+        selectedFeature,
+        selectedLayer?.id ?? null,
+      ),
     );
-  }, [selectedFeature]);
+  }, [selectedFeature, selectedLayer?.id]);
 
   const handleEcoTabChange = useCallback((key: string) => {
     if (isEcoTabKey(key)) {
@@ -314,8 +322,9 @@ export default function RightSidePanel({
 export function nextEcoTabForSelectedFeature(
   currentTab: EcoTabKey,
   selectedFeature: FeatureInfo | null,
+  selectedLayerId: string | null = null,
 ): EcoTabKey {
-  return selectedFeature ? "feature" : currentTab;
+  return selectedFeature || selectedLayerId ? "feature" : currentTab;
 }
 
 function isEcoTabKey(key: string): key is EcoTabKey {

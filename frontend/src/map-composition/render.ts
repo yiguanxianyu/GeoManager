@@ -11,11 +11,16 @@ import { drawScaleBar } from "./canvasScale";
 import type { CompositionLegendItem } from "./legend";
 import type { MapCompositionLayout } from "./layout";
 import { isBoxWithinPage } from "./layoutGeometry";
-import { renderBoundsImage } from "./mapImage";
+import { fitOverviewBounds, renderBoundsImage } from "./mapImage";
 
 export interface CompositionIssue {
   level: "error" | "warning";
   message: string;
+}
+
+export interface CompositionRenderOptions {
+  outputDpi?: number;
+  mapDpi?: number;
 }
 
 export async function renderCompositionPng(
@@ -23,10 +28,12 @@ export async function renderCompositionPng(
   layout: MapCompositionLayout,
   legendItems: CompositionLegendItem[],
   accessToken?: string,
-  dpiOverride?: number,
+  options: CompositionRenderOptions = {},
 ): Promise<Blob> {
-  const dpi = dpiOverride ?? layout.page.dpi;
+  const dpi = options.outputDpi ?? layout.page.dpi;
+  const mapDpi = options.mapDpi ?? dpi;
   const pxPerMm = dpi / 25.4;
+  const mapPxPerMm = mapDpi / 25.4;
   const width = Math.round(layout.page.widthMm * pxPerMm);
   const height = Math.round(layout.page.heightMm * pxPerMm);
   validateOutputSize(width, height);
@@ -39,11 +46,12 @@ export async function renderCompositionPng(
   context.fillRect(0, 0, width, height);
 
   const mapBox = pixelBox(layout.mapFrame, pxPerMm);
+  const mapRenderBox = pixelBox(layout.mapFrame, mapPxPerMm);
   const mapImage = await renderBoundsImage(
     map,
     layout.mapFrame.bounds,
-    Math.ceil(mapBox.width),
-    Math.ceil(mapBox.height),
+    Math.ceil(mapRenderBox.width),
+    Math.ceil(mapRenderBox.height),
     accessToken,
   );
   try {
@@ -66,11 +74,18 @@ export async function renderCompositionPng(
 
   if (layout.overview.enabled) {
     const overviewBox = pixelBox(layout.overview, pxPerMm);
+    const overviewRenderBox = pixelBox(layout.overview, mapPxPerMm);
+    const overviewBounds = fitOverviewBounds(
+      layout.overview.bounds,
+      layout.mapFrame.bounds,
+      overviewRenderBox.width,
+      overviewRenderBox.height,
+    );
     const overviewImage = await renderBoundsImage(
       map,
-      layout.overview.bounds,
-      Math.ceil(overviewBox.width),
-      Math.ceil(overviewBox.height),
+      overviewBounds,
+      Math.ceil(overviewRenderBox.width),
+      Math.ceil(overviewRenderBox.height),
       accessToken,
     );
     try {
@@ -99,7 +114,7 @@ export async function renderCompositionPng(
     drawOverviewExtent(
       context,
       overviewBox,
-      layout.overview.bounds,
+      overviewBounds,
       layout.mapFrame.bounds,
       layout.overview.borderColor,
     );
@@ -142,7 +157,10 @@ export function compositionIssues(
   }
   const [west, south, east, north] = layout.mapFrame.bounds;
   if (west >= east || south >= north) {
-    issues.push({ level: "error", message: "主地图范围的西/南坐标必须小于东/北坐标" });
+    issues.push({
+      level: "error",
+      message: "主地图范围的西/南坐标必须小于东/北坐标",
+    });
   }
   if (layout.legend.enabled && legendItems.length === 0) {
     issues.push({

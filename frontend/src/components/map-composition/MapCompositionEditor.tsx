@@ -120,7 +120,10 @@ export default function MapCompositionEditor({
         layout,
         legendItems,
         accessToken,
-        96,
+        {
+          outputDpi: 96,
+          mapDpi: Math.min(layout.page.dpi, 300),
+        },
       );
       if (sequence !== previewSequence.current) return;
       const nextUrl = URL.createObjectURL(blob);

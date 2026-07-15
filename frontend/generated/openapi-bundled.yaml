@@ -1691,7 +1691,7 @@ paths:
       tags:
         - 管理后台
       summary: 操作单个工程
-      description: 支持更新工程状态、基础信息、访问用户组和删除确认。启停和信息修改需要 `catalog.change_workspacescene`；删除需要 `catalog.delete_workspacescene`；所属用户、超级管理员和平台管理员可以修改可见范围。成功操作会写入审计日志。
+      description: 支持更新工程状态、基础信息、访问用户组和删除确认。启停和信息修改需要 `catalog.change_workspacescene`；删除需要 `catalog.delete_workspacescene`；所属用户、超级管理员和平台管理员可以修改可见范围。删除无关联工程时移除记录；若工程已被专题出图稿引用，则转为停用以保留成果来源。成功操作会写入审计日志。
       operationId: updateAdminWorkspace
       security:
         - sessionAuth: []
@@ -1934,7 +1934,7 @@ paths:
       tags:
         - 数据目录
       summary: 更新或删除工程
-      description: 所属用户可以维护自己的工程；超级管理员和平台管理员可以维护全部工程。名称、说明、类型和快照更新需要 `catalog.change_workspacescene`，删除需要 `catalog.delete_workspacescene`；后端始终保留管理员访问，snapshot 不得包含原始 GeoJSON 要素集合或查询结果数据本体。
+      description: 所属用户可以维护自己的工程；超级管理员和平台管理员可以维护全部工程。名称、说明、类型和快照更新需要 `catalog.change_workspacescene`，删除需要 `catalog.delete_workspacescene`；若工程已被专题出图稿引用，删除会转为停用隐藏以保留成果来源；后端始终保留管理员访问，snapshot 不得包含原始 GeoJSON 要素集合或查询结果数据本体。
       operationId: updateCatalogWorkspace
       security:
         - sessionAuth: []
@@ -6247,11 +6247,89 @@ components:
         displayName:
           type: string
           description: 展示名称
+    AdminDataResourceSummary:
+      type: object
+      required:
+        - total
+        - activeCount
+        - inactiveCount
+        - restrictedCount
+        - sizeBytes
+        - itemCount
+      properties:
+        total:
+          type: integer
+          description: 当前筛选和权限范围内的数据资源总数，不受分页影响
+        activeCount:
+          type: integer
+          description: 当前筛选和权限范围内的启用资源总数，不受分页影响
+        inactiveCount:
+          type: integer
+          description: 当前筛选和权限范围内的禁用资源总数，不受分页影响
+        restrictedCount:
+          type: integer
+          description: 当前筛选和权限范围内配置了超级管理员以外访问角色的资源总数，不受分页影响
+        sizeBytes:
+          type: integer
+          description: 当前筛选和权限范围内资源登记大小合计，单位字节
+        itemCount:
+          type: integer
+          description: 当前筛选和权限范围内数据条目数合计
+    AdminDataResourceGroupSummary:
+      type: object
+      required:
+        - key
+        - kind
+        - domainType
+        - inventoryGroupId
+        - resourceCount
+        - activeCount
+        - inactiveCount
+        - sizeBytes
+        - itemCount
+      properties:
+        key:
+          type: string
+          description: 分组稳定键；全部数据为 __all__，业务类型为 __domain__:{domainType}，自定义组为 __custom__:{groupId}
+        kind:
+          type: string
+          enum:
+            - all
+            - business
+            - custom
+          description: 分组类型
+        domainType:
+          oneOf:
+            - $ref: '#/components/schemas/DataDomainType'
+            - type: 'null'
+          description: 业务类型分组编码；全部数据和自定义组为 null
+        inventoryGroupId:
+          type:
+            - integer
+            - 'null'
+          description: 自定义组 ID；全部数据和业务类型组为 null
+        resourceCount:
+          type: integer
+          description: 当前筛选和权限范围内属于该组的资源总数，不受分页影响
+        activeCount:
+          type: integer
+          description: 该组启用资源总数，不受分页影响
+        inactiveCount:
+          type: integer
+          description: 该组禁用资源总数，不受分页影响
+        sizeBytes:
+          type: integer
+          description: 该组资源登记大小合计，单位字节
+        itemCount:
+          type: integer
+          description: 该组数据条目数合计
     AdminDataResourceListResponse:
       type: object
       required:
         - items
         - total
+        - summary
+        - groupSummaries
         - availableAccessGroups
         - inventoryGroups
       properties:
@@ -6263,6 +6341,13 @@ components:
         total:
           type: integer
           description: 符合筛选条件的数据资源总数
+        summary:
+          $ref: '#/components/schemas/AdminDataResourceSummary'
+        groupSummaries:
+          type: array
+          description: 当前筛选和权限范围的完整分组汇总，不受明细分页影响
+          items:
+            $ref: '#/components/schemas/AdminDataResourceGroupSummary'
         availableAccessGroups:
           type: array
           description: 可用于配置数据访问范围的额外用户组列表；该列表不会返回超级管理员用户组，后端仍会强制保留超级管理员访问范围

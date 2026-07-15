@@ -1824,6 +1824,12 @@ body:has(.login-shell),
   width: 100%;
 }
 
+.inventory-group-page-note {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+  background: var(--ant-color-fill-quaternary);
+}
+
 .inventory-table-stack-cell {
   width: 100%;
   min-width: 0;
@@ -3444,7 +3450,7 @@ body:has(.login-shell),
 
 .admin-uploader-rank-row {
   display: grid;
-  grid-template-columns: auto minmax(170px, 1fr) minmax(220px, auto);
+  grid-template-columns: 40px minmax(0, 1fr) 64px minmax(246px, 276px);
   gap: 12px;
   align-items: center;
   min-width: 0;
@@ -3478,7 +3484,6 @@ body:has(.login-shell),
 .admin-uploader-title-line {
   display: flex;
   align-items: center;
-  gap: 8px;
   min-width: 0;
 }
 
@@ -3488,6 +3493,21 @@ body:has(.login-shell),
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.admin-uploader-rank-badge {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.admin-uploader-rank-badge .ant-tag {
+  display: inline-flex;
+  justify-content: center;
+  width: 54px;
+  margin-inline-end: 0;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .admin-uploader-rank-track {
@@ -3506,7 +3526,7 @@ body:has(.login-shell),
 
 .admin-uploader-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(64px, 1fr));
+  grid-template-columns: repeat(3, minmax(74px, 1fr));
   gap: 8px;
   min-width: 0;
 }
@@ -3514,6 +3534,7 @@ body:has(.login-shell),
 .admin-uploader-metrics span {
   display: grid;
   gap: 2px;
+  justify-items: center;
   min-width: 0;
   padding: 8px;
   border: 1px solid rgb(var(--c-primary-dark-rgb) / 0.08);
@@ -3532,6 +3553,7 @@ body:has(.login-shell),
 }
 
 .admin-uploader-metrics small {
+  text-align: center;
   color: var(--c-text-muted);
   font-size: 11px;
 }
@@ -3587,6 +3609,10 @@ body:has(.login-shell),
   .admin-coverage-rank-track,
   .admin-uploader-rank-track {
     width: 100%;
+  }
+
+  .admin-uploader-rank-badge {
+    justify-content: flex-start;
   }
 }
 
