@@ -33,6 +33,36 @@ export function drawOverviewExtent(
   mainBounds: MapBounds,
   color: string,
 ) {
+  const extent = overviewExtentPixelBox(frame, overviewBounds, mainBounds);
+  const lineWidth = Math.max(2, frame.width * 0.012);
+  const inset = lineWidth / 2;
+  const x1 = clamp(extent.x, frame.x + inset, frame.x + frame.width - inset);
+  const y1 = clamp(extent.y, frame.y + inset, frame.y + frame.height - inset);
+  const x2 = clamp(
+    extent.x + extent.width,
+    frame.x + inset,
+    frame.x + frame.width - inset,
+  );
+  const y2 = clamp(
+    extent.y + extent.height,
+    frame.y + inset,
+    frame.y + frame.height - inset,
+  );
+  context.save();
+  context.beginPath();
+  context.rect(frame.x, frame.y, frame.width, frame.height);
+  context.clip();
+  context.strokeStyle = color;
+  context.lineWidth = lineWidth;
+  context.strokeRect(x1, y1, Math.max(0, x2 - x1), Math.max(0, y2 - y1));
+  context.restore();
+}
+
+export function overviewExtentPixelBox(
+  frame: PixelBox,
+  overviewBounds: MapBounds,
+  mainBounds: MapBounds,
+): PixelBox {
   const x1 =
     frame.x + longitudeRatio(mainBounds[0], overviewBounds) * frame.width;
   const x2 =
@@ -41,11 +71,16 @@ export function drawOverviewExtent(
     frame.y + latitudeRatio(mainBounds[3], overviewBounds) * frame.height;
   const y2 =
     frame.y + latitudeRatio(mainBounds[1], overviewBounds) * frame.height;
-  context.save();
-  context.strokeStyle = color;
-  context.lineWidth = Math.max(2, frame.width * 0.012);
-  context.strokeRect(x1, y1, x2 - x1, y2 - y1);
-  context.restore();
+  const left = clamp(Math.min(x1, x2), frame.x, frame.x + frame.width);
+  const right = clamp(Math.max(x1, x2), frame.x, frame.x + frame.width);
+  const top = clamp(Math.min(y1, y2), frame.y, frame.y + frame.height);
+  const bottom = clamp(Math.max(y1, y2), frame.y, frame.y + frame.height);
+  return {
+    x: left,
+    y: top,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+  };
 }
 
 function drawGeographicGrid(
@@ -147,4 +182,8 @@ function line(
 
 function formatNumber(value: number) {
   return Number(value.toFixed(3)).toString();
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.min(maximum, Math.max(minimum, value));
 }

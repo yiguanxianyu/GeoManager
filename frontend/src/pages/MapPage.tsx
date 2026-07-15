@@ -402,6 +402,15 @@ export default function MapPage() {
 
   const rangeSourceLayer = spatialTargetLayer ?? selectedLayer;
 
+  useEffect(() => {
+    if (!selectedLayerId) {
+      return;
+    }
+    setSelectedFeature((current) =>
+      current && current.layerId !== selectedLayerId ? null : current,
+    );
+  }, [selectedLayerId]);
+
   const activeInsightLayer = useMemo(() => {
     if (selectedFeature) {
       return (
@@ -462,7 +471,11 @@ export default function MapPage() {
         (nextResource && current?.layer?.sourceResource.id === nextResource.id
           ? current.layer
           : null);
-      const nextFeature = selectedFeature ?? current?.feature ?? null;
+      const cachedFeature = selectedFeature ?? current?.feature ?? null;
+      const nextFeature =
+        cachedFeature && (!nextLayer || cachedFeature.layerId === nextLayer.id)
+          ? cachedFeature
+          : null;
 
       if (!nextResource && !nextLayer && !nextSummary) {
         return current;
@@ -505,8 +518,16 @@ export default function MapPage() {
     rememberedGeoInsight?.summary?.resource.id === rightPanelSelectedResource.id
       ? rememberedGeoInsight.summary
       : null);
-  const rightPanelSelectedFeature =
-    selectedFeature ?? rememberedGeoInsight?.feature ?? null;
+  const rightPanelSelectedFeature = (() => {
+    const feature = selectedFeature ?? rememberedGeoInsight?.feature ?? null;
+    if (!feature) {
+      return null;
+    }
+    return !rightPanelSelectedLayer ||
+      feature.layerId === rightPanelSelectedLayer.id
+      ? feature
+      : null;
+  })();
   const rightPanelVisualizationSummaryLoading =
     Boolean(activeInsightResource) && visualizationSummaryLoading;
 
@@ -1592,7 +1613,12 @@ export default function MapPage() {
   const layerContextValue: LayerContextValue = {
     groups: layerGroups.groups,
     selectedLayerId,
-    selectLayer: (_groupId, layerId) => setSelectedLayerId(layerId),
+    selectLayer: (_groupId, layerId) => {
+      setSelectedLayerId(layerId);
+      setSelectedFeature((current) =>
+        current && current.layerId !== layerId ? null : current,
+      );
+    },
     openLayerTable: (_groupId, layerId) => {
       const layer =
         layerGroups.groups

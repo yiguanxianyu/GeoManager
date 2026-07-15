@@ -2354,6 +2354,72 @@ export type AdminDataResourceUploader = {
     displayName: string;
 };
 
+export type AdminDataResourceSummary = {
+    /**
+     * 当前筛选和权限范围内的数据资源总数，不受分页影响
+     */
+    total: number;
+    /**
+     * 当前筛选和权限范围内的启用资源总数，不受分页影响
+     */
+    activeCount: number;
+    /**
+     * 当前筛选和权限范围内的禁用资源总数，不受分页影响
+     */
+    inactiveCount: number;
+    /**
+     * 当前筛选和权限范围内配置了超级管理员以外访问角色的资源总数，不受分页影响
+     */
+    restrictedCount: number;
+    /**
+     * 当前筛选和权限范围内资源登记大小合计，单位字节
+     */
+    sizeBytes: number;
+    /**
+     * 当前筛选和权限范围内数据条目数合计
+     */
+    itemCount: number;
+};
+
+export type AdminDataResourceGroupSummary = {
+    /**
+     * 分组稳定键；全部数据为 __all__，业务类型为 __domain__:{domainType}，自定义组为 __custom__:{groupId}
+     */
+    key: string;
+    /**
+     * 分组类型
+     */
+    kind: 'all' | 'business' | 'custom';
+    /**
+     * 业务类型分组编码；全部数据和自定义组为 null
+     */
+    domainType: DataDomainType | null;
+    /**
+     * 自定义组 ID；全部数据和业务类型组为 null
+     */
+    inventoryGroupId: number | null;
+    /**
+     * 当前筛选和权限范围内属于该组的资源总数，不受分页影响
+     */
+    resourceCount: number;
+    /**
+     * 该组启用资源总数，不受分页影响
+     */
+    activeCount: number;
+    /**
+     * 该组禁用资源总数，不受分页影响
+     */
+    inactiveCount: number;
+    /**
+     * 该组资源登记大小合计，单位字节
+     */
+    sizeBytes: number;
+    /**
+     * 该组数据条目数合计
+     */
+    itemCount: number;
+};
+
 export type AdminDataResourceListResponse = {
     /**
      * 存量数据资源列表
@@ -2363,6 +2429,11 @@ export type AdminDataResourceListResponse = {
      * 符合筛选条件的数据资源总数
      */
     total: number;
+    summary: AdminDataResourceSummary;
+    /**
+     * 当前筛选和权限范围的完整分组汇总，不受明细分页影响
+     */
+    groupSummaries: Array<AdminDataResourceGroupSummary>;
     /**
      * 可用于配置数据访问范围的额外用户组列表；该列表不会返回超级管理员用户组，后端仍会强制保留超级管理员访问范围
      */

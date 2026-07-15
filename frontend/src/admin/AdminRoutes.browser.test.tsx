@@ -17,7 +17,12 @@ import {
   RequireManageSystemSettings,
 } from "../router";
 import { appTheme } from "../theme";
-import type { Bootstrap, User } from "../types";
+import type {
+  AdminDataResourceList,
+  Bootstrap,
+  DataDomainType,
+  User,
+} from "../types";
 
 import AdminAuthPage from "./AdminAuthPage";
 import AdminDataBackupPage from "./AdminDataBackupPage";
@@ -101,6 +106,63 @@ const bootstrap: Bootstrap = {
     maxRasterSidePixels: 10000,
   },
 };
+
+function inventoryResponseMeta({
+  total,
+  activeCount = total,
+  inactiveCount = 0,
+  restrictedCount = 0,
+  sizeBytes = 0,
+  itemCount = 0,
+  domainType = "other",
+}: {
+  total: number;
+  activeCount?: number;
+  inactiveCount?: number;
+  restrictedCount?: number;
+  sizeBytes?: number;
+  itemCount?: number;
+  domainType?: DataDomainType;
+}): Pick<
+  AdminDataResourceList,
+  "summary" | "groupSummaries" | "inventoryGroups"
+> {
+  return {
+    summary: {
+      total,
+      activeCount,
+      inactiveCount,
+      restrictedCount,
+      sizeBytes,
+      itemCount,
+    },
+    groupSummaries: [
+      {
+        key: "__all__",
+        kind: "all",
+        domainType: null,
+        inventoryGroupId: null,
+        resourceCount: total,
+        activeCount,
+        inactiveCount,
+        sizeBytes,
+        itemCount,
+      },
+      {
+        key: `__domain__:${domainType}`,
+        kind: "business",
+        domainType,
+        inventoryGroupId: null,
+        resourceCount: total,
+        activeCount,
+        inactiveCount,
+        sizeBytes,
+        itemCount,
+      },
+    ],
+    inventoryGroups: [],
+  };
+}
 
 const adminUser: User = {
   id: 1,
@@ -942,6 +1004,7 @@ describe("admin routes", () => {
         },
       ],
       total: 1,
+      ...inventoryResponseMeta({ total: 1, domainType: "field_survey" }),
       availableAccessGroups: [
         { id: 2, name: "科研用户", isGuest: false, isSuperadmin: false },
         { id: 3, name: "游客", isGuest: true, isSuperadmin: false },
@@ -1756,7 +1819,8 @@ describe("admin routes", () => {
       ).toBeDisabled();
     }
     expect(screen.getByText("CSV")).toBeInTheDocument();
-    expect(screen.getByText("本页启用")).toBeInTheDocument();
+    expect(screen.getByText("筛选结果总数")).toBeInTheDocument();
+    expect(screen.getByText("启用数据")).toBeInTheDocument();
     expect(screen.queryByText("populus-plots")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "配置胡杨林样地点" }));
@@ -1804,6 +1868,12 @@ describe("admin routes", () => {
     mockApi.adminDataResources.mockResolvedValueOnce({
       items: [groupedResource],
       total: 1,
+      ...inventoryResponseMeta({
+        total: 1,
+        sizeBytes: 2048,
+        itemCount: 12,
+        domainType: "field_survey",
+      }),
       availableAccessGroups: [],
     });
     mockApi.updateAdminDataResource.mockResolvedValueOnce({
@@ -1872,6 +1942,14 @@ describe("admin routes", () => {
     mockApi.adminDataResources.mockResolvedValueOnce({
       items: [activeResource, inactiveResource],
       total: 2,
+      ...inventoryResponseMeta({
+        total: 2,
+        activeCount: 1,
+        inactiveCount: 1,
+        sizeBytes: 4096,
+        itemCount: 24,
+        domainType: "field_survey",
+      }),
       availableAccessGroups: [],
     });
     mockApi.updateAdminDataResource.mockResolvedValueOnce({
@@ -1964,6 +2042,7 @@ describe("admin routes", () => {
         },
       ],
       total: 1,
+      ...inventoryResponseMeta({ total: 1 }),
       availableAccessGroups: [
         { id: 2, name: "科研用户", isGuest: false, isSuperadmin: false },
       ],
@@ -2019,6 +2098,7 @@ describe("admin routes", () => {
         },
       ],
       total: 1,
+      ...inventoryResponseMeta({ total: 1 }),
       availableAccessGroups: [],
     });
 

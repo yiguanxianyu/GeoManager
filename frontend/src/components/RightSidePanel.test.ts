@@ -271,6 +271,15 @@ describe("nextEcoTabForSelectedFeature", () => {
     expect(nextEcoTabForSelectedFeature("monitor", feature)).toBe("feature");
   });
 
+  it("switches the ecology panel to the feature tab when a layer is selected", () => {
+    expect(nextEcoTabForSelectedFeature("overview", null, "layer-1")).toBe(
+      "feature",
+    );
+    expect(nextEcoTabForSelectedFeature("monitor", null, "layer-1")).toBe(
+      "feature",
+    );
+  });
+
   it("keeps the current tab when the selected feature is cleared", () => {
     expect(nextEcoTabForSelectedFeature("feature", null)).toBe("feature");
     expect(nextEcoTabForSelectedFeature("monitor", null)).toBe("monitor");

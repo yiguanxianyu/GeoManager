@@ -23,6 +23,7 @@ from apps.catalog.models import (
     DataResource,
     DataResourceGroup,
     DictionaryItem,
+    MapComposition,
     MapLayer,
     VectorDataset,
     WorkspaceScene,
@@ -1361,6 +1362,35 @@ class WorkspaceSceneApiTests(TestCase):
             ).exists()
         )
 
+    def test_admin_workspace_delete_hides_project_referenced_by_map_composition(self):
+        scene = WorkspaceScene.objects.create(
+            owner=self.user,
+            kind=WorkspaceScene.Kind.PROJECT,
+            name="referenced-project",
+            snapshot={"layerGroups": []},
+        )
+        composition = MapComposition.objects.create(
+            owner=self.user,
+            project=scene,
+            name="composition-1",
+            layout={},
+        )
+
+        response = self.client.post(
+            f"/api/admin/workspaces/{scene.id}/",
+            data=json.dumps(
+                {"action": "delete", "confirmationName": "referenced-project"}
+            ),
+            content_type="application/json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        scene.refresh_from_db()
+        self.assertEqual(scene.status, WorkspaceScene.Status.INACTIVE)
+        self.assertTrue(MapComposition.objects.filter(pk=composition.id).exists())
+        regular_response = self.client.get(f"/api/catalog/workspaces/{scene.id}/")
+        self.assertEqual(regular_response.status_code, 404)
+
     def test_admin_workspace_management_hides_inaccessible_project_and_topic(self):
         other = get_user_model().objects.create_user(
             username="other-managed-workspace-owner", password="pass12345"
@@ -2457,6 +2487,65 @@ class AdminDataResourceApiTests(IsolatedCatalogStorageMixin, TestCase):
         self.assertEqual(payload["items"][0]["name"], "存量样地数据")
         self.assertEqual(payload["items"][0]["status"], "inactive")
         self.assertEqual(payload["items"][0]["domainType"], "field_survey")
+
+    def test_admin_data_resource_list_summaries_ignore_pagination(self):
+        inventory_group = DataResourceGroup.objects.create(name="重点监测")
+        self.resource.inventory_group = inventory_group
+        self.resource.size_bytes = 100
+        self.resource.item_count = 10
+        self.resource.save(
+            update_fields=["inventory_group", "size_bytes", "item_count"]
+        )
+        self.resource.access_groups.add(self.group)
+        for index in range(10):
+            DataResource.objects.create(
+                name=f"野外调查 {index}",
+                code=f"inventory-field-{index}",
+                data_type=DataResource.DataType.TABLE,
+                domain_type="field_survey",
+                size_bytes=10,
+                item_count=1,
+                status=DataResource.Status.ACTIVE,
+                maintainer=self.user,
+            )
+        DataResource.objects.create(
+            name="遥感禁用数据",
+            code="inventory-raster-inactive",
+            data_type=DataResource.DataType.RASTER,
+            domain_type="remote_sensing",
+            size_bytes=200,
+            item_count=2,
+            status=DataResource.Status.INACTIVE,
+            maintainer=self.user,
+        )
+
+        response = self.client.get(
+            "/api/admin/data/resources/", {"current": 1, "pageSize": 10}
+        )
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(len(payload["items"]), 10)
+        self.assertEqual(payload["total"], 12)
+        self.assertEqual(
+            payload["summary"],
+            {
+                "total": 12,
+                "activeCount": 11,
+                "inactiveCount": 1,
+                "restrictedCount": 1,
+                "sizeBytes": 400,
+                "itemCount": 22,
+            },
+        )
+        summaries = {item["key"]: item for item in payload["groupSummaries"]}
+        self.assertEqual(summaries["__all__"]["resourceCount"], 12)
+        self.assertEqual(summaries["__domain__:field_survey"]["resourceCount"], 11)
+        self.assertEqual(summaries["__domain__:field_survey"]["sizeBytes"], 200)
+        self.assertEqual(summaries["__domain__:remote_sensing"]["inactiveCount"], 1)
+        self.assertEqual(
+            summaries[f"__custom__:{inventory_group.id}"]["resourceCount"], 1
+        )
 
     def test_admin_data_resource_groups_persist_and_clear_on_delete(self):
         create_response = self.client.post(

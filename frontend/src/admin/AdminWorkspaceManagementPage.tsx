@@ -76,6 +76,7 @@ export default function AdminWorkspaceManagementPage({
   const { user } = useAppContext();
   const [filters, setFilters] = useState<AdminWorkspaceFilters>({
     kind,
+    status: "active",
     current: 1,
     pageSize: 10,
   });

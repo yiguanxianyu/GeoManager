@@ -709,6 +709,29 @@
         }
       ],
       "total": 3,
+      "summary": {
+        "total": 3,
+        "activeCount": 2,
+        "inactiveCount": 1,
+        "restrictedCount": 3,
+        "sizeBytes": 138690560,
+        "itemCount": 255
+      },
+      "groupSummaries": [
+        { "key": "__all__", "kind": "all", "domainType": null, "inventoryGroupId": null, "resourceCount": 3, "activeCount": 2, "inactiveCount": 1, "sizeBytes": 138690560, "itemCount": 255 },
+        { "key": "__domain__:germplasm", "kind": "business", "domainType": "germplasm", "inventoryGroupId": null, "resourceCount": 0, "activeCount": 0, "inactiveCount": 0, "sizeBytes": 0, "itemCount": 0 },
+        { "key": "__domain__:genome", "kind": "business", "domainType": "genome", "inventoryGroupId": null, "resourceCount": 0, "activeCount": 0, "inactiveCount": 0, "sizeBytes": 0, "itemCount": 0 },
+        { "key": "__domain__:individual", "kind": "business", "domainType": "individual", "inventoryGroupId": null, "resourceCount": 1, "activeCount": 0, "inactiveCount": 1, "sizeBytes": 32768, "itemCount": 128 },
+        { "key": "__domain__:community", "kind": "business", "domainType": "community", "inventoryGroupId": null, "resourceCount": 0, "activeCount": 0, "inactiveCount": 0, "sizeBytes": 0, "itemCount": 0 },
+        { "key": "__domain__:population", "kind": "business", "domainType": "population", "inventoryGroupId": null, "resourceCount": 0, "activeCount": 0, "inactiveCount": 0, "sizeBytes": 0, "itemCount": 0 },
+        { "key": "__domain__:field_survey", "kind": "business", "domainType": "field_survey", "inventoryGroupId": null, "resourceCount": 1, "activeCount": 1, "inactiveCount": 0, "sizeBytes": 245760, "itemCount": 126 },
+        { "key": "__domain__:remote_sensing", "kind": "business", "domainType": "remote_sensing", "inventoryGroupId": null, "resourceCount": 1, "activeCount": 1, "inactiveCount": 0, "sizeBytes": 138412032, "itemCount": 1 },
+        { "key": "__domain__:molecular", "kind": "business", "domainType": "molecular", "inventoryGroupId": null, "resourceCount": 0, "activeCount": 0, "inactiveCount": 0, "sizeBytes": 0, "itemCount": 0 },
+        { "key": "__domain__:vector", "kind": "business", "domainType": "vector", "inventoryGroupId": null, "resourceCount": 0, "activeCount": 0, "inactiveCount": 0, "sizeBytes": 0, "itemCount": 0 },
+        { "key": "__domain__:other", "kind": "business", "domainType": "other", "inventoryGroupId": null, "resourceCount": 0, "activeCount": 0, "inactiveCount": 0, "sizeBytes": 0, "itemCount": 0 },
+        { "key": "__custom__:1", "kind": "custom", "domainType": null, "inventoryGroupId": 1, "resourceCount": 1, "activeCount": 1, "inactiveCount": 0, "sizeBytes": 245760, "itemCount": 126 },
+        { "key": "__custom__:2", "kind": "custom", "domainType": null, "inventoryGroupId": 2, "resourceCount": 1, "activeCount": 1, "inactiveCount": 0, "sizeBytes": 138412032, "itemCount": 1 }
+      ],
       "availableAccessGroups": [
         {
           "id": 2,

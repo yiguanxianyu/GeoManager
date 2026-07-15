@@ -760,9 +760,6 @@ function DataOverviewUploaders({
                     <Typography.Text strong title={item.user.displayName}>
                       {item.user.displayName || "未记录"}
                     </Typography.Text>
-                    <Tag color={index < 3 ? "gold" : "default"}>
-                      TOP {index + 1}
-                    </Tag>
                   </div>
                   <Typography.Text type="secondary">
                     {item.user.username || "未记录账号"}
@@ -770,6 +767,11 @@ function DataOverviewUploaders({
                   <div className="admin-uploader-rank-track">
                     <span style={{ width: `${Math.max(ratio * 100, 8)}%` }} />
                   </div>
+                </div>
+                <div className="admin-uploader-rank-badge">
+                  <Tag color={index < 3 ? "gold" : "default"}>
+                    TOP {index + 1}
+                  </Tag>
                 </div>
                 <div className="admin-uploader-metrics">
                   <span>

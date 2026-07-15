@@ -583,6 +583,12 @@ CREATE TABLE gpkg_data_columns (
 - `DataResourceGroup`、`inventoryGroups` 和 `inventoryGroupId` 只表示用户新建的自定义分组。资源可同时出现在“全部数据”、一个业务类型系统分组和至多一个自定义分组中；删除自定义分组只清空归档关系，不影响资源及其业务分类。
 - 历史资源 `domainType` 为空时归入“其他类型”，避免存量资源从业务分组中遗漏。
 
+# 2026-07-15 存量数据全量统计与分页分组
+
+- `/api/admin/data/resources/` 的 `items` 继续分页，避免一次性序列化全部资源；新增 `summary` 和 `groupSummaries` 在当前筛选、权限范围内执行数据库聚合，统计结果不受页码和每页条数影响。
+- 存量数据顶部统计卡片只使用 `summary`，分组总数据规模只使用 `groupSummaries`。当前页明细数量仅在展开区域单独提示，禁止再把全量 `total` 与当前页启停数量并列为同一统计口径。
+- 默认每页展示 50 项并将分页器放到分组表格上方；数据超过一页时，展开区域明确显示“当前页 / 该组总数”，避免用户将分页明细误认为数据缺失。
+
 # 2026-07-14 专题制图第一阶段
 
 - 正式制图使用 `WorkspaceScene(project) -> MapComposition -> MapCompositionVersion` 三层结构。工程保存可恢复工作状态，出图稿保存轻量版式，版本保存不可变成果和版式快照；旧 `WorkspaceScene(topic)` 继续在专题 Tab 的兼容区加载，不再作为正式出图成果。
