@@ -735,3 +735,9 @@ CREATE TABLE gpkg_data_columns (
 - `RasterRenderResult` 返回 `minZoom`、`maxZoom` 和 `tileSampling`。前端首帧创建 raster source/layer 时写入原生缩放范围、分类最近邻、零淡入和 100% 默认不透明度；超过原生 `maxZoom` 只 overscale 最后一级，不再按 Mapbox 默认值请求到 z22。
 - Mapbox GL JS 3.25.0 的 raster texture 默认带 mipmap；即使过滤器为 `NEAREST_MIPMAP_NEAREST`，mipmap 本身仍由相邻类别平均生成。项目通过 pnpm patched dependency 让 nearest raster 的当前瓦片、父瓦片、无父回退和极区路径跳过 mipmap、把各向异性过滤重置为 1，并修复纹理实际 MIN/MAG filter 缓存；continuous raster、DEM、图标及其他 linear 纹理路径保持原行为。
 - 真实 `hjyt_tile_r1_c1` 验证生成 z0–16 共 2,575 张瓦片，耗时 10.0 秒、文件约 10.9 MiB；逐级扫描无部分透明像素，非透明颜色严格限定为六类正式调色板，NoData 为全透明。源数据中真实的窄道路、水体和建筑在粗尺度最近邻下仍可能表现为单像元线；若未来要隐藏这些真实小目标，需另立低缩放级 majority/mode 制图综合需求，不能将其当作插值包边修复。
+
+# 2026-08-09 天地图认证可见署名
+
+- 地理工作台在活动底图提供者为天地图时，于可见地图区域固定展示未经改色、裁切或变形的官方“天地图 MAP WORLD”字样标识，并链接至天地图官网；切换到 Mapbox 或 OSM 时隐藏，避免错误归属。
+- 官方图形角标不替代 Mapbox GL 随当前样式生成的文本署名和 Mapbox Logo。角标避开左右面板、底部面板、地图工具栏与原有 attribution 控件，并在窄屏维持可辨识尺寸和高对比底板。
+- 该整改仅涉及前端展示、静态素材和针对性浏览器测试，不新增 API，不改变权限、TOML Key、数据路径、底图请求、限流恢复或栅格渲染链路。
