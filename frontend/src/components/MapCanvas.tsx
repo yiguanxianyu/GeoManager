@@ -16,6 +16,7 @@ import tiandituTileProviderUrl from "../map/tiandituTileProvider.js?url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BasemapStatusIndicator from "./BasemapStatusIndicator";
 import BasemapSwitcher from "./BasemapSwitcher";
+import TiandituAttributionBadge from "./TiandituAttributionBadge";
 import type { BasemapRetryProbe } from "../hooks/useBasemapStatus";
 import {
   applyBasemapExpressionSafety,
@@ -1054,6 +1055,7 @@ export default function MapCanvas({
   return (
     <div className="map-shell">
       <div ref={containerRef} className="map-container" />
+      <TiandituAttributionBadge provider={activeBasemap.provider} />
       <div className="map-toolbar">
         <BasemapSwitcher
           basemaps={basemapCatalog}

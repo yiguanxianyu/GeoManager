@@ -21486,6 +21486,63 @@ body:has(.login-shell),
   height: 100%;
 }
 
+.map-shell {
+  position: relative;
+}
+
+.tianditu-attribution-badge {
+  position: absolute;
+  right: calc(
+    var(--workspace-edge) + var(--side-panel-width) + var(--workspace-gap)
+  );
+  bottom: calc(
+    var(--workspace-edge) + var(--map-control-bottom-clearance) + 44px
+  );
+  z-index: 7;
+  pointer-events: none;
+}
+
+.tianditu-attribution-badge > a {
+  display: grid;
+  width: clamp(100px, 7.5vw, 120px);
+  padding: 6px 8px 5px;
+  color: #104d98;
+  text-align: center;
+  text-decoration: none;
+  pointer-events: auto;
+  background: rgb(255 255 255 / 0.94);
+  border: 1px solid rgb(16 77 152 / 0.22);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgb(9 35 68 / 0.2);
+  backdrop-filter: blur(8px);
+}
+
+.tianditu-attribution-badge > a:hover {
+  background: #ffffff;
+  border-color: rgb(16 77 152 / 0.48);
+}
+
+.tianditu-attribution-badge > a:focus-visible {
+  outline: 2px solid #104d98;
+  outline-offset: 2px;
+}
+
+.tianditu-attribution-badge img {
+  display: block;
+  width: 100%;
+  height: auto;
+  user-select: none;
+}
+
+.tianditu-attribution-badge span {
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+
 .map-toolbar {
   position: absolute;
   right: calc(
@@ -21672,6 +21729,22 @@ body:has(.login-shell),
 }
 
 @media (max-width: 760px) {
+  .tianditu-attribution-badge {
+    right: var(--workspace-edge);
+    bottom: calc(
+      var(--workspace-edge) + var(--map-control-bottom-clearance) + 42px
+    );
+  }
+
+  .tianditu-attribution-badge > a {
+    width: 92px;
+    padding: 4px 6px;
+  }
+
+  .tianditu-attribution-badge span {
+    font-size: 9px;
+  }
+
   .map-toolbar {
     right: var(--workspace-edge);
     max-width: calc(100vw - var(--workspace-edge) * 2);
