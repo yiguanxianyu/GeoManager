@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-PLATFORM_CHINESE_NAME = "全球胡杨林生态系统保护数据共享平台"
+PLATFORM_CHINESE_NAME = "干旱区胡杨林生态智慧监测平台"
 PLATFORM_ENGLISH_NAME = (
-    "Global Populus euphratica Forest Ecosystem Conservation Data Sharing Platform"
+    "Arid-region Poplar Forest Ecological Intelligent Monitoring Platform"
 )
-PLATFORM_ABBREVIATION = "GPEDSP"
-PLATFORM_EDITION = "GPEDSP · WebGIS Research Edition"
+PLATFORM_ABBREVIATION = "APF-EIMP"
+PLATFORM_EDITION = "APF-EIMP · WebGIS Monitoring Edition"
 
 LEGACY_PLATFORM_NAMES = frozenset(
     {
+        "全球胡杨林生态系统保护数据共享平台",
         "中亚胡杨林生态系统保护数据共享平台",
         "中亚胡杨林生态保护数据共享平台",
         "中亚胡杨林生态数据共享平台",

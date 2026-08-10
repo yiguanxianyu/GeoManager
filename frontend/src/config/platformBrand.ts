@@ -1,12 +1,13 @@
 export const platformBrand = {
-  chineseName: "全球胡杨林生态系统保护数据共享平台",
+  chineseName: "干旱区胡杨林生态智慧监测平台",
   englishName:
-    "Global Populus euphratica Forest Ecosystem Conservation Data Sharing Platform",
-  shortName: "GPEDSP",
-  edition: "GPEDSP · WebGIS Research Edition",
+    "Arid-region Poplar Forest Ecological Intelligent Monitoring Platform",
+  shortName: "APF-EIMP",
+  edition: "APF-EIMP · WebGIS Monitoring Edition",
 } as const;
 
 const legacyPlatformNames = new Set([
+  "全球胡杨林生态系统保护数据共享平台",
   "中亚胡杨林生态系统保护数据共享平台",
   "中亚胡杨林生态保护数据共享平台",
   "中亚胡杨林生态数据共享平台",

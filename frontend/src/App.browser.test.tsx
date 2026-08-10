@@ -524,12 +524,12 @@ describe("application critical flows", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "全球胡杨林生态系统保护数据共享平台",
+        name: "干旱区胡杨林生态智慧监测平台",
       }),
     ).toBeInTheDocument();
     expect(
       screen.getAllByText(
-        "Global Populus euphratica Forest Ecosystem Conservation Data Sharing Platform",
+        "Arid-region Poplar Forest Ecological Intelligent Monitoring Platform",
       ).length,
     ).toBeGreaterThan(0);
 
@@ -580,7 +580,7 @@ describe("application critical flows", () => {
     renderApp("/login");
 
     await screen.findByRole("heading", { name: "用户登录" });
-    expect(document.title).toBe("全球胡杨林生态系统保护数据共享平台");
+    expect(document.title).toBe("干旱区胡杨林生态智慧监测平台");
   });
 
   it("submits required email and a separate research role application", async () => {
@@ -740,7 +740,7 @@ describe("application critical flows", () => {
         { timeout: 10000 },
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("全球胡杨生态数据门户")).toBeInTheDocument();
+    expect(screen.getByText("干旱区胡杨生态智慧监测")).toBeInTheDocument();
     expect(
       screen.getByText("服务生态保护 · 科学研究 · 数据共享"),
     ).toBeInTheDocument();
