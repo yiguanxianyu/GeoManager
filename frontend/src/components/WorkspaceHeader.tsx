@@ -796,8 +796,7 @@ export default function WorkspaceHeader({
     const steps: NonNullable<TourProps["steps"]> = [
       {
         title: "🎉 欢迎 🎉",
-        description:
-          "欢迎使用全球胡杨林生态系统保护数据共享平台，下面快速熟悉工作台入口。",
+        description: `欢迎使用${platformChineseName}，下面快速熟悉工作台入口。`,
         target: null,
       },
       {
@@ -904,7 +903,7 @@ export default function WorkspaceHeader({
         bordered={false}
         color="#173f39"
       />
-      <strong>全球胡杨林数据平台</strong>
+      <strong>{platformBrand.shortName}</strong>
       <span>微信公众号二维码示意</span>
     </div>
   );

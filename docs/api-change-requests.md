@@ -63,6 +63,7 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260801-002 | Verified | `POST /api/raster/render/`, completed raster render jobs | response fields / tile delivery semantics | Updated | Updated | Implemented | Passed | Adds native zoom and sampling metadata; categorical styles become atomically published nearest-neighbor tile pyramids |
 | API-20260802-001 | Verified | bootstrap/admin settings and upload endpoints | validation / deployment safety | Updated | N/A | Implemented | Passed | Raises the disk-backed upload ceiling to 1024 MB while retaining parser-specific memory limits |
 | API-20260806-001 | Verified | bootstrap/admin settings map configuration | accepted configuration value / response enum | Updated | N/A | Implemented | Passed | Adds `tianditu-imagery` as the fourth formal and configurable default basemap |
+| API-20260810-001 | Verified | `GET /api/bootstrap/`, `GET/POST /api/admin/settings/`, `GET /api/login/overview/` | response/example value normalization | Updated | N/A | Implemented | Passed | Temporarily presents the arid-region intelligent-monitoring brand while normalizing the previous canonical name and preserving unrelated custom deployments |
 
 ## Entry Template
 
@@ -80,6 +81,19 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Verification: commands or response checks required before marking implemented
 - Result: current backend/frontend verification result
 ```
+
+## API-20260810-001 - Temporary arid-region intelligent-monitoring brand
+
+- Status: Verified
+- Owner: Frontend/backend implementer
+- Endpoints: `GET /api/bootstrap/`, `GET/POST /api/admin/settings/`, `GET /api/login/overview/`
+- Change type: response/example value normalization | frontend metadata
+- OpenAPI change: Updates platform-name examples to `干旱区胡杨林生态智慧监测平台`, the English display name to `Arid-region Poplar Forest Ecological Intelligent Monitoring Platform`, the abbreviation to `APF-EIMP`, and the edition to `APF-EIMP · WebGIS Monitoring Edition`; response schemas, permissions and status codes are unchanged.
+- Mock examples: N/A; response schemas and Prism examples are unchanged.
+- Frontend reason: The temporary public release must present one consistent platform identity across the login page, browser title, workspace, data catalog and public login overview without changing platform functionality.
+- Backend implementation notes: Treat the previous canonical name `全球胡杨林生态系统保护数据共享平台` as a known alias of the temporary display name so the mounted production TOML remains unchanged; continue preserving unrelated custom deployment names.
+- Verification: Run the focused core API and frontend brand/browser tests; regenerate and compare API clients; run API lint, change tracking, TypeScript checks and a production build; visually verify the local login page and authenticated header before release.
+- Result: Passed. All 584 backend tests and 52 subtests, all 390 frontend unit tests, and all 144 browser tests passed. OpenAPI lint, API change tracking, client/documentation/Prism regeneration and generated-file comparison passed; TypeScript application and node checks, Oxlint, focused formatting, brand consistency checks, and the production build passed. OpenAPI lint retains only six pre-existing unused-component warnings. The repository-wide frontend format check still reports 171 pre-existing unrelated files and untracked Playwright artifacts; all changed frontend sources pass focused formatting. Local browser verification passed for the login page, authenticated data catalog header, and About introduction after reloading the no-reload backend process.
 
 ## API-20260801-001 - Optional Tianditu browser access token
 

@@ -291,7 +291,7 @@ export default function DataCatalogPage() {
             <div className="data-catalog-hero-eyebrow">
               <span className="data-catalog-hero-context">
                 <GlobalOutlined />
-                <span>全球胡杨生态数据门户</span>
+                <span>干旱区胡杨生态智慧监测</span>
               </span>
               <span className="data-catalog-hero-mission">
                 服务生态保护 · 科学研究 · 数据共享

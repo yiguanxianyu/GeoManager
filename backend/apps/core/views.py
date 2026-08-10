@@ -83,7 +83,7 @@ def login_overview(request):
                 "version": _application_version(),
             },
             "hero": {
-                "badge": "生态保护数据共享平台",
+                "badge": "生态智慧监测平台",
                 "summary": (
                     "平台集成遥感影像、空间矢量、野外样方、长期监测与生态专题数据，"
                     "提供统一编目、三维地理可视化、综合查询分析和共享服务。"

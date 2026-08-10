@@ -279,7 +279,7 @@ export default function LoginPage() {
         </header>
 
         <div className="login-identity">
-          <span className="login-mark">生态保护数据共享平台</span>
+          <span className="login-mark">生态智慧监测平台</span>
           <Typography.Title level={1}>{platformChineseName}</Typography.Title>
           <strong className="login-english-title">{platformEnglishName}</strong>
           <div className="login-capability-tags">
