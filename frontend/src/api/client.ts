@@ -105,6 +105,7 @@ import type {
 } from "../types";
 import type * as sdkTypes from "./generated/sdk.gen";
 import { filenameFromHeaders } from "./downloadFilename";
+import i18n, { currentLocale } from "../i18n";
 
 interface ListResponse<T> {
   items: T[];
@@ -153,6 +154,7 @@ function getSdk() {
         fetch: (request) => fetch(request),
       });
       clientModule.client.interceptors.request.use((request) => {
+        request.headers.set("Accept-Language", currentLocale());
         if (request.method !== "GET") {
           request.headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
         }
@@ -198,7 +200,7 @@ async function unwrapBlob(
     throw new ApiError(errorMessage(error, status), status, error);
   }
   if (!(data instanceof Blob)) {
-    throw new ApiError("导出响应内容为空", status, data);
+    throw new ApiError(i18n.t("common.exportEmpty"), status, data);
   }
   return {
     blob: data,
@@ -211,9 +213,56 @@ function errorMessage(error: unknown, status: number) {
     return readableErrorText(error, status);
   }
   if (isRecord(error) && typeof error.detail === "string") {
-    return error.detail;
+    return localizedServerDetail(error.detail);
   }
-  return status > 0 ? `请求失败：${status}` : "网络请求失败";
+  return status > 0
+    ? i18n.t("common.requestFailed", { status })
+    : i18n.t("common.networkFailed");
+}
+
+function localizedServerDetail(detail: string) {
+  if (currentLocale() !== "en-US") return detail;
+  const knownDetails: Record<string, string> = {
+    请先登录: i18n.t("errors.unauthorized"),
+    "CSRF 验证失败": i18n.t("errors.csrfFailed"),
+    "请求体不是有效 JSON": i18n.t("errors.invalidJson"),
+    账号或密码错误: i18n.t("auth.accountOrPasswordIncorrect"),
+    当前系统未开放自助注册: "Self-registration is currently disabled",
+    无权访问该图层: "You do not have access to this layer",
+    无权访问该数据资源: "You do not have access to this data resource",
+    无权查看该任务: "You do not have access to this task",
+    该图层没有已预处理的栅格数据集:
+      "This layer does not have a preprocessed raster dataset",
+    栅格数据集不存在: "The raster dataset does not exist",
+    用户不存在: "The user does not exist",
+    角色不存在: "The role does not exist",
+    角色名称已存在: "The role name already exists",
+    账号已存在: "The account already exists",
+    邮箱已被使用: "The email address is already in use",
+    当前密码不正确: "The current password is incorrect",
+    两次输入的新密码不一致: "The new passwords do not match",
+    新密码不能与当前密码相同:
+      "The new password must differ from the current password",
+    密码已更新: "The password was updated",
+    系统内置角色不能删除: "Built-in system roles cannot be deleted",
+    "角色仍有关联用户，不能删除":
+      "The role cannot be deleted while users are assigned to it",
+    用户已删除: "The user was deleted",
+    不能删除当前登录用户: "You cannot delete the signed-in account",
+    不能停用当前登录用户: "You cannot disable the signed-in account",
+    用户未设置头像: "The user has no profile image",
+    请选择头像文件: "Select a profile image",
+    "头像格式仅支持 JPG 和 PNG": "Profile images must be JPG or PNG",
+    "头像文件大小不能超过 2MB": "The profile image cannot exceed 2 MB",
+    头像文件不是有效图片: "The profile image is not valid",
+    保存失败: "Save failed",
+    "缺少 layerId 或 datasetId": "Missing layerId or datasetId",
+    "缺少 sourcePath": "Missing sourcePath",
+    角色申请不存在: "The role application does not exist",
+    角色申请状态不存在: "The role-application status does not exist",
+    已退出: "Signed out",
+  };
+  return knownDetails[detail] ?? detail;
 }
 
 function readableErrorText(text: string, status: number) {
@@ -262,6 +311,7 @@ async function requestJson<T>(
 ): Promise<T> {
   const method = options.method ?? "GET";
   const headers = new Headers();
+  headers.set("Accept-Language", currentLocale());
   const init: RequestInit = { method, credentials: "include", headers };
   if (method !== "GET") {
     headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
@@ -297,6 +347,7 @@ async function requestForm<T>(
     return requestFormWithUploadProgress<T>(url, formData, options);
   }
   const headers = new Headers();
+  headers.set("Accept-Language", currentLocale());
   headers.set("X-CSRFToken", getCookie("csrftoken") ?? "");
   const response = await fetch(
     new Request(url, {
@@ -326,6 +377,7 @@ function requestFormWithUploadProgress<T>(
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
+    xhr.setRequestHeader("Accept-Language", currentLocale());
     xhr.withCredentials = true;
     xhr.setRequestHeader("X-CSRFToken", getCookie("csrftoken") ?? "");
 

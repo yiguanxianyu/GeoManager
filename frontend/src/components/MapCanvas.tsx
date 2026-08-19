@@ -14,6 +14,7 @@ import mapboxgl, {
 import "mapbox-gl/dist/mapbox-gl.css";
 import tiandituTileProviderUrl from "../map/tiandituTileProvider.js?url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import BasemapStatusIndicator from "./BasemapStatusIndicator";
 import BasemapSwitcher from "./BasemapSwitcher";
 import TiandituAttributionBadge from "./TiandituAttributionBadge";
@@ -183,6 +184,9 @@ export default function MapCanvas({
   onBasemapSwitchingChange,
 }: Props) {
   const { message } = App.useApp();
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const mapRef = useRef<MapboxMap | null>(null);
   const [mapObject, setMapObject] = useState<MapboxMap | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -223,6 +227,12 @@ export default function MapCanvas({
   latestSpatialFilterRef.current = spatialFilter;
   latestLayerExtentOverlaysRef.current = layerExtentOverlays;
   latestOnFeatureSelectRef.current = onFeatureSelect;
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    applyChineseBasemapLanguage(map);
+  }, [i18n.resolvedLanguage]);
   latestOnBasemapSwitchingChangeRef.current = onBasemapSwitchingChange;
   const mapConfig = bootstrap.map;
   const mapboxToken = mapConfig.mapboxAccessToken;
@@ -232,7 +242,7 @@ export default function MapCanvas({
         mapboxAccessToken: mapboxToken,
         tiandituKey: mapConfig.tiandituAccessToken ?? "",
       }),
-    [mapConfig.tiandituAccessToken, mapboxToken],
+    [i18n.resolvedLanguage, mapConfig.tiandituAccessToken, mapboxToken],
   );
   const initialBasemapRef = useRef<BasemapDefinition | null>(null);
   if (!initialBasemapRef.current) {
@@ -497,7 +507,7 @@ export default function MapCanvas({
       pitch: 0,
       bearing: 0,
       projection: "globe",
-      language: mapLabelLanguage,
+      language: mapLabelLanguage(),
       localIdeographFontFamily: '"Microsoft YaHei", "PingFang SC", sans-serif',
       attributionControl: false,
       performanceMetricsCollection: false,
@@ -646,8 +656,12 @@ export default function MapCanvas({
         const panel = coordinatePanelRef.current;
         if (!panel) return;
         panel.textContent = lngLat
-          ? `经度 ${lngLat[0].toFixed(4)}  纬度 ${lngLat[1].toFixed(4)}`
-          : "经纬度 --";
+          ? english
+            ? `Longitude ${lngLat[0].toFixed(4)}  Latitude ${lngLat[1].toFixed(4)}`
+            : `经度 ${lngLat[0].toFixed(4)}  纬度 ${lngLat[1].toFixed(4)}`
+          : english
+            ? "Coordinates --"
+            : "经纬度 --";
       });
     };
     const updatePointer = (event: mapboxgl.MapMouseEvent) => {
@@ -772,20 +786,33 @@ export default function MapCanvas({
       if (drawMode || basemapSwitchDisabled) {
         if (options.announce !== false) {
           message.info(
-            drawMode ? "请先完成当前范围绘制" : "地图导出期间暂不能切换底图",
+            drawMode
+              ? english
+                ? "Finish drawing the current area first"
+                : "请先完成当前范围绘制"
+              : english
+                ? "Basemaps cannot be switched during map export"
+                : "地图导出期间暂不能切换底图",
           );
         }
         return false;
       }
       if (!map || !target) {
         if (options.announce !== false) {
-          message.warning("地图尚未准备好，请稍后重试");
+          message.warning(
+            english
+              ? "The map is not ready. Try again shortly."
+              : "地图尚未准备好，请稍后重试",
+          );
         }
         return false;
       }
       if (!target.credentials.available) {
         if (options.announce !== false) {
-          message.warning(target.credentials.reason ?? "当前底图不可用");
+          message.warning(
+            target.credentials.reason ??
+              (english ? "This basemap is unavailable" : "当前底图不可用"),
+          );
         }
         return false;
       }
@@ -799,7 +826,7 @@ export default function MapCanvas({
       ) {
         if (options.announce !== false) {
           message.warning(
-            basemapRecoveryCooldownMessage(rateLimitRecovery.reason),
+            basemapRecoveryCooldownMessage(rateLimitRecovery.reason, english),
           );
         }
         return false;
@@ -809,7 +836,9 @@ export default function MapCanvas({
       if (previous.id === target.id && !options.force) return true;
       if (basemapSwitchingRef.current) {
         if (options.announce !== false) {
-          message.info("底图正在切换，请稍候");
+          message.info(
+            english ? "Switching basemap..." : "底图正在切换，请稍候",
+          );
         }
         return false;
       }
@@ -844,7 +873,11 @@ export default function MapCanvas({
             writeBasemapPreference(basemapPreferenceScope, target.id);
           }
           if (options.announce !== false) {
-            message.success(`已切换到${target.label}`);
+            message.success(
+              english
+                ? `Switched to ${target.label}`
+                : `已切换到${target.label}`,
+            );
           }
           return true;
         }
@@ -878,12 +911,18 @@ export default function MapCanvas({
             if (!mountedRef.current || mapRef.current !== map) return false;
             if (fallbackResult.ok) {
               message.error(
-                `${target.label}重新加载失败，已启用技术兜底底图：${failureMessage}`,
+                english
+                  ? `${target.label} failed to reload. The technical fallback basemap is active: ${failureMessage}`
+                  : `${target.label}重新加载失败，已启用技术兜底底图：${failureMessage}`,
               );
               return false;
             }
           }
-          message.error(`${target.label}重新加载失败：${failureMessage}`);
+          message.error(
+            english
+              ? `${target.label} failed to reload: ${failureMessage}`
+              : `${target.label}重新加载失败：${failureMessage}`,
+          );
           return false;
         }
 
@@ -892,7 +931,9 @@ export default function MapCanvas({
         if (!mountedRef.current || mapRef.current !== map) return false;
         if (rollback.ok) {
           message.error(
-            `${target.label}加载失败，已恢复${previous.label}：${failureMessage}`,
+            english
+              ? `${target.label} failed to load. Restored ${previous.label}: ${failureMessage}`
+              : `${target.label}加载失败，已恢复${previous.label}：${failureMessage}`,
           );
           return false;
         }
@@ -907,13 +948,19 @@ export default function MapCanvas({
           if (!mountedRef.current || mapRef.current !== map) return false;
           if (fallbackResult.ok) {
             message.error(
-              `${target.label}与原底图均未能加载，已启用技术兜底底图`,
+              english
+                ? `${target.label} and the previous basemap both failed. The technical fallback basemap is active.`
+                : `${target.label}与原底图均未能加载，已启用技术兜底底图`,
             );
             return false;
           }
         }
 
-        message.error("底图切换及恢复均失败，请检查网络后重新检测");
+        message.error(
+          english
+            ? "Basemap switching and recovery both failed. Check the network and run the diagnostic again."
+            : "底图切换及恢复均失败，请检查网络后重新检测",
+        );
         return false;
       } finally {
         setSwitching(false);
@@ -976,14 +1023,18 @@ export default function MapCanvas({
             message.open({
               key: basemapRecoveryNotificationKey,
               type: "warning",
-              content: `${failedDefinition.label}${basemapRecoveryReasonText(reason)}，已自动切换到${recoveredDefinition.label}`,
+              content: english
+                ? `${failedDefinition.label}: ${basemapRecoveryReasonText(reason, true)}. Automatically switched to ${recoveredDefinition.label}.`
+                : `${failedDefinition.label}${basemapRecoveryReasonText(reason)}，已自动切换到${recoveredDefinition.label}`,
               duration: 5,
             });
           } else {
             message.open({
               key: basemapRecoveryNotificationKey,
               type: "error",
-              content: `${failedDefinition.label}${basemapRecoveryReasonText(reason)}，自动恢复底图失败，请稍后重新检测`,
+              content: english
+                ? `${failedDefinition.label}: ${basemapRecoveryReasonText(reason, true)}. Automatic recovery failed; run the diagnostic again later.`
+                : `${failedDefinition.label}${basemapRecoveryReasonText(reason)}，自动恢复底图失败，请稍后重新检测`,
               duration: 5,
             });
           }
@@ -1064,9 +1115,13 @@ export default function MapCanvas({
           disabled={Boolean(drawMode) || basemapSwitchDisabled}
           disabledReason={
             drawMode
-              ? "请先完成当前范围绘制"
+              ? english
+                ? "Finish drawing the current area first"
+                : "请先完成当前范围绘制"
               : basemapSwitchDisabled
-                ? "地图导出期间暂不能切换底图"
+                ? english
+                  ? "Basemaps cannot be switched during map export"
+                  : "地图导出期间暂不能切换底图"
                 : undefined
           }
           onSelect={(id) => void switchBasemap(id)}
@@ -1085,35 +1140,35 @@ export default function MapCanvas({
           ref={coordinatePanelRef}
           className="map-coordinate-panel"
           role="status"
-          aria-label="鼠标位置经纬度"
+          aria-label={english ? "Pointer coordinates" : "鼠标位置经纬度"}
         >
-          经纬度 --
+          {english ? "Coordinates --" : "经纬度 --"}
         </div>
-        <Tooltip title="复位到项目范围">
+        <Tooltip title={english ? "Reset to project extent" : "复位到项目范围"}>
           <Button
             icon={<HomeOutlined style={{ fontSize: 16 }} />}
             onClick={resetView}
           />
         </Tooltip>
-        <Tooltip title="放大">
+        <Tooltip title={english ? "Zoom in" : "放大"}>
           <Button
             icon={<ZoomInOutlined style={{ fontSize: 16 }} />}
             onClick={() => mapRef.current?.zoomIn()}
           />
         </Tooltip>
-        <Tooltip title="缩小">
+        <Tooltip title={english ? "Zoom out" : "缩小"}>
           <Button
             icon={<ZoomOutOutlined style={{ fontSize: 16 }} />}
             onClick={() => mapRef.current?.zoomOut()}
           />
         </Tooltip>
-        <Tooltip title="北向">
+        <Tooltip title={english ? "Reset north" : "北向"}>
           <Button
             icon={<RotateLeftOutlined style={{ fontSize: 16 }} />}
             onClick={() => mapRef.current?.resetNorthPitch()}
           />
         </Tooltip>
-        <Tooltip title="全屏">
+        <Tooltip title={english ? "Full screen" : "全屏"}>
           <Button
             icon={<FullscreenOutlined style={{ fontSize: 16 }} />}
             onClick={() => containerRef.current?.requestFullscreen()}
@@ -1124,18 +1179,35 @@ export default function MapCanvas({
   );
 }
 
-function basemapRecoveryReasonText(reason: BasemapRecoveryReason) {
-  if (reason === "rate-limit") return "请求受限";
-  if (reason === "service-error") return "凭证或服务配置异常";
-  return "持续加载失败";
+function basemapRecoveryReasonText(
+  reason: BasemapRecoveryReason,
+  english = false,
+) {
+  if (reason === "rate-limit")
+    return english ? "request rate limited" : "请求受限";
+  if (reason === "service-error")
+    return english
+      ? "credential or service configuration issue"
+      : "凭证或服务配置异常";
+  return english ? "persistent loading failure" : "持续加载失败";
 }
 
-function basemapRecoveryCooldownMessage(reason: BasemapRecoveryReason) {
-  if (reason === "rate-limit") return "天地图服务正在限流冷却，请稍后再试";
+function basemapRecoveryCooldownMessage(
+  reason: BasemapRecoveryReason,
+  english = false,
+) {
+  if (reason === "rate-limit")
+    return english
+      ? "Tianditu is in a rate-limit cooldown. Try again later."
+      : "天地图服务正在限流冷却，请稍后再试";
   if (reason === "service-error") {
-    return "天地图凭证或服务配置异常正在冷却，请稍后再试";
+    return english
+      ? "Tianditu credentials or service configuration are in cooldown. Try again later."
+      : "天地图凭证或服务配置异常正在冷却，请稍后再试";
   }
-  return "天地图服务异常正在冷却，请稍后再试";
+  return english
+    ? "The Tianditu service is in cooldown after an error. Try again later."
+    : "天地图服务异常正在冷却，请稍后再试";
 }
 
 function disableMapboxEventRequests() {

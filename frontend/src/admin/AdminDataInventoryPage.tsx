@@ -27,6 +27,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
+import { localText, useEnglishLanguage } from "../i18n/useEnglishLanguage";
 import type {
   AdminDataResource,
   AdminDataResourceFilters,
@@ -35,7 +36,11 @@ import type {
 } from "../types";
 import { downloadBlob } from "../utils/download";
 import DataSchemaOverview from "./DataSchemaOverview";
-import { fallbackTaxonomyTree, flattenTaxonomy } from "../utils/taxonomy";
+import {
+  fallbackTaxonomyTree,
+  flattenTaxonomy,
+  taxonomyTree,
+} from "../utils/taxonomy";
 import ManagedCollectionPage, {
   type AccessScopeId,
   type FilterField,
@@ -174,51 +179,87 @@ const inventoryEllipsisColumnKeys = new Set([
   "updatedAt",
 ]);
 
-const filterFields: FilterField[] = [
-  {
-    name: "categoryCode",
-    label: "权威业务分类",
-    kind: "select",
-    options: flattenTaxonomy(fallbackTaxonomyTree).map((node) => ({
-      value: node.categoryCode,
-      label: node.path.join(" / "),
-    })),
-  },
-  {
-    name: "classificationStatus",
-    label: "归类状态",
-    kind: "select",
-    options: [
-      { value: "classified", label: "已分类" },
-      { value: "pending", label: "待归类" },
-    ],
-  },
-  {
-    name: "dataType",
-    label: "数据类型",
-    kind: "select",
-    options: Object.entries(dataTypeLabels).map(([value, label]) => ({
-      value,
-      label,
-    })),
-  },
-  {
-    name: "status",
-    label: "状态",
-    kind: "select",
-    options: [
-      { value: "active", label: "启用" },
-      { value: "inactive", label: "禁用" },
-    ],
-  },
-  { name: "source", label: "数据来源", kind: "input" },
-  { name: "provider", label: "提供单位", kind: "input" },
-  { name: "dateFrom", label: "起始日期", kind: "date" },
-  { name: "dateTo", label: "截止日期", kind: "date" },
-];
-
 export default function AdminDataInventoryPage() {
   const { message } = AntApp.useApp();
+  const english = useEnglishLanguage();
+  const l = (zh: string, en: string) => localText(english, zh, en);
+  const dataTypeText = (value: AdminDataResource["dataType"]) =>
+    english
+      ? {
+          vector: "Vector",
+          raster: "Raster",
+          gene: "Gene",
+          table: "Table",
+          document: "Document",
+          image: "Image",
+        }[value]
+      : dataTypeLabels[value];
+  const localizedTaxonomy = taxonomyTree(undefined);
+  const taxonomyNameByCode = new Map(
+    flattenTaxonomy(localizedTaxonomy).map((node) => [
+      node.categoryCode,
+      node.name,
+    ]),
+  );
+  const groupDisplayName = (group: InventoryGroup) => {
+    if (!english || group.kind === "custom") return group.name;
+    if (group.kind === "all") return "All data";
+    if (group.kind === "unclassified") return "Unclassified (Other)";
+    const code = String(group.id).replace("__category__:", "");
+    return taxonomyNameByCode.get(code) ?? group.name;
+  };
+  const groupKindText = (kind: InventoryGroupKind) =>
+    english
+      ? {
+          all: "All",
+          "category-root": "Domain",
+          "category-leaf": "Category",
+          unclassified: "Unclassified",
+          custom: "Custom",
+        }[kind]
+      : inventoryGroupKindLabel(kind);
+  const localizedFilterFields: FilterField[] = [
+    {
+      name: "categoryCode",
+      label: l("权威业务分类", "Authoritative category"),
+      kind: "select",
+      options: flattenTaxonomy(localizedTaxonomy).map((node) => ({
+        value: node.categoryCode,
+        label: node.path.join(" / "),
+      })),
+    },
+    {
+      name: "classificationStatus",
+      label: l("归类状态", "Classification status"),
+      kind: "select",
+      options: [
+        { value: "classified", label: l("已分类", "Classified") },
+        { value: "pending", label: l("待归类", "Pending") },
+      ],
+    },
+    {
+      name: "dataType",
+      label: l("数据类型", "Data type"),
+      kind: "select",
+      options: Object.keys(dataTypeLabels).map((value) => ({
+        value,
+        label: dataTypeText(value as AdminDataResource["dataType"]),
+      })),
+    },
+    {
+      name: "status",
+      label: l("状态", "Status"),
+      kind: "select",
+      options: [
+        { value: "active", label: l("启用", "Enabled") },
+        { value: "inactive", label: l("禁用", "Disabled") },
+      ],
+    },
+    { name: "source", label: l("数据来源", "Data source"), kind: "input" },
+    { name: "provider", label: l("提供单位", "Provider"), kind: "input" },
+    { name: "dateFrom", label: l("起始日期", "Start date"), kind: "date" },
+    { name: "dateTo", label: l("截止日期", "End date"), kind: "date" },
+  ];
   const { user } = useAppContext();
   const [filters, setFilters] = useState<AdminDataResourceFilters>({
     current: 1,
@@ -281,7 +322,9 @@ export default function AdminDataInventoryPage() {
       } catch (error) {
         if (requestSequence === resourceRequestSequenceRef.current) {
           message.error(
-            error instanceof Error ? error.message : "存量数据加载失败",
+            error instanceof Error
+              ? error.message
+              : l("存量数据加载失败", "Failed to load inventory data"),
           );
         }
       } finally {
@@ -290,7 +333,7 @@ export default function AdminDataInventoryPage() {
         }
       }
     },
-    [message],
+    [english, message],
   );
 
   useEffect(() => {
@@ -310,7 +353,12 @@ export default function AdminDataInventoryPage() {
     try {
       if (!canChange) {
         if (!resource.canManageAccess) {
-          message.warning("当前用户不能修改该数据的可见范围");
+          message.warning(
+            l(
+              "当前用户不能修改该数据的可见范围",
+              "You cannot change this resource's visibility",
+            ),
+          );
           return;
         }
         const updated = await api.updateAdminDataResource(resource.id, {
@@ -320,7 +368,7 @@ export default function AdminDataInventoryPage() {
         if ("id" in updated) {
           replaceResource(updated);
           void loadResources(filters);
-          message.success("数据可见范围已保存");
+          message.success(l("数据可见范围已保存", "Data visibility saved"));
           return updated;
         }
         return;
@@ -328,14 +376,16 @@ export default function AdminDataInventoryPage() {
       const formValues = values as VisualizationFormValues;
       const symbolization = parseJsonObject(
         formValues.symbolizationJson,
-        "矢量符号",
+        l("矢量符号", "Vector symbolization"),
+        english,
       );
       if (resource.dataType === "vector") {
         symbolization.pointColor = formValues.pointColor;
       }
       const rasterRules = parseJsonObject(
         formValues.rasterRulesJson,
-        "栅格规则",
+        l("栅格规则", "Raster rules"),
+        english,
       );
       const updated = await api.updateAdminDataResource(resource.id, {
         action: "update",
@@ -353,7 +403,12 @@ export default function AdminDataInventoryPage() {
       if ("id" in updated) {
         replaceResource(updated);
         void loadResources(filters);
-        message.success("数据名称、权限与默认可视化方案已保存");
+        message.success(
+          l(
+            "数据名称、权限与默认可视化方案已保存",
+            "Data name, permissions, and default visualization saved",
+          ),
+        );
         return updated;
       }
     } catch (error) {
@@ -363,7 +418,9 @@ export default function AdminDataInventoryPage() {
 
   async function toggleStatus(resource: AdminDataResource, checked: boolean) {
     if (!canChange) {
-      message.warning("当前用户无数据编辑权限");
+      message.warning(
+        l("当前用户无数据编辑权限", "You do not have data-edit permission"),
+      );
       return;
     }
     const nextStatus = checked ? "active" : "inactive";
@@ -376,15 +433,26 @@ export default function AdminDataInventoryPage() {
         replaceResource(updated);
       }
       void loadResources(filters);
-      message.success(`已${checked ? "启用" : "禁用"} ${resource.name}`);
+      message.success(
+        l(
+          `已${checked ? "启用" : "禁用"} ${resource.name}`,
+          `${resource.name} ${checked ? "enabled" : "disabled"}`,
+        ),
+      );
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "状态更新失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("状态更新失败", "Status update failed"),
+      );
     }
   }
 
   async function exportInventory(format: string) {
     if (!canExport) {
-      message.warning("当前用户无数据导出权限");
+      message.warning(
+        l("当前用户无数据导出权限", "You do not have data-export permission"),
+      );
       return;
     }
     try {
@@ -394,9 +462,16 @@ export default function AdminDataInventoryPage() {
         format: exportFormat,
       });
       downloadBlob(blob, filename);
-      message.success(`已导出 ${exportFormat.toUpperCase()} 清单`);
+      message.success(
+        l(
+          `已导出 ${exportFormat.toUpperCase()} 清单`,
+          `${exportFormat.toUpperCase()} inventory exported`,
+        ),
+      );
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "导出失败");
+      message.error(
+        error instanceof Error ? error.message : l("导出失败", "Export failed"),
+      );
     }
   }
 
@@ -405,7 +480,9 @@ export default function AdminDataInventoryPage() {
     confirmationName: string,
   ) {
     if (!canDelete) {
-      message.warning("当前用户无删除权限");
+      message.warning(
+        l("当前用户无删除权限", "You do not have delete permission"),
+      );
       return;
     }
     try {
@@ -419,9 +496,11 @@ export default function AdminDataInventoryPage() {
         total: Math.max(current.total - 1, 0),
       }));
       void loadResources(filters);
-      message.success("数据资源已删除");
+      message.success(l("数据资源已删除", "Data resource deleted"));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "删除失败");
+      message.error(
+        error instanceof Error ? error.message : l("删除失败", "Delete failed"),
+      );
     }
   }
 
@@ -447,11 +526,11 @@ export default function AdminDataInventoryPage() {
   async function saveGroupModal() {
     const trimmedName = groupName.trim();
     if (!trimmedName) {
-      message.warning("请输入组别名称");
+      message.warning(l("请输入组别名称", "Enter a group name"));
       return;
     }
     if (inventoryGroups.some((group) => group.name === trimmedName)) {
-      message.warning("组别名称已存在");
+      message.warning(l("组别名称已存在", "That group name already exists"));
       return;
     }
     setSavingGroup(true);
@@ -464,11 +543,17 @@ export default function AdminDataInventoryPage() {
         inventoryGroups: [...(current.inventoryGroups ?? []), created],
       }));
       void loadResources(filters);
-      message.success(`已新增组别：${trimmedName}`);
+      message.success(
+        l(`已新增组别：${trimmedName}`, `Group created: ${trimmedName}`),
+      );
       setGroupName("");
       setGroupModal(null);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "组别保存失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("组别保存失败", "Failed to save group"),
+      );
     } finally {
       setSavingGroup(false);
     }
@@ -480,7 +565,7 @@ export default function AdminDataInventoryPage() {
     }
     const trimmedName = editingGroupName.trim();
     if (!trimmedName) {
-      message.warning("请输入组别名称");
+      message.warning(l("请输入组别名称", "Enter a group name"));
       setEditingGroupName(group.name);
       setEditingGroupId(null);
       return;
@@ -495,7 +580,7 @@ export default function AdminDataInventoryPage() {
           currentGroup.id !== group.id && currentGroup.name === trimmedName,
       )
     ) {
-      message.warning("组别名称已存在");
+      message.warning(l("组别名称已存在", "That group name already exists"));
       return;
     }
     setSavingGroupId(group.id);
@@ -507,11 +592,15 @@ export default function AdminDataInventoryPage() {
       if ("id" in updated) {
         replaceInventoryGroup(updated);
         void loadResources(filters);
-        message.success("组别名称已更新");
+        message.success(l("组别名称已更新", "Group name updated"));
       }
       setEditingGroupId(null);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "组别保存失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("组别保存失败", "Failed to save group"),
+      );
     } finally {
       setSavingGroupId(null);
     }
@@ -522,7 +611,12 @@ export default function AdminDataInventoryPage() {
       (resource) => canChange && resource.status !== groupStatus(checked),
     );
     if (manageableResources.length === 0) {
-      message.warning("当前组别没有需要同步状态的数据");
+      message.warning(
+        l(
+          "当前组别没有需要同步状态的数据",
+          "This group has no data whose status needs updating",
+        ),
+      );
       return;
     }
     setUpdatingGroupId(group.id);
@@ -539,7 +633,12 @@ export default function AdminDataInventoryPage() {
       }
       replaceResources(updatedResources);
       void loadResources(filters);
-      message.success(`已${checked ? "启用" : "禁用"} ${group.name} 组内数据`);
+      message.success(
+        l(
+          `已${checked ? "启用" : "禁用"} ${group.name} 组内数据`,
+          `${group.name} group data ${checked ? "enabled" : "disabled"}`,
+        ),
+      );
     } catch (error) {
       message.error(
         error instanceof Error ? error.message : "组别状态同步失败",
@@ -555,7 +654,9 @@ export default function AdminDataInventoryPage() {
     group: InventoryGroup,
   ) {
     if (!canChange) {
-      message.warning("当前用户无数据编辑权限");
+      message.warning(
+        l("当前用户无数据编辑权限", "You do not have data-edit permission"),
+      );
       return;
     }
     const resource = data.items.find((item) => item.id === resourceId);
@@ -579,7 +680,7 @@ export default function AdminDataInventoryPage() {
         replaceResource(updated);
       }
       void loadResources(filters);
-      message.success(`已移动到${group.name}`);
+      message.success(l(`已移动到${group.name}`, `Moved to ${group.name}`));
     } catch (error) {
       message.error(
         error instanceof Error ? error.message : "数据组别更新失败",
@@ -610,9 +711,18 @@ export default function AdminDataInventoryPage() {
         ),
       }));
       void loadResources(filters);
-      message.success(`已删除组别：${group.name}，数据仍保留在权威业务分类中`);
+      message.success(
+        l(
+          `已删除组别：${group.name}，数据仍保留在权威业务分类中`,
+          `Group deleted: ${group.name}. The data remains in its authoritative category.`,
+        ),
+      );
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "删除组别失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("删除组别失败", "Failed to delete group"),
+      );
     } finally {
       setUpdatingGroupId(null);
     }
@@ -640,7 +750,7 @@ export default function AdminDataInventoryPage() {
 
   const columns: ColumnsType<AdminDataResource> = [
     {
-      title: "数据资源",
+      title: l("数据资源", "Data resource"),
       dataIndex: "name",
       key: "name",
       width: inventoryResourceNameColumnWidth,
@@ -656,45 +766,45 @@ export default function AdminDataInventoryPage() {
       ),
     },
     {
-      title: "业务分类",
+      title: l("业务分类", "Business category"),
       key: "category",
       width: 220,
       render: (_, record) => (
         <Space orientation="vertical" size={0}>
           <Typography.Text>
             {record.categoryPath.map((item) => item.name).join(" / ") ||
-              "待归类"}
+              l("待归类", "Pending classification")}
           </Typography.Text>
           {record.classificationStatus === "pending" && (
-            <Tag color="orange">待归类</Tag>
+            <Tag color="orange">{l("待归类", "Pending")}</Tag>
           )}
         </Space>
       ),
     },
     {
-      title: "类型",
+      title: l("类型", "Type"),
       dataIndex: "dataType",
       key: "dataType",
       width: 92,
       render: (value: AdminDataResource["dataType"]) => (
-        <Tag>{dataTypeLabels[value]}</Tag>
+        <Tag>{dataTypeText(value)}</Tag>
       ),
     },
     {
-      title: "数据规模",
+      title: l("数据规模", "Data size"),
       key: "dataSize",
       width: 150,
       render: (_, record) => (
         <Space orientation="vertical" size={0}>
           <span>{formatBytes(record.sizeBytes ?? 0)}</span>
           <Typography.Text type="secondary" className="admin-table-subtext">
-            {record.itemCount ?? 0} 条
+            {l(`${record.itemCount ?? 0} 条`, `${record.itemCount ?? 0} items`)}
           </Typography.Text>
         </Space>
       ),
     },
     {
-      title: "状态",
+      title: l("状态", "Status"),
       dataIndex: "status",
       key: "status",
       width: 112,
@@ -702,15 +812,15 @@ export default function AdminDataInventoryPage() {
         <Switch
           size="small"
           checked={record.status === "active"}
-          checkedChildren="启用"
-          unCheckedChildren="禁用"
+          checkedChildren={l("启用", "On")}
+          unCheckedChildren={l("禁用", "Off")}
           disabled={!canChange}
           onChange={(checked) => toggleStatus(record, checked)}
         />
       ),
     },
     {
-      title: "来源/单位",
+      title: l("来源/单位", "Source / provider"),
       key: "source",
       width: 190,
       render: (_, record) => (
@@ -719,21 +829,26 @@ export default function AdminDataInventoryPage() {
           size={0}
           className="inventory-table-stack-cell"
         >
-          <Typography.Text ellipsis={{ tooltip: record.source || "未记录" }}>
-            {record.source || "未记录"}
+          <Typography.Text
+            ellipsis={{ tooltip: record.source || l("未记录", "Not recorded") }}
+          >
+            {record.source || l("未记录", "Not recorded")}
           </Typography.Text>
           <Typography.Text
             type="secondary"
             className="admin-table-subtext"
-            ellipsis={{ tooltip: record.provider || "未记录提供单位" }}
+            ellipsis={{
+              tooltip:
+                record.provider || l("未记录提供单位", "Provider not recorded"),
+            }}
           >
-            {record.provider || "未记录提供单位"}
+            {record.provider || l("未记录提供单位", "Provider not recorded")}
           </Typography.Text>
         </Space>
       ),
     },
     {
-      title: "上传用户",
+      title: l("上传用户", "Uploader"),
       key: "uploader",
       width: 150,
       render: (_, record) => (
@@ -758,7 +873,7 @@ export default function AdminDataInventoryPage() {
       ),
     },
     {
-      title: "数据日期",
+      title: l("数据日期", "Data date"),
       dataIndex: "dataDate",
       key: "dataDate",
       width: 120,
@@ -774,7 +889,7 @@ export default function AdminDataInventoryPage() {
     const nestedTableColumns = prepareNestedTableColumns(tableColumns);
     const groupColumns: ColumnsType<InventoryGroup> = [
       {
-        title: "组名",
+        title: l("组名", "Group name"),
         dataIndex: "name",
         key: "name",
         width: inventoryGroupNameColumnWidth,
@@ -785,7 +900,10 @@ export default function AdminDataInventoryPage() {
               <Input
                 autoFocus
                 size="small"
-                aria-label={`编辑组别名称${group.name}`}
+                aria-label={l(
+                  `编辑组别名称${group.name}`,
+                  `Edit group name ${group.name}`,
+                )}
                 className="inventory-group-name-input"
                 value={editingGroupName}
                 disabled={savingGroupId === group.id}
@@ -797,15 +915,21 @@ export default function AdminDataInventoryPage() {
               />
             ) : (
               <>
-                <Typography.Text strong ellipsis={{ tooltip: group.name }}>
-                  {group.name}
+                <Typography.Text
+                  strong
+                  ellipsis={{ tooltip: groupDisplayName(group) }}
+                >
+                  {groupDisplayName(group)}
                 </Typography.Text>
                 {group.kind === "custom" && (
-                  <Tooltip title="编辑组名">
+                  <Tooltip title={l("编辑组名", "Edit group name")}>
                     <Button
                       type="text"
                       size="small"
-                      aria-label={`编辑组别${group.name}`}
+                      aria-label={l(
+                        `编辑组别${group.name}`,
+                        `Edit group ${group.name}`,
+                      )}
                       className="inventory-group-edit-button"
                       icon={<EditOutlined />}
                       onClick={() => startInlineEditGroup(group)}
@@ -813,7 +937,7 @@ export default function AdminDataInventoryPage() {
                   </Tooltip>
                 )}
                 <Tag color={inventoryGroupKindColor(group.kind)}>
-                  {inventoryGroupKindLabel(group.kind)}
+                  {groupKindText(group.kind)}
                 </Tag>
               </>
             )}
@@ -821,37 +945,48 @@ export default function AdminDataInventoryPage() {
         ),
       },
       {
-        title: "操作",
+        title: l("操作", "Actions"),
         key: "groupActions",
         width: inventoryActionColumnWidth,
         render: (_, group) =>
           group.kind !== "custom" ? (
-            <Tooltip title="系统分组不可删除">
+            <Tooltip
+              title={l("系统分组不可删除", "System groups cannot be deleted")}
+            >
               <Button
                 icon={<DeleteOutlined />}
                 disabled
-                aria-label={`删除系统分组${group.name}`}
+                aria-label={l(
+                  `删除系统分组${group.name}`,
+                  `Delete system group ${group.name}`,
+                )}
               />
             </Tooltip>
           ) : (
             <Popconfirm
-              title="删除组别"
-              description="删除后仅移除自定义归档关系，数据仍保留在对应的权威业务分类中。"
-              okText="删除"
-              cancelText="取消"
+              title={l("删除组别", "Delete group")}
+              description={l(
+                "删除后仅移除自定义归档关系，数据仍保留在对应的权威业务分类中。",
+                "Deleting removes only the custom grouping. The data remains in its authoritative category.",
+              )}
+              okText={l("删除", "Delete")}
+              cancelText={l("取消", "Cancel")}
               onConfirm={() => deleteInventoryGroup(group)}
             >
               <Button
                 danger
                 icon={<DeleteOutlined />}
                 loading={updatingGroupId === group.id}
-                aria-label={`删除组别${group.name}`}
+                aria-label={l(
+                  `删除组别${group.name}`,
+                  `Delete group ${group.name}`,
+                )}
               />
             </Popconfirm>
           ),
       },
       {
-        title: "总数据规模",
+        title: l("总数据规模", "Total data size"),
         key: "groupSize",
         width: 180,
         render: (_, group) => (
@@ -861,16 +996,22 @@ export default function AdminDataInventoryPage() {
               type="secondary"
               className="admin-table-subtext"
               ellipsis={{
-                tooltip: `${group.itemCount} 条，${group.resourceCount} 项数据`,
+                tooltip: l(
+                  `${group.itemCount} 条，${group.resourceCount} 项数据`,
+                  `${group.itemCount} items in ${group.resourceCount} resources`,
+                ),
               }}
             >
-              {group.itemCount} 条，{group.resourceCount} 项数据
+              {l(
+                `${group.itemCount} 条，${group.resourceCount} 项数据`,
+                `${group.itemCount} items in ${group.resourceCount} resources`,
+              )}
             </Typography.Text>
           </Space>
         ),
       },
       {
-        title: "当前页状态",
+        title: l("当前页状态", "Current-page status"),
         key: "groupAccess",
         width: 150,
         render: (_, group) => {
@@ -881,7 +1022,10 @@ export default function AdminDataInventoryPage() {
           return (
             <Checkbox
               className="inventory-group-status-checkbox"
-              aria-label={`${group.name}组别状态`}
+              aria-label={l(
+                `${group.name}组别状态`,
+                `${group.name} group status`,
+              )}
               checked={group.enabled}
               indeterminate={group.partiallyEnabled}
               disabled={disabled || updatingGroupId === group.id}
@@ -890,10 +1034,10 @@ export default function AdminDataInventoryPage() {
               }
             >
               {group.partiallyEnabled
-                ? "部分启用"
+                ? l("部分启用", "Partly enabled")
                 : group.enabled
-                  ? "启用"
-                  : "禁用"}
+                  ? l("启用", "Enabled")
+                  : l("禁用", "Disabled")}
             </Checkbox>
           );
         },
@@ -917,8 +1061,14 @@ export default function AdminDataInventoryPage() {
         <div className="inventory-group-page-note">
           <Typography.Text type="secondary">
             {group.resources.length === group.resourceCount
-              ? `本页已显示该组全部 ${group.resourceCount} 项数据`
-              : `当前页显示 ${group.resources.length} 项，该组共 ${group.resourceCount} 项；可使用上方分页查看其余数据`}
+              ? l(
+                  `本页已显示该组全部 ${group.resourceCount} 项数据`,
+                  `All ${group.resourceCount} resources in this group are shown on this page`,
+                )
+              : l(
+                  `当前页显示 ${group.resources.length} 项，该组共 ${group.resourceCount} 项；可使用上方分页查看其余数据`,
+                  `${group.resources.length} of ${group.resourceCount} resources are shown; use pagination above to view the rest`,
+                )}
           </Typography.Text>
         </div>
         <Table<AdminDataResource>
@@ -978,16 +1128,18 @@ export default function AdminDataInventoryPage() {
             total={pagination.total}
             showSizeChanger={pagination.showSizeChanger}
             onChange={pagination.onChange}
-            showTotal={(nextTotal) => `共 ${nextTotal} 项数据`}
+            showTotal={(nextTotal) =>
+              l(`共 ${nextTotal} 项数据`, `${nextTotal} resources`)
+            }
           />
           <Button
             icon={<PlusOutlined />}
-            aria-label="新增组别"
+            aria-label={l("新增组别", "Add group")}
             className="inventory-add-group-button"
             disabled={!canChange}
             onClick={openCreateGroupModal}
           >
-            新增组别
+            {l("新增组别", "Add group")}
           </Button>
         </div>
         <Table<InventoryGroup>
@@ -1040,85 +1192,132 @@ export default function AdminDataInventoryPage() {
         accessGroups={data.availableAccessGroups}
         loading={loading}
         filters={filters}
-        filterFields={filterFields}
+        filterFields={localizedFilterFields}
         columns={columns}
         stats={[
-          { title: "筛选结果总数", value: data.summary.total },
           {
-            title: "启用数据",
+            title: l("筛选结果总数", "Filtered total"),
+            value: data.summary.total,
+          },
+          {
+            title: l("启用数据", "Enabled data"),
             value: data.summary.activeCount,
             prefix: <EyeOutlined />,
           },
           {
-            title: "禁用数据",
+            title: l("禁用数据", "Disabled data"),
             value: data.summary.inactiveCount,
             prefix: <StopOutlined />,
           },
-          { title: "受限访问", value: data.summary.restrictedCount },
+          {
+            title: l("受限访问", "Restricted access"),
+            value: data.summary.restrictedCount,
+          },
         ]}
         rowName={(item) => item.name}
-        drawerTitle={canChange ? "存量数据配置" : "数据可见范围"}
-        deleteTitle="删除存量数据"
-        deleteDescription="删除会移除数据资源登记和关联图层；用户导入的表或矢量图层会同步清理。请输入数据名称确认。"
-        ownerScopeLabel="上传者本人可见"
+        drawerTitle={
+          canChange
+            ? l("存量数据配置", "Inventory data configuration")
+            : l("数据可见范围", "Data visibility")
+        }
+        deleteTitle={l("删除存量数据", "Delete inventory data")}
+        deleteDescription={l(
+          "删除会移除数据资源登记和关联图层；用户导入的表或矢量图层会同步清理。请输入数据名称确认。",
+          "Deleting removes the data-resource record and linked layers; user-imported tables or vector layers are cleaned up as well. Enter the data name to confirm.",
+        )}
+        ownerScopeLabel={l("上传者本人可见", "Visible to the uploader")}
         canMaintain={canChange}
         canDelete={canDelete}
         canExport={canExport}
         exportFormats={["csv", "xlsx"]}
         renderTable={renderGroupedTable}
         detailItems={(resource) => [
-          { label: "数据名称", value: resource.name },
+          { label: l("数据名称", "Data name"), value: resource.name },
           {
-            label: "权威业务分类",
+            label: l("权威业务分类", "Authoritative category"),
             value:
               resource.categoryPath.map((item) => item.name).join(" / ") ||
-              "待归类",
+              l("待归类", "Pending classification"),
           },
-          { label: "类型", value: dataTypeLabels[resource.dataType] },
+          { label: l("类型", "Type"), value: dataTypeText(resource.dataType) },
           {
-            label: "状态",
+            label: l("状态", "Status"),
             value: (
               <Tag color={statusLabels[resource.status].color}>
-                {statusLabels[resource.status].text}
+                {english
+                  ? resource.status === "active"
+                    ? "Enabled"
+                    : "Disabled"
+                  : statusLabels[resource.status].text}
               </Tag>
             ),
           },
           {
-            label: "上传用户",
+            label: l("上传用户", "Uploader"),
             value: uploaderDisplayName(resource),
           },
-          { label: "数据大小", value: formatBytes(resource.sizeBytes ?? 0) },
-          { label: "数据条目数", value: resource.itemCount ?? 0 },
+          {
+            label: l("数据大小", "Data size"),
+            value: formatBytes(resource.sizeBytes ?? 0),
+          },
+          {
+            label: l("数据条目数", "Data item count"),
+            value: resource.itemCount ?? 0,
+          },
         ]}
         formInitialValues={(resource) => initialVisualizationValues(resource)}
         renderFormItems={(resource, maintainable) => (
           <>
-            <Typography.Title level={5}>基本信息</Typography.Title>
+            <Typography.Title level={5}>
+              {l("基本信息", "Basic information")}
+            </Typography.Title>
             <Form.Item
               name="resourceName"
-              label="数据资源名称"
+              label={l("数据资源名称", "Data resource name")}
               rules={[
                 {
                   required: true,
                   whitespace: true,
-                  message: "请输入数据资源名称",
+                  message: l(
+                    "请输入数据资源名称",
+                    "Enter a data resource name",
+                  ),
                 },
-                { max: 160, message: "数据资源名称不能超过 160 个字符" },
+                {
+                  max: 160,
+                  message: l(
+                    "数据资源名称不能超过 160 个字符",
+                    "Data resource name must not exceed 160 characters",
+                  ),
+                },
               ]}
             >
               <Input disabled={!maintainable} />
             </Form.Item>
-            <Typography.Title level={5}>权威业务分类</Typography.Title>
+            <Typography.Title level={5}>
+              {l("权威业务分类", "Authoritative category")}
+            </Typography.Title>
             <Form.Item
               name="categoryCode"
-              label="四大类叶节点"
-              rules={[{ required: true, message: "请选择权威业务分类" }]}
+              label={l(
+                "四大类叶节点",
+                "Leaf category under one of the four domains",
+              )}
+              rules={[
+                {
+                  required: true,
+                  message: l(
+                    "请选择权威业务分类",
+                    "Select an authoritative category",
+                  ),
+                },
+              ]}
             >
               <Select
                 showSearch
                 optionFilterProp="label"
                 disabled={!maintainable}
-                options={flattenTaxonomy(fallbackTaxonomyTree)
+                options={flattenTaxonomy(localizedTaxonomy)
                   .filter((node) => node.selectable)
                   .map((node) => ({
                     value: node.categoryCode,
@@ -1126,38 +1325,57 @@ export default function AdminDataInventoryPage() {
                   }))}
               />
             </Form.Item>
-            <Typography.Title level={5}>默认可视化方案</Typography.Title>
+            <Typography.Title level={5}>
+              {l("默认可视化方案", "Default visualization")}
+            </Typography.Title>
             <Form.Item
               name="layerName"
-              label="默认图层名称"
-              rules={[{ required: true, message: "请输入默认图层名称" }]}
+              label={l("默认图层名称", "Default layer name")}
+              rules={[
+                {
+                  required: true,
+                  message: l(
+                    "请输入默认图层名称",
+                    "Enter a default layer name",
+                  ),
+                },
+              ]}
             >
               <Input disabled={!maintainable} />
             </Form.Item>
             <Form.Item
               name="defaultVisible"
-              label="默认显示"
+              label={l("默认显示", "Visible by default")}
               valuePropName="checked"
             >
               <Switch
-                checkedChildren="显示"
-                unCheckedChildren="隐藏"
+                checkedChildren={l("显示", "Show")}
+                unCheckedChildren={l("隐藏", "Hide")}
                 disabled={!maintainable}
               />
             </Form.Item>
             {resource.dataType === "vector" && (
-              <Form.Item name="pointColor" label="点位/主色">
+              <Form.Item
+                name="pointColor"
+                label={l("点位/主色", "Point / primary color")}
+              >
                 <Input type="color" disabled={!maintainable} />
               </Form.Item>
             )}
-            <Form.Item name="symbolizationJson" label="矢量符号 JSON">
+            <Form.Item
+              name="symbolizationJson"
+              label={l("矢量符号 JSON", "Vector symbolization JSON")}
+            >
               <Input.TextArea
                 rows={6}
                 spellCheck={false}
                 disabled={!maintainable}
               />
             </Form.Item>
-            <Form.Item name="rasterRulesJson" label="栅格规则 JSON">
+            <Form.Item
+              name="rasterRulesJson"
+              label={l("栅格规则 JSON", "Raster rules JSON")}
+            >
               <Input.TextArea
                 rows={6}
                 spellCheck={false}
@@ -1181,11 +1399,11 @@ export default function AdminDataInventoryPage() {
         onExport={exportInventory}
       />
       <Modal
-        title="新增组别"
+        title={l("新增组别", "Add group")}
         open={Boolean(groupModal)}
-        okText="新建"
-        okButtonProps={{ "aria-label": "新建" }}
-        cancelText="取消"
+        okText={l("新建", "Create")}
+        okButtonProps={{ "aria-label": l("新建", "Create") }}
+        cancelText={l("取消", "Cancel")}
         confirmLoading={savingGroup}
         onOk={saveGroupModal}
         onCancel={() => setGroupModal(null)}
@@ -1194,7 +1412,7 @@ export default function AdminDataInventoryPage() {
           autoFocus
           allowClear
           value={groupName}
-          placeholder="输入组别名称"
+          placeholder={l("输入组别名称", "Enter a group name")}
           onChange={(event) => setGroupName(event.target.value)}
           onPressEnter={saveGroupModal}
         />
@@ -1461,7 +1679,11 @@ function currentDefaultOpacity(resource: AdminDataResource) {
   );
 }
 
-function parseJsonObject(value: string | undefined, label: string) {
+function parseJsonObject(
+  value: string | undefined,
+  label: string,
+  english: boolean,
+) {
   if (!value?.trim()) {
     return {};
   }
@@ -1472,14 +1694,20 @@ function parseJsonObject(value: string | undefined, label: string) {
       parsed === null ||
       Array.isArray(parsed)
     ) {
-      throw new Error(`${label}必须是 JSON 对象`);
+      throw new Error(
+        english ? `${label} must be a JSON object` : `${label}必须是 JSON 对象`,
+      );
     }
     return parsed as Record<string, unknown>;
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`${label}格式错误：${error.message}`);
+      throw new Error(
+        english
+          ? `${label} is invalid: ${error.message}`
+          : `${label}格式错误：${error.message}`,
+      );
     }
-    throw new Error(`${label}格式错误`);
+    throw new Error(english ? `${label} is invalid` : `${label}格式错误`);
   }
 }
 

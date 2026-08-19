@@ -5,6 +5,7 @@ import {
 } from "@ant-design/icons";
 import { Space, Switch, Tag, Tooltip, Typography } from "antd";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import type { AdminPermissionItem } from "../types";
 
 interface PermissionGroup {
@@ -55,6 +56,7 @@ function groupPermissions(
 }
 
 export function PermissionPanel(props: PermissionPanelProps) {
+  const english = useEnglish();
   const permGroups = useMemo(
     () => groupPermissions(props.availablePermissions),
     [props.availablePermissions],
@@ -62,7 +64,9 @@ export function PermissionPanel(props: PermissionPanelProps) {
 
   if (permGroups.length === 0) {
     return (
-      <Typography.Text type="secondary">暂无可配置的权限项</Typography.Text>
+      <Typography.Text type="secondary">
+        {english ? "No configurable permissions" : "暂无可配置的权限项"}
+      </Typography.Text>
     );
   }
 
@@ -212,6 +216,7 @@ function GroupPermissionRow({
 } & GroupModeProps) {
   const isSelected = selected.includes(permission.id);
   const isLocked = (lockedPermissions ?? []).includes(permission.id);
+  const english = useEnglish();
 
   const handleChange = (checked: boolean) => {
     if (isLocked) return;
@@ -236,9 +241,15 @@ function GroupPermissionRow({
       </div>
       <div className="perm-row-actions">
         {isLocked && (
-          <Tooltip title="系统锁定权限，不可修改">
+          <Tooltip
+            title={
+              english
+                ? "System-locked permission; cannot be changed"
+                : "系统锁定权限，不可修改"
+            }
+          >
             <Tag icon={<LockOutlined />} color="default">
-              锁定
+              {english ? "Locked" : "锁定"}
             </Tag>
           </Tooltip>
         )}
@@ -267,6 +278,7 @@ function UserPermissionRow({
   const isDisabled = disabledPermissions.includes(permission.id);
   const isGranted = isDirect || isFromGroup;
   const isEnabled = isGranted && !isDisabled;
+  const english = useEnglish();
 
   const handleChange = (checked: boolean) => {
     const nextDirect = new Set(directPermissions);
@@ -302,18 +314,20 @@ function UserPermissionRow({
       <div className="perm-row-actions">
         {isFromGroup && (
           <Tag icon={<CheckCircleFilled />} color="blue">
-            角色继承
+            {english ? "Inherited from role" : "角色继承"}
           </Tag>
         )}
         {isDirect && !isFromGroup && !isDisabled && (
           <Tag icon={<CheckCircleFilled />} color="green">
-            单独授予
+            {english ? "Direct grant" : "单独授予"}
           </Tag>
         )}
-        {isGranted && isDisabled && <Tag color="orange">单独关闭</Tag>}
+        {isGranted && isDisabled && (
+          <Tag color="orange">{english ? "Directly disabled" : "单独关闭"}</Tag>
+        )}
         {!isGranted && (
           <Tag icon={<MinusCircleOutlined />} color="default">
-            未授予
+            {english ? "Not granted" : "未授予"}
           </Tag>
         )}
         <Switch size="small" checked={isEnabled} onChange={handleChange} />
@@ -333,6 +347,7 @@ function ProfilePermissionRow({
   const granted = grantedPermissions.includes(permission.id);
   const disabled = disabledPermissions.includes(permission.id);
   const enabled = granted && !disabled;
+  const english = useEnglish();
 
   return (
     <div
@@ -349,15 +364,17 @@ function ProfilePermissionRow({
       <div className="perm-row-actions">
         {!granted && (
           <Tag icon={<MinusCircleOutlined />} color="default">
-            未授予
+            {english ? "Not granted" : "未授予"}
           </Tag>
         )}
         {granted && enabled && (
           <Tag icon={<CheckCircleFilled />} color="green">
-            已开启
+            {english ? "Enabled" : "已开启"}
           </Tag>
         )}
-        {granted && !enabled && <Tag color="orange">已关闭</Tag>}
+        {granted && !enabled && (
+          <Tag color="orange">{english ? "Disabled" : "已关闭"}</Tag>
+        )}
         <Switch
           size="small"
           checked={enabled}
@@ -367,4 +384,9 @@ function ProfilePermissionRow({
       </div>
     </div>
   );
+}
+
+function useEnglish() {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
 }

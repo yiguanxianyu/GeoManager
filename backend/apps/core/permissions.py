@@ -7,6 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.auth.models import Permission
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import JsonResponse
+from apps.core.localization import is_english
 from django.db.models import Q
 
 
@@ -21,6 +22,76 @@ class FeaturePermissionDef:
     @property
     def perm_name(self) -> str:
         return f"{self.app_label}.{self.codename}"
+
+    @property
+    def localized_name(self) -> str:
+        return _english_permission_name(self.codename) if is_english() else self.name
+
+    @property
+    def localized_group(self) -> str:
+        if not is_english():
+            return self.group
+        return {
+            "人员权限": "People and roles",
+            "后台权限": "Administration",
+            "日志权限": "Logs",
+            "概览权限": "Dashboard",
+            "数据权限": "Data",
+            "成果权限": "Results",
+        }.get(self.group, self.group)
+
+
+_CUSTOM_PERMISSION_ENGLISH = {
+    "manage_feature_permissions": "Configure feature permissions",
+    "create_user": "Create users",
+    "view_operation_logs": "View operation logs",
+    "view_system_logs": "View system logs",
+    "view_all_operation_logs": "View all users' logs",
+    "view_own_operation_logs": "View own logs",
+    "view_group_operation_logs": "View logs for specified roles",
+    "manage_system_settings": "Change system settings",
+    "manage_data_backup": "Manage data backups",
+    "manage_auth": "Change authentication and authorization",
+    "view_dashboard_resource_card": "View dashboard data-resource card",
+    "view_dashboard_layer_card": "View dashboard layer-count card",
+    "view_dashboard_raster_card": "View dashboard raster-count card",
+    "view_dashboard_user_card": "View dashboard user-count card",
+    "view_dashboard_active_users_card": "View dashboard active-user card",
+    "view_dashboard_system_card": "View dashboard system information",
+    "view_data_overview": "View overall data statistics",
+    "browse_data": "Browse data",
+    "query_data": "Query data",
+    "load_vector_layer": "Load vector layers",
+    "load_raster_layer": "Load raster layers",
+    "custom_symbolization": "Customize symbolization",
+    "ai_interpretation": "Use AI interpretation",
+}
+
+
+def _english_permission_name(codename: str) -> str:
+    custom = _CUSTOM_PERMISSION_ENGLISH.get(codename)
+    if custom:
+        return custom
+    action, _, object_name = codename.partition("_")
+    action_text = {
+        "add": "Create",
+        "view": "View",
+        "change": "Edit",
+        "delete": "Delete",
+        "export": "Export",
+        "publish": "Publish or unpublish",
+        "restore": "Restore",
+        "download": "Download",
+    }.get(action, action.replace("_", " ").capitalize())
+    object_text = {
+        "dataresource": "data resources",
+        "workspacescene": "workspace projects",
+        "mapcomposition": "thematic-map drafts",
+        "resultartifact": "result files",
+    }.get(object_name, object_name.replace("_", " "))
+    if codename == "restore_mapcomposition":
+        return "Restore thematic map as a project"
+    return f"{action_text} {object_text}".strip()
 
 
 FEATURE_PERMISSIONS: tuple[FeaturePermissionDef, ...] = (
@@ -393,11 +464,18 @@ def group_names(user) -> str:
         if user.is_authenticated
         else []
     )
-    return "、".join(names) if names else "未分配角色"
+    if names:
+        return (", " if is_english() else "、").join(names)
+    return "No assigned role" if is_english() else "未分配角色"
 
 
 def permission_denied_message(user) -> str:
-    return f"当前角色“{group_names(user)}”无权限"
+    roles = group_names(user)
+    return (
+        f'The current role "{roles}" does not have permission'
+        if is_english()
+        else f"当前角色“{roles}”无权限"
+    )
 
 
 def feature_denied_response(user) -> JsonResponse:

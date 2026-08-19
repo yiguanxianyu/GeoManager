@@ -3,6 +3,7 @@ import { App as AntApp, ConfigProvider } from "antd";
 import zhCN from "antd/locale/zh_CN";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AppContext } from "../contexts/AppContext";
+import { localeStorageKey, setLocale } from "../i18n";
 import { appTheme } from "../theme";
 import type { Bootstrap } from "../types";
 import LoginPage from "./LoginPage";
@@ -55,9 +56,23 @@ function renderLoginPage() {
 }
 
 describe("LoginPage", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await setLocale("zh-CN");
     mockApi.loginOverview.mockRejectedValue(new Error("offline"));
+  });
+
+  it("switches to English immediately and persists the selected locale", async () => {
+    renderLoginPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "切换平台语言" }));
+    fireEvent.click(await screen.findByText("English"));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in" }),
+    ).toBeVisible();
+    expect(screen.getByText("Unified authentication")).toBeVisible();
+    expect(window.localStorage.getItem(localeStorageKey)).toBe("en-US");
   });
 
   it("clears credentials and validation state when switching modes", async () => {

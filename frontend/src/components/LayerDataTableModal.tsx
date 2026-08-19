@@ -14,6 +14,7 @@ import {
 } from "antd";
 import type React from "react";
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { LoadedLayer, LoadedVectorLayer } from "../types";
 
 interface Props {
@@ -29,9 +30,20 @@ export default function LayerDataTableModal({
   onClose,
   onSelectionChange,
 }: Props) {
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   return (
     <Modal
-      title={layer ? `${layer.name} 数据表` : "数据表"}
+      title={
+        layer
+          ? english
+            ? `${layer.name} data table`
+            : `${layer.name} 数据表`
+          : english
+            ? "Data table"
+            : "数据表"
+      }
       open={open}
       onCancel={onClose}
       footer={null}
@@ -42,7 +54,7 @@ export default function LayerDataTableModal({
       {!layer ? (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="请选择图层"
+          description={english ? "Select a layer" : "请选择图层"}
           style={{ padding: 24 }}
         />
       ) : layer.layerType === "vector" ? (
@@ -52,13 +64,17 @@ export default function LayerDataTableModal({
         />
       ) : (
         <Descriptions size="small" column={2} bordered style={{ padding: 16 }}>
-          <Descriptions.Item label="图层">{layer.name}</Descriptions.Item>
-          <Descriptions.Item label="类型">栅格</Descriptions.Item>
-          <Descriptions.Item label="波段数">
+          <Descriptions.Item label={english ? "Layer" : "图层"}>
+            {layer.name}
+          </Descriptions.Item>
+          <Descriptions.Item label={english ? "Type" : "类型"}>
+            {english ? "Raster" : "栅格"}
+          </Descriptions.Item>
+          <Descriptions.Item label={english ? "Band count" : "波段数"}>
             {layer.rasterMetadata?.bands.length ?? "-"}
           </Descriptions.Item>
-          <Descriptions.Item label="状态">
-            {layer.renderStatus || "默认"}
+          <Descriptions.Item label={english ? "Status" : "状态"}>
+            {layer.renderStatus || (english ? "Default" : "默认")}
           </Descriptions.Item>
         </Descriptions>
       )}
@@ -85,6 +101,9 @@ function VectorAttributeTable({
   layer: LoadedVectorLayer;
   onSelectionChange?: (featureIds: (string | number)[]) => void;
 }) {
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const fieldNames = useMemo(
     () =>
       layer.fields.length
@@ -264,9 +283,15 @@ function VectorAttributeTable({
         <Space size={8}>
           <DatabaseOutlined style={{ fontSize: 15 }} />
           <Typography.Text strong>{layer.name}</Typography.Text>
-          <Tag color="green">{rows.length} 条</Tag>
+          <Tag color="green">
+            {english ? `${rows.length} records` : `${rows.length} 条`}
+          </Tag>
           {hasSelected && (
-            <Tag color="blue">已选 {selectedRowKeys.length} 条</Tag>
+            <Tag color="blue">
+              {english
+                ? `${selectedRowKeys.length} selected`
+                : `已选 ${selectedRowKeys.length} 条`}
+            </Tag>
           )}
         </Space>
         <Space size={8}>
@@ -290,7 +315,7 @@ function VectorAttributeTable({
               size="small"
               icon={<EyeInvisibleOutlined style={{ fontSize: 14 }} />}
             >
-              列显隐
+              {english ? "Show/hide columns" : "列显隐"}
             </Button>
           </Dropdown>
           <Typography.Text type="secondary">{layer.summary}</Typography.Text>
@@ -348,6 +373,9 @@ function ResizableHeaderCell({
   children,
   ...restProps
 }: ResizableHeaderCellProps) {
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   // 如果没有onResize，直接使用默认的header cell（如checkbox列）
   if (!onResize) {
     return <th {...restProps}>{children}</th>;
@@ -401,7 +429,7 @@ function ResizableHeaderCell({
         <span className="resizable-table-title">{children}</span>
         <Button
           type="text"
-          aria-label="调整列宽"
+          aria-label={english ? "Resize column" : "调整列宽"}
           className="resizable-table-handle"
           onMouseDown={handleResizeStart}
         />

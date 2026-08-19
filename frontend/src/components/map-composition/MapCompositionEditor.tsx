@@ -1,6 +1,7 @@
 import { App, Button, Modal, Space, Spin, Typography } from "antd";
 import type { Map as MapboxMap } from "mapbox-gl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { compositionLegendItems } from "../../map-composition/legend";
 import {
@@ -54,8 +55,16 @@ export default function MapCompositionEditor({
   onSaved,
 }: Props) {
   const { message } = App.useApp();
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const [layout, setLayout] = useState<MapCompositionLayout>(() =>
-    normalizeCompositionLayout({}, "专题图", fallbackBounds, sourceText),
+    normalizeCompositionLayout(
+      {},
+      english ? "Thematic map" : "专题图",
+      fallbackBounds,
+      sourceText,
+    ),
   );
   const [previewUrl, setPreviewUrl] = useState("");
   const [previewing, setPreviewing] = useState(false);
@@ -71,8 +80,8 @@ export default function MapCompositionEditor({
   const previewTimer = useRef<number | null>(null);
   const legendItems = useMemo(() => compositionLegendItems(groups), [groups]);
   const issues = useMemo(
-    () => compositionIssues(layout, legendItems),
-    [layout, legendItems],
+    () => compositionIssues(layout, legendItems, english),
+    [english, layout, legendItems],
   );
   const hasErrors = issues.some((issue) => issue.level === "error");
   const pixels = pagePixelSize(layout);
@@ -122,7 +131,7 @@ export default function MapCompositionEditor({
 
   const refreshPreview = useCallback(async () => {
     if (!map) {
-      message.warning("地图尚未准备好");
+      message.warning(english ? "The map is not ready" : "地图尚未准备好");
       return;
     }
     if (previewTimer.current !== null) {
@@ -157,14 +166,20 @@ export default function MapCompositionEditor({
     } catch (error) {
       if (sequence !== previewSequence.current) return;
       if (isAbortError(error)) return;
-      message.error(error instanceof Error ? error.message : "专题图预览失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to preview thematic map"
+            : "专题图预览失败",
+      );
     } finally {
       if (previewAbortController.current === controller) {
         previewAbortController.current = null;
       }
       if (sequence === previewSequence.current) setPreviewing(false);
     }
-  }, [accessToken, legendItems, map, message]);
+  }, [accessToken, english, legendItems, map, message]);
 
   useEffect(() => {
     previewAbortController.current?.abort();
@@ -206,13 +221,17 @@ export default function MapCompositionEditor({
       });
       if ("id" in result) {
         onSaved(result);
-        message.success("出图草稿已保存");
+        message.success(english ? "Map draft saved" : "出图草稿已保存");
         return result;
       }
       return null;
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "出图草稿保存失败",
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to save map draft"
+            : "出图草稿保存失败",
       );
       return null;
     } finally {
@@ -222,7 +241,12 @@ export default function MapCompositionEditor({
 
   async function generateVersion() {
     if (!composition || !map || hasErrors) {
-      if (hasErrors) message.warning("请先处理出图检查中的错误");
+      if (hasErrors)
+        message.warning(
+          english
+            ? "Resolve the output-check errors first"
+            : "请先处理出图检查中的错误",
+        );
       return;
     }
     previewAbortController.current?.abort();
@@ -260,10 +284,18 @@ export default function MapCompositionEditor({
       downloadBlob(result.blob, result.filename);
       const refreshed = await api.mapComposition(composition.id);
       onSaved(refreshed);
-      message.success(`专题成果 V${version.versionNumber} 已生成并下载`);
+      message.success(
+        english
+          ? `Thematic result V${version.versionNumber} generated and downloaded`
+          : `专题成果 V${version.versionNumber} 已生成并下载`,
+      );
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "专题成果生成失败",
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to generate thematic result"
+            : "专题成果生成失败",
       );
     } finally {
       setExporting(false);
@@ -273,7 +305,15 @@ export default function MapCompositionEditor({
   return (
     <Modal
       className="map-composition-editor-modal"
-      title={composition ? `专题制图 · ${composition.name}` : "专题制图"}
+      title={
+        composition
+          ? english
+            ? `Thematic mapping · ${composition.name}`
+            : `专题制图 · ${composition.name}`
+          : english
+            ? "Thematic mapping"
+            : "专题制图"
+      }
       open={open}
       width="calc(100vw - 24px)"
       style={{ top: 12 }}
@@ -293,22 +333,34 @@ export default function MapCompositionEditor({
           <div className="composition-preview-toolbar">
             <Typography.Text>
               {layout.page.preset} ·{" "}
-              {layout.page.orientation === "landscape" ? "横向" : "纵向"} ·{" "}
-              {pixels.width}×{pixels.height}px
+              {layout.page.orientation === "landscape"
+                ? english
+                  ? "Landscape"
+                  : "横向"
+                : english
+                  ? "Portrait"
+                  : "纵向"}{" "}
+              · {pixels.width}×{pixels.height}px
             </Typography.Text>
             <Space>
               <Typography.Text type="secondary">
-                {previewing ? "正在自动更新预览…" : "修改后自动预览"}
+                {previewing
+                  ? english
+                    ? "Updating preview…"
+                    : "正在自动更新预览…"
+                  : english
+                    ? "Preview updates after changes"
+                    : "修改后自动预览"}
               </Typography.Text>
               <Button loading={saving} onClick={() => void saveDraft()}>
-                保存草稿
+                {english ? "Save draft" : "保存草稿"}
               </Button>
               <Button
                 type="primary"
                 loading={previewing}
                 onClick={() => void refreshPreview()}
               >
-                立即刷新
+                {english ? "Refresh now" : "立即刷新"}
               </Button>
             </Space>
           </div>
@@ -317,14 +369,19 @@ export default function MapCompositionEditor({
               <Spin size="large" />
             ) : previewUrl ? (
               <div className="composition-preview-image-wrap">
-                <img src={previewUrl} alt="专题图预览" />
+                <img
+                  src={previewUrl}
+                  alt={english ? "Thematic map preview" : "专题图预览"}
+                />
                 {previewing ? (
                   <Spin className="composition-preview-updating" />
                 ) : null}
               </div>
             ) : (
               <div className="composition-preview-empty">
-                正在生成标准版式预览…
+                {english
+                  ? "Generating standard-layout preview…"
+                  : "正在生成标准版式预览…"}
               </div>
             )}
           </div>

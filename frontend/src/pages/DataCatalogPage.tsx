@@ -34,12 +34,14 @@ import type { DataNode } from "antd/es/tree";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import capfedLogoWhite from "../assets/capfed-logo-white.svg";
 import homePoplarNightImage from "../assets/portal/home-poplar-night.png";
 import WorkspaceHeader from "../components/WorkspaceHeader";
 import { platformBrand } from "../config/platformBrand";
 import { useAppContext } from "../contexts/AppContext";
+import { currentLocale } from "../i18n";
 import type {
   DataSchemaCatalogNode,
   DataSchemaSummary,
@@ -54,62 +56,9 @@ import {
 
 type CatalogView = "cards" | "list";
 
-const dataTypeLabels: Record<ResourceListItem["dataType"], string> = {
-  vector: "矢量",
-  raster: "栅格",
-  gene: "基因/组学",
-  table: "表格",
-  document: "文档",
-  image: "图片",
-};
-
-const portalQuickActions = [
-  {
-    key: "overview",
-    title: "进入数据概览",
-    description: "掌握资源规模、数据构成与服务状态",
-    path: "/resources/dashboard",
-    icon: <DashboardOutlined />,
-    tone: "cyan",
-  },
-  {
-    key: "map",
-    title: "进入地理工作台",
-    description: "加载多源图层，开展空间浏览与查询",
-    path: "/map",
-    icon: <GlobalOutlined />,
-    tone: "green",
-  },
-  {
-    key: "analysis",
-    title: "进入数据分析",
-    description: "面向表格与非空间数据开展统计分析",
-    path: "/nongeo",
-    icon: <BarChartOutlined />,
-    tone: "blue",
-  },
-  {
-    key: "results",
-    title: "进入成果展示",
-    description: "浏览专题图件、报告与科研共享成果",
-    path: "/results",
-    icon: <FundProjectionScreenOutlined />,
-    tone: "gold",
-  },
-] as const;
-
-const resourceViewLabels: Record<
-  ResourceListItem["availableViews"][number],
-  string
-> = {
-  map: "地图",
-  table: "表格",
-  gallery: "图片",
-  metadata: "元数据",
-};
-
 export default function DataCatalogPage() {
   const { message } = App.useApp();
+  const { t } = useTranslation();
   const { user } = useAppContext();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -126,6 +75,54 @@ export default function DataCatalogPage() {
   );
   const resourceRequestSequenceRef = useRef(0);
   const canBrowseData = Boolean(user?.permissions.canBrowseData);
+  const dataTypeLabels = useMemo<Record<ResourceListItem["dataType"], string>>(
+    () => ({
+      vector: t("common.vector"),
+      raster: t("common.raster"),
+      gene: t("catalog.geneOmics"),
+      table: t("common.table"),
+      document: t("common.document"),
+      image: t("common.image"),
+    }),
+    [t],
+  );
+  const portalQuickActions = useMemo(
+    () => [
+      {
+        key: "overview",
+        title: t("catalog.overviewAction"),
+        description: t("catalog.overviewActionDescription"),
+        path: "/resources/dashboard",
+        icon: <DashboardOutlined />,
+        tone: "cyan",
+      },
+      {
+        key: "map",
+        title: t("catalog.mapAction"),
+        description: t("catalog.mapActionDescription"),
+        path: "/map",
+        icon: <GlobalOutlined />,
+        tone: "green",
+      },
+      {
+        key: "analysis",
+        title: t("catalog.analysisAction"),
+        description: t("catalog.analysisActionDescription"),
+        path: "/nongeo",
+        icon: <BarChartOutlined />,
+        tone: "blue",
+      },
+      {
+        key: "results",
+        title: t("catalog.resultsAction"),
+        description: t("catalog.resultsActionDescription"),
+        path: "/results",
+        icon: <FundProjectionScreenOutlined />,
+        tone: "gold",
+      },
+    ],
+    [t],
+  );
   const visiblePortalQuickActions = useMemo(
     () =>
       user?.username === "guest"
@@ -133,14 +130,14 @@ export default function DataCatalogPage() {
             action.key === "overview"
               ? {
                   ...action,
-                  title: "浏览公开数据",
-                  description: "按业务分类和数据形态筛选当前可访问资源",
+                  title: t("catalog.publicAction"),
+                  description: t("catalog.publicActionDescription"),
                   path: "#public-data-catalog",
                 }
               : action,
           )
         : portalQuickActions,
-    [user?.username],
+    [portalQuickActions, t, user?.username],
   );
   const categoryCode = searchParams.get("categoryCode") ?? "";
   const tree = useMemo(() => taxonomyTree(schema), [schema]);
@@ -170,7 +167,7 @@ export default function DataCatalogPage() {
       } catch (error) {
         if (requestSequence === resourceRequestSequenceRef.current) {
           message.error(
-            error instanceof Error ? error.message : "数据目录加载失败",
+            error instanceof Error ? error.message : t("catalog.loadFailed"),
           );
         }
       } finally {
@@ -179,7 +176,7 @@ export default function DataCatalogPage() {
         }
       }
     },
-    [canBrowseData, message],
+    [canBrowseData, message, t],
   );
 
   function openQuickAction(path: string) {
@@ -278,78 +275,91 @@ export default function DataCatalogPage() {
               <span className="data-catalog-platform-logo">
                 <img
                   src={capfedLogoWhite}
-                  alt={`${platformBrand.chineseName} Logo`}
+                  alt={`${
+                    currentLocale() === "en-US"
+                      ? platformBrand.englishName
+                      : platformBrand.chineseName
+                  } Logo`}
                   width={54}
                   height={54}
                 />
               </span>
               <span className="data-catalog-platform-name">
-                <strong>{platformBrand.chineseName}</strong>
-                <span>{platformBrand.englishName}</span>
+                <strong>
+                  {currentLocale() === "en-US"
+                    ? platformBrand.englishName
+                    : platformBrand.chineseName}
+                </strong>
+                <span>
+                  {currentLocale() === "en-US"
+                    ? platformBrand.shortName
+                    : platformBrand.englishName}
+                </span>
               </span>
             </div>
             <div className="data-catalog-hero-eyebrow">
               <span className="data-catalog-hero-context">
                 <GlobalOutlined />
-                <span>干旱区胡杨生态智慧监测</span>
+                <span>{t("catalog.context")}</span>
               </span>
               <span className="data-catalog-hero-mission">
-                服务生态保护 · 科学研究 · 数据共享
+                {t("catalog.mission")}
               </span>
             </div>
-            <Typography.Title level={1}>胡杨生态数据资源目录</Typography.Title>
-            <Typography.Paragraph>
-              汇聚遥感影像、空间矢量、实地调查、长期监测与科研成果，构建覆盖胡杨生态保护全链条的一站式数据资源目录。
-            </Typography.Paragraph>
+            <Typography.Title level={1}>{t("catalog.title")}</Typography.Title>
+            <Typography.Paragraph>{t("catalog.summary")}</Typography.Paragraph>
           </div>
-          <div className="data-catalog-stats" aria-label="平台数据概览">
+          <div
+            className="data-catalog-stats"
+            aria-label={t("catalog.overview")}
+          >
             <div className="data-catalog-stat-card">
               <Statistic
                 title={
                   <span>
-                    <DatabaseOutlined /> 当前账号可见资源
+                    <DatabaseOutlined /> {t("catalog.visibleResources")}
                   </span>
                 }
                 value={resources.length}
-                suffix="项"
+                suffix={t("catalog.resourcesSuffix")}
               />
-              <span>多源数据统一组织</span>
+              <span>{t("catalog.unifiedOrganization")}</span>
             </div>
             <div className="data-catalog-stat-card">
               <Statistic
                 title={
                   <span>
-                    <ApartmentOutlined /> 业务大类
+                    <ApartmentOutlined /> {t("catalog.businessDomains")}
                   </span>
                 }
                 value={tree.length}
-                suffix="类"
+                suffix={t("catalog.categoriesSuffix")}
               />
-              <span>覆盖核心生态主题</span>
+              <span>{t("catalog.ecologyThemes")}</span>
             </div>
             <div className="data-catalog-stat-card">
               <Statistic
                 title={
                   <span>
-                    <AppstoreOutlined /> 专题目录
+                    <AppstoreOutlined /> {t("catalog.thematicCatalogs")}
                   </span>
                 }
                 value={catalogLeafCount}
-                suffix="个"
+                suffix={t("catalog.catalogsSuffix")}
               />
-              <span>细分数据组织维度</span>
+              <span>{t("catalog.organizationDimensions")}</span>
             </div>
             <div className="data-catalog-stat-card">
               <Statistic
                 title={
                   <span>
-                    <FileImageOutlined /> 数据形态
+                    <FileImageOutlined /> {t("catalog.dataForms")}
                   </span>
                 }
                 value={Object.keys(dataTypeLabels).length}
-                suffix="种"
+                suffix={t("catalog.formsSuffix")}
               />
-              <span>矢量、栅格及表格等</span>
+              <span>{t("catalog.formsSummary")}</span>
             </div>
           </div>
         </section>
@@ -362,11 +372,11 @@ export default function DataCatalogPage() {
             <div>
               <span>PLATFORM SERVICES</span>
               <Typography.Title level={2} id="data-catalog-feature-title">
-                核心功能快捷入口
+                {t("catalog.quickTitle")}
               </Typography.Title>
             </div>
             <Typography.Paragraph>
-              从资源全景到空间应用、数据分析与成果共享，一键进入平台核心业务场景。
+              {t("catalog.quickSummary")}
             </Typography.Paragraph>
           </div>
           <div className="data-catalog-feature-grid">
@@ -398,7 +408,11 @@ export default function DataCatalogPage() {
         </section>
 
         {!canBrowseData && (
-          <Alert type="warning" showIcon title="当前账号没有数据资源浏览权限" />
+          <Alert
+            type="warning"
+            showIcon
+            title={t("catalog.noBrowsePermission")}
+          />
         )}
 
         <section id="public-data-catalog" className="data-catalog-toolbar">
@@ -406,13 +420,13 @@ export default function DataCatalogPage() {
             allowClear
             value={keyword}
             prefix={<SearchOutlined />}
-            placeholder="搜索数据名称"
+            placeholder={t("catalog.searchPlaceholder")}
             onChange={(event) => setKeyword(event.target.value)}
             onSearch={applySearch}
           />
           <Select
             allowClear
-            placeholder="物理数据类型"
+            placeholder={t("catalog.physicalType")}
             value={dataType}
             options={Object.entries(dataTypeLabels).map(([value, label]) => ({
               value,
@@ -422,11 +436,11 @@ export default function DataCatalogPage() {
           />
           <Select
             allowClear
-            placeholder="归类状态"
+            placeholder={t("catalog.classificationStatus")}
             value={classificationStatus}
             options={[
-              { value: "classified", label: "已分类" },
-              { value: "pending", label: "待归类" },
+              { value: "classified", label: t("catalog.classified") },
+              { value: "pending", label: t("catalog.pending") },
             ]}
             onChange={setClassificationStatus}
           />
@@ -434,8 +448,16 @@ export default function DataCatalogPage() {
             value={view}
             onChange={setView}
             options={[
-              { value: "cards", label: "卡片", icon: <AppstoreOutlined /> },
-              { value: "list", label: "列表", icon: <DatabaseOutlined /> },
+              {
+                value: "cards",
+                label: t("catalog.cards"),
+                icon: <AppstoreOutlined />,
+              },
+              {
+                value: "list",
+                label: t("catalog.list"),
+                icon: <DatabaseOutlined />,
+              },
             ]}
           />
         </section>
@@ -443,13 +465,13 @@ export default function DataCatalogPage() {
         <div className="data-catalog-body">
           <aside className="data-catalog-taxonomy">
             <div className="data-catalog-section-title">
-              <Typography.Text strong>业务分类体系</Typography.Text>
+              <Typography.Text strong>{t("catalog.taxonomy")}</Typography.Text>
               <Button
                 type="link"
                 size="small"
                 onClick={() => selectCategory(null)}
               >
-                全部
+                {t("common.all")}
               </Button>
             </div>
             <Tree
@@ -487,11 +509,13 @@ export default function DataCatalogPage() {
                       compact={view === "list"}
                       onOpen={() => openResource(resource)}
                       onDetail={() => setDetailResource(resource)}
+                      dataTypeLabel={dataTypeLabels[resource.dataType]}
+                      t={t}
                     />
                   ))}
                 </div>
               ) : (
-                <Empty description="当前账号在该分类和筛选条件下暂无可见资源；如需访问更多数据，请联系管理员申请权限。" />
+                <Empty description={t("catalog.empty")} />
               )}
             </Spin>
           </section>
@@ -499,12 +523,18 @@ export default function DataCatalogPage() {
       </main>
 
       <Drawer
-        title={detailResource?.name ?? "资源详情"}
+        title={detailResource?.name ?? t("catalog.resourceDetails")}
         size="large"
         open={Boolean(detailResource)}
         onClose={() => setDetailResource(null)}
       >
-        {detailResource && <ResourceDetails resource={detailResource} />}
+        {detailResource && (
+          <ResourceDetails
+            resource={detailResource}
+            dataTypeLabel={dataTypeLabels[detailResource.dataType]}
+            t={t}
+          />
+        )}
       </Drawer>
     </Layout>
   );
@@ -515,26 +545,30 @@ function ResourceCard({
   compact,
   onOpen,
   onDetail,
+  dataTypeLabel,
+  t,
 }: {
   resource: ResourceListItem;
   compact: boolean;
   onOpen: () => void;
   onDetail: () => void;
+  dataTypeLabel: string;
+  t: (key: string) => string;
 }) {
   const primaryAction = resource.availableViews.includes("map")
-    ? "进入地图"
+    ? t("catalog.enterMap")
     : resource.availableViews.includes("table")
-      ? "查看表格"
+      ? t("catalog.viewTable")
       : resource.availableViews.includes("gallery")
-        ? "查看图片"
-        : "查看元数据";
+        ? t("catalog.viewImage")
+        : t("catalog.viewMetadata");
   return (
     <Card
       className={`data-resource-card${compact ? " data-resource-card-compact" : ""}`}
     >
       <Space orientation="vertical" size={10} className="full-width">
         <Space wrap>
-          <Tag>{dataTypeLabels[resource.dataType]}</Tag>
+          <Tag>{dataTypeLabel}</Tag>
           <Tag
             color={
               resource.classificationStatus === "classified"
@@ -543,8 +577,8 @@ function ResourceCard({
             }
           >
             {resource.classificationStatus === "classified"
-              ? "已分类"
-              : "待归类"}
+              ? t("catalog.classified")
+              : t("catalog.pending")}
           </Tag>
         </Space>
         <Typography.Title level={4}>{resource.name}</Typography.Title>
@@ -554,20 +588,20 @@ function ResourceCard({
         >
           {resource.categoryPath.length
             ? resource.categoryPath.map((item) => item.name).join(" / ")
-            : "尚未挂接权威业务分类"}
+            : t("catalog.noAuthoritativeCategory")}
         </Typography.Text>
         <Typography.Paragraph
           className="data-resource-card-description"
           ellipsis={{ rows: 2 }}
         >
-          {catalogResourceSummary(resource)}
+          {catalogResourceSummary(resource, t("catalog.noDescription"), t)}
         </Typography.Paragraph>
         <Space className="data-resource-card-actions" wrap>
           <Button type="primary" onClick={onOpen}>
             {primaryAction}
           </Button>
           <Button icon={<EyeOutlined />} onClick={onDetail}>
-            详情
+            {t("common.details")}
           </Button>
         </Space>
       </Space>
@@ -575,36 +609,45 @@ function ResourceCard({
   );
 }
 
-function ResourceDetails({ resource }: { resource: ResourceListItem }) {
+function ResourceDetails({
+  resource,
+  dataTypeLabel,
+  t,
+}: {
+  resource: ResourceListItem;
+  dataTypeLabel: string;
+  t: (key: string) => string;
+}) {
   return (
     <Descriptions bordered size="small" column={1}>
-      <Descriptions.Item label="业务分类">
-        {resource.categoryPath.map((item) => item.name).join(" / ") || "待归类"}
+      <Descriptions.Item label={t("catalog.businessCategory")}>
+        {resource.categoryPath.map((item) => item.name).join(" / ") ||
+          t("catalog.pending")}
       </Descriptions.Item>
-      <Descriptions.Item label="物理类型">
-        {dataTypeLabels[resource.dataType]}
+      <Descriptions.Item label={t("catalog.physicalType")}>
+        {dataTypeLabel}
       </Descriptions.Item>
-      <Descriptions.Item label="可用视图">
+      <Descriptions.Item label={t("catalog.availableViews")}>
         <Space wrap>
           {resource.availableViews.map((view) => (
-            <Tag key={view}>{resourceViewLabels[view]}</Tag>
+            <Tag key={view}>{resourceViewLabel(view, t)}</Tag>
           ))}
         </Space>
       </Descriptions.Item>
-      <Descriptions.Item label="来源">
-        {resource.source || "未记录"}
+      <Descriptions.Item label={t("common.source")}>
+        {resource.source || t("catalog.notRecorded")}
       </Descriptions.Item>
-      <Descriptions.Item label="提供单位">
-        {resource.provider || "未记录"}
+      <Descriptions.Item label={t("map.provider")}>
+        {resource.provider || t("catalog.notRecorded")}
       </Descriptions.Item>
-      <Descriptions.Item label="坐标系">
-        {resource.coordinateSystem || "不适用"}
+      <Descriptions.Item label={t("catalog.coordinateSystem")}>
+        {resource.coordinateSystem || t("catalog.notApplicable")}
       </Descriptions.Item>
-      <Descriptions.Item label="空间范围">
-        {resource.spatialExtent || "不适用"}
+      <Descriptions.Item label={t("map.spatialExtent")}>
+        {resource.spatialExtent || t("catalog.notApplicable")}
       </Descriptions.Item>
-      <Descriptions.Item label="说明">
-        {catalogResourceSummary(resource, "未记录")}
+      <Descriptions.Item label={t("common.description")}>
+        {catalogResourceSummary(resource, t("catalog.notRecorded"), t)}
       </Descriptions.Item>
     </Descriptions>
   );
@@ -612,20 +655,34 @@ function ResourceDetails({ resource }: { resource: ResourceListItem }) {
 
 function catalogResourceSummary(
   resource: ResourceListItem,
-  fallback = "暂无资源说明",
+  fallback: string,
+  t: (key: string) => string,
 ) {
   const summary = (resource.description || resource.source).trim();
   if (!summary) return fallback;
   if (/^由 Excel\/CSV 导入的地理表[：:]\s*import_data_/i.test(summary)) {
-    return "由 Excel/CSV 导入的地理表数据。";
+    return t("catalog.geographicImport");
   }
   if (/^由 Excel\/CSV 导入的非地理表[：:]\s*import_data_/i.test(summary)) {
-    return "由 Excel/CSV 导入的非地理表数据。";
+    return t("catalog.nonGeographicImport");
   }
   if (/^自动扫描统一.*GeoPackage 图层[：:]/i.test(summary)) {
-    return "由平台自动扫描登记的 GeoPackage 矢量图层。";
+    return t("catalog.geopackageScan");
   }
   return summary;
+}
+
+function resourceViewLabel(
+  view: ResourceListItem["availableViews"][number],
+  t: (key: string) => string,
+) {
+  const labels = {
+    map: t("catalog.mapView"),
+    table: t("common.table"),
+    gallery: t("catalog.galleryView"),
+    metadata: t("catalog.metadataView"),
+  };
+  return labels[view];
 }
 
 function taxonomyTreeData(nodes: DataSchemaCatalogNode[]): DataNode[] {

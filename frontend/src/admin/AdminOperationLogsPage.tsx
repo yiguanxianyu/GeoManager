@@ -20,6 +20,7 @@ import {
 } from "antd";
 import type { TabsProps } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
 import type {
@@ -56,12 +57,15 @@ export default function AdminOperationLogsPage() {
   const formRef = useRef<ProFormInstance | undefined>(undefined);
   const { message } = App.useApp();
   const { user } = useAppContext();
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const [exporting, setExporting] = useState(false);
   const [hints, setHints] = useState<OperationLogHints>({
     operators: [],
     modules: [],
   });
-  const columns = useMemo(() => buildColumns(hints), [hints]);
+  const columns = useMemo(() => buildColumns(hints, english), [english, hints]);
 
   useEffect(() => {
     let mounted = true;
@@ -103,10 +107,16 @@ export default function AdminOperationLogsPage() {
               pageSize: firstPage.total,
             });
       downloadTextFile(operationLogsToCsv(result.items), "operation-logs.csv");
-      message.success("已生成操作日志导出文件");
+      message.success(
+        english ? "Operation-log export generated" : "已生成操作日志导出文件",
+      );
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "操作日志导出失败",
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to export operation logs"
+            : "操作日志导出失败",
       );
     } finally {
       setExporting(false);
@@ -139,14 +149,14 @@ export default function AdminOperationLogsPage() {
           success: true,
         };
       }}
-      headerTitle="日志列表"
+      headerTitle={english ? "Log entries" : "日志列表"}
       toolBarRender={() => [
         <Button
           key="reload"
           icon={<ReloadOutlined />}
           onClick={() => actionRef.current?.reload()}
         >
-          刷新
+          {english ? "Refresh" : "刷新"}
         </Button>,
         <Button
           key="export"
@@ -155,12 +165,14 @@ export default function AdminOperationLogsPage() {
           loading={exporting}
           onClick={exportLogs}
         >
-          导出日志
+          {english ? "Export logs" : "导出日志"}
         </Button>,
       ]}
       tableAlertRender={({ selectedRowKeys }) => (
         <Space size={12}>
-          已选择 <strong>{selectedRowKeys.length}</strong> 条日志
+          {english ? "Selected" : "已选择"}{" "}
+          <strong>{selectedRowKeys.length}</strong>{" "}
+          {english ? "log entries" : "条日志"}
         </Space>
       )}
       rowSelection={{}}
@@ -170,14 +182,14 @@ export default function AdminOperationLogsPage() {
   const tabItems: TabsProps["items"] = [
     {
       key: "operations",
-      label: "操作日志",
+      label: english ? "Operation logs" : "操作日志",
       children: operationLogTable,
     },
   ];
   if (user?.permissions.canViewSystemLogs) {
     tabItems.push({
       key: "system",
-      label: "系统日志",
+      label: english ? "System logs" : "系统日志",
       children: <AdminSystemLogsPanel />,
     });
   }
@@ -187,6 +199,9 @@ export default function AdminOperationLogsPage() {
 
 function AdminSystemLogsPanel() {
   const { message } = App.useApp();
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const [log, setLog] = useState<AdminSystemLog | null>(null);
   const [selectedFile, setSelectedFile] = useState("");
   const [lineCount, setLineCount] = useState(500);
@@ -204,13 +219,17 @@ function AdminSystemLogsPanel() {
         setSelectedFile(result.selectedFile);
       } catch (error) {
         message.error(
-          error instanceof Error ? error.message : "系统日志加载失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to load system logs"
+              : "系统日志加载失败",
         );
       } finally {
         setLoading(false);
       }
     },
-    [message],
+    [english, message],
   );
 
   useEffect(() => {
@@ -218,20 +237,22 @@ function AdminSystemLogsPanel() {
   }, [lineCount, loadSystemLogs, selectedFile]);
 
   const fileOptions = (log?.files ?? []).map((file) => ({
-    label: `${file.name}（${formatBytes(file.sizeBytes)}）`,
+    label: english
+      ? `${file.name} (${formatBytes(file.sizeBytes)})`
+      : `${file.name}（${formatBytes(file.sizeBytes)}）`,
     value: file.name,
   }));
 
   return (
     <Card
       className="system-log-card"
-      title="后台运行日志"
+      title={english ? "Backend runtime logs" : "后台运行日志"}
       extra={
         <Space wrap>
           <Select
             value={selectedFile || undefined}
             options={fileOptions}
-            placeholder="选择日志文件"
+            placeholder={english ? "Select log file" : "选择日志文件"}
             style={{ width: 260 }}
             disabled={!fileOptions.length}
             onChange={setSelectedFile}
@@ -240,10 +261,10 @@ function AdminSystemLogsPanel() {
             value={lineCount}
             style={{ width: 120 }}
             options={[
-              { label: "200 行", value: 200 },
-              { label: "500 行", value: 500 },
-              { label: "1000 行", value: 1000 },
-              { label: "2000 行", value: 2000 },
+              { label: english ? "200 lines" : "200 行", value: 200 },
+              { label: english ? "500 lines" : "500 行", value: 500 },
+              { label: english ? "1000 lines" : "1000 行", value: 1000 },
+              { label: english ? "2000 lines" : "2000 行", value: 2000 },
             ]}
             onChange={setLineCount}
           />
@@ -252,20 +273,31 @@ function AdminSystemLogsPanel() {
             loading={loading}
             onClick={() => loadSystemLogs(selectedFile, lineCount)}
           >
-            刷新
+            {english ? "Refresh" : "刷新"}
           </Button>
         </Space>
       }
     >
       <Spin spinning={loading}>
         {!log?.files.length ? (
-          <Empty description="暂无系统日志文件" />
+          <Empty
+            description={english ? "No system log files" : "暂无系统日志文件"}
+          />
         ) : (
           <div className="system-log-viewer">
             <Typography.Text type="secondary">
-              当前文件：{log.selectedFile || "未选择"}，最近 {log.lines} 行
+              {english ? "Current file" : "当前文件"}：
+              {log.selectedFile || (english ? "None selected" : "未选择")}
+              {english
+                ? `; latest ${log.lines} lines`
+                : `，最近 ${log.lines} 行`}
             </Typography.Text>
-            <pre>{log.content || "当前日志文件没有可显示内容"}</pre>
+            <pre>
+              {log.content ||
+                (english
+                  ? "The current log file has no displayable content"
+                  : "当前日志文件没有可显示内容")}
+            </pre>
           </div>
         )}
       </Spin>
@@ -275,10 +307,11 @@ function AdminSystemLogsPanel() {
 
 function buildColumns(
   hints: OperationLogHints,
+  english = false,
 ): ProColumns<AdminOperationLog>[] {
   return [
     {
-      title: "操作时间",
+      title: english ? "Time" : "操作时间",
       dataIndex: "occurredAt",
       valueType: "dateTimeRange",
       width: 190,
@@ -286,7 +319,7 @@ function buildColumns(
       render: (_, record) => record.occurredAt,
     },
     {
-      title: "操作用户",
+      title: english ? "Operator" : "操作用户",
       dataIndex: "operator",
       width: 140,
       ellipsis: true,
@@ -296,13 +329,13 @@ function buildColumns(
           value={config.value}
           onChange={config.onChange}
           options={toOptions(hints.operators)}
-          placeholder="输入或选择用户"
+          placeholder={english ? "Enter or select user" : "输入或选择用户"}
           filterOption={filterOption}
         />
       ),
     },
     {
-      title: "模块",
+      title: english ? "Module" : "模块",
       dataIndex: "module",
       width: 130,
       ellipsis: true,
@@ -312,46 +345,50 @@ function buildColumns(
           value={config.value}
           onChange={config.onChange}
           options={toOptions(hints.modules)}
-          placeholder="输入或选择模块"
+          placeholder={english ? "Enter or select module" : "输入或选择模块"}
           filterOption={filterOption}
         />
       ),
     },
     {
-      title: "动作",
+      title: english ? "Action" : "动作",
       dataIndex: "action",
       width: 150,
       ellipsis: true,
     },
     {
-      title: "结果",
+      title: english ? "Result" : "结果",
       dataIndex: "result",
       width: 110,
       valueType: "select",
       valueEnum: {
-        success: { text: "成功", status: "Success" },
-        warning: { text: "告警", status: "Warning" },
-        failed: { text: "失败", status: "Error" },
+        success: { text: english ? "Success" : "成功", status: "Success" },
+        warning: { text: english ? "Warning" : "告警", status: "Warning" },
+        failed: { text: english ? "Failed" : "失败", status: "Error" },
       },
       render: (_, record) => (
         <Tag color={resultColor[record.result] ?? "default"}>
-          {resultText[record.result] ?? record.result}
+          {english
+            ? ({ success: "Success", warning: "Warning", failed: "Failed" }[
+                record.result
+              ] ?? record.result)
+            : (resultText[record.result] ?? record.result)}
         </Tag>
       ),
     },
     {
-      title: "IP 地址",
+      title: english ? "IP address" : "IP 地址",
       dataIndex: "ipAddress",
       width: 140,
       search: false,
     },
     {
-      title: "关键词",
+      title: english ? "Keyword" : "关键词",
       dataIndex: "keyword",
       hideInTable: true,
     },
     {
-      title: "摘要",
+      title: english ? "Summary" : "摘要",
       dataIndex: "summary",
       width: 360,
       search: false,

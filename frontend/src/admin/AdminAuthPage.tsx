@@ -40,6 +40,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
+import { localText, useEnglishLanguage } from "../i18n/useEnglishLanguage";
 import type {
   AdminOperationLog,
   AdminPermissionItem,
@@ -54,6 +55,12 @@ const operationResultText: Record<string, string> = {
   success: "成功",
   warning: "告警",
   failed: "失败",
+};
+
+const operationResultTextEnglish: Record<string, string> = {
+  success: "Success",
+  warning: "Warning",
+  failed: "Failed",
 };
 
 const operationResultColor: Record<string, string> = {
@@ -101,8 +108,45 @@ const builtinRoleOrder = [
   "游客",
 ];
 
+const builtinRoleInfoEnglish: Record<
+  string,
+  { name: string; tag: string; summary: string }
+> = {
+  超级管理员: {
+    name: "Super Administrator",
+    tag: "Fully locked",
+    summary:
+      "Full platform control, including backups and system-level permissions.",
+  },
+  平台管理员: {
+    name: "Platform Administrator",
+    tag: "Data operations",
+    summary:
+      "Manages users, roles, business logs, and all data without system-root maintenance access.",
+  },
+  科研用户: {
+    name: "Research User",
+    tag: "Advanced data",
+    summary:
+      "Can upload, browse, query, load, export, symbolize, and use AI interpretation tools.",
+  },
+  普通用户: {
+    name: "Standard User",
+    tag: "Basic data",
+    summary: "Can browse, query, and load authorized data and shared results.",
+  },
+  游客: {
+    name: "Guest",
+    tag: "Public browsing",
+    summary:
+      "Can browse, query, and load explicitly public data and results only.",
+  },
+};
+
 export default function AdminAuthPage() {
   const { message, modal } = App.useApp();
+  const english = useEnglishLanguage();
+  const l = (zh: string, en: string) => localText(english, zh, en);
   const { user } = useAppContext();
   const location = useLocation();
   const activeSection = location.pathname.endsWith("/groups")
@@ -195,20 +239,31 @@ export default function AdminAuthPage() {
       );
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "认证授权数据加载失败",
+        error instanceof Error
+          ? error.message
+          : l(
+              "认证授权数据加载失败",
+              "Failed to load authentication and authorization data",
+            ),
       );
     } finally {
       setLoading(false);
     }
-  }, [canManageAuth, message]);
+  }, [canManageAuth, english, message]);
 
   useEffect(() => {
     loadAuthData();
   }, [loadAuthData]);
 
   const groupNameById = useMemo(
-    () => new Map(groups.map((group) => [group.id, group.name])),
-    [groups],
+    () =>
+      new Map(
+        groups.map((group) => [
+          group.id,
+          builtinRoleDisplayName(group.name, english),
+        ]),
+      ),
+    [english, groups],
   );
   const guestRoleId = useMemo(
     () => groups.find(isGuestRole)?.id ?? null,
@@ -219,7 +274,12 @@ export default function AdminAuthPage() {
       groups.map((group) => {
         const guestRole = isGuestRole(group);
         return {
-          label: guestRole ? `${group.name}（系统专用）` : group.name,
+          label: guestRole
+            ? l(
+                `${group.name}（系统专用）`,
+                `${builtinRoleDisplayName(group.name, true)} (system only)`,
+              )
+            : builtinRoleDisplayName(group.name, english),
           value: group.id,
           disabled:
             guestRole ||
@@ -227,7 +287,7 @@ export default function AdminAuthPage() {
             (group.name === "平台管理员" && !isSuperadmin),
         };
       }),
-    [groups, isSuperadmin],
+    [english, groups, isSuperadmin],
   );
   const sortedUsers = useMemo(() => {
     if (!user) return users;
@@ -249,7 +309,7 @@ export default function AdminAuthPage() {
 
   const userColumns: ProColumns<User>[] = [
     {
-      title: "账号",
+      title: l("账号", "Account"),
       dataIndex: "username",
       width: 180,
       render: (_, record) => (
@@ -264,27 +324,29 @@ export default function AdminAuthPage() {
               {record.username}
             </Button>
           }
-          description={record.displayName || "未设置显示名"}
+          description={
+            record.displayName || l("未设置显示名", "No display name")
+          }
         />
       ),
     },
     {
-      title: "联系信息",
+      title: l("联系信息", "Contact"),
       dataIndex: "email",
       width: 220,
       render: (_, record) => (
         <Space orientation="vertical" size={0}>
           <Typography.Text ellipsis>
-            {record.email || "未设置邮箱"}
+            {record.email || l("未设置邮箱", "No email")}
           </Typography.Text>
           <Typography.Text type="secondary" ellipsis>
-            {record.department || "未设置部门"}
+            {record.department || l("未设置部门", "No department")}
           </Typography.Text>
         </Space>
       ),
     },
     {
-      title: "角色",
+      title: l("角色", "Roles"),
       dataIndex: "groupIds",
       width: 210,
       search: false,
@@ -297,23 +359,23 @@ export default function AdminAuthPage() {
       ),
     },
     {
-      title: "状态",
+      title: l("状态", "Status"),
       dataIndex: "isActive",
       valueType: "select",
       width: 88,
       valueEnum: {
-        true: { text: "启用", status: "Success" },
-        false: { text: "停用", status: "Error" },
+        true: { text: l("启用", "Enabled"), status: "Success" },
+        false: { text: l("停用", "Disabled"), status: "Error" },
       },
       render: (_, record) =>
         record.isActive ? (
-          <Tag color="success">启用</Tag>
+          <Tag color="success">{l("启用", "Enabled")}</Tag>
         ) : (
-          <Tag color="error">停用</Tag>
+          <Tag color="error">{l("停用", "Disabled")}</Tag>
         ),
     },
     {
-      title: "操作",
+      title: l("操作", "Actions"),
       valueType: "option",
       width: 120,
       render: (_, record) => [
@@ -323,7 +385,7 @@ export default function AdminAuthPage() {
           icon={<EyeOutlined />}
           onClick={() => setLogUser(record)}
         >
-          查看
+          {l("查看", "View")}
         </Button>,
         <Dropdown
           key="actions"
@@ -334,7 +396,7 @@ export default function AdminAuthPage() {
           }}
         >
           <Button type="link" icon={<EllipsisOutlined />}>
-            操作
+            {l("操作", "Actions")}
           </Button>
         </Dropdown>,
       ],
@@ -343,35 +405,37 @@ export default function AdminAuthPage() {
 
   const userLogColumns: ProColumns<AdminOperationLog>[] = [
     {
-      title: "操作时间",
+      title: l("操作时间", "Time"),
       dataIndex: "occurredAt",
       width: 180,
       render: (_, record) => record.occurredAt,
     },
     {
-      title: "模块",
+      title: l("模块", "Module"),
       dataIndex: "module",
       width: 120,
       ellipsis: true,
     },
     {
-      title: "动作",
+      title: l("动作", "Action"),
       dataIndex: "action",
       width: 140,
       ellipsis: true,
     },
     {
-      title: "结果",
+      title: l("结果", "Result"),
       dataIndex: "result",
       width: 88,
       render: (_, record) => (
         <Tag color={operationResultColor[record.result] ?? "default"}>
-          {operationResultText[record.result] ?? record.result}
+          {(english ? operationResultTextEnglish : operationResultText)[
+            record.result
+          ] ?? record.result}
         </Tag>
       ),
     },
     {
-      title: "摘要",
+      title: l("摘要", "Summary"),
       dataIndex: "summary",
       width: 280,
       ellipsis: true,
@@ -380,7 +444,7 @@ export default function AdminAuthPage() {
 
   const roleApplicationColumns: ProColumns<RoleApplicationListItem>[] = [
     {
-      title: "申请用户",
+      title: l("申请用户", "Applicant"),
       dataIndex: ["user", "username"],
       width: 190,
       render: (_, record) => (
@@ -395,7 +459,7 @@ export default function AdminAuthPage() {
       ),
     },
     {
-      title: "联系信息",
+      title: l("联系信息", "Contact"),
       dataIndex: ["user", "email"],
       width: 230,
       render: (_, record) => (
@@ -408,21 +472,21 @@ export default function AdminAuthPage() {
       ),
     },
     {
-      title: "申请说明",
+      title: l("申请说明", "Application reason"),
       dataIndex: "reason",
       width: 300,
       ellipsis: true,
     },
     {
-      title: "状态",
+      title: l("状态", "Status"),
       dataIndex: "status",
       width: 100,
       render: (_, record) => {
         const statusMeta = (
           {
-            pending: { color: "processing", label: "待审核" },
-            approved: { color: "success", label: "已通过" },
-            rejected: { color: "error", label: "已拒绝" },
+            pending: { color: "processing", label: l("待审核", "Pending") },
+            approved: { color: "success", label: l("已通过", "Approved") },
+            rejected: { color: "error", label: l("已拒绝", "Rejected") },
           } satisfies Record<
             RoleApplicationListItem["status"],
             { color: string; label: string }
@@ -432,13 +496,14 @@ export default function AdminAuthPage() {
       },
     },
     {
-      title: "申请时间",
+      title: l("申请时间", "Applied at"),
       dataIndex: "createdAt",
       width: 180,
-      render: (_, record) => new Date(record.createdAt).toLocaleString("zh-CN"),
+      render: (_, record) =>
+        new Date(record.createdAt).toLocaleString(english ? "en-US" : "zh-CN"),
     },
     {
-      title: "操作",
+      title: l("操作", "Actions"),
       valueType: "option",
       width: 160,
       render: (_, record) =>
@@ -450,7 +515,7 @@ export default function AdminAuthPage() {
                 icon={<CheckOutlined />}
                 onClick={() => handleRoleApplicationReview(record, "approve")}
               >
-                通过
+                {l("通过", "Approve")}
               </Button>,
               <Button
                 key="reject"
@@ -459,12 +524,12 @@ export default function AdminAuthPage() {
                 icon={<CloseOutlined />}
                 onClick={() => handleRoleApplicationReview(record, "reject")}
               >
-                拒绝
+                {l("拒绝", "Reject")}
               </Button>,
             ]
           : [
               <Typography.Text key="reviewer" type="secondary">
-                {record.reviewer?.displayName || "已审核"}
+                {record.reviewer?.displayName || l("已审核", "Reviewed")}
               </Typography.Text>,
             ],
     },
@@ -472,29 +537,38 @@ export default function AdminAuthPage() {
 
   const groupColumns: ProColumns<Group>[] = [
     {
-      title: "角色",
+      title: l("角色", "Role"),
       dataIndex: "name",
       width: "24%",
       render: (_, record) => {
         const roleInfo = builtinRoleInfo[record.name];
+        const englishRoleInfo = builtinRoleInfoEnglish[record.name];
         return (
           <Space orientation="vertical" size={2}>
             <Space size={6} wrap>
-              <Typography.Text strong>{record.name}</Typography.Text>
+              <Typography.Text strong>
+                {builtinRoleDisplayName(record.name, english)}
+              </Typography.Text>
               {roleInfo ? (
-                <Tag color={roleInfo.color}>{roleInfo.tag}</Tag>
+                <Tag color={roleInfo.color}>
+                  {english ? englishRoleInfo?.tag : roleInfo.tag}
+                </Tag>
               ) : null}
             </Space>
             {roleInfo ? (
               <Typography.Text type="secondary">
-                {roleInfo.summary}
+                {english ? englishRoleInfo?.summary : roleInfo.summary}
               </Typography.Text>
             ) : null}
             <Space size={[6, 6]} wrap>
-              <Tag color="blue">{record.userCount} 人</Tag>
-              {record.isProtected ? <Tag color="geekblue">内置</Tag> : null}
+              <Tag color="blue">
+                {l(`${record.userCount} 人`, `${record.userCount} users`)}
+              </Tag>
+              {record.isProtected ? (
+                <Tag color="geekblue">{l("内置", "Built in")}</Tag>
+              ) : null}
               {record.lockedPermissions.length > 0 ? (
-                <Tag color="volcano">权限锁定</Tag>
+                <Tag color="volcano">{l("权限锁定", "Permissions locked")}</Tag>
               ) : null}
             </Space>
           </Space>
@@ -502,7 +576,7 @@ export default function AdminAuthPage() {
       },
     },
     {
-      title: "已授予权限",
+      title: l("已授予权限", "Granted permissions"),
       dataIndex: "permissions",
       width: "56%",
       search: false,
@@ -514,11 +588,13 @@ export default function AdminAuthPage() {
             maxVisible={6}
           />
         ) : (
-          <Typography.Text type="secondary">暂未授予功能权限</Typography.Text>
+          <Typography.Text type="secondary">
+            {l("暂未授予功能权限", "No feature permissions granted")}
+          </Typography.Text>
         ),
     },
     {
-      title: "操作",
+      title: l("操作", "Actions"),
       valueType: "option",
       width: "20%",
       render: (_, record) => [
@@ -529,17 +605,20 @@ export default function AdminAuthPage() {
           disabled={!canEditGroupPermissions(record)}
           onClick={() => openPermissionDrawer(record)}
         >
-          权限
+          {l("权限", "Permissions")}
         </Button>,
         record.userCount === 0 && !record.isProtected ? (
           <Popconfirm
             key="delete"
-            title="确认删除空角色？"
-            description="删除前请确认该角色没有关联用户。"
+            title={l("确认删除空角色？", "Delete this empty role?")}
+            description={l(
+              "删除前请确认该角色没有关联用户。",
+              "Confirm that the role has no associated users before deleting it.",
+            )}
             onConfirm={() => handleDeleteGroup(record)}
           >
             <Button type="link" danger icon={<DeleteOutlined />}>
-              删除
+              {l("删除", "Delete")}
             </Button>
           </Popconfirm>
         ) : (
@@ -550,7 +629,7 @@ export default function AdminAuthPage() {
             icon={<DeleteOutlined />}
             disabled
           >
-            删除
+            {l("删除", "Delete")}
           </Button>
         ),
       ],
@@ -581,9 +660,11 @@ export default function AdminAuthPage() {
       }));
       createGroupForm.resetFields();
       setCreateGroupOpen(false);
-      message.success("角色已创建");
+      message.success(l("角色已创建", "Role created"));
     } catch (error) {
-      message.error(formOrApiError(error, "角色创建失败"));
+      message.error(
+        formOrApiError(error, l("角色创建失败", "Failed to create role")),
+      );
     }
   }
 
@@ -592,7 +673,12 @@ export default function AdminAuthPage() {
     try {
       const values = await createUserForm.validateFields();
       if (guestRoleId && values.groupIds?.includes(guestRoleId)) {
-        message.error("游客角色仅供系统 guest 账号使用，不能分配给其他账号");
+        message.error(
+          l(
+            "游客角色仅供系统 guest 账号使用，不能分配给其他账号",
+            "The guest role is reserved for the system guest account and cannot be assigned to other accounts",
+          ),
+        );
         return;
       }
       const result = await api.createAdminUser({
@@ -607,16 +693,18 @@ export default function AdminAuthPage() {
       setCreateUserOpen(false);
       if (result.generatedPassword) {
         showGeneratedPasswordModal({
-          title: "用户创建成功",
+          title: l("用户创建成功", "User created"),
           username: result.username,
           password: result.generatedPassword,
         });
       } else {
-        message.success("用户已创建");
+        message.success(l("用户已创建", "User created"));
       }
       await loadAuthData();
     } catch (error) {
-      message.error(formOrApiError(error, "用户创建失败"));
+      message.error(
+        formOrApiError(error, l("用户创建失败", "Failed to create user")),
+      );
     }
   }
 
@@ -658,11 +746,14 @@ export default function AdminAuthPage() {
     const cannotEditLockedGroups = hasLockedGroupMembership(record, groups);
     const cannotEditGuest = isGuestAccount(record);
     const groupDisabledReason = cannotEditOwnGroups
-      ? "不能修改自己的角色"
+      ? l("不能修改自己的角色", "You cannot change your own roles")
       : cannotEditLockedGroups
-        ? "不能修改系统锁定角色"
+        ? l("不能修改系统锁定角色", "System-locked roles cannot be changed")
         : cannotEditGuest
-          ? "游客账号不能修改角色"
+          ? l(
+              "游客账号不能修改角色",
+              "The guest account's role cannot be changed",
+            )
           : "";
     const cannotEditOwnPermissions = record.id === user?.id;
     return [
@@ -671,10 +762,12 @@ export default function AdminAuthPage() {
         icon: <TeamOutlined />,
         label: groupDisabledReason ? (
           <Tooltip title={groupDisabledReason}>
-            <span title={groupDisabledReason}>更改角色</span>
+            <span title={groupDisabledReason}>
+              {l("更改角色", "Change roles")}
+            </span>
           </Tooltip>
         ) : (
-          "更改角色"
+          l("更改角色", "Change roles")
         ),
         disabled: Boolean(groupDisabledReason),
       },
@@ -682,11 +775,23 @@ export default function AdminAuthPage() {
         key: "permissions",
         icon: <SafetyCertificateOutlined />,
         label: cannotEditOwnPermissions ? (
-          <Tooltip title="请到用户设置中修改自己的权限">
-            <span title="请到用户设置中修改自己的权限">更改权限</span>
+          <Tooltip
+            title={l(
+              "请到用户设置中修改自己的权限",
+              "Change your own permissions in User Settings",
+            )}
+          >
+            <span
+              title={l(
+                "请到用户设置中修改自己的权限",
+                "Change your own permissions in User Settings",
+              )}
+            >
+              {l("更改权限", "Change permissions")}
+            </span>
           </Tooltip>
         ) : (
-          "更改权限"
+          l("更改权限", "Change permissions")
         ),
         disabled:
           !canManagePermissions || cannotEditOwnPermissions || cannotEditGuest,
@@ -694,19 +799,19 @@ export default function AdminAuthPage() {
       {
         key: "status",
         icon: <StopOutlined />,
-        label: record.isActive ? "停用" : "启用",
+        label: record.isActive ? l("停用", "Disable") : l("启用", "Enable"),
         disabled: record.id === user?.id || cannotEditGuest,
       },
       {
         key: "resetPassword",
         icon: <KeyOutlined />,
-        label: "重置密码",
+        label: l("重置密码", "Reset password"),
         disabled: record.id === user?.id || cannotEditGuest,
       },
       {
         key: "delete",
         icon: <DeleteOutlined />,
-        label: "删除",
+        label: l("删除", "Delete"),
         danger: true,
         disabled: record.id === user?.id || cannotEditGuest,
       },
@@ -749,13 +854,19 @@ export default function AdminAuthPage() {
       content: (
         <div>
           <p>
-            用户 <strong>{username}</strong> 的密码已生成。
+            {l("用户", "The password for user")} <strong>{username}</strong>{" "}
+            {l("的密码已生成。", "has been generated.")}
           </p>
           <p>
-            新密码：
+            {l("新密码：", "New password: ")}
             <Typography.Text copyable>{password}</Typography.Text>
           </p>
-          <p>请妥善保存此密码，关闭后将无法再次查看。</p>
+          <p>
+            {l(
+              "请妥善保存此密码，关闭后将无法再次查看。",
+              "Store this password securely. It cannot be viewed again after this dialog is closed.",
+            )}
+          </p>
         </div>
       ),
     });
@@ -764,13 +875,16 @@ export default function AdminAuthPage() {
   function handleToggleUserStatus(targetUser: User) {
     const nextActive = !targetUser.isActive;
     modal.confirm({
-      title: nextActive ? "确认启用用户？" : "确认停用用户？",
-      content: `${targetUser.displayName || targetUser.username} 将被${
-        nextActive ? "启用" : "停用"
-      }。`,
-      okText: nextActive ? "启用" : "停用",
+      title: nextActive
+        ? l("确认启用用户？", "Enable this user?")
+        : l("确认停用用户？", "Disable this user?"),
+      content: l(
+        `${targetUser.displayName || targetUser.username} 将被${nextActive ? "启用" : "停用"}。`,
+        `${targetUser.displayName || targetUser.username} will be ${nextActive ? "enabled" : "disabled"}.`,
+      ),
+      okText: nextActive ? l("启用", "Enable") : l("停用", "Disable"),
       okButtonProps: { danger: !nextActive },
-      cancelText: "取消",
+      cancelText: l("取消", "Cancel"),
       onOk: async () => {
         const updated = await api.updateAdminUser(targetUser.id, {
           isActive: nextActive,
@@ -778,38 +892,48 @@ export default function AdminAuthPage() {
         setUsers((current) =>
           current.map((item) => (item.id === updated.id ? updated : item)),
         );
-        message.success(nextActive ? "用户已启用" : "用户已停用");
+        message.success(
+          nextActive
+            ? l("用户已启用", "User enabled")
+            : l("用户已停用", "User disabled"),
+        );
       },
     });
   }
 
   function handleDeleteUser(targetUser: User) {
     modal.confirm({
-      title: "确认删除用户？",
-      content: `删除 ${targetUser.displayName || targetUser.username} 后无法恢复。`,
-      okText: "删除",
+      title: l("确认删除用户？", "Delete this user?"),
+      content: l(
+        `删除 ${targetUser.displayName || targetUser.username} 后无法恢复。`,
+        `Deleting ${targetUser.displayName || targetUser.username} cannot be undone.`,
+      ),
+      okText: l("删除", "Delete"),
       okButtonProps: { danger: true },
-      cancelText: "取消",
+      cancelText: l("取消", "Cancel"),
       onOk: async () => {
         await api.deleteAdminUser(targetUser.id);
         setUsers((current) =>
           current.filter((item) => item.id !== targetUser.id),
         );
-        message.success("用户已删除");
+        message.success(l("用户已删除", "User deleted"));
       },
     });
   }
 
   function handleResetUserPassword(targetUser: User) {
     modal.confirm({
-      title: "确认重置密码？",
-      content: `${targetUser.displayName || targetUser.username} 的当前密码将失效。`,
-      okText: "重置",
-      cancelText: "取消",
+      title: l("确认重置密码？", "Reset this password?"),
+      content: l(
+        `${targetUser.displayName || targetUser.username} 的当前密码将失效。`,
+        `The current password for ${targetUser.displayName || targetUser.username} will stop working.`,
+      ),
+      okText: l("重置", "Reset"),
+      cancelText: l("取消", "Cancel"),
       onOk: async () => {
         const result = await api.resetAdminUserPassword(targetUser.id);
         showGeneratedPasswordModal({
-          title: "密码重置成功",
+          title: l("密码重置成功", "Password reset"),
           username: result.username,
           password: result.generatedPassword,
         });
@@ -825,8 +949,14 @@ export default function AdminAuthPage() {
     modal.confirm({
       title:
         action === "approve"
-          ? "确认通过科研用户申请？"
-          : "确认拒绝科研用户申请？",
+          ? l(
+              "确认通过科研用户申请？",
+              "Approve this research-user application?",
+            )
+          : l(
+              "确认拒绝科研用户申请？",
+              "Reject this research-user application?",
+            ),
       content: (
         <div className="admin-page-stack">
           <Typography.Paragraph>
@@ -835,7 +965,9 @@ export default function AdminAuthPage() {
           </Typography.Paragraph>
           <Input.TextArea
             placeholder={
-              action === "approve" ? "可填写审核说明" : "请填写拒绝原因"
+              action === "approve"
+                ? l("可填写审核说明", "Optional review note")
+                : l("请填写拒绝原因", "Enter a reason for rejection")
             }
             maxLength={500}
             showCount
@@ -845,12 +977,12 @@ export default function AdminAuthPage() {
           />
         </div>
       ),
-      okText: action === "approve" ? "通过" : "拒绝",
+      okText: action === "approve" ? l("通过", "Approve") : l("拒绝", "Reject"),
       okButtonProps: { danger: action === "reject" },
-      cancelText: "取消",
+      cancelText: l("取消", "Cancel"),
       onOk: async () => {
         if (action === "reject" && !reviewNote.trim()) {
-          message.error("请填写拒绝原因");
+          message.error(l("请填写拒绝原因", "Enter a reason for rejection"));
           return Promise.reject();
         }
         const updated = await api.reviewRoleApplication(application.id, {
@@ -862,7 +994,9 @@ export default function AdminAuthPage() {
         );
         await loadAuthData();
         message.success(
-          action === "approve" ? "科研用户申请已通过" : "科研用户申请已拒绝",
+          action === "approve"
+            ? l("科研用户申请已通过", "Research-user application approved")
+            : l("科研用户申请已拒绝", "Research-user application rejected"),
         );
       },
     });
@@ -893,7 +1027,9 @@ export default function AdminAuthPage() {
       [updated.id]: updated.permissions,
     }));
     setPermissionGroup(null);
-    message.success(`${updated.name}权限已保存`);
+    message.success(
+      l(`${updated.name}权限已保存`, `${updated.name} permissions saved`),
+    );
   }
 
   function handleGroupPermissionChange(group: Group, values: string[]) {
@@ -902,7 +1038,12 @@ export default function AdminAuthPage() {
       (permission) => !values.includes(permission),
     );
     if (missingLockedPermissions.length > 0) {
-      message.warning("系统锁定角色必须保留锁定权限");
+      message.warning(
+        l(
+          "系统锁定角色必须保留锁定权限",
+          "System-locked roles must retain their locked permissions",
+        ),
+      );
     }
     setGroupDrafts((current) => ({
       ...current,
@@ -919,7 +1060,7 @@ export default function AdminAuthPage() {
       delete next[group.id];
       return next;
     });
-    message.success("角色已删除");
+    message.success(l("角色已删除", "Role deleted"));
   }
 
   async function handleSaveUserGroups() {
@@ -932,7 +1073,12 @@ export default function AdminAuthPage() {
       return;
     }
     if (guestRoleId && selectedGroupIds.includes(guestRoleId)) {
-      message.error("游客角色仅供系统 guest 账号使用，不能分配给其他账号");
+      message.error(
+        l(
+          "游客角色仅供系统 guest 账号使用，不能分配给其他账号",
+          "The guest role is reserved for the system guest account and cannot be assigned to other accounts",
+        ),
+      );
       return;
     }
     const updated = await api.updateAdminUserGroups(groupUser.id, {
@@ -942,7 +1088,7 @@ export default function AdminAuthPage() {
       current.map((user) => (user.id === updated.id ? updated : user)),
     );
     setGroupUser(null);
-    message.success("角色归属已保存");
+    message.success(l("角色归属已保存", "Role assignments saved"));
     await loadAuthData();
   }
 
@@ -976,15 +1122,31 @@ export default function AdminAuthPage() {
       [updated.id]: updated.disabledPermissions ?? [],
     }));
     setPermissionUser(null);
-    message.success("用户权限已保存");
+    message.success(l("用户权限已保存", "User permissions saved"));
   }
 
   if (!canManageAuth) {
-    return <Result status="403" title="无权限访问认证授权" />;
+    return (
+      <Result
+        status="403"
+        title={l(
+          "无权限访问认证授权",
+          "No permission to access authentication and authorization",
+        )}
+      />
+    );
   }
 
   if (activeSection === "groups" && !canManagePermissions) {
-    return <Result status="403" title="无权限访问角色权限" />;
+    return (
+      <Result
+        status="403"
+        title={l(
+          "无权限访问角色权限",
+          "No permission to access role permissions",
+        )}
+      />
+    );
   }
 
   return (
@@ -998,9 +1160,9 @@ export default function AdminAuthPage() {
               rowKey="id"
               headerTitle={
                 <Space>
-                  <span>科研用户申请</span>
+                  <span>{l("科研用户申请", "Research-user applications")}</span>
                   <Tag color="processing">
-                    待审核{" "}
+                    {l("待审核", "Pending")}{" "}
                     {
                       roleApplications.filter(
                         (item) => item.status === "pending",
@@ -1016,12 +1178,17 @@ export default function AdminAuthPage() {
               pagination={false}
               scroll={{ x: 1060 }}
               search={false}
-              locale={{ emptyText: "暂无科研用户申请" }}
+              locale={{
+                emptyText: l(
+                  "暂无科研用户申请",
+                  "No research-user applications",
+                ),
+              }}
             />
             <ProTable<User>
               className="admin-table"
               rowKey="id"
-              headerTitle="用户列表"
+              headerTitle={l("用户列表", "Users")}
               columns={userColumns}
               dataSource={sortedUsers}
               cardBordered
@@ -1041,7 +1208,7 @@ export default function AdminAuthPage() {
                           setCreateUserOpen(true);
                         }}
                       >
-                        新建用户
+                        {l("新建用户", "Create user")}
                       </Button>,
                     ]
                   : []
@@ -1057,7 +1224,7 @@ export default function AdminAuthPage() {
               <ProTable<Group>
                 className="admin-table"
                 rowKey="id"
-                headerTitle="角色列表"
+                headerTitle={l("角色列表", "Roles")}
                 columns={groupColumns}
                 dataSource={groups}
                 cardBordered
@@ -1072,7 +1239,7 @@ export default function AdminAuthPage() {
                     icon={<PlusOutlined />}
                     onClick={() => setCreateGroupOpen(true)}
                   >
-                    新建角色
+                    {l("新建角色", "Create role")}
                   </Button>,
                 ]}
               />
@@ -1082,7 +1249,7 @@ export default function AdminAuthPage() {
       )}
 
       <Drawer
-        title="用户详情"
+        title={l("用户详情", "User details")}
         open={Boolean(activeUser)}
         onClose={() => setActiveUser(null)}
         size="large"
@@ -1096,25 +1263,25 @@ export default function AdminAuthPage() {
                   {activeUser.displayName || activeUser.username}
                 </Typography.Title>
               }
-              description={activeUser.email || "未设置邮箱"}
+              description={activeUser.email || l("未设置邮箱", "No email")}
               size={44}
             />
             <dl>
-              <dt>用户名</dt>
+              <dt>{l("用户名", "Username")}</dt>
               <dd>
                 <UserIdentity user={activeUser} title={activeUser.username} />
               </dd>
-              <dt>部门</dt>
-              <dd>{activeUser.department || "未设置"}</dd>
-              <dt>状态</dt>
+              <dt>{l("部门", "Department")}</dt>
+              <dd>{activeUser.department || l("未设置", "Not set")}</dd>
+              <dt>{l("状态", "Status")}</dt>
               <dd>
                 {activeUser.isActive ? (
-                  <Tag color="success">启用</Tag>
+                  <Tag color="success">{l("启用", "Enabled")}</Tag>
                 ) : (
-                  <Tag color="error">停用</Tag>
+                  <Tag color="error">{l("停用", "Disabled")}</Tag>
                 )}
               </dd>
-              <dt>角色</dt>
+              <dt>{l("角色", "Roles")}</dt>
               <dd>
                 <Space size={[6, 6]} wrap>
                   {activeUser.groupIds.length > 0 ? (
@@ -1124,11 +1291,11 @@ export default function AdminAuthPage() {
                       </Tag>
                     ))
                   ) : (
-                    <Tag>未分配角色</Tag>
+                    <Tag>{l("未分配角色", "No roles assigned")}</Tag>
                   )}
                 </Space>
               </dd>
-              <dt>单独授予权限</dt>
+              <dt>{l("单独授予权限", "Direct permissions")}</dt>
               <dd>
                 {(activeUser.directPermissions ?? []).length > 0 ? (
                   <PermissionTags
@@ -1137,10 +1304,10 @@ export default function AdminAuthPage() {
                     maxVisible={8}
                   />
                 ) : (
-                  <Tag>未单独授予</Tag>
+                  <Tag>{l("未单独授予", "None granted directly")}</Tag>
                 )}
               </dd>
-              <dt>角色继承权限</dt>
+              <dt>{l("角色继承权限", "Inherited role permissions")}</dt>
               <dd>
                 {(activeUser.groupPermissions ?? []).length > 0 ? (
                   <PermissionTags
@@ -1149,10 +1316,10 @@ export default function AdminAuthPage() {
                     maxVisible={10}
                   />
                 ) : (
-                  <Tag>未继承</Tag>
+                  <Tag>{l("未继承", "None inherited")}</Tag>
                 )}
               </dd>
-              <dt>实际生效权限</dt>
+              <dt>{l("实际生效权限", "Effective permissions")}</dt>
               <dd>
                 <PermissionTags
                   permissionIds={activeUser.effectivePermissions ?? []}
@@ -1160,12 +1327,12 @@ export default function AdminAuthPage() {
                   maxVisible={10}
                 />
               </dd>
-              <dt>可查看日志角色</dt>
+              <dt>{l("可查看日志角色", "Roles whose logs can be viewed")}</dt>
               <dd>
                 <GroupTags
                   groupIds={activeUser.operationLogGroupIds ?? []}
                   groupNameById={groupNameById}
-                  emptyText="未配置"
+                  emptyText={l("未配置", "Not configured")}
                 />
               </dd>
             </dl>
@@ -1176,7 +1343,7 @@ export default function AdminAuthPage() {
       </Drawer>
 
       <Drawer
-        title="用户日志"
+        title={l("用户日志", "User logs")}
         open={Boolean(logUser)}
         onClose={() => setLogUser(null)}
         size="large"
@@ -1194,7 +1361,7 @@ export default function AdminAuthPage() {
             <ProTable<AdminOperationLog>
               className="admin-table"
               rowKey="id"
-              headerTitle="日志列表"
+              headerTitle={l("日志列表", "Logs")}
               columns={userLogColumns}
               cardBordered
               options={false}
@@ -1222,12 +1389,12 @@ export default function AdminAuthPage() {
       </Drawer>
 
       <Drawer
-        title="设置角色"
+        title={l("设置角色", "Assign roles")}
         open={Boolean(groupUser)}
         onClose={() => setGroupUser(null)}
         extra={
           <Button type="primary" onClick={handleSaveUserGroups}>
-            保存
+            {l("保存", "Save")}
           </Button>
         }
       >
@@ -1242,20 +1409,23 @@ export default function AdminAuthPage() {
               style={{ width: "100%" }}
             />
             <Typography.Text type="secondary">
-              游客角色仅供系统 guest 账号使用，不能分配给其他账号。
+              {l(
+                "游客角色仅供系统 guest 账号使用，不能分配给其他账号。",
+                "The guest role is reserved for the system guest account and cannot be assigned to other accounts.",
+              )}
             </Typography.Text>
           </div>
         ) : null}
       </Drawer>
 
       <Drawer
-        title={"设置用户权限"}
+        title={l("设置用户权限", "Set user permissions")}
         open={Boolean(permissionUser)}
         onClose={() => setPermissionUser(null)}
         size="large"
         extra={
           <Button type="primary" onClick={handleSaveUserPermissions}>
-            保存
+            {l("保存", "Save")}
           </Button>
         }
       >
@@ -1268,14 +1438,20 @@ export default function AdminAuthPage() {
                   {permissionUser.displayName || permissionUser.username}
                 </Typography.Text>
               }
-              description={
-                "开关控制实际生效权限；来自角色的权限标记为「角色继承」，关闭后写入「单独关闭」。"
-              }
+              description={l(
+                "开关控制实际生效权限；来自角色的权限标记为「角色继承」，关闭后写入「单独关闭」。",
+                "Switches control effective permissions. Permissions supplied by roles are marked Inherited; turning one off records a direct denial.",
+              )}
             />
             <div className="admin-permission-effective">
-              <Typography.Text strong>可查看日志角色</Typography.Text>
+              <Typography.Text strong>
+                {l("可查看日志角色", "Roles whose logs can be viewed")}
+              </Typography.Text>
               <Typography.Text type="secondary">
-                {"仅在该用户具备「查看指定角色日志」权限时生效。"}
+                {l(
+                  "仅在该用户具备「查看指定角色日志」权限时生效。",
+                  "This applies only when the user has permission to view logs for specified roles.",
+                )}
               </Typography.Text>
               <Select
                 mode="multiple"
@@ -1285,7 +1461,7 @@ export default function AdminAuthPage() {
                   []
                 }
                 options={groups.map((group) => ({
-                  label: group.name,
+                  label: builtinRoleDisplayName(group.name, english),
                   value: group.id,
                 }))}
                 onChange={(values) => {
@@ -1294,7 +1470,10 @@ export default function AdminAuthPage() {
                     [permissionUser.id]: values.map(Number),
                   }));
                 }}
-                placeholder={"选择允许查看日志的角色"}
+                placeholder={l(
+                  "选择允许查看日志的角色",
+                  "Select roles whose logs may be viewed",
+                )}
                 style={{ width: "100%" }}
               />
             </div>
@@ -1328,7 +1507,7 @@ export default function AdminAuthPage() {
       </Drawer>
 
       <Modal
-        title="新建角色"
+        title={l("新建角色", "Create role")}
         open={createGroupOpen}
         onOk={handleCreateGroup}
         onCancel={() => setCreateGroupOpen(false)}
@@ -1337,8 +1516,13 @@ export default function AdminAuthPage() {
         <Form form={createGroupForm} layout="vertical">
           <Form.Item
             name="name"
-            label="角色名称"
-            rules={[{ required: true, message: "请输入角色名称" }]}
+            label={l("角色名称", "Role name")}
+            rules={[
+              {
+                required: true,
+                message: l("请输入角色名称", "Enter a role name"),
+              },
+            ]}
           >
             <Input />
           </Form.Item>
@@ -1346,7 +1530,7 @@ export default function AdminAuthPage() {
       </Modal>
 
       <Drawer
-        title="角色权限"
+        title={l("角色权限", "Role permissions")}
         open={Boolean(permissionGroup)}
         onClose={closePermissionDrawer}
         size="large"
@@ -1359,7 +1543,7 @@ export default function AdminAuthPage() {
               }
             }}
           >
-            保存
+            {l("保存", "Save")}
           </Button>
         }
       >
@@ -1370,7 +1554,10 @@ export default function AdminAuthPage() {
               <Alert
                 type="warning"
                 showIcon
-                title="系统锁定角色必须保留锁定权限，不允许修改"
+                title={l(
+                  "系统锁定角色必须保留锁定权限，不允许修改",
+                  "System-locked roles must retain their locked permissions",
+                )}
               />
             )}
             <PermissionPanel
@@ -1392,7 +1579,7 @@ export default function AdminAuthPage() {
       </Drawer>
 
       <Modal
-        title="新建用户"
+        title={l("新建用户", "Create user")}
         open={createUserOpen}
         onOk={handleCreateUser}
         onCancel={() => setCreateUserOpen(false)}
@@ -1405,36 +1592,59 @@ export default function AdminAuthPage() {
         >
           <Form.Item
             name="username"
-            label="用户名"
-            rules={[{ required: true, message: "请输入用户名" }]}
+            label={l("用户名", "Username")}
+            rules={[
+              {
+                required: true,
+                message: l("请输入用户名", "Enter a username"),
+              },
+            ]}
           >
             <Input autoComplete="off" />
           </Form.Item>
           <Form.Item
             name="groupIds"
-            label="角色"
-            extra="游客角色仅供系统 guest 账号使用，不能分配给其他账号。"
-            rules={[{ required: true, message: "请选择角色" }]}
+            label={l("角色", "Roles")}
+            extra={l(
+              "游客角色仅供系统 guest 账号使用，不能分配给其他账号。",
+              "The guest role is reserved for the system guest account and cannot be assigned to other accounts.",
+            )}
+            rules={[
+              {
+                required: true,
+                message: l("请选择角色", "Select at least one role"),
+              },
+            ]}
           >
             <Select mode="multiple" options={groupOptions} />
           </Form.Item>
-          <Form.Item name="displayName" label="显示名称">
+          <Form.Item name="displayName" label={l("显示名称", "Display name")}>
             <Input />
           </Form.Item>
           <Form.Item
             name="email"
-            label="邮箱"
+            label={l("邮箱", "Email")}
             rules={[
-              { required: true, message: "请输入邮箱" },
-              { type: "email", message: "请输入有效邮箱" },
+              {
+                required: true,
+                message: l("请输入邮箱", "Enter an email address"),
+              },
+              {
+                type: "email",
+                message: l("请输入有效邮箱", "Enter a valid email address"),
+              },
             ]}
           >
             <Input />
           </Form.Item>
-          <Form.Item name="department" label="部门">
+          <Form.Item name="department" label={l("部门", "Department")}>
             <Input />
           </Form.Item>
-          <Form.Item name="isActive" label="启用账号" valuePropName="checked">
+          <Form.Item
+            name="isActive"
+            label={l("启用账号", "Enable account")}
+            valuePropName="checked"
+          >
             <Switch />
           </Form.Item>
         </Form>
@@ -1448,19 +1658,30 @@ type FormValidationError = {
 };
 
 function RolePresetGuide() {
+  const english = useEnglishLanguage();
+  const l = (zh: string, en: string) => localText(english, zh, en);
   return (
     <Alert
       type="info"
       showIcon
-      title="内置角色权限基线"
+      title={l("内置角色权限基线", "Built-in role permission baseline")}
       description={
         <Space size={[8, 8]} wrap>
           {builtinRoleOrder.map((roleName) => {
             const roleInfo = builtinRoleInfo[roleName];
             if (!roleInfo) return null;
             return (
-              <Tooltip key={roleName} title={roleInfo.summary}>
-                <Tag color={roleInfo.color}>{roleName}</Tag>
+              <Tooltip
+                key={roleName}
+                title={
+                  english
+                    ? builtinRoleInfoEnglish[roleName]?.summary
+                    : roleInfo.summary
+                }
+              >
+                <Tag color={roleInfo.color}>
+                  {builtinRoleDisplayName(roleName, english)}
+                </Tag>
               </Tooltip>
             );
           })}
@@ -1474,15 +1695,18 @@ function GroupTags({
   groupIds,
   groupNameById,
   maxVisible = 6,
-  emptyText = "未分配角色",
+  emptyText,
 }: {
   groupIds: number[];
   groupNameById: Map<number, string>;
   maxVisible?: number;
   emptyText?: string;
 }) {
+  const english = useEnglishLanguage();
+  const resolvedEmptyText =
+    emptyText ?? (english ? "No roles assigned" : "未分配角色");
   if (groupIds.length === 0) {
-    return <Tag>{emptyText}</Tag>;
+    return <Tag>{resolvedEmptyText}</Tag>;
   }
   const visibleIds = groupIds.slice(0, maxVisible);
   const hiddenCount = groupIds.length - visibleIds.length;
@@ -1549,6 +1773,12 @@ function isGuestAccount(user: User) {
 
 function isGuestRole(group: Group) {
   return group.name === "游客";
+}
+
+function builtinRoleDisplayName(roleName: string, english: boolean) {
+  return english
+    ? (builtinRoleInfoEnglish[roleName]?.name ?? roleName)
+    : roleName;
 }
 
 function UserIdentity({

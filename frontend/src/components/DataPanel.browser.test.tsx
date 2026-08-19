@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { cloneDefaultVectorSymbolization } from "../symbolization";
 import { appTheme } from "../theme";
 import type { DataResourceProfile, ResourceListItem, User } from "../types";
-import DataPanel from "./DataPanel";
+import DataPanel, { type DataResourceLoadReporter } from "./DataPanel";
 import { VectorSymbolizationEditor } from "./SymbolizationEditor";
 
 const permissions: User["permissions"] = {
@@ -357,7 +357,10 @@ describe("DataPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "快速加载" }));
 
-    expect(onQuickLoadResource).toHaveBeenCalledWith(vectorResource);
+    expect(onQuickLoadResource).toHaveBeenCalledWith(
+      vectorResource,
+      expect.any(Function),
+    );
   });
 
   it("spins the clicked quick load button while loading", async () => {
@@ -392,6 +395,54 @@ describe("DataPanel", () => {
     await waitFor(() => expect(button).toHaveClass("ant-btn-loading"));
     resolveQuickLoad();
     await waitFor(() => expect(button).not.toHaveClass("ant-btn-loading"));
+  });
+
+  it("shows reported data loading progress and closes it after completion", async () => {
+    let resolveQuickLoad: () => void = () => undefined;
+    const onQuickLoadResource = vi.fn(
+      (_resource: ResourceListItem, reportProgress: DataResourceLoadReporter) =>
+        new Promise<void>((resolve) => {
+          resolveQuickLoad = resolve;
+          reportProgress({
+            percent: 42,
+            message: "正在生成可显示的栅格瓦片",
+          });
+        }),
+    );
+
+    renderWithAntd(
+      <DataPanel
+        resources={[rasterResource]}
+        profile={null}
+        selectedResourceId={null}
+        loadingProfile={false}
+        querying={false}
+        permissions={permissions}
+        onFilterResources={vi.fn()}
+        onSelectResource={vi.fn()}
+        onQuickLoadResource={onQuickLoadResource}
+        onQueryAndLoad={vi.fn()}
+        onLoadRaster={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "快速加载" }));
+
+    const progress = await screen.findByRole("status", {
+      name: `${rasterResource.name}加载进度`,
+    });
+    expect(progress).toHaveTextContent("数据正在加载到三维地球");
+    expect(progress).toHaveTextContent("42%");
+    expect(progress).toHaveTextContent("正在生成可显示的栅格瓦片");
+
+    resolveQuickLoad();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("status", {
+          name: `${rasterResource.name}加载进度`,
+        }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("tracks simultaneous quick loads independently", async () => {
@@ -445,9 +496,7 @@ describe("DataPanel", () => {
     expect(buttons[1]).toHaveClass("ant-btn-loading");
 
     resolvers.get(secondResource.id)?.();
-    await waitFor(() =>
-      expect(buttons[1]).not.toHaveClass("ant-btn-loading"),
-    );
+    await waitFor(() => expect(buttons[1]).not.toHaveClass("ant-btn-loading"));
   });
 
   it("hides vector query execution when the user lacks query permissions", () => {

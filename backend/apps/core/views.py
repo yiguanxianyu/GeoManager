@@ -16,6 +16,7 @@ from apps.core.config import (
 )
 from apps.core.map_thumbnail import thumbnail_tile
 from apps.core.models import SystemSetting
+from apps.core.localization import localized
 from apps.core.platform_brand import (
     PLATFORM_ABBREVIATION,
     PLATFORM_EDITION,
@@ -83,23 +84,36 @@ def login_overview(request):
                 "version": _application_version(),
             },
             "hero": {
-                "badge": "生态智慧监测平台",
-                "summary": (
-                    "平台集成遥感影像、空间矢量、野外样方、长期监测与生态专题数据，"
-                    "提供统一编目、三维地理可视化、综合查询分析和共享服务。"
+                "badge": localized(
+                    "生态智慧监测平台",
+                    "Ecological Intelligent Monitoring Platform",
+                ),
+                "summary": localized(
+                    (
+                        "平台集成遥感影像、空间矢量、野外样方、长期监测与生态专题数据，"
+                        "提供统一编目、三维地理可视化、综合查询分析和共享服务。"
+                    ),
+                    (
+                        "The platform integrates remote-sensing imagery, spatial vectors, "
+                        "field plots, long-term monitoring, and ecological thematic data, "
+                        "with unified cataloging, 3D geovisualization, query, analysis, and sharing."
+                    ),
                 ),
                 "capabilityTags": [
-                    "遥感影像",
-                    "矢量边界",
-                    "野外样方",
-                    "长期监测",
-                    "生态专题",
+                    localized("遥感影像", "Remote sensing imagery"),
+                    localized("矢量边界", "Vector boundaries"),
+                    localized("野外样方", "Field plots"),
+                    localized("长期监测", "Long-term monitoring"),
+                    localized("生态专题", "Ecological themes"),
                 ],
             },
             "metrics": metrics,
             "serviceStatus": service_status,
             "footer": {
-                "statisticsNotice": "统计口径已接入后端平台概览接口",
+                "statisticsNotice": localized(
+                    "统计口径已接入后端平台概览接口",
+                    "Statistics are supplied by the live platform overview API",
+                ),
             },
         }
     )
@@ -161,27 +175,30 @@ def _login_overview_metrics(generated_at: str) -> list[dict]:
     metric_values = [
         (
             "dataResources",
-            "平台数据资源",
+            localized("平台数据资源", "Data resources"),
             active_resources.count(),
-            "平台已接入总量，登录后按权限显示",
+            localized(
+                "平台已接入总量，登录后按权限显示",
+                "Platform total; visibility follows account permissions",
+            ),
         ),
         (
             "thematicLayers",
-            "专题图层",
+            localized("专题图层", "Thematic layers"),
             active_layers.count(),
-            "生态保护专题",
+            localized("生态保护专题", "Ecological conservation themes"),
         ),
         (
             "monitoringSites",
-            "监测站点",
+            localized("监测站点", "Monitoring sites"),
             active_layers.filter(geometry_type=MapLayer.GeometryType.POINT).count(),
-            "长期观测网络",
+            localized("长期观测网络", "Long-term observation network"),
         ),
         (
             "coveredBasins",
-            "覆盖流域",
+            localized("覆盖流域", "Covered basins"),
             covered_regions,
-            "中亚重点区域",
+            localized("中亚重点区域", "Priority arid-region areas"),
         ),
     ]
     return [
@@ -205,36 +222,54 @@ def _login_overview_service_status(
     services = [
         {
             "id": "resourceCatalog",
-            "label": "资源目录",
+            "label": localized("资源目录", "Resource catalog"),
             "status": "normal" if data_resources > 0 else "warning",
             "description": (
-                f"已接入 {data_resources} 项启用数据资源。"
+                localized(
+                    f"已接入 {data_resources} 项启用数据资源。",
+                    f"{data_resources} active data resources are connected.",
+                )
                 if data_resources > 0
-                else "暂无启用数据资源，登录后可由管理员导入。"
+                else localized(
+                    "暂无启用数据资源，登录后可由管理员导入。",
+                    "No active data resources are available; an administrator can import them after signing in.",
+                )
             ),
         },
         {
             "id": "layerService",
-            "label": "图层服务",
+            "label": localized("图层服务", "Layer service"),
             "status": "normal" if thematic_layers > 0 else "warning",
             "description": (
-                f"地图图层服务当前可用，已配置 {thematic_layers} 个启用图层。"
+                localized(
+                    f"地图图层服务当前可用，已配置 {thematic_layers} 个启用图层。",
+                    f"The map layer service is available with {thematic_layers} active layers.",
+                )
                 if thematic_layers > 0
-                else "暂无启用图层，登录后可由管理员配置。"
+                else localized(
+                    "暂无启用图层，登录后可由管理员配置。",
+                    "No active layers are configured; an administrator can configure them after signing in.",
+                )
             ),
         },
         {
             "id": "permissionGateway",
-            "label": "权限认证",
+            "label": localized("权限认证", "Authorization"),
             "status": "normal",
-            "description": "统一身份认证与权限控制已开启。",
+            "description": localized(
+                "统一身份认证与权限控制已开启。",
+                "Unified authentication and permission controls are enabled.",
+            ),
         },
     ]
     node_summary = _login_overview_node_summary(services)
     return {
-        "title": "平台服务状态",
+        "title": localized("平台服务状态", "Platform service status"),
         "headline": _service_status_headline(services),
-        "description": "登录后可按账号权限进入数据目录和地图工作台；具备运维权限时显示后台管理入口。",
+        "description": localized(
+            "登录后可按账号权限进入数据目录和地图工作台；具备运维权限时显示后台管理入口。",
+            "After signing in, the data catalog, geo workspace, and administration entry are shown according to account permissions.",
+        ),
         "services": services,
         "nodeSummary": node_summary,
     }
@@ -251,21 +286,33 @@ def _login_overview_node_summary(services: list[dict]) -> dict:
         "warning": warning,
         "risk": risk,
         "legend": [
-            {"status": "normal", "label": "正常", "count": normal},
-            {"status": "warning", "label": "待同步", "count": warning},
-            {"status": "risk", "label": "异常", "count": risk},
+            {
+                "status": "normal",
+                "label": localized("正常", "Normal"),
+                "count": normal,
+            },
+            {
+                "status": "warning",
+                "label": localized("待同步", "Pending"),
+                "count": warning,
+            },
+            {
+                "status": "risk",
+                "label": localized("异常", "Issue"),
+                "count": risk,
+            },
         ],
     }
 
 
 def _service_status_headline(services: list[dict]) -> str:
     status_text = {
-        "normal": "可用",
-        "warning": "待同步",
-        "risk": "异常",
+        "normal": localized("可用", " available"),
+        "warning": localized("待同步", " pending"),
+        "risk": localized("异常", " issue"),
     }
     return " · ".join(
-        f"{service['label']}{status_text.get(service['status'], '未知')}"
+        f"{service['label']}{status_text.get(service['status'], localized('未知', ' unknown'))}"
         for service in services
     )
 

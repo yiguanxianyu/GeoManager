@@ -418,6 +418,21 @@ class LoginOverviewApiTests(TestCase):
         self.assertEqual(services["layerService"]["status"], "warning")
         self.assertEqual(payload["serviceStatus"]["nodeSummary"]["warning"], 2)
 
+    def test_login_overview_honors_english_accept_language(self):
+        response = self.client.get("/api/login/overview/", HTTP_ACCEPT_LANGUAGE="en-US")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(
+            payload["hero"]["badge"], "Ecological Intelligent Monitoring Platform"
+        )
+        self.assertEqual(payload["metrics"][0]["label"], "Data resources")
+        self.assertEqual(payload["serviceStatus"]["title"], "Platform service status")
+        self.assertEqual(
+            payload["serviceStatus"]["nodeSummary"]["legend"][0]["label"],
+            "Normal",
+        )
+
 
 class CsrfSettingsTests(SimpleTestCase):
     def test_debug_defaults_trust_vite_dev_origins_with_wildcard_allowed_hosts(self):
@@ -641,18 +656,14 @@ class AdminSettingsApiTests(TestCase):
             ):
                 response = self.client.post(
                     "/api/admin/settings/",
-                    data=json.dumps(
-                        {"map": {"defaultBasemap": "tianditu-imagery"}}
-                    ),
+                    data=json.dumps({"map": {"defaultBasemap": "tianditu-imagery"}}),
                     content_type="application/json",
                 )
 
             persisted = tomlkit.parse(config_path.read_text(encoding="utf-8"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.json()["map"]["defaultBasemap"], "tianditu-imagery"
-        )
+        self.assertEqual(response.json()["map"]["defaultBasemap"], "tianditu-imagery")
         self.assertEqual(
             persisted["application"]["map"]["default_basemap"],
             "tianditu-imagery",
@@ -889,6 +900,14 @@ class ApiJsonErrorTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response["Content-Type"], "application/json")
         self.assertEqual(response.json()["detail"], "CSRF 验证失败")
+
+    def test_api_errors_honor_english_accept_language(self):
+        response = self.client.get(
+            "/api/catalog/resources/", HTTP_ACCEPT_LANGUAGE="en-US"
+        )
+
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json()["detail"], "Sign in first")
 
 
 class RegistrationApiTests(TestCase):

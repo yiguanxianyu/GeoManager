@@ -9,39 +9,23 @@ import {
 import type { MenuDataItem } from "@ant-design/pro-components";
 import { PageContainer, ProLayout } from "@ant-design/pro-components";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
 import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useAppContext } from "../contexts/AppContext";
 import type { User } from "../types";
 
-const profileRoute: MenuDataItem = {
-  path: "/admin/profile",
-  name: "用户设置",
-  icon: <UserOutlined />,
-};
-
-const authRoute: MenuDataItem = {
-  path: "/admin/auth",
-  name: "认证授权",
-  icon: <TeamOutlined />,
-  children: [
-    {
-      path: "/admin/auth/users",
-      name: "用户管理",
-    },
-    {
-      path: "/admin/auth/groups",
-      name: "角色权限",
-    },
-  ],
-};
-
-function adminRouteFor(user: User | null) {
+function adminRouteFor(user: User | null, t: (key: string) => string) {
+  const profileRoute: MenuDataItem = {
+    path: "/admin/profile",
+    name: t("navigation.userSettings"),
+    icon: <UserOutlined />,
+  };
   const routes: MenuDataItem[] = user?.permissions.canAccessAdmin
     ? [
         {
           path: "/admin/dashboard",
-          name: "运行概览",
+          name: t("navigation.runningOverview"),
           icon: <DashboardOutlined />,
         },
         profileRoute,
@@ -53,26 +37,40 @@ function adminRouteFor(user: User | null) {
   ) {
     routes.push({
       path: "/admin/logs",
-      name: "日志管理",
+      name: t("navigation.logManagement"),
       icon: <AuditOutlined />,
     });
   }
   if (user?.permissions.canManageSystemSettings) {
     routes.push({
       path: "/admin/settings",
-      name: "系统设置",
+      name: t("navigation.systemSettings"),
       icon: <SettingOutlined />,
     });
   }
   if (user?.permissions.canManageDataBackup) {
     routes.push({
       path: "/admin/backup",
-      name: "数据备份",
+      name: t("navigation.dataBackup"),
       icon: <CloudUploadOutlined />,
     });
   }
   if (user?.permissions.canManageAuth) {
-    routes.push(authRoute);
+    routes.push({
+      path: "/admin/auth",
+      name: t("admin.authorization"),
+      icon: <TeamOutlined />,
+      children: [
+        {
+          path: "/admin/auth/users",
+          name: t("navigation.userManagement"),
+        },
+        {
+          path: "/admin/auth/groups",
+          name: t("navigation.rolePermissions"),
+        },
+      ],
+    });
   }
   return {
     path: "/admin",
@@ -80,49 +78,48 @@ function adminRouteFor(user: User | null) {
   };
 }
 
-const defaultPageMeta = {
-  title: "运行概览",
-  subTitle: "汇总平台用户活跃、账号与系统监控",
-};
-
-const pageMeta: Record<string, { title: string; subTitle: string }> = {
-  "/admin/dashboard": defaultPageMeta,
-  "/admin/profile": {
-    title: "用户设置",
-    subTitle: "维护个人信息并查看当前权限",
-  },
-  "/admin/logs": {
-    title: "日志管理",
-    subTitle: "查询授权范围内的操作记录",
-  },
-  "/admin/settings": {
-    title: "系统设置",
-    subTitle: "维护基础配置与平台运行参数",
-  },
-  "/admin/backup": {
-    title: "数据备份",
-    subTitle: "管理科研数据和平台数据的本地与云端备份",
-  },
-  "/admin/auth": {
-    title: "认证授权",
-    subTitle: "管理用户、角色和功能权限",
-  },
-  "/admin/auth/users": {
-    title: "认证授权",
-    subTitle: "管理用户、角色和功能权限",
-  },
-  "/admin/auth/groups": {
-    title: "认证授权",
-    subTitle: "管理用户、角色和功能权限",
-  },
-};
-
 export default function AdminLayout() {
   const { user } = useAppContext();
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+  const defaultPageMeta = {
+    title: t("navigation.runningOverview"),
+    subTitle: t("admin.operationsSubtitle"),
+  };
+  const pageMeta: Record<string, { title: string; subTitle: string }> = {
+    "/admin/dashboard": defaultPageMeta,
+    "/admin/profile": {
+      title: t("navigation.userSettings"),
+      subTitle: t("admin.profileSubtitle"),
+    },
+    "/admin/logs": {
+      title: t("navigation.logManagement"),
+      subTitle: t("admin.logsSubtitle"),
+    },
+    "/admin/settings": {
+      title: t("navigation.systemSettings"),
+      subTitle: t("admin.settingsSubtitle"),
+    },
+    "/admin/backup": {
+      title: t("navigation.dataBackup"),
+      subTitle: t("admin.backupSubtitle"),
+    },
+    "/admin/auth": {
+      title: t("admin.authorization"),
+      subTitle: t("admin.authorizationSubtitle"),
+    },
+    "/admin/auth/users": {
+      title: t("admin.authorization"),
+      subTitle: t("admin.authorizationSubtitle"),
+    },
+    "/admin/auth/groups": {
+      title: t("admin.authorization"),
+      subTitle: t("admin.authorizationSubtitle"),
+    },
+  };
   const meta = pageMeta[location.pathname] ?? defaultPageMeta;
-  const adminRoute = useMemo(() => adminRouteFor(user), [user]);
+  const adminRoute = useMemo(() => adminRouteFor(user, t), [t, user]);
 
   return (
     <div className="admin-workspace-shell">
@@ -132,7 +129,7 @@ export default function AdminLayout() {
       />
       <ProLayout
         className="admin-pro-layout"
-        title="生态保护管理"
+        title={t("admin.ecologyManagement")}
         route={adminRoute}
         location={{ pathname: location.pathname }}
         layout="mix"

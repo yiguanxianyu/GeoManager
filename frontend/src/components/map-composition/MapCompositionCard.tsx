@@ -8,6 +8,7 @@ import {
   UploadOutlined,
 } from "@ant-design/icons";
 import { Button, Popconfirm, Space, Tag, Tooltip } from "antd";
+import { useTranslation } from "react-i18next";
 import type { MapComposition } from "../../types";
 
 interface Props {
@@ -33,6 +34,9 @@ export default function MapCompositionCard({
   onLoadSource,
   onDelete,
 }: Props) {
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const previewVersion = composition.currentVersion;
   return (
     <article className="map-composition-card">
@@ -45,43 +49,58 @@ export default function MapCompositionCard({
         {previewVersion ? (
           <>
             <EyeOutlined />
-            <span>预览 V{previewVersion.versionNumber}</span>
+            <span>
+              {english ? "Preview" : "预览"} V{previewVersion.versionNumber}
+            </span>
           </>
         ) : (
-          <span>尚未生成成果</span>
+          <span>{english ? "No result generated" : "尚未生成成果"}</span>
         )}
       </button>
       <div className="map-composition-card-main">
         <div className="map-composition-card-title">
           <strong>{composition.name}</strong>
           <Tag color={statusColor(composition.status)}>
-            {statusLabel(composition.status)}
+            {statusLabel(composition.status, english)}
           </Tag>
-          {!composition.isOwner ? <Tag color="cyan">非本人专题</Tag> : null}
+          {!composition.isOwner ? (
+            <Tag color="cyan">
+              {english ? "Owned by another user" : "非本人专题"}
+            </Tag>
+          ) : null}
         </div>
-        <small>来源：{composition.projectName}</small>
         <small>
-          所属：{composition.owner.displayName || composition.owner.username}
+          {english ? "Source" : "来源"}：{composition.projectName}
+        </small>
+        <small>
+          {english ? "Owner" : "所属"}：
+          {composition.owner.displayName || composition.owner.username}
         </small>
         {composition.publishedVersion ? (
           <small>
-            已发布 V{composition.publishedVersion.versionNumber} ·{" "}
-            {composition.audienceGroups.map((group) => group.name).join("、") ||
-              "未配置角色"}
+            {english ? "Published" : "已发布"} V
+            {composition.publishedVersion.versionNumber} ·{" "}
+            {composition.audienceGroups
+              .map((group) => group.name)
+              .join(english ? ", " : "、") ||
+              (english ? "No roles configured" : "未配置角色")}
           </small>
         ) : (
           <small>
             {composition.description ||
-              new Date(composition.updatedAt).toLocaleString("zh-CN", {
-                hour12: false,
-              })}
+              new Date(composition.updatedAt).toLocaleString(
+                english ? "en-US" : "zh-CN",
+                {
+                  hour12: false,
+                },
+              )}
           </small>
         )}
       </div>
       <Space size={4} wrap>
         {composition.canEditLayout ? (
           <Button size="small" icon={<EditOutlined />} onClick={onOpen}>
-            编辑版式
+            {english ? "Edit layout" : "编辑版式"}
           </Button>
         ) : null}
         <Button
@@ -90,21 +109,27 @@ export default function MapCompositionCard({
           disabled={!composition.canDownload || !previewVersion}
           onClick={onDownload}
         >
-          下载
+          {english ? "Download" : "下载"}
         </Button>
         {composition.canPublish ? (
           <Button size="small" icon={<UploadOutlined />} onClick={onPublish}>
-            {composition.status === "published" ? "更新发布" : "发布"}
+            {composition.status === "published"
+              ? english
+                ? "Update publication"
+                : "更新发布"
+              : english
+                ? "Publish"
+                : "发布"}
           </Button>
         ) : null}
         {composition.canUnpublish ? (
           <Button size="small" onClick={onUnpublish}>
-            下架
+            {english ? "Unpublish" : "下架"}
           </Button>
         ) : null}
         {composition.canRestoreProject ? (
           <Button size="small" icon={<RollbackOutlined />} onClick={onRestore}>
-            还原工程
+            {english ? "Restore project" : "还原工程"}
           </Button>
         ) : null}
         {composition.canLoadSourceProject ? (
@@ -113,19 +138,23 @@ export default function MapCompositionCard({
             icon={<FolderOpenOutlined />}
             onClick={onLoadSource}
           >
-            来源工程
+            {english ? "Source project" : "来源工程"}
           </Button>
         ) : null}
         {composition.canDelete ? (
           <Popconfirm
-            title="删除出图稿"
-            description={`确认删除“${composition.name}”？专题、全部版本记录和成果文件将被永久删除且不可恢复。`}
-            okText="删除"
-            cancelText="取消"
+            title={english ? "Delete map draft" : "删除出图稿"}
+            description={
+              english
+                ? `Delete “${composition.name}”? The thematic map, all versions, and result files will be permanently deleted.`
+                : `确认删除“${composition.name}”？专题、全部版本记录和成果文件将被永久删除且不可恢复。`
+            }
+            okText={english ? "Delete" : "删除"}
+            cancelText={english ? "Cancel" : "取消"}
             okButtonProps={{ danger: true }}
             onConfirm={onDelete}
           >
-            <Tooltip title="删除">
+            <Tooltip title={english ? "Delete" : "删除"}>
               <Button size="small" danger icon={<DeleteOutlined />} />
             </Tooltip>
           </Popconfirm>
@@ -135,8 +164,12 @@ export default function MapCompositionCard({
   );
 }
 
-function statusLabel(status: MapComposition["status"]) {
-  return { draft: "草稿", completed: "未发布", published: "已发布" }[status];
+function statusLabel(status: MapComposition["status"], english = false) {
+  return english
+    ? { draft: "Draft", completed: "Unpublished", published: "Published" }[
+        status
+      ]
+    : { draft: "草稿", completed: "未发布", published: "已发布" }[status];
 }
 
 function statusColor(status: MapComposition["status"]) {

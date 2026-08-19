@@ -1,4 +1,5 @@
 import type { StyleSpecification } from "mapbox-gl";
+import i18n from "../i18n";
 import { createOsmRasterStyle, mapboxSatelliteStyle } from "./basemapStyle";
 import { tiandituTileProviderName } from "./tiandituTileProviderConfig";
 
@@ -110,8 +111,8 @@ export function createBasemapCatalog(
   return [
     {
       id: "mapbox-satellite",
-      label: "Mapbox 卫星实景图",
-      description: "高分辨率卫星影像与道路注记，平台默认底图",
+      label: i18n.t("map.mapboxSatellite"),
+      description: i18n.t("map.mapboxSatelliteDescription"),
       provider: "mapbox",
       selectable: true,
       style: mapboxSatelliteStyle,
@@ -134,8 +135,8 @@ export function createBasemapCatalog(
     },
     {
       id: "mapbox-streets",
-      label: "Mapbox 街道图",
-      description: "突出道路、地名和交通参考信息，不含实时路况",
+      label: i18n.t("map.mapboxStreets"),
+      description: i18n.t("map.mapboxStreetsDescription"),
       provider: "mapbox",
       selectable: true,
       style: mapboxStreetsStyle,
@@ -158,8 +159,8 @@ export function createBasemapCatalog(
     },
     {
       id: "tianditu-vector",
-      label: "天地图矢量注记图",
-      description: "天地图矢量底图与中文注记组合",
+      label: i18n.t("map.tiandituVector"),
+      description: i18n.t("map.tiandituVectorDescription"),
       provider: "tianditu",
       selectable: true,
       style: createTiandituVectorStyle(credentials.tiandituKey),
@@ -182,8 +183,8 @@ export function createBasemapCatalog(
     },
     {
       id: "tianditu-imagery",
-      label: "天地图卫星影像图",
-      description: "天地图影像底图与中文影像注记组合（非实时影像）",
+      label: i18n.t("map.tiandituImagery"),
+      description: i18n.t("map.tiandituImageryDescription"),
       provider: "tianditu",
       selectable: true,
       style: createTiandituImageryStyle(credentials.tiandituKey),
@@ -206,8 +207,8 @@ export function createBasemapCatalog(
     },
     {
       id: "osm",
-      label: "OpenStreetMap 技术兜底",
-      description: "内部技术兜底，不提供生产可用性承诺",
+      label: i18n.t("map.osmFallback"),
+      description: i18n.t("map.osmFallbackDescription"),
       provider: "osm",
       selectable: false,
       style: createOsmRasterStyle(osmSourceId, osmLayerId),

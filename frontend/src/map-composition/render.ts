@@ -145,6 +145,7 @@ export async function renderCompositionPng(
 export function compositionIssues(
   layout: MapCompositionLayout,
   legendItems: CompositionLegendItem[],
+  english = false,
 ): CompositionIssue[] {
   const issues: CompositionIssue[] = [];
   const width = Math.round((layout.page.widthMm * layout.page.dpi) / 25.4);
@@ -152,33 +153,53 @@ export function compositionIssues(
   if (width > 8192 || height > 8192 || width * height > 36_000_000) {
     issues.push({
       level: "error",
-      message: "页面尺寸超过平台安全限制，请降低 DPI、纸张规格或改用较小版式",
+      message: english
+        ? "The page exceeds the platform safety limit. Reduce DPI, paper size, or layout dimensions."
+        : "页面尺寸超过平台安全限制，请降低 DPI、纸张规格或改用较小版式",
     });
   }
   if (!layout.title.enabled || !layout.title.text.trim()) {
-    issues.push({ level: "error", message: "专题图缺少标题" });
+    issues.push({
+      level: "error",
+      message: english ? "The thematic map has no title" : "专题图缺少标题",
+    });
   }
   const [west, south, east, north] = layout.mapFrame.bounds;
   if (west >= east || south >= north) {
     issues.push({
       level: "error",
-      message: "主地图范围的西/南坐标必须小于东/北坐标",
+      message: english
+        ? "The west/south coordinates must be smaller than the east/north coordinates"
+        : "主地图范围的西/南坐标必须小于东/北坐标",
     });
   }
   if (layout.legend.enabled && legendItems.length === 0) {
     issues.push({
       level: "warning",
-      message: "图例已启用，但当前没有可见图层",
+      message: english
+        ? "The legend is enabled, but there are no visible layers"
+        : "图例已启用，但当前没有可见图层",
     });
   }
   if (!layout.source.enabled || !layout.source.text.trim()) {
-    issues.push({ level: "warning", message: "建议填写数据来源" });
+    issues.push({
+      level: "warning",
+      message: english ? "Add a data source" : "建议填写数据来源",
+    });
   }
   if (!layout.note.enabled || !layout.note.text.trim()) {
-    issues.push({ level: "warning", message: "建议填写制图说明" });
+    issues.push({
+      level: "warning",
+      message: english ? "Add cartographic notes" : "建议填写制图说明",
+    });
   }
   if (!isBoxWithinPage(layout, layout.mapFrame)) {
-    issues.push({ level: "error", message: "主地图框超出纸张范围" });
+    issues.push({
+      level: "error",
+      message: english
+        ? "The main map frame extends beyond the page"
+        : "主地图框超出纸张范围",
+    });
   }
   for (const element of [
     layout.title,
@@ -193,7 +214,9 @@ export function compositionIssues(
     if (element.enabled && !isBoxWithinPage(layout, element)) {
       issues.push({
         level: "error",
-        message: "存在超出纸张范围的地图整饰要素",
+        message: english
+          ? "One or more map elements extend beyond the page"
+          : "存在超出纸张范围的地图整饰要素",
       });
       break;
     }

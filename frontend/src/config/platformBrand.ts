@@ -1,3 +1,5 @@
+import type { AppLocale } from "../i18n";
+
 export const platformBrand = {
   chineseName: "干旱区胡杨林生态智慧监测平台",
   englishName:
@@ -23,8 +25,22 @@ export function resolvePlatformName(name?: string | null) {
   return normalized;
 }
 
-export function applyPlatformDocumentTitle(name?: string | null) {
-  const title = resolvePlatformName(name);
+export function localizedPlatformName(
+  name?: string | null,
+  locale: AppLocale = "zh-CN",
+) {
+  const resolved = resolvePlatformName(name);
+  if (locale !== "en-US") return resolved;
+  return resolved === platformBrand.chineseName
+    ? platformBrand.englishName
+    : resolved;
+}
+
+export function applyPlatformDocumentTitle(
+  name?: string | null,
+  locale: AppLocale = "zh-CN",
+) {
+  const title = localizedPlatformName(name, locale);
   document.title = title;
   return title;
 }

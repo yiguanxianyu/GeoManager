@@ -1,9 +1,11 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
+import { setLocale } from "../i18n";
 
-afterEach(() => {
+afterEach(async () => {
   cleanup();
+  await setLocale("zh-CN");
 });
 
 class MockResizeObserver {

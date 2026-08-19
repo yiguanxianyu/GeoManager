@@ -5,6 +5,7 @@ import {
   WarningOutlined,
 } from "@ant-design/icons";
 import { Button, Popover } from "antd";
+import { useTranslation } from "react-i18next";
 import type {
   BasemapDefinition,
   BasemapId,
@@ -30,22 +31,29 @@ export default function BasemapSwitcher({
   onSelect,
   className,
 }: BasemapSwitcherProps) {
+  const { t } = useTranslation();
   const selectableBasemaps = basemaps.filter((basemap) => basemap.selectable);
   const activeBasemap = basemaps.find((basemap) => basemap.id === activeId);
   const triggerLabel = switching
-    ? "正在切换底图"
-    : `切换底图，当前为${activeBasemap?.label ?? "未知底图"}`;
+    ? t("map.switchingBasemap")
+    : t("map.switchCurrentBasemap", {
+        name: activeBasemap?.label ?? t("map.unknownBasemap"),
+      });
   const content = (
-    <div className="basemap-switcher-panel" role="dialog" aria-label="选择底图">
+    <div
+      className="basemap-switcher-panel"
+      role="dialog"
+      aria-label={t("map.selectBasemap")}
+    >
       <div className="basemap-switcher-heading">
         <div>
-          <strong>选择底图</strong>
-          <span>切换后保留当前视角与业务图层</span>
+          <strong>{t("map.selectBasemap")}</strong>
+          <span>{t("map.preserveViewOnSwitch")}</span>
         </div>
         {switching ? (
           <span className="basemap-switcher-progress" role="status">
             <LoadingOutlined spin />
-            正在切换
+            {t("map.switching")}
           </span>
         ) : null}
       </div>
@@ -55,18 +63,21 @@ export default function BasemapSwitcher({
           const unavailable = !basemap.credentials.available;
           const optionDisabled = disabled || switching || unavailable;
           const statusText = unavailable
-            ? (basemap.credentials.reason ?? "当前不可用")
+            ? (basemap.credentials.reason ?? t("map.unavailable"))
             : basemap.credentials.degraded
-              ? (basemap.credentials.warning ?? "部分能力受限")
+              ? (basemap.credentials.warning ?? t("map.limited"))
               : selected
-                ? "当前使用"
-                : "可用";
+                ? t("map.current")
+                : t("map.available");
           return (
             <button
               key={basemap.id}
               type="button"
               className="basemap-switcher-option"
-              aria-label={`${basemap.label}，${statusText}`}
+              aria-label={t("map.optionStatus", {
+                name: basemap.label,
+                status: statusText,
+              })}
               aria-pressed={selected}
               disabled={optionDisabled}
               title={unavailable ? statusText : undefined}
@@ -107,7 +118,9 @@ export default function BasemapSwitcher({
                   {statusText}
                 </span>
                 <span className="basemap-switcher-provider">
-                  服务来源：{providerLabel(basemap.provider)}
+                  {t("map.serviceProvider", {
+                    provider: providerLabel(basemap.provider, t),
+                  })}
                 </span>
               </span>
             </button>
@@ -129,20 +142,23 @@ export default function BasemapSwitcher({
           disabled={disabled || switching}
           aria-label={
             disabled && disabledReason
-              ? `${triggerLabel}，${disabledReason}`
+              ? t("map.triggerStatus", {
+                  label: triggerLabel,
+                  reason: disabledReason,
+                })
               : triggerLabel
           }
           aria-busy={switching}
         >
-          {activeBasemap?.label ?? "选择底图"}
+          {activeBasemap?.label ?? t("map.selectBasemap")}
         </Button>
       </Popover>
     </span>
   );
 }
 
-function providerLabel(provider: BasemapProvider) {
+function providerLabel(provider: BasemapProvider, t: (key: string) => string) {
   if (provider === "mapbox") return "Mapbox";
-  if (provider === "tianditu") return "天地图";
+  if (provider === "tianditu") return t("map.tiandituProvider");
   return "OpenStreetMap";
 }

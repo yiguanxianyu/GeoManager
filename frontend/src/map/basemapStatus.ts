@@ -55,6 +55,60 @@ export interface BasemapStatusPresentation {
   summary: string;
 }
 
+const englishBasemapPresentation: Record<string, [string, string]> = {
+  网络已断开: [
+    "Network disconnected",
+    "The browser is offline. Check the local network, proxy, or VPN.",
+  ],
+  平台连接异常: [
+    "Platform connection issue",
+    "The platform health endpoint did not respond. The issue is between the browser and platform, and does not necessarily indicate a map UI defect.",
+  ],
+  网络可能不稳定: [
+    "Network may be unstable",
+    "The browser reports poor network quality and basemap resources failed to load. Retry on a stable network.",
+  ],
+  底图服务异常: [
+    "Basemap service issue",
+    "The platform is reachable, but the basemap style or tiles failed to load. The external basemap service is the likely source.",
+  ],
+  底图局部波动: [
+    "Partial basemap instability",
+    "A small number of Tianditu tiles still failed after retrying, below the threshold for switching the entire basemap.",
+  ],
+  网络连接较慢: [
+    "Slow network connection",
+    "Both the platform and basemap are responding slowly, which suggests network latency or instability.",
+  ],
+  底图延迟较高: [
+    "High basemap latency",
+    "The platform is responding normally, but the external basemap service may currently be busy.",
+  ],
+  平台响应较慢: [
+    "Slow platform response",
+    "The platform health endpoint is reachable but slow. Retry later or ask an administrator to check service load.",
+  ],
+  底图检测中: [
+    "Checking basemap",
+    "Checking the platform connection and basemap resources in the current view.",
+  ],
+  底图正常: [
+    "Basemap healthy",
+    "The platform and basemap resources in the current view are reachable.",
+  ],
+};
+
+export function localizeBasemapPresentation(
+  presentation: BasemapStatusPresentation,
+  english: boolean,
+): BasemapStatusPresentation {
+  if (!english) return presentation;
+  const translated = englishBasemapPresentation[presentation.label];
+  return translated
+    ? { ...presentation, label: translated[0], summary: translated[1] }
+    : presentation;
+}
+
 export const basemapSlowThresholdMs = 3_000;
 export const tiandituBasemapSlowThresholdMs = 12_000;
 
