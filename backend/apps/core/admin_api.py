@@ -3133,8 +3133,8 @@ def _available_permissions() -> list[dict[str, str]]:
 def _serialize_permission(permission) -> dict[str, str]:
     return {
         "id": permission.perm_name,
-        "label": permission.name,
-        "group": permission.group,
+        "label": permission.localized_name,
+        "group": permission.localized_group,
     }
 
 

@@ -1,5 +1,6 @@
 import { Input, InputNumber, Switch } from "antd";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   MapBounds,
   MapCompositionLayout,
@@ -46,7 +47,12 @@ export function BoundsEditor({
   value: MapBounds;
   onChange: (bounds: MapBounds) => void;
 }) {
-  const labels = ["西", "南", "东", "北"] as const;
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
+  const labels = english
+    ? (["West", "South", "East", "North"] as const)
+    : (["西", "南", "东", "北"] as const);
   return (
     <div className="composition-field-grid composition-bounds-grid">
       {labels.map((label, index) => (
@@ -74,11 +80,14 @@ export function BoxEditor({
   value: { xMm: number; yMm: number; widthMm: number; heightMm: number };
   onChange: (values: Partial<typeof value>) => void;
 }) {
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const labels = {
     xMm: "X(mm)",
     yMm: "Y(mm)",
-    widthMm: "宽(mm)",
-    heightMm: "高(mm)",
+    widthMm: english ? "Width (mm)" : "宽(mm)",
+    heightMm: english ? "Height (mm)" : "高(mm)",
   };
   return (
     <div className="composition-field-grid">

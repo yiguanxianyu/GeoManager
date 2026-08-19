@@ -28,6 +28,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
+import { localText, useEnglishLanguage } from "../i18n/useEnglishLanguage";
 import type {
   MapComposition,
   ResultArtifact,
@@ -67,6 +68,31 @@ const resultTypeLabels: Record<ResultArtifact["resultType"], string> = {
 
 export default function AdminTopicCompositionManagementPage() {
   const { message } = AntApp.useApp();
+  const english = useEnglishLanguage();
+  const l = (zh: string, en: string) => localText(english, zh, en);
+  const statusText = (value: MapComposition["status"]) =>
+    english
+      ? { draft: "Draft", completed: "Unpublished", published: "Published" }[
+          value
+        ]
+      : statusLabels[value].text;
+  const resultStatusText = (value: ResultArtifact["status"]) =>
+    english
+      ? value === "published"
+        ? "Published"
+        : "Unpublished / historical draft"
+      : resultStatusLabels[value].text;
+  const resultTypeText = (value: ResultArtifact["resultType"]) =>
+    english
+      ? {
+          map: "Map",
+          chart: "Chart",
+          report: "Report",
+          table: "Table",
+          image: "Image",
+          other: "Other",
+        }[value]
+      : resultTypeLabels[value];
   const [publishForm] = Form.useForm<{
     versionNumber?: number;
     audienceGroupIds: number[];
@@ -116,13 +142,15 @@ export default function AdminTopicCompositionManagementPage() {
       setItems(compositionResponse.value.items);
     } else {
       setItems([]);
-      message.error("专题图成果加载失败");
+      message.error(
+        l("专题图成果加载失败", "Failed to load thematic-map results"),
+      );
     }
     if (artifactResponse.status === "fulfilled") {
       setResultItems(artifactResponse.value.items);
     } else {
       setResultItems([]);
-      message.error("导入成果加载失败");
+      message.error(l("导入成果加载失败", "Failed to load imported results"));
     }
     const compositionGroups =
       compositionResponse.status === "fulfilled"
@@ -140,7 +168,7 @@ export default function AdminTopicCompositionManagementPage() {
       ),
     );
     setLoading(false);
-  }, [canManageArtifacts, canManageCompositions, canOpen, message]);
+  }, [canManageArtifacts, canManageCompositions, canOpen, english, message]);
 
   useEffect(() => {
     void loadItems();
@@ -246,7 +274,12 @@ export default function AdminTopicCompositionManagementPage() {
 
   async function preview(composition: MapComposition) {
     if (!composition.currentVersion) {
-      message.warning("该专题暂无可预览成果");
+      message.warning(
+        l(
+          "该专题暂无可预览成果",
+          "This thematic map has no previewable result",
+        ),
+      );
       return;
     }
     const key = `mapping-${composition.id}`;
@@ -269,7 +302,11 @@ export default function AdminTopicCompositionManagementPage() {
       );
       setPreviewFormat("png");
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "专题预览失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("专题预览失败", "Thematic-map preview failed"),
+      );
     } finally {
       setPreviewingKey((current) => (current === key ? null : current));
     }
@@ -277,7 +314,12 @@ export default function AdminTopicCompositionManagementPage() {
 
   async function download(composition: MapComposition) {
     if (!composition.currentVersion) {
-      message.warning("该专题暂无可下载成果");
+      message.warning(
+        l(
+          "该专题暂无可下载成果",
+          "This thematic map has no downloadable result",
+        ),
+      );
       return;
     }
     try {
@@ -287,7 +329,11 @@ export default function AdminTopicCompositionManagementPage() {
       );
       downloadBlob(result.blob, result.filename);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "专题下载失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("专题下载失败", "Thematic-map download failed"),
+      );
     }
   }
 
@@ -298,9 +344,13 @@ export default function AdminTopicCompositionManagementPage() {
         current.map((item) => (item.id === result.id ? result : item)),
       );
       notifyWorkspaceInventoryChanged("composition");
-      message.success("专题已下架");
+      message.success(l("专题已下架", "Thematic map unpublished"));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "专题下架失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("专题下架失败", "Failed to unpublish thematic map"),
+      );
     }
   }
 
@@ -309,7 +359,12 @@ export default function AdminTopicCompositionManagementPage() {
       composition.publishedVersion?.versionNumber ??
       composition.currentVersion?.versionNumber;
     if (!versionNumber) {
-      message.warning("该专题尚未生成成果版本");
+      message.warning(
+        l(
+          "该专题尚未生成成果版本",
+          "No result version has been generated for this thematic map",
+        ),
+      );
       return;
     }
     setPublishingArtifact(null);
@@ -351,9 +406,13 @@ export default function AdminTopicCompositionManagementPage() {
       }
       setPublishingComposition(null);
       setPublishingArtifact(null);
-      message.success("成果已发布");
+      message.success(l("成果已发布", "Result published"));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "专题发布失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("专题发布失败", "Failed to publish result"),
+      );
     } finally {
       setPublishing(false);
     }
@@ -366,15 +425,24 @@ export default function AdminTopicCompositionManagementPage() {
         current.filter((item) => item.id !== composition.id),
       );
       notifyWorkspaceInventoryChanged("composition");
-      message.success("专题已删除");
+      message.success(l("专题已删除", "Thematic map deleted"));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "专题删除失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("专题删除失败", "Failed to delete thematic map"),
+      );
     }
   }
 
   async function previewArtifact(artifact: ResultArtifact) {
     if (!artifact.canPreview) {
-      message.warning("该成果格式不支持在线预览");
+      message.warning(
+        l(
+          "该成果格式不支持在线预览",
+          "This result format cannot be previewed online",
+        ),
+      );
       return;
     }
     const key = `artifact-${artifact.id}`;
@@ -391,7 +459,11 @@ export default function AdminTopicCompositionManagementPage() {
       setPreviewTitle(artifact.name);
       setPreviewFormat(artifact.fileFormat);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "成果预览失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("成果预览失败", "Result preview failed"),
+      );
     } finally {
       setPreviewingKey((current) => (current === key ? null : current));
     }
@@ -402,7 +474,11 @@ export default function AdminTopicCompositionManagementPage() {
       const result = await api.downloadResultArtifact(artifact.id);
       downloadBlob(result.blob, result.filename);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "成果下载失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("成果下载失败", "Result download failed"),
+      );
     }
   }
 
@@ -426,9 +502,13 @@ export default function AdminTopicCompositionManagementPage() {
         );
       }
       notifyWorkspaceInventoryChanged("result");
-      message.success("成果已下架");
+      message.success(l("成果已下架", "Result unpublished"));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "成果下架失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("成果下架失败", "Failed to unpublish result"),
+      );
     }
   }
 
@@ -439,15 +519,19 @@ export default function AdminTopicCompositionManagementPage() {
         current.filter((item) => item.id !== artifact.id),
       );
       notifyWorkspaceInventoryChanged("result");
-      message.success("成果文件已删除");
+      message.success(l("成果文件已删除", "Result file deleted"));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "成果删除失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("成果删除失败", "Failed to delete result"),
+      );
     }
   }
 
   const columns: ColumnsType<MapComposition> = [
     {
-      title: "专题名称",
+      title: l("专题名称", "Thematic-map name"),
       dataIndex: "name",
       key: "name",
       width: 260,
@@ -455,28 +539,29 @@ export default function AdminTopicCompositionManagementPage() {
         <Space orientation="vertical" size={2}>
           <Typography.Text strong>{record.name}</Typography.Text>
           <Typography.Text type="secondary" className="admin-table-subtext">
-            来源工程：{record.projectName}
+            {l("来源工程：", "Source project: ")}
+            {record.projectName}
           </Typography.Text>
         </Space>
       ),
     },
     {
-      title: "类型",
+      title: l("类型", "Type"),
       key: "type",
       width: 96,
-      render: () => <Tag>专题出图</Tag>,
+      render: () => <Tag>{l("专题出图", "Thematic map")}</Tag>,
     },
     {
-      title: "状态",
+      title: l("状态", "Status"),
       dataIndex: "status",
       key: "status",
       width: 112,
       render: (value: MapComposition["status"]) => (
-        <Tag color={statusLabels[value].color}>{statusLabels[value].text}</Tag>
+        <Tag color={statusLabels[value].color}>{statusText(value)}</Tag>
       ),
     },
     {
-      title: "所属用户",
+      title: l("所属用户", "Owner"),
       key: "owner",
       width: 160,
       render: (_, record) => (
@@ -489,23 +574,24 @@ export default function AdminTopicCompositionManagementPage() {
       ),
     },
     {
-      title: "成果版本",
+      title: l("成果版本", "Result version"),
       key: "version",
       width: 112,
       render: (_, record) =>
         record.currentVersion
           ? `V${record.currentVersion.versionNumber}`
-          : "未生成",
+          : l("未生成", "Not generated"),
     },
     {
-      title: "更新时间",
+      title: l("更新时间", "Updated at"),
       dataIndex: "updatedAt",
       key: "updatedAt",
       width: 190,
-      render: (value: string) => new Date(value).toLocaleString("zh-CN"),
+      render: (value: string) =>
+        new Date(value).toLocaleString(english ? "en-US" : "zh-CN"),
     },
     {
-      title: "操作",
+      title: l("操作", "Actions"),
       key: "actions",
       width: 360,
       render: (_, record) => (
@@ -515,7 +601,7 @@ export default function AdminTopicCompositionManagementPage() {
             icon={<GlobalOutlined />}
             onClick={() => navigate(`/map?sceneId=${record.projectId}`)}
           >
-            打开工程
+            {l("打开工程", "Open project")}
           </Button>
           <Button
             type="link"
@@ -524,38 +610,43 @@ export default function AdminTopicCompositionManagementPage() {
             disabled={!record.canPreview || !record.currentVersion}
             onClick={() => void preview(record)}
           >
-            预览
+            {l("预览", "Preview")}
           </Button>
           <Button
             type="link"
             disabled={!record.canDownload || !record.currentVersion}
             onClick={() => void download(record)}
           >
-            下载
+            {l("下载", "Download")}
           </Button>
           <Button
             type="link"
             disabled={!record.canPublish}
             onClick={() => openPublish(record)}
           >
-            {record.status === "published" ? "更新发布" : "发布"}
+            {record.status === "published"
+              ? l("更新发布", "Update publication")
+              : l("发布", "Publish")}
           </Button>
           {record.canUnpublish ? (
             <Button type="link" onClick={() => void unpublish(record)}>
-              下架
+              {l("下架", "Unpublish")}
             </Button>
           ) : null}
           <Popconfirm
-            title="删除专题"
-            description={`确认删除“${record.name}”？专题、全部版本记录和成果文件将被永久删除且不可恢复。`}
-            okText="删除"
-            cancelText="取消"
+            title={l("删除专题", "Delete thematic map")}
+            description={l(
+              `确认删除“${record.name}”？专题、全部版本记录和成果文件将被永久删除且不可恢复。`,
+              `Delete “${record.name}”? The thematic map, all version records, and result files will be permanently deleted.`,
+            )}
+            okText={l("删除", "Delete")}
+            cancelText={l("取消", "Cancel")}
             okButtonProps={{ danger: true }}
             disabled={!record.canDelete}
             onConfirm={() => void deleteComposition(record)}
           >
             <Button type="link" danger disabled={!record.canDelete}>
-              删除
+              {l("删除", "Delete")}
             </Button>
           </Popconfirm>
         </Space>
@@ -565,7 +656,7 @@ export default function AdminTopicCompositionManagementPage() {
 
   const resultColumns: ColumnsType<ResultArtifact> = [
     {
-      title: "成果名称",
+      title: l("成果名称", "Result name"),
       dataIndex: "name",
       key: "name",
       width: 280,
@@ -579,38 +670,42 @@ export default function AdminTopicCompositionManagementPage() {
       ),
     },
     {
-      title: "来源 / 类型",
+      title: l("来源 / 类型", "Source / type"),
       key: "type",
       width: 190,
       render: (_, record) => (
         <Space wrap size={4}>
           <Tag color={record.sourceType === "analysis" ? "blue" : "gold"}>
-            {record.sourceType === "analysis" ? "平台分析" : "直接导入"}
+            {record.sourceType === "analysis"
+              ? l("平台分析", "Platform analysis")
+              : l("直接导入", "Direct import")}
           </Tag>
-          <Tag>{resultTypeLabels[record.resultType]}</Tag>
+          <Tag>{resultTypeText(record.resultType)}</Tag>
         </Space>
       ),
     },
     {
-      title: "状态",
+      title: l("状态", "Status"),
       dataIndex: "status",
       key: "status",
       width: 140,
       render: (value: ResultArtifact["status"]) => (
         <Tag color={resultStatusLabels[value].color}>
-          {resultStatusLabels[value].text}
+          {resultStatusText(value)}
         </Tag>
       ),
     },
     {
-      title: "创建者",
+      title: l("创建者", "Creator"),
       key: "owner",
       width: 160,
       render: (_, record) =>
-        record.owner.displayName || record.owner.username || "系统维护",
+        record.owner.displayName ||
+        record.owner.username ||
+        l("系统维护", "System maintenance"),
     },
     {
-      title: "文件",
+      title: l("文件", "File"),
       key: "file",
       width: 140,
       render: (_, record) => (
@@ -623,14 +718,15 @@ export default function AdminTopicCompositionManagementPage() {
       ),
     },
     {
-      title: "更新时间",
+      title: l("更新时间", "Updated at"),
       dataIndex: "updatedAt",
       key: "updatedAt",
       width: 190,
-      render: (value: string) => new Date(value).toLocaleString("zh-CN"),
+      render: (value: string) =>
+        new Date(value).toLocaleString(english ? "en-US" : "zh-CN"),
     },
     {
-      title: "操作",
+      title: l("操作", "Actions"),
       key: "actions",
       width: 340,
       render: (_, record) => (
@@ -642,38 +738,43 @@ export default function AdminTopicCompositionManagementPage() {
             disabled={!record.canPreview}
             onClick={() => void previewArtifact(record)}
           >
-            预览
+            {l("预览", "Preview")}
           </Button>
           <Button
             type="link"
             disabled={!record.canDownload}
             onClick={() => void downloadArtifact(record)}
           >
-            下载
+            {l("下载", "Download")}
           </Button>
           <Button
             type="link"
             disabled={!record.canPublish}
             onClick={() => openArtifactPublish(record)}
           >
-            {record.status === "published" ? "更新范围" : "发布"}
+            {record.status === "published"
+              ? l("更新范围", "Update audience")
+              : l("发布", "Publish")}
           </Button>
           {record.canUnpublish ? (
             <Button type="link" onClick={() => void unpublishArtifact(record)}>
-              下架
+              {l("下架", "Unpublish")}
             </Button>
           ) : null}
           <Popconfirm
-            title="删除成果文件"
-            description={`确认删除“${record.name}”？成果记录和文件将被永久删除且不可恢复。`}
-            okText="删除"
-            cancelText="取消"
+            title={l("删除成果文件", "Delete result file")}
+            description={l(
+              `确认删除“${record.name}”？成果记录和文件将被永久删除且不可恢复。`,
+              `Delete “${record.name}”? The result record and file will be permanently deleted.`,
+            )}
+            okText={l("删除", "Delete")}
+            cancelText={l("取消", "Cancel")}
             okButtonProps={{ danger: true }}
             disabled={!record.canDelete}
             onConfirm={() => void deleteArtifact(record)}
           >
             <Button type="link" danger disabled={!record.canDelete}>
-              删除
+              {l("删除", "Delete")}
             </Button>
           </Popconfirm>
         </Space>
@@ -687,8 +788,11 @@ export default function AdminTopicCompositionManagementPage() {
         <Alert
           showIcon
           type="info"
-          title="统一成果管理"
-          description="专题图成果沿用制图查看、导出和发布权限；导入成果使用独立的查看、导入、下载、发布和删除权限。对象所属用户只能执行已获授权操作，平台管理主体可管理全部成果。"
+          title={l("统一成果管理", "Unified result management")}
+          description={l(
+            "专题图成果沿用制图查看、导出和发布权限；导入成果使用独立的查看、导入、下载、发布和删除权限。对象所属用户只能执行已获授权操作，平台管理主体可管理全部成果。",
+            "Thematic-map results use map-composition view, export, and publish permissions. Imported results use separate view, import, download, publish, and delete permissions. Owners may perform only authorized actions; platform administrators can manage all results.",
+          )}
           style={{ marginBottom: 16 }}
         />
         <Form layout="vertical">
@@ -697,7 +801,10 @@ export default function AdminTopicCompositionManagementPage() {
               <Input
                 allowClear
                 value={query}
-                placeholder="按成果名称、来源工程、文件、单位或创建者快速搜索"
+                placeholder={l(
+                  "按成果名称、来源工程、文件、单位或创建者快速搜索",
+                  "Search by result name, source project, file, provider, or creator",
+                )}
                 onChange={(event) => setQuery(event.target.value)}
               />
             </Form.Item>
@@ -707,10 +814,13 @@ export default function AdminTopicCompositionManagementPage() {
                 style={{ width: 144 }}
                 onChange={setStatus}
                 options={[
-                  { value: "all", label: "全部状态" },
-                  { value: "draft", label: "草稿 / 已下架" },
-                  { value: "completed", label: "未发布" },
-                  { value: "published", label: "已发布" },
+                  { value: "all", label: l("全部状态", "All statuses") },
+                  {
+                    value: "draft",
+                    label: l("草稿 / 已下架", "Draft / unpublished"),
+                  },
+                  { value: "completed", label: l("未发布", "Unpublished") },
+                  { value: "published", label: l("已发布", "Published") },
                 ]}
               />
               <Button
@@ -718,7 +828,7 @@ export default function AdminTopicCompositionManagementPage() {
                 loading={loading}
                 onClick={() => void loadItems()}
               >
-                刷新
+                {l("刷新", "Refresh")}
               </Button>
             </Space>
           </div>
@@ -728,27 +838,30 @@ export default function AdminTopicCompositionManagementPage() {
       <StatisticCard.Group className="inventory-stat-group">
         <StatisticCard
           statistic={{
-            title: "全部成果",
+            title: l("全部成果", "All results"),
             value: metrics.total,
             prefix: <FileOutlined />,
           }}
         />
         <StatisticCard
           statistic={{
-            title: "专题图成果",
+            title: l("专题图成果", "Thematic-map results"),
             value: metrics.mapping,
             prefix: <FileImageOutlined />,
           }}
         />
         <StatisticCard
           statistic={{
-            title: "导入成果",
+            title: l("导入成果", "Imported results"),
             value: metrics.imported,
             prefix: <UploadOutlined />,
           }}
         />
         <StatisticCard
-          statistic={{ title: "已发布", value: metrics.published }}
+          statistic={{
+            title: l("已发布", "Published"),
+            value: metrics.published,
+          }}
         />
       </StatisticCard.Group>
 
@@ -759,7 +872,10 @@ export default function AdminTopicCompositionManagementPage() {
               ? [
                   {
                     key: "mapping",
-                    label: `专题图成果（${filteredItems.length}）`,
+                    label: l(
+                      `专题图成果（${filteredItems.length}）`,
+                      `Thematic-map results (${filteredItems.length})`,
+                    ),
                     children: (
                       <div className="inventory-table-scroll">
                         <Table<MapComposition>
@@ -771,7 +887,8 @@ export default function AdminTopicCompositionManagementPage() {
                           pagination={{
                             pageSize: 10,
                             showSizeChanger: true,
-                            showTotal: (total) => `共 ${total} 条`,
+                            showTotal: (total) =>
+                              l(`共 ${total} 条`, `${total} items`),
                           }}
                           locale={{
                             emptyText: (
@@ -788,7 +905,10 @@ export default function AdminTopicCompositionManagementPage() {
               ? [
                   {
                     key: "artifacts",
-                    label: `导入成果（${filteredResultItems.length}）`,
+                    label: l(
+                      `导入成果（${filteredResultItems.length}）`,
+                      `Imported results (${filteredResultItems.length})`,
+                    ),
                     children: (
                       <div className="inventory-table-scroll">
                         <Table<ResultArtifact>
@@ -800,7 +920,8 @@ export default function AdminTopicCompositionManagementPage() {
                           pagination={{
                             pageSize: 10,
                             showSizeChanger: true,
-                            showTotal: (total) => `共 ${total} 条`,
+                            showTotal: (total) =>
+                              l(`共 ${total} 条`, `${total} items`),
                           }}
                           locale={{
                             emptyText: (
@@ -839,9 +960,13 @@ export default function AdminTopicCompositionManagementPage() {
         ) : null}
       </Modal>
       <Modal
-        title={publishingArtifact ? "发布导入成果" : "发布专题图成果"}
+        title={
+          publishingArtifact
+            ? l("发布导入成果", "Publish imported result")
+            : l("发布专题图成果", "Publish thematic-map result")
+        }
         open={Boolean(publishingComposition || publishingArtifact)}
-        okText="确认发布"
+        okText={l("确认发布", "Confirm publish")}
         confirmLoading={publishing}
         onOk={() => void submitPublish()}
         onCancel={() => {
@@ -854,8 +979,13 @@ export default function AdminTopicCompositionManagementPage() {
           {publishingComposition ? (
             <Form.Item
               name="versionNumber"
-              label="正式发布版本"
-              rules={[{ required: true, message: "请选择发布版本" }]}
+              label={l("正式发布版本", "Version to publish")}
+              rules={[
+                {
+                  required: true,
+                  message: l("请选择发布版本", "Select a version to publish"),
+                },
+              ]}
             >
               <Select
                 options={publishingComposition.versions.map((version) => ({
@@ -867,8 +997,16 @@ export default function AdminTopicCompositionManagementPage() {
           ) : null}
           <Form.Item
             name="audienceGroupIds"
-            label="发布可见角色"
-            rules={[{ required: true, message: "请至少选择一个可见角色" }]}
+            label={l("发布可见角色", "Roles allowed to view")}
+            rules={[
+              {
+                required: true,
+                message: l(
+                  "请至少选择一个可见角色",
+                  "Select at least one visible role",
+                ),
+              },
+            ]}
           >
             <Select
               mode="multiple"

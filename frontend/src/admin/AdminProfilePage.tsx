@@ -17,6 +17,7 @@ import {
 } from "antd";
 import type { Key } from "react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
 import type {
@@ -37,31 +38,40 @@ interface ProfileDescriptionItem {
 function createProfileDescriptionColumns(
   onManagePermissions: () => void,
   onChangePassword: () => void,
+  english = false,
 ): ProDescriptionsItemProps<ProfileDescriptionItem>[] {
   return [
     {
-      title: "用户名",
+      title: english ? "Username" : "用户名",
       dataIndex: "username",
-      tooltip: "用户名在创建时确定，不可修改",
+      tooltip: english
+        ? "The username is fixed when the account is created"
+        : "用户名在创建时确定，不可修改",
       editable: false,
     },
     {
-      title: "显示名称",
+      title: english ? "Display name" : "显示名称",
       dataIndex: "displayName",
     },
     {
-      title: "邮箱",
+      title: english ? "Email" : "邮箱",
       dataIndex: "email",
       copyable: true,
       formItemProps: {
         rules: [
-          { required: true, message: "请输入邮箱" },
-          { type: "email", message: "请输入有效邮箱" },
+          {
+            required: true,
+            message: english ? "Enter an email address" : "请输入邮箱",
+          },
+          {
+            type: "email",
+            message: english ? "Enter a valid email address" : "请输入有效邮箱",
+          },
         ],
       },
     },
     {
-      title: "角色",
+      title: english ? "Roles" : "角色",
       dataIndex: "roles",
       editable: false,
       render: (_, entity) =>
@@ -74,29 +84,33 @@ function createProfileDescriptionColumns(
             ))}
           </Space>
         ) : (
-          <Typography.Text type="secondary">未分配角色</Typography.Text>
+          <Typography.Text type="secondary">
+            {english ? "No roles assigned" : "未分配角色"}
+          </Typography.Text>
         ),
     },
     {
-      title: "部门",
+      title: english ? "Department" : "部门",
       dataIndex: "department",
     },
     {
-      title: "我的权限",
+      title: english ? "My permissions" : "我的权限",
       key: "permissions",
       editable: false,
       render: () => (
         <Typography.Link onClick={onManagePermissions}>
-          管理权限
+          {english ? "Manage permissions" : "管理权限"}
         </Typography.Link>
       ),
     },
     {
-      title: "更改密码",
+      title: english ? "Change password" : "更改密码",
       key: "password",
       editable: false,
       render: () => (
-        <Typography.Link onClick={onChangePassword}>修改密码</Typography.Link>
+        <Typography.Link onClick={onChangePassword}>
+          {english ? "Change password" : "修改密码"}
+        </Typography.Link>
       ),
     },
   ];
@@ -111,6 +125,9 @@ function getCookie(name: string): string | null {
 
 export default function AdminProfilePage() {
   const { message } = App.useApp();
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const { setUser } = useAppContext();
   const [passwordForm] = Form.useForm<AdminProfilePasswordUpdate>();
   const [profile, setProfile] = useState<AdminProfile | null>(null);
@@ -129,7 +146,11 @@ export default function AdminProfilePage() {
         setProfile(data);
       } catch (error) {
         message.error(
-          error instanceof Error ? error.message : "用户资料加载失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to load user profile"
+              : "用户资料加载失败",
         );
       } finally {
         if (mounted) {
@@ -141,13 +162,13 @@ export default function AdminProfilePage() {
     return () => {
       mounted = false;
     };
-  }, [message]);
+  }, [english, message]);
 
   async function handleProfileSave(values: AdminProfileUpdate) {
     const updated = await api.updateAdminProfile(values);
     setProfile(updated);
     setUser(updated.user);
-    message.success("个人信息已保存");
+    message.success(english ? "Profile saved" : "个人信息已保存");
     return true;
   }
 
@@ -178,10 +199,16 @@ export default function AdminProfilePage() {
       });
       setProfile(updated);
       setUser(updated.user);
-      message.success("权限偏好已更新");
+      message.success(
+        english ? "Permission preferences updated" : "权限偏好已更新",
+      );
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "权限偏好更新失败",
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to update permission preferences"
+            : "权限偏好更新失败",
       );
     }
   }
@@ -191,9 +218,15 @@ export default function AdminProfilePage() {
       await api.updateAdminProfilePassword(values);
       passwordForm.resetFields();
       setPasswordModalOpen(false);
-      message.success("密码已更新");
+      message.success(english ? "Password updated" : "密码已更新");
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "密码更新失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to update password"
+            : "密码更新失败",
+      );
     }
   }
 
@@ -217,7 +250,9 @@ export default function AdminProfilePage() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.detail || "上传失败");
+        throw new Error(
+          error.detail || (english ? "Upload failed" : "上传失败"),
+        );
       }
 
       const updated = await response.json();
@@ -225,10 +260,16 @@ export default function AdminProfilePage() {
       setUser(updated.user);
       onSuccess?.(updated);
       setAvatarVersion((v) => v + 1);
-      message.success("头像上传成功");
+      message.success(english ? "Avatar uploaded" : "头像上传成功");
     } catch (error) {
       onError?.(error as Error);
-      message.error(error instanceof Error ? error.message : "头像上传失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to upload avatar"
+            : "头像上传失败",
+      );
     } finally {
       setAvatarUploading(false);
     }
@@ -254,11 +295,15 @@ export default function AdminProfilePage() {
   const profileDescriptionColumns = createProfileDescriptionColumns(
     () => setPermDrawerOpen(true),
     () => setPasswordModalOpen(true),
+    english,
   );
 
   return (
     <div className="admin-page-stack">
-      <ProCard title="个人信息" className="admin-section-card">
+      <ProCard
+        title={english ? "Profile" : "个人信息"}
+        className="admin-section-card"
+      >
         <div className="admin-profile-shell">
           <Upload
             name="avatar"
@@ -268,11 +313,19 @@ export default function AdminProfilePage() {
               const isJpgOrPng =
                 file.type === "image/jpeg" || file.type === "image/png";
               if (!isJpgOrPng) {
-                message.error("仅支持 JPG/PNG 格式的图片");
+                message.error(
+                  english
+                    ? "Only JPG and PNG images are supported"
+                    : "仅支持 JPG/PNG 格式的图片",
+                );
               }
               const isLt2M = file.size / 1024 / 1024 < 2;
               if (!isLt2M) {
-                message.error("图片大小不能超过 2 MB");
+                message.error(
+                  english
+                    ? "Image size cannot exceed 2 MB"
+                    : "图片大小不能超过 2 MB",
+                );
               }
               return isJpgOrPng && isLt2M;
             }}
@@ -286,7 +339,15 @@ export default function AdminProfilePage() {
               />
               <div className="admin-avatar-overlay">
                 <UploadOutlined />
-                <span>{avatarUploading ? "上传中..." : "更换头像"}</span>
+                <span>
+                  {avatarUploading
+                    ? english
+                      ? "Uploading..."
+                      : "上传中..."
+                    : english
+                      ? "Change avatar"
+                      : "更换头像"}
+                </span>
               </div>
             </div>
           </Upload>
@@ -298,13 +359,13 @@ export default function AdminProfilePage() {
             editable={{
               onSave: handleProfileDescriptionSave,
             }}
-            emptyText="未填写"
+            emptyText={english ? "Not provided" : "未填写"}
           />
         </div>
       </ProCard>
 
       <Modal
-        title="修改密码"
+        title={english ? "Change password" : "修改密码"}
         open={passwordModalOpen}
         footer={null}
         onCancel={() => setPasswordModalOpen(false)}
@@ -317,30 +378,57 @@ export default function AdminProfilePage() {
           className="admin-password-form"
           onFinish={handlePasswordSave}
           onFinishFailed={(errorInfo) => {
-            message.error(firstFormError(errorInfo, "请检查密码信息"));
+            message.error(
+              firstFormError(
+                errorInfo,
+                english ? "Check the password fields" : "请检查密码信息",
+              ),
+            );
           }}
         >
           <Form.Item
             name="currentPassword"
-            label="当前密码"
-            rules={[{ required: true, message: "请输入当前密码" }]}
+            label={english ? "Current password" : "当前密码"}
+            rules={[
+              {
+                required: true,
+                message: english
+                  ? "Enter the current password"
+                  : "请输入当前密码",
+              },
+            ]}
           >
             <Input.Password autoComplete="current-password" />
           </Form.Item>
           <Form.Item
             name="newPassword"
-            label="新密码"
+            label={english ? "New password" : "新密码"}
             rules={[
-              { required: true, message: "请输入新密码" },
+              {
+                required: true,
+                message: english ? "Enter a new password" : "请输入新密码",
+              },
               {
                 validator: (_, value: string | undefined) => {
                   const password = value ?? "";
                   if (!password) return Promise.resolve();
                   if (password.length < 6) {
-                    return Promise.reject(new Error("密码长度至少 6 位"));
+                    return Promise.reject(
+                      new Error(
+                        english
+                          ? "Password must contain at least 6 characters"
+                          : "密码长度至少 6 位",
+                      ),
+                    );
                   }
                   if (password.length > 16) {
-                    return Promise.reject(new Error("密码长度不能超过 16 位"));
+                    return Promise.reject(
+                      new Error(
+                        english
+                          ? "Password cannot exceed 16 characters"
+                          : "密码长度不能超过 16 位",
+                      ),
+                    );
                   }
                   return Promise.resolve();
                 },
@@ -351,16 +439,27 @@ export default function AdminProfilePage() {
           </Form.Item>
           <Form.Item
             name="passwordConfirm"
-            label="确认新密码"
+            label={english ? "Confirm new password" : "确认新密码"}
             dependencies={["newPassword"]}
             rules={[
-              { required: true, message: "请再次输入新密码" },
+              {
+                required: true,
+                message: english
+                  ? "Enter the new password again"
+                  : "请再次输入新密码",
+              },
               ({ getFieldValue }) => ({
                 validator(_, value) {
                   if (!value || getFieldValue("newPassword") === value) {
                     return Promise.resolve();
                   }
-                  return Promise.reject(new Error("两次输入的新密码不一致"));
+                  return Promise.reject(
+                    new Error(
+                      english
+                        ? "The new passwords do not match"
+                        : "两次输入的新密码不一致",
+                    ),
+                  );
                 },
               }),
             ]}
@@ -368,13 +467,13 @@ export default function AdminProfilePage() {
             <Input.Password autoComplete="new-password" />
           </Form.Item>
           <Button type="primary" htmlType="submit" icon={<LockOutlined />}>
-            更新密码
+            {english ? "Update password" : "更新密码"}
           </Button>
         </Form>
       </Modal>
 
       <Drawer
-        title="我的权限"
+        title={english ? "My permissions" : "我的权限"}
         open={permDrawerOpen}
         onClose={() => setPermDrawerOpen(false)}
         size="large"

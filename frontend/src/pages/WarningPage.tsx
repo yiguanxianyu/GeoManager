@@ -7,39 +7,40 @@ import {
 } from "@ant-design/icons";
 import { Layout, Tag, Typography } from "antd";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import warningPoplarMountainAerialImage from "../assets/portal/warning-poplar-mountain-aerial.png";
 import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useAppContext } from "../contexts/AppContext";
 
-const plannedCapabilities: Array<{
-  icon: ReactNode;
-  title: string;
-  description: string;
-}> = [
-  {
-    icon: <RadarChartOutlined />,
-    title: "遥感变化监测",
-    description: "预留胡杨林覆盖变化、退化斑块和异常变化识别能力。",
-  },
-  {
-    icon: <CloudOutlined />,
-    title: "水分与气候胁迫",
-    description: "规划接入水文、土壤和气象指标，形成阈值监测与趋势研判。",
-  },
-  {
-    icon: <BellOutlined />,
-    title: "预警消息与处置",
-    description: "规划预警分级、消息通知、处置记录和闭环跟踪。",
-  },
-  {
-    icon: <SafetyCertificateOutlined />,
-    title: "规则与权限管理",
-    description: "后续统一管理指标来源、阈值规则、可见范围和审计记录。",
-  },
-];
-
 export default function WarningPage() {
   const { user } = useAppContext();
+  const { t } = useTranslation();
+  const plannedCapabilities: Array<{
+    icon: ReactNode;
+    title: string;
+    description: string;
+  }> = [
+    {
+      icon: <RadarChartOutlined />,
+      title: t("warning.remoteSensingTitle"),
+      description: t("warning.remoteSensingDescription"),
+    },
+    {
+      icon: <CloudOutlined />,
+      title: t("warning.climateTitle"),
+      description: t("warning.climateDescription"),
+    },
+    {
+      icon: <BellOutlined />,
+      title: t("warning.responseTitle"),
+      description: t("warning.responseDescription"),
+    },
+    {
+      icon: <SafetyCertificateOutlined />,
+      title: t("warning.governanceTitle"),
+      description: t("warning.governanceDescription"),
+    },
+  ];
 
   return (
     <Layout className="portal-shell warning-page-shell">
@@ -55,11 +56,9 @@ export default function WarningPage() {
           }}
         >
           <div>
-            <Tag color="gold">二期建设预留</Tag>
-            <Typography.Title level={1}>智能预警</Typography.Title>
-            <Typography.Paragraph>
-              面向胡杨林生态保护的实时监测、异常识别和分级预警入口。本期完成模块占位与信息架构，不展示未经接入验证的实时数据。
-            </Typography.Paragraph>
+            <Tag color="gold">{t("warning.phaseTwo")}</Tag>
+            <Typography.Title level={1}>{t("warning.title")}</Typography.Title>
+            <Typography.Paragraph>{t("warning.summary")}</Typography.Paragraph>
           </div>
           <AlertOutlined aria-hidden="true" />
         </section>
@@ -79,18 +78,18 @@ export default function WarningPage() {
         <section className="warning-roadmap">
           <div>
             <span>01</span>
-            <strong>监测数据接入</strong>
-            <small>明确数据源、更新频率、质量规则和空间范围</small>
+            <strong>{t("warning.step1Title")}</strong>
+            <small>{t("warning.step1Description")}</small>
           </div>
           <div>
             <span>02</span>
-            <strong>指标与阈值确认</strong>
-            <small>由业务专家确认指标含义、阈值和预警等级</small>
+            <strong>{t("warning.step2Title")}</strong>
+            <small>{t("warning.step2Description")}</small>
           </div>
           <div>
             <span>03</span>
-            <strong>预警闭环建设</strong>
-            <small>接入通知、处置、复核、归档和审计能力</small>
+            <strong>{t("warning.step3Title")}</strong>
+            <small>{t("warning.step3Description")}</small>
           </div>
         </section>
       </main>

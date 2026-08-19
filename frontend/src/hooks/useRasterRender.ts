@@ -4,13 +4,45 @@ import { useCallback, useEffect, useRef } from "react";
 import { api } from "../api/client";
 import type { RasterSymbolization } from "../symbolization";
 import { rasterSymbolizationFromRules } from "../symbolization";
-import type { LoadedRasterLayer, RasterRenderResult } from "../types";
+import type {
+  LoadedRasterLayer,
+  RasterJob,
+  RasterRenderResult,
+} from "../types";
 import {
   isAbortError,
   RasterRenderTaskRegistry,
   type RasterRenderTask,
   waitForAbortableDelay,
 } from "../utils/rasterRenderTasks";
+
+export type RasterRenderProgressHandler = (job: RasterJob) => void;
+
+export function rasterLayerWithRenderResult(
+  current: LoadedRasterLayer,
+  result: RasterRenderResult,
+): LoadedRasterLayer {
+  return {
+    ...current,
+    tileUrl: result.tileUrl,
+    tileMinZoom: result.minZoom,
+    tileMaxZoom: result.maxZoom,
+    tileSampling: result.tileSampling,
+    imageCoordinates: result.imageCoordinates,
+    summary: "XYZ 瓦片已就绪",
+    renderStatus: "ready",
+    renderProgress: 100,
+    symbolization: {
+      ...rasterSymbolizationFromRules(result.rules),
+      opacity: current.symbolization.opacity,
+    },
+    metadata: {
+      ...current.metadata,
+      加载方式: "XYZ 瓦片",
+      样式哈希: result.styleHash,
+    },
+  };
+}
 
 export function useRasterRender(
   updateLayer: (
@@ -44,28 +76,9 @@ export function useRasterRender(
 
   const applyResult = useCallback(
     (groupId: string, layerId: string, result: RasterRenderResult) => {
-      updateLayer(groupId, layerId, (current) => {
-        return {
-          ...current,
-          tileUrl: result.tileUrl,
-          tileMinZoom: result.minZoom,
-          tileMaxZoom: result.maxZoom,
-          tileSampling: result.tileSampling,
-          imageCoordinates: result.imageCoordinates,
-          summary: "XYZ 瓦片已就绪",
-          renderStatus: "ready",
-          renderProgress: 100,
-          symbolization: {
-            ...rasterSymbolizationFromRules(result.rules),
-            opacity: current.symbolization.opacity,
-          },
-          metadata: {
-            ...current.metadata,
-            加载方式: "XYZ 瓦片",
-            样式哈希: result.styleHash,
-          },
-        };
-      });
+      updateLayer(groupId, layerId, (current) =>
+        rasterLayerWithRenderResult(current, result),
+      );
     },
     [updateLayer],
   );
@@ -73,64 +86,93 @@ export function useRasterRender(
   const pollJob = useCallback(
     async (
       jobId: string,
-      groupId: string,
-      layerId: string,
       task: RasterRenderTask,
-      completionMessage: string | null,
-    ) => {
+      onProgress?: RasterRenderProgressHandler,
+    ): Promise<RasterRenderResult> => {
       const registry = taskRegistryRef.current;
-      if (!registry) return;
+      if (!registry) {
+        throw new Error("栅格渲染任务管理器未初始化");
+      }
       while (registry.isCurrent(task) && !task.controller.signal.aborted) {
         await waitForAbortableDelay(900, task.controller.signal);
-        if (!registry.isCurrent(task)) return;
-        try {
-          const job = await api.rasterJob(jobId, {
-            signal: task.controller.signal,
-          });
-          if (!registry.isCurrent(task) || task.controller.signal.aborted) {
-            return;
-          }
-          updateLayer(groupId, layerId, (current) => ({
-            ...current,
-            renderStatus: job.status,
-            renderProgress: job.progressPercent,
-            renderMessages: job.messages,
-          }));
-          if (job.status === "ready" && job.result) {
-            applyResult(groupId, layerId, job.result as RasterRenderResult);
-            if (completionMessage) {
-              message.success(completionMessage);
-            }
-            return;
-          }
-          if (job.status === "failed") {
-            updateLayer(groupId, layerId, (current) => ({
-              ...current,
-              summary: "符号化失败",
-              renderStatus: "failed",
-              renderMessages:
-                job.messages.length > 0 ? job.messages : [job.error],
-            }));
-            message.error(job.error || "栅格符号化失败");
-            return;
-          }
-        } catch (error) {
-          if (task.controller.signal.aborted || isAbortError(error)) {
-            throw error;
-          }
-          updateLayer(groupId, layerId, (current) => ({
-            ...current,
-            summary: "进度查询失败",
-            renderStatus: "failed",
-            renderMessages: [
-              error instanceof Error ? error.message : "进度查询失败",
-            ],
-          }));
-          return;
+        if (!registry.isCurrent(task)) {
+          throw new DOMException("栅格渲染任务已取消", "AbortError");
         }
+        const job = await api.rasterJob(jobId, {
+          signal: task.controller.signal,
+        });
+        if (!registry.isCurrent(task) || task.controller.signal.aborted) {
+          throw new DOMException("栅格渲染任务已取消", "AbortError");
+        }
+        onProgress?.(job);
+        const result = rasterRenderResultFromJob(job);
+        if (result) return result;
+      }
+      throw new DOMException("栅格渲染任务已取消", "AbortError");
+    },
+    [],
+  );
+
+  const runRasterRender = useCallback(
+    async (
+      taskKey: string,
+      symbolization: RasterSymbolization,
+      layer: LoadedRasterLayer,
+      rulesMode: "default" | "custom",
+      onProgress?: RasterRenderProgressHandler,
+    ): Promise<RasterRenderResult> => {
+      const registry = taskRegistryRef.current;
+      if (!registry) {
+        throw new Error("栅格渲染任务管理器未初始化");
+      }
+      const task = registry.start(taskKey);
+      try {
+        const job = await api.renderRasterAsync(
+          {
+            datasetId: layer.rasterDatasetId,
+            layerId: layer.rasterLayerId,
+            rules:
+              rulesMode === "custom"
+                ? (symbolization as unknown as Record<string, unknown>)
+                : undefined,
+            rulesMode,
+          },
+          { signal: task.controller.signal },
+        );
+        if (!registry.isCurrent(task) || task.controller.signal.aborted) {
+          throw new DOMException("栅格渲染任务已取消", "AbortError");
+        }
+        onProgress?.(job);
+        const immediateResult = rasterRenderResultFromJob(job);
+        if (immediateResult) return immediateResult;
+        return await pollJob(job.id, task, onProgress);
+      } catch (error) {
+        if (task.timedOut) {
+          throw new Error("栅格渲染等待超时，请稍后重试");
+        }
+        throw error;
+      } finally {
+        registry.finish(task);
       }
     },
-    [message, updateLayer, applyResult],
+    [pollJob],
+  );
+
+  const prepareRasterLayer = useCallback(
+    async (
+      layer: LoadedRasterLayer,
+      onProgress?: RasterRenderProgressHandler,
+    ) => {
+      const result = await runRasterRender(
+        `initial-load:${layer.id}`,
+        layer.symbolization,
+        layer,
+        "default",
+        onProgress,
+      );
+      return rasterLayerWithRenderResult(layer, result);
+    },
+    [runRasterRender],
   );
 
   const startRasterRender = useCallback(
@@ -141,9 +183,6 @@ export function useRasterRender(
       layer: LoadedRasterLayer,
       rulesMode: "default" | "custom" = "custom",
     ) => {
-      const registry = taskRegistryRef.current;
-      if (!registry) return;
-      const task = registry.start(`${groupId}:${layerId}`);
       const isUniqueValueRender =
         rulesMode === "custom" && symbolization.mode === "unique";
       const completionMessage = isUniqueValueRender
@@ -165,44 +204,27 @@ export function useRasterRender(
       }
 
       try {
-        const job = await api.renderRasterAsync(
-          {
-            datasetId: layer.rasterDatasetId,
-            layerId: layer.rasterLayerId,
-            rules:
-              rulesMode === "custom"
-                ? (symbolization as unknown as Record<string, unknown>)
-                : undefined,
-            rulesMode,
+        const result = await runRasterRender(
+          `${groupId}:${layerId}`,
+          symbolization,
+          layer,
+          rulesMode,
+          (job) => {
+            updateLayer(groupId, layerId, (current) => ({
+              ...current,
+              renderJobId: job.id,
+              renderStatus: job.status,
+              renderProgress: job.progressPercent,
+              renderMessages: job.messages,
+            }));
           },
-          { signal: task.controller.signal },
         );
-        if (!registry.isCurrent(task) || task.controller.signal.aborted) {
-          return;
+        applyResult(groupId, layerId, result);
+        if (completionMessage) {
+          message.success(completionMessage);
         }
-        updateLayer(groupId, layerId, (current) => ({
-          ...current,
-          renderJobId: job.id,
-          renderProgress: job.progressPercent,
-          renderMessages: job.messages,
-        }));
-        await pollJob(job.id, groupId, layerId, task, completionMessage);
       } catch (error) {
-        if (task.timedOut && registry.isCurrent(task)) {
-          updateLayer(groupId, layerId, (current) => ({
-            ...current,
-            summary: "栅格符号化超时",
-            renderStatus: "failed",
-            renderMessages: ["栅格符号化等待超时，请稍后重试"],
-          }));
-          message.error("栅格符号化等待超时，请稍后重试");
-          return;
-        }
-        if (
-          task.controller.signal.aborted ||
-          isAbortError(error) ||
-          !registry.isCurrent(task)
-        ) {
+        if (isAbortError(error)) {
           return;
         }
         updateLayer(groupId, layerId, (current) => ({
@@ -214,12 +236,23 @@ export function useRasterRender(
           ],
         }));
         message.error(error instanceof Error ? error.message : "符号化失败");
-      } finally {
-        registry.finish(task);
       }
     },
-    [message, updateLayer, pollJob],
+    [applyResult, message, runRasterRender, updateLayer],
   );
 
-  return { startRasterRender, setMapInstance };
+  return { prepareRasterLayer, startRasterRender, setMapInstance };
+}
+
+function rasterRenderResultFromJob(job: RasterJob): RasterRenderResult | null {
+  if (job.status === "failed") {
+    throw new Error(
+      job.error || job.messages[job.messages.length - 1] || "栅格渲染任务失败",
+    );
+  }
+  if (job.status !== "ready") return null;
+  if (!job.result) {
+    throw new Error("栅格渲染任务已完成，但未返回瓦片结果");
+  }
+  return job.result as RasterRenderResult;
 }

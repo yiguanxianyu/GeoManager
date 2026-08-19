@@ -5,6 +5,7 @@ import type {
   StyleSpecification,
 } from "mapbox-gl";
 import type { Bootstrap } from "../types";
+import { currentLocale } from "../i18n";
 
 export type MapBasemapConfig = Bootstrap["map"];
 
@@ -12,7 +13,9 @@ export const mapboxSatelliteStyle =
   "mapbox://styles/mapbox/satellite-streets-v12";
 export const osmChineseVectorStyle =
   "https://tiles.openfreemap.org/styles/liberty";
-export const mapLabelLanguage = "zh-Hans";
+export function mapLabelLanguage() {
+  return currentLocale() === "en-US" ? "en" : "zh-Hans";
+}
 export const osmRasterTileMaxZoom = 19;
 
 type SatelliteBasemapColorCorrection = {
@@ -22,12 +25,13 @@ type SatelliteBasemapColorCorrection = {
   "raster-brightness-max": number;
 };
 
-export const satelliteBasemapColorCorrection: SatelliteBasemapColorCorrection = {
-  "raster-saturation": -0.55,
-  "raster-contrast": -0.1,
-  "raster-brightness-min": 0.04,
-  "raster-brightness-max": 0.9,
-};
+export const satelliteBasemapColorCorrection: SatelliteBasemapColorCorrection =
+  {
+    "raster-saturation": -0.55,
+    "raster-contrast": -0.1,
+    "raster-brightness-min": 0.04,
+    "raster-brightness-max": 0.9,
+  };
 export const satelliteBasemapThumbnailFilter = [
   `saturate(${paintRatioToCssPercent(satelliteBasemapColorCorrection["raster-saturation"])})`,
   `contrast(${paintRatioToCssPercent(satelliteBasemapColorCorrection["raster-contrast"])})`,
@@ -44,6 +48,13 @@ export const chineseLabelExpression: ExpressionSpecification = [
   ["get", "name"],
 ];
 
+export const englishLabelExpression: ExpressionSpecification = [
+  "coalesce",
+  ["get", "name:en"],
+  ["get", "name_en"],
+  ["get", "name"],
+];
+
 type StyleLayerWithExpressions = {
   id: string;
   filter?: unknown;
@@ -52,7 +63,10 @@ type StyleLayerWithExpressions = {
 };
 
 export function applyChineseBasemapLanguage(map: MapboxMap) {
-  map.setLanguage(mapLabelLanguage);
+  const language = mapLabelLanguage();
+  map.setLanguage(language);
+  const labelExpression =
+    language === "en" ? englishLabelExpression : chineseLabelExpression;
 
   const style = map.getStyle();
   for (const layer of style.layers ?? []) {
@@ -67,7 +81,7 @@ export function applyChineseBasemapLanguage(map: MapboxMap) {
 
     const textField = JSON.stringify(layer.layout["text-field"]);
     if (!textField.includes("name")) continue;
-    map.setLayoutProperty(layer.id, "text-field", chineseLabelExpression);
+    map.setLayoutProperty(layer.id, "text-field", labelExpression);
   }
 }
 
@@ -111,9 +125,9 @@ export function applySatelliteBasemapColorCorrection(map: MapboxMap) {
       continue;
     }
 
-    const properties = Object.keys(
-      satelliteBasemapColorCorrection,
-    ) as Array<keyof SatelliteBasemapColorCorrection>;
+    const properties = Object.keys(satelliteBasemapColorCorrection) as Array<
+      keyof SatelliteBasemapColorCorrection
+    >;
     for (const property of properties) {
       map.setPaintProperty(
         layer.id,

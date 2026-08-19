@@ -41,10 +41,13 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { api } from "../api/client";
 import capfedLogoWhite from "../assets/capfed-logo-white.svg";
 import { platformBrand } from "../config/platformBrand";
 import { useAppContext } from "../contexts/AppContext";
+import { currentLocale } from "../i18n";
 import type {
   DataDomainType,
   DataSchemaCatalogNode,
@@ -61,6 +64,7 @@ import {
 import { clearCachedLayerGroups } from "../utils/layerWorkspaceStorage";
 import { taxonomyTree } from "../utils/taxonomy";
 import { aboutNavigationSections } from "../about/aboutSections";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 export type WorkspaceTab =
   | "home"
@@ -108,6 +112,11 @@ export default function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   const { user, setUser } = useAppContext();
   const { message } = App.useApp();
+  const { t, i18n: translationI18n } = useTranslation();
+  const platformDisplayName =
+    currentLocale() === "en-US"
+      ? platformBrand.englishName
+      : platformChineseName;
   const navigate = useNavigate();
   const [searchText, setSearchText] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -147,16 +156,23 @@ export default function WorkspaceHeader({
   const navMeasureTimerRef = useRef<number | null>(null);
   const layoutMeasureFrameRef = useRef<number | null>(null);
   const fullPrimaryNavWidthRef = useRef(0);
+  const lastMeasuredLanguageRef = useRef(translationI18n.resolvedLanguage);
   const effectiveResources = resources ?? localResources;
   const effectiveWorkspaceScenes = workspaceScenes ?? localWorkspaceScenes;
   const effectiveMapCompositions = mapCompositions ?? localMapCompositions;
   const effectiveDataSchema = dataSchema ?? localDataSchema;
   const domainTypeLabelByValue = useMemo(
-    () => domainTypeLabels(effectiveDataSchema),
-    [effectiveDataSchema],
+    () => domainTypeLabels(effectiveDataSchema, t),
+    [effectiveDataSchema, t],
   );
   const isGuestUser =
     user?.username === "guest" || Boolean(user?.roles.includes("游客"));
+  const userDisplayLabel = isGuestUser
+    ? t("common.guestUser")
+    : localizedBuiltInDisplayName(
+        user?.displayName || user?.username || t("common.currentUser"),
+        t,
+      );
   const showAdminTab =
     Boolean(user?.permissions.canAccessAdmin) && !isGuestUser;
   const showResourceCenter = Boolean(
@@ -217,7 +233,7 @@ export default function WorkspaceHeader({
         message.warning(
           failedResult.reason instanceof Error
             ? failedResult.reason.message
-            : "部分全局搜索内容加载失败",
+            : t("navigation.globalSearchLoadFailed"),
         );
       }
     }
@@ -230,6 +246,7 @@ export default function WorkspaceHeader({
     mapCompositions,
     message,
     resources,
+    t,
     user?.permissions.canViewMapCompositions,
     user?.permissions.canViewWorkspaces,
     workspaceScenes,
@@ -434,6 +451,20 @@ export default function WorkspaceHeader({
     scheduleLayoutMeasure();
   }, [scheduleLayoutMeasure]);
 
+  useLayoutEffect(() => {
+    if (lastMeasuredLanguageRef.current === translationI18n.resolvedLanguage) {
+      return;
+    }
+    lastMeasuredLanguageRef.current = translationI18n.resolvedLanguage;
+    fullPrimaryNavWidthRef.current = 0;
+    setNavCompressed(false);
+    setSearchCompact(false);
+    const frame = window.requestAnimationFrame(() => {
+      scheduleLayoutMeasure();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [scheduleLayoutMeasure, translationI18n.resolvedLanguage]);
+
   useEffect(() => {
     return () => {
       if (searchOpenTimerRef.current !== null) {
@@ -503,7 +534,7 @@ export default function WorkspaceHeader({
       await api.logout();
     } catch (error) {
       message.warning(
-        error instanceof Error ? error.message : "退出接口异常，本地会话已清空",
+        error instanceof Error ? error.message : t("navigation.logoutFallback"),
       );
     } finally {
       try {
@@ -608,7 +639,7 @@ export default function WorkspaceHeader({
 
   function handleResourceCenter() {
     if (!showResourceCenter) {
-      message.warning("当前账号暂无数据资源浏览权限");
+      message.warning(t("navigation.noResourceBrowsePermission"));
       return;
     }
     navigateFromHeader("/resources/dashboard");
@@ -620,8 +651,9 @@ export default function WorkspaceHeader({
         taxonomyTree(effectiveDataSchema),
         "/map",
         navigateFromHeader,
+        t,
       ),
-    [effectiveDataSchema, navigateFromHeader],
+    [effectiveDataSchema, navigateFromHeader, t],
   );
   const analysisCategoryMenuItems = useMemo<MenuProps["items"]>(
     () =>
@@ -629,15 +661,16 @@ export default function WorkspaceHeader({
         taxonomyTree(effectiveDataSchema),
         "/nongeo",
         navigateFromHeader,
+        t,
       ),
-    [effectiveDataSchema, navigateFromHeader],
+    [effectiveDataSchema, navigateFromHeader, t],
   );
 
   const dataManagementMenuItems = useMemo<MenuProps["items"]>(() => {
     const items: NonNullable<MenuProps["items"]> = [
       {
         key: "resources-dashboard",
-        label: "数据概览",
+        label: t("navigation.resourceOverview"),
         onClick: () => navigateFromHeader("/resources/dashboard"),
       },
     ];
@@ -650,7 +683,7 @@ export default function WorkspaceHeader({
     ) {
       items.push({
         key: "resources-inventory",
-        label: "存量数据",
+        label: t("navigation.dataInventory"),
         onClick: () => navigateFromHeader("/resources/data/inventory"),
       });
     }
@@ -661,7 +694,7 @@ export default function WorkspaceHeader({
     ) {
       items.push({
         key: "resources-projects",
-        label: "工程管理",
+        label: t("navigation.workspaceProjects"),
         onClick: () => navigateFromHeader("/resources/manage/projects"),
       });
     }
@@ -674,7 +707,7 @@ export default function WorkspaceHeader({
     ) {
       items.push({
         key: "resources-results",
-        label: "成果管理",
+        label: t("navigation.topicManagement"),
         onClick: () => navigateFromHeader("/resources/manage/topics"),
       });
     }
@@ -686,13 +719,14 @@ export default function WorkspaceHeader({
     ) {
       items.push({
         key: "resources-import",
-        label: "数据与成果导入",
+        label: t("navigation.dataAndResultImport"),
         onClick: () => navigateFromHeader("/resources/data/import"),
       });
     }
     return items;
   }, [
     navigateFromHeader,
+    t,
     user?.permissions.canExportData,
     user?.permissions.canChangeDataResources,
     user?.permissions.canChangeMapCompositions,
@@ -715,12 +749,12 @@ export default function WorkspaceHeader({
     const items: NonNullable<MenuProps["items"]> = [
       {
         key: "admin-dashboard",
-        label: "运行概览",
+        label: t("navigation.runningOverview"),
         onClick: () => navigateFromHeader("/admin/dashboard"),
       },
       {
         key: "admin-profile",
-        label: "用户设置",
+        label: t("navigation.userSettings"),
         onClick: () => navigateFromHeader("/admin/profile"),
       },
     ];
@@ -730,21 +764,21 @@ export default function WorkspaceHeader({
     ) {
       items.push({
         key: "admin-logs",
-        label: "日志管理",
+        label: t("navigation.logManagement"),
         onClick: () => navigateFromHeader("/admin/logs"),
       });
     }
     if (user?.permissions.canManageSystemSettings) {
       items.push({
         key: "admin-settings",
-        label: "系统设置",
+        label: t("navigation.systemSettings"),
         onClick: () => navigateFromHeader("/admin/settings"),
       });
     }
     if (user?.permissions.canManageDataBackup) {
       items.push({
         key: "admin-backup",
-        label: "数据备份",
+        label: t("navigation.dataBackup"),
         onClick: () => navigateFromHeader("/admin/backup"),
       });
     }
@@ -752,12 +786,12 @@ export default function WorkspaceHeader({
       items.push(
         {
           key: "admin-users",
-          label: "用户管理",
+          label: t("navigation.userManagement"),
           onClick: () => navigateFromHeader("/admin/auth/users"),
         },
         {
           key: "admin-groups",
-          label: "角色权限",
+          label: t("navigation.rolePermissions"),
           onClick: () => navigateFromHeader("/admin/auth/groups"),
         },
       );
@@ -765,6 +799,7 @@ export default function WorkspaceHeader({
     return items;
   }, [
     navigateFromHeader,
+    t,
     user?.permissions.canManageAuth,
     user?.permissions.canManageDataBackup,
     user?.permissions.canManageSystemSettings,
@@ -776,10 +811,20 @@ export default function WorkspaceHeader({
     () =>
       aboutNavigationSections.map((section) => ({
         key: section.key,
-        label: section.title,
+        label: t(
+          section.key === "system"
+            ? "navigation.aboutSystem"
+            : section.key === "team"
+              ? "navigation.aboutTeam"
+              : section.key === "members"
+                ? "navigation.aboutMembers"
+                : section.key === "contact"
+                  ? "navigation.aboutContact"
+                  : "navigation.aboutDocs",
+        ),
         onClick: () => navigateFromHeader(section.path),
       })),
-    [navigateFromHeader],
+    [navigateFromHeader, t],
   );
 
   const finishTour = useCallback(() => {
@@ -795,28 +840,27 @@ export default function WorkspaceHeader({
   const tourSteps = useMemo<TourProps["steps"]>(() => {
     const steps: NonNullable<TourProps["steps"]> = [
       {
-        title: "🎉 欢迎 🎉",
-        description: `欢迎使用${platformChineseName}，下面快速熟悉工作台入口。`,
+        title: t("navigation.tourWelcomeTitle"),
+        description: t("navigation.tourWelcomeDescription", {
+          platform: platformDisplayName,
+        }),
         target: null,
       },
       {
-        title: "全局搜索",
-        description:
-          "检索数据资源、已保存工程和专题，并从结果中加载到当前工作台。",
+        title: t("navigation.openSearch"),
+        description: t("navigation.tourSearchDescription"),
         target: () => searchContainerRef.current ?? document.body,
         placement: "bottom",
       },
       {
-        title: "地理工作台",
-        description:
-          "进入三维地球工作台，浏览空间数据、加载图层、执行空间查询并查看要素属性。",
+        title: t("navigation.mapWorkspace"),
+        description: t("navigation.tourMapDescription"),
         target: () => mapTabRef.current ?? document.body,
         placement: "bottom",
       },
       {
-        title: "数据分析",
-        description:
-          "查看生态表格、基因等非空间数据，并使用图表与表格完成基础分析。",
+        title: t("navigation.analytics"),
+        description: t("navigation.tourAnalyticsDescription"),
         target: () => nonGeoTabRef.current ?? document.body,
         placement: "bottom",
       },
@@ -824,9 +868,8 @@ export default function WorkspaceHeader({
 
     if (showResourceCenter) {
       steps.push({
-        title: "数据资源",
-        description:
-          "按四大类浏览统一数据目录，或进入存量维护与数据导入；可见菜单会按账号权限自动收敛。",
+        title: t("navigation.dataResources"),
+        description: t("navigation.tourResourcesDescription"),
         target: () => resourcesTabRef.current ?? document.body,
         placement: "bottom",
       });
@@ -834,9 +877,8 @@ export default function WorkspaceHeader({
 
     if (showAdminTab) {
       steps.push({
-        title: "后台管理",
-        description:
-          "进入运行概览、个人设置、操作日志、系统设置、数据备份以及角色权限等管理功能。",
+        title: t("navigation.administration"),
+        description: t("navigation.tourAdminDescription"),
         target: () => adminTabRef.current ?? document.body,
         placement: "bottom",
       });
@@ -844,31 +886,30 @@ export default function WorkspaceHeader({
 
     steps.push(
       {
-        title: "成果展示",
-        description:
-          "浏览已正式发布的专题图件成果，后续统一承接数据分析成果和直接导入成果。",
+        title: t("navigation.results"),
+        description: t("navigation.tourResultsDescription"),
         target: () =>
           document.querySelector('[data-nav-key="results"]') ?? document.body,
         placement: "bottom",
       },
       {
-        title: "关于我们",
-        description: "查看系统简介、共建团队、团队成员和帮助文档等平台资料。",
+        title: t("navigation.about"),
+        description: t("navigation.tourAboutDescription"),
         target: () => aboutTabRef.current ?? document.body,
         placement: "bottom",
       },
       {
-        title: "个人入口",
+        title: t("navigation.tourUserTitle"),
         description: isGuestUser
-          ? "查看当前游客身份、重新打开使用引导或安全退出。"
-          : "查看个人信息、进入个人设置或安全退出当前账号。",
+          ? t("navigation.tourGuestDescription")
+          : t("navigation.tourUserDescription"),
         target: () => userButtonRef.current ?? document.body,
         placement: "bottomRight",
       },
     );
 
     return steps;
-  }, [canBrowseData, isGuestUser, showAdminTab, showResourceCenter]);
+  }, [isGuestUser, platformDisplayName, showAdminTab, showResourceCenter, t]);
 
   const dataButton = (
     <Dropdown
@@ -887,10 +928,10 @@ export default function WorkspaceHeader({
         onClick={handleResourceCenter}
         onMouseEnter={() => scheduleTabHoverExpand("resource")}
         onMouseLeave={collapseTabHover}
-        title="数据资源"
+        title={t("navigation.dataResources")}
       >
         <FolderOpenOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-        <span className="tab-text">数据资源</span>
+        <span className="tab-text">{t("navigation.dataResources")}</span>
       </Button>
     </Dropdown>
   );
@@ -904,7 +945,7 @@ export default function WorkspaceHeader({
         color="#173f39"
       />
       <strong>{platformBrand.shortName}</strong>
-      <span>微信公众号二维码示意</span>
+      <span>{t("navigation.publicAccountQr")}</span>
     </div>
   );
 
@@ -917,13 +958,21 @@ export default function WorkspaceHeader({
           icon={<UserOutlined />}
         />
         <span>
-          <strong>{user?.displayName || user?.username || "当前用户"}</strong>
+          <strong>{userDisplayLabel}</strong>
           <small>{user?.username}</small>
         </span>
       </div>
       <div className="user-popover-meta">
-        {user?.department && <span>部门：{user.department}</span>}
-        {user?.email && <span>邮箱：{user.email}</span>}
+        {user?.department && (
+          <span>
+            {t("common.department")}: {user.department}
+          </span>
+        )}
+        {user?.email && (
+          <span>
+            {t("common.email")}: {user.email}
+          </span>
+        )}
       </div>
       <div className="user-popover-actions">
         <Button
@@ -931,26 +980,29 @@ export default function WorkspaceHeader({
           icon={<QuestionCircleOutlined />}
           onClick={showWorkspaceTour}
         >
-          显示引导
+          {t("navigation.showTour")}
         </Button>
         {!isGuestUser && (
           <Button size="small" onClick={() => navigate("/admin/profile")}>
-            个人信息
+            {t("navigation.personalInformation")}
           </Button>
         )}
         <Button size="small" icon={<LogoutOutlined />} onClick={handleLogout}>
-          安全退出
+          {t("navigation.logout")}
         </Button>
       </div>
     </div>
   );
 
   const searchContent = (
-    <section className="workspace-search-results" aria-label="全局搜索结果">
+    <section
+      className="workspace-search-results"
+      aria-label={t("navigation.globalSearchResults")}
+    >
       <SearchResultSection
-        title="数据"
+        title={t("navigation.searchData")}
         icon={<DatabaseOutlined style={{ fontSize: 15 }} />}
-        emptyText="暂无匹配数据"
+        emptyText={t("navigation.noMatchingData")}
       >
         {filteredResources.map((resource) => (
           <div className="workspace-search-row" key={`resource-${resource.id}`}>
@@ -958,7 +1010,7 @@ export default function WorkspaceHeader({
               <strong>{resource.name}</strong>
               <small>
                 {resourceDomainCategoryName(resource, domainTypeLabelByValue) ??
-                  "未分类"}{" "}
+                  t("common.uncategorized")}{" "}
                 · {resourceFormatLabel(resource)}
               </small>
             </span>
@@ -970,16 +1022,16 @@ export default function WorkspaceHeader({
               loading={quickLoadingResourceId === resource.id}
               onClick={() => void quickLoadResource(resource)}
             >
-              快速加载
+              {t("map.quickLoad")}
             </Button>
           </div>
         ))}
       </SearchResultSection>
 
       <SearchResultSection
-        title="工程"
+        title={t("navigation.searchProjects")}
         icon={<FolderOpenOutlined style={{ fontSize: 15 }} />}
-        emptyText="暂无匹配工程"
+        emptyText={t("navigation.noMatchingProjects")}
       >
         {filteredProjectScenes.map((scene) => (
           <div className="workspace-search-row" key={`scene-${scene.id}`}>
@@ -993,16 +1045,16 @@ export default function WorkspaceHeader({
               ghost
               onClick={() => openWorkspaceScene(scene)}
             >
-              加载
+              {t("map.load")}
             </Button>
           </div>
         ))}
       </SearchResultSection>
 
       <SearchResultSection
-        title="专题"
+        title={t("navigation.searchTopics")}
         icon={<ProjectOutlined style={{ fontSize: 15 }} />}
-        emptyText="暂无匹配专题"
+        emptyText={t("navigation.noMatchingResults")}
       >
         {filteredTopicScenes.map((composition) => (
           <div
@@ -1021,7 +1073,7 @@ export default function WorkspaceHeader({
               ghost
               onClick={() => openMapComposition(composition)}
             >
-              加载
+              {t("map.load")}
             </Button>
           </div>
         ))}
@@ -1037,20 +1089,20 @@ export default function WorkspaceHeader({
         type="button"
         className="brand-block"
         onClick={() => navigateFromHeader("/data")}
-        aria-label="返回数据资源总目录"
-        title="返回数据资源总目录"
+        aria-label={t("navigation.returnToCatalog")}
+        title={t("navigation.returnToCatalog")}
       >
         <span className="brand-logo-frame">
           <img
             src={capfedLogoWhite}
-            alt={`${platformChineseName} Logo`}
+            alt={`${platformDisplayName} Logo`}
             width={40}
             height={40}
           />
         </span>
         <div className="brand-copy">
           <strong>{platformBrand.shortName}</strong>
-          <Typography.Title level={4}>{platformChineseName}</Typography.Title>
+          <Typography.Title level={4}>{platformDisplayName}</Typography.Title>
         </div>
       </button>
 
@@ -1061,7 +1113,7 @@ export default function WorkspaceHeader({
         <Button
           type="text"
           className="workspace-mobile-search-trigger"
-          aria-label="打开全局搜索"
+          aria-label={t("navigation.openSearch")}
           icon={<SearchOutlined />}
           onClick={handleMobileSearchClick}
         />
@@ -1083,7 +1135,7 @@ export default function WorkspaceHeader({
               allowClear
               prefix={<SearchOutlined style={{ fontSize: 15 }} />}
               value={searchText}
-              placeholder="搜索数据、工程、专题"
+              placeholder={t("navigation.searchPlaceholder")}
               onFocus={expandSearch}
               onClick={handleSearchClick}
               onChange={(event) => handleSearchTextChange(event.target.value)}
@@ -1095,7 +1147,7 @@ export default function WorkspaceHeader({
         <nav
           ref={primaryNavRef}
           className="header-primary-actions"
-          aria-label="主导航"
+          aria-label={t("navigation.mainNavigation")}
         >
           <Button
             type="text"
@@ -1103,10 +1155,10 @@ export default function WorkspaceHeader({
             onClick={() => navigateFromHeader("/data")}
             onMouseEnter={() => scheduleTabHoverExpand("home")}
             onMouseLeave={collapseTabHover}
-            title="首页"
+            title={t("navigation.home")}
           >
             <HomeOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-            <span className="tab-text">首页</span>
+            <span className="tab-text">{t("navigation.home")}</span>
           </Button>
           {showResourceCenter && dataButton}
           <Dropdown
@@ -1122,10 +1174,10 @@ export default function WorkspaceHeader({
               onClick={() => navigateFromHeader("/map")}
               onMouseEnter={() => scheduleTabHoverExpand("map")}
               onMouseLeave={collapseTabHover}
-              title="地理工作台"
+              title={t("navigation.mapWorkspace")}
             >
               <ApartmentOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-              <span className="tab-text">地理工作台</span>
+              <span className="tab-text">{t("navigation.mapWorkspace")}</span>
             </Button>
           </Dropdown>
           <Dropdown
@@ -1144,10 +1196,10 @@ export default function WorkspaceHeader({
               onClick={() => navigateFromHeader("/nongeo")}
               onMouseEnter={() => scheduleTabHoverExpand("nongeo")}
               onMouseLeave={collapseTabHover}
-              title="数据分析"
+              title={t("navigation.analytics")}
             >
               <BookOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-              <span className="tab-text">数据分析</span>
+              <span className="tab-text">{t("navigation.analytics")}</span>
             </Button>
           </Dropdown>
           <Button
@@ -1160,10 +1212,10 @@ export default function WorkspaceHeader({
             onClick={() => navigateFromHeader("/results")}
             onMouseEnter={() => scheduleTabHoverExpand("results")}
             onMouseLeave={collapseTabHover}
-            title="成果展示"
+            title={t("navigation.results")}
           >
             <PictureOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-            <span className="tab-text">成果展示</span>
+            <span className="tab-text">{t("navigation.results")}</span>
           </Button>
           <Button
             type="text"
@@ -1174,10 +1226,10 @@ export default function WorkspaceHeader({
             onClick={() => navigateFromHeader("/warning")}
             onMouseEnter={() => scheduleTabHoverExpand("warning")}
             onMouseLeave={collapseTabHover}
-            title="智能预警（实时监测与预警）"
+            title={t("navigation.warning")}
           >
             <AlertOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-            <span className="tab-text">智能预警</span>
+            <span className="tab-text">{t("navigation.warning")}</span>
           </Button>
           {showAdminTab && (
             <Dropdown
@@ -1196,10 +1248,12 @@ export default function WorkspaceHeader({
                 onClick={() => navigateFromHeader("/admin")}
                 onMouseEnter={() => scheduleTabHoverExpand("admin")}
                 onMouseLeave={collapseTabHover}
-                title="后台管理"
+                title={t("navigation.administration")}
               >
                 <SettingOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-                <span className="tab-text">后台管理</span>
+                <span className="tab-text">
+                  {t("navigation.administration")}
+                </span>
               </Button>
             </Dropdown>
           )}
@@ -1212,10 +1266,10 @@ export default function WorkspaceHeader({
             onClick={() => navigateFromHeader("/knowledge")}
             onMouseEnter={() => scheduleTabHoverExpand("knowledge")}
             onMouseLeave={collapseTabHover}
-            title="胡杨科普"
+            title={t("navigation.knowledge")}
           >
             <ReadOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-            <span className="tab-text">胡杨科普</span>
+            <span className="tab-text">{t("navigation.knowledge")}</span>
           </Button>
           <Dropdown
             menu={{ items: aboutMenuItems }}
@@ -1233,10 +1287,10 @@ export default function WorkspaceHeader({
               onClick={() => navigateFromHeader("/about/system")}
               onMouseEnter={() => scheduleTabHoverExpand("about")}
               onMouseLeave={collapseTabHover}
-              title="关于我们"
+              title={t("navigation.about")}
             >
               <InfoCircleOutlined aria-hidden="true" style={{ fontSize: 16 }} />
-              <span className="tab-text">关于我们</span>
+              <span className="tab-text">{t("navigation.about")}</span>
             </Button>
           </Dropdown>
         </nav>
@@ -1246,15 +1300,18 @@ export default function WorkspaceHeader({
         {showDataImportShortcut && (
           <Button
             type="text"
-            aria-label="数据导入"
+            aria-label={t("navigation.dataImport")}
             className="data-import-shortcut"
             icon={<ImportOutlined />}
             onClick={() => navigateFromHeader("/resources/data/import")}
-            title="数据导入"
+            title={t("navigation.dataImport")}
           >
-            <span className="data-import-shortcut-text">数据导入</span>
+            <span className="data-import-shortcut-text">
+              {t("navigation.dataImport")}
+            </span>
           </Button>
         )}
+        <LanguageSwitcher compact className="header-language-switcher" />
         <Popover
           trigger="click"
           placement="bottomRight"
@@ -1262,10 +1319,10 @@ export default function WorkspaceHeader({
           classNames={{ root: "workspace-info-popover" }}
         >
           <Button
-            aria-label="公众号二维码"
+            aria-label={t("navigation.publicAccountQr")}
             className="wechat-button"
             icon={<QrcodeOutlined />}
-            title="公众号二维码"
+            title={t("navigation.publicAccountQr")}
           />
         </Popover>
         <Popover
@@ -1278,7 +1335,7 @@ export default function WorkspaceHeader({
         >
           <Button
             ref={userButtonRef}
-            aria-label="用户信息"
+            aria-label={t("navigation.userInformation")}
             className="user-button"
           >
             <span className="user-button-content">
@@ -1287,9 +1344,7 @@ export default function WorkspaceHeader({
                 src={user?.avatarUrl || undefined}
                 icon={<UserOutlined />}
               />
-              <span className="user-button-name">
-                {user?.displayName || user?.username || ""}
-              </span>
+              <span className="user-button-name">{userDisplayLabel}</span>
             </span>
           </Button>
         </Popover>
@@ -1362,12 +1417,13 @@ function workspaceCategoryMenuItems(
   nodes: DataSchemaCatalogNode[],
   targetPath: "/map" | "/nongeo",
   onNavigate: (path: string) => void,
+  t: TFunction,
 ): MenuProps["items"] {
   const keyPrefix = targetPath.slice(1);
   return [
     {
       key: `${keyPrefix}-all-categories`,
-      label: "全部业务分类",
+      label: t("navigation.allBusinessCategories"),
       onClick: () => onNavigate(targetPath),
     },
     { type: "divider" },
@@ -1386,7 +1442,7 @@ function workspaceCategoryMenuItems(
         : [
             {
               key: `${keyPrefix}-${root.categoryCode}-empty`,
-              label: "暂无下级分类",
+              label: t("navigation.noSubcategories"),
               disabled: true,
             },
           ],
@@ -1402,6 +1458,21 @@ function tabClass(active: boolean, hoverExpanded = false) {
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+function localizedBuiltInDisplayName(value: string, t: TFunction) {
+  switch (value) {
+    case "超级管理员":
+      return t("common.superAdministrator");
+    case "平台管理员":
+      return t("common.platformAdministrator");
+    case "科研用户":
+      return t("common.researchUser");
+    case "普通用户":
+      return t("common.standardUser");
+    default:
+      return value;
+  }
 }
 
 function clampNumber(min: number, value: number, max: number) {
@@ -1442,9 +1513,26 @@ function SearchResultSection({
   );
 }
 
-function domainTypeLabels(schema: DataSchemaSummary | null | undefined) {
+function domainTypeLabels(
+  schema: DataSchemaSummary | null | undefined,
+  t: TFunction,
+) {
   const labels = new Map<DataDomainType, string>();
-  schema?.domains.forEach((domain) => labels.set(domain.code, domain.name));
+  const domainTypes: DataDomainType[] = [
+    "germplasm",
+    "genome",
+    "individual",
+    "community",
+    "population",
+    "field_survey",
+    "remote_sensing",
+    "molecular",
+    "vector",
+    "other",
+  ];
+  domainTypes.forEach((domainType) =>
+    labels.set(domainType, t(`dataDomain.${domainType}`)),
+  );
   collectDomainLabels(fallbackCatalogTree, labels);
   collectDomainLabels(schema?.catalogTree ?? [], labels);
   return labels;

@@ -12,6 +12,7 @@ import {
 } from "@ant-design/icons";
 import { Empty, Select, Spin, Tabs, Tag, Typography } from "antd";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { CSSProperties, ReactNode, SyntheticEvent } from "react";
 import {
   satelliteBasemapThumbnailFilter,
@@ -115,6 +116,18 @@ const domainLabels: Partial<Record<DataDomainType, string>> = {
   vector: "矢量数据",
 };
 
+const englishDomainLabels: Partial<Record<DataDomainType, string>> = {
+  germplasm: "Germplasm data",
+  individual: "Individual data",
+  population: "Population data",
+  community: "Community data",
+  field_survey: "Field survey",
+  remote_sensing: "Remote-sensing imagery",
+  molecular: "Molecular data",
+  genome: "Genome data",
+  vector: "Vector data",
+};
+
 const domainFeaturePlans: Partial<
   Record<
     DataDomainType,
@@ -188,6 +201,151 @@ const fallbackFeaturePlan = {
   matrixTitle: "字段结构热力矩阵",
 };
 
+const featurePlanEnglishText: Record<string, string> = {
+  种质来源与采集特征: "Germplasm origin and collection traits",
+  种质连续指标画像: "Germplasm numeric profile",
+  采集字段热力矩阵: "Collection-field heat matrix",
+  个体分类与生长属性: "Individual classification and growth traits",
+  个体生长指标画像: "Individual growth profile",
+  分类字段热力矩阵: "Classification-field heat matrix",
+  种群结构与优势度: "Population structure and dominance",
+  种群指标画像: "Population indicator profile",
+  种群字段热力矩阵: "Population-field heat matrix",
+  群落多样性与环境梯度: "Community diversity and environmental gradient",
+  多样性指标画像: "Diversity indicator profile",
+  性状环境热力矩阵: "Trait-environment heat matrix",
+  调查任务与样方质量: "Survey tasks and plot quality",
+  调查量化指标画像: "Survey indicator profile",
+  调查字段热力矩阵: "Survey-field heat matrix",
+  影像波段与栅格元数据: "Image bands and raster metadata",
+  波段范围画像: "Band-range profile",
+  波段范围热力矩阵: "Band-range heat matrix",
+  数据字段与要素洞察: "Data fields and feature insights",
+  数值指标画像: "Numeric indicator profile",
+  字段结构热力矩阵: "Field-structure heat matrix",
+};
+
+const insightUiEnglishText: Record<string, string> = {
+  刷新中: "Refreshing",
+  接口异常: "API error",
+  字段体检: "Field health",
+  字段适配: "Field suitability",
+  种质样本: "Germplasm samples",
+  样本采集画像: "Sample collection profile",
+  性别结构: "Sex structure",
+  海拔梯度: "Elevation gradient",
+  字段健康与图表适配: "Field health and chart suitability",
+  采集地点待统计: "Collection sites pending",
+  暂无性别字段统计: "No sex-field statistics",
+  雌株: "Female",
+  雄株: "Male",
+  均衡度: "Balance",
+  待标准化: "Needs standardization",
+  可识别: "Recognized",
+  存在性别标签标准化风险: "Sex labels require standardization",
+  暂无海拔字段统计: "No elevation-field statistics",
+  海拔字段缺少有效梯度范围: "No valid elevation gradient",
+  低值: "Low",
+  中位: "Median",
+  高值: "High",
+  缺失: "Missing",
+  个体记录: "Individual records",
+  分类谱系画像: "Taxonomic profile",
+  "科排序 TopN": "Family-order Top N",
+  科排序序列分布: "Family-order sequence",
+  分类字段适配矩阵: "Classification-field suitability matrix",
+  物种字段待统计: "Species field pending",
+  暂无科排序或科类字段统计: "No family-order or family statistics",
+  暂无科排序字段统计: "No family-order statistics",
+  科排序字段缺少可用序列范围: "No usable family-order range",
+  最小: "Minimum",
+  最大: "Maximum",
+  类别: "Categories",
+  生态梯度画像: "Ecological-gradient profile",
+  样方分组格局: "Plot grouping pattern",
+  多样性指数梯度: "Diversity-index gradient",
+  性状环境适配矩阵: "Trait-environment suitability matrix",
+  种群调查画像: "Population-survey profile",
+  优势种结构: "Dominant-species structure",
+  调查梯度: "Survey gradient",
+  调查字段适配矩阵: "Survey-field suitability matrix",
+  完整度: "Completeness",
+  多样度: "Diversity",
+  丰富度: "Richness",
+  均衡性: "Balance",
+  标准化: "Standardization",
+  区分度: "Discrimination",
+  空间度: "Spatial coverage",
+  梯度性: "Gradient",
+  稳定性: "Stability",
+  跨度: "Range",
+  可视化: "Visualization",
+  待统计: "Pending",
+  索引稳定: "Stable index",
+  有重复风险: "Duplicate risk",
+  标签清晰: "Clear labels",
+  空间采集: "Spatial collection",
+  梯度连续: "Continuous gradient",
+  科类覆盖: "Family coverage",
+  属级覆盖: "Genus coverage",
+  物种覆盖: "Species coverage",
+  海拔记录: "Elevation records",
+  采集来源: "Collection source",
+  空间位置: "Spatial location",
+  分类谱系: "Taxonomic lineage",
+  科排序: "Family order",
+  DNA编号: "DNA ID",
+  采集地点: "Collection site",
+  性别: "Sex",
+  经纬度: "Coordinates",
+  海拔: "Elevation",
+  空间: "Spatial",
+  字段: "Fields",
+  质量: "Quality",
+  像元估算: "Estimated pixels",
+  要素记录: "Feature records",
+  统计记录: "Statistical records",
+  字段数量: "Field count",
+  数据规模: "Data scale",
+  字段结构: "Field structure",
+  校验状态: "Validation status",
+};
+
+function insightUiText(value: string, english: boolean) {
+  if (!english) return value;
+  const exact = insightUiEnglishText[value];
+  if (exact) return exact;
+  return value
+    .replace(/(\d+) 个采集地点/g, "$1 collection sites")
+    .replace(/(\d+) 个物种/g, "$1 species")
+    .replace(/(\d+) 个地点/g, "$1 sites")
+    .replace(/(\d+) 类单位/g, "$1 source types")
+    .replace(/(\d+) 类地点/g, "$1 site types")
+    .replace(/(\d+) 条待清洗/g, "$1 records need cleaning")
+    .replace(/(\d+) 条缺失/g, "$1 missing")
+    .replace(/(\d+) 科/g, "$1 families")
+    .replace(/(\d+) 属/g, "$1 genera")
+    .replace(/(\d+) 种/g, "$1 species");
+}
+
+function localizedFeaturePlan(
+  plan: typeof fallbackFeaturePlan,
+  english: boolean,
+) {
+  if (!english) return plan;
+  return {
+    ...plan,
+    title: featurePlanEnglishText[plan.title] ?? plan.title,
+    radarTitle: featurePlanEnglishText[plan.radarTitle] ?? plan.radarTitle,
+    matrixTitle: featurePlanEnglishText[plan.matrixTitle] ?? plan.matrixTitle,
+  };
+}
+
+function usePanelEnglish() {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
+}
+
 interface Props {
   selectedFeature: FeatureInfo | null;
   selectedResource: ResourceListItem | null;
@@ -213,6 +371,9 @@ export default function RightSidePanel({
   currentView,
   mapConfig,
 }: Props) {
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const rasterSelected = isRasterInsightSelection(
     selectedResource,
     selectedResourceProfile,
@@ -245,25 +406,37 @@ export default function RightSidePanel({
   const domainType =
     visualizationSummary?.domainType ?? selectedResource?.domainType ?? null;
   const domainLabel = domainType
-    ? (domainLabels[domainType] ?? "地理数据")
-    : "等待资源";
+    ? ((english ? englishDomainLabels : domainLabels)[domainType] ??
+      (english ? "Geographic data" : "地理数据"))
+    : english
+      ? "Waiting for resource"
+      : "等待资源";
   const sourceLabel =
-    selectedLayer?.name ?? selectedResource?.name ?? "未选择资源";
+    selectedLayer?.name ??
+    selectedResource?.name ??
+    (english ? "No resource selected" : "未选择资源");
 
   return (
     <div className="right-panel-stack">
       <section
         className="right-map-overview-panel"
-        aria-label="当前视角平面缩略图"
+        aria-label={
+          english ? "Current-view map thumbnail" : "当前视角平面缩略图"
+        }
       >
         <FlatMapThumbnail currentView={currentView} mapConfig={mapConfig} />
       </section>
 
-      <section className="right-eco-panel" aria-label="地理数据洞察面板">
+      <section
+        className="right-eco-panel"
+        aria-label={english ? "Geographic data insights" : "地理数据洞察面板"}
+      >
         <div className="right-panel-heading right-panel-heading-main">
           <span>
             <RadarChartOutlined style={{ fontSize: 15 }} />
-            <Typography.Text strong>地理数据洞察</Typography.Text>
+            <Typography.Text strong>
+              {english ? "Geographic data insights" : "地理数据洞察"}
+            </Typography.Text>
           </span>
           <Tag color={selectedResource ? "green" : "default"}>
             {domainLabel}
@@ -283,7 +456,7 @@ export default function RightSidePanel({
               label: (
                 <span className="tab-label">
                   <AreaChartOutlined style={{ fontSize: 14 }} />
-                  概览
+                  {english ? "Overview" : "概览"}
                 </span>
               ),
               children: (
@@ -306,7 +479,13 @@ export default function RightSidePanel({
                   ) : (
                     <AimOutlined style={{ fontSize: 14 }} />
                   )}
-                  {rasterSelected ? "波段" : "要素"}
+                  {rasterSelected
+                    ? english
+                      ? "Bands"
+                      : "波段"
+                    : english
+                      ? "Features"
+                      : "要素"}
                 </span>
               ),
               children: (
@@ -326,7 +505,13 @@ export default function RightSidePanel({
               label: (
                 <span className="tab-label">
                   <RadarChartOutlined style={{ fontSize: 14 }} />
-                  {rasterSelected ? "质量" : "监测"}
+                  {rasterSelected
+                    ? english
+                      ? "Quality"
+                      : "质量"
+                    : english
+                      ? "Monitoring"
+                      : "监测"}
                 </span>
               ),
               children: (
@@ -379,6 +564,7 @@ function FlatMapThumbnail({
   currentView: MapViewState | null;
   mapConfig: MapBasemapConfig;
 }) {
+  const english = usePanelEnglish();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -463,7 +649,11 @@ function FlatMapThumbnail({
       <div
         ref={containerRef}
         className="right-map-mini-canvas"
-        aria-label="当前范围二维地图缩略图"
+        aria-label={
+          english
+            ? "2D map thumbnail of the current extent"
+            : "当前范围二维地图缩略图"
+        }
         role="img"
       >
         {thumbnail.tiles.map((tile) => (
@@ -497,7 +687,9 @@ function FlatMapThumbnail({
       </div>
       {!currentView ? (
         <div className="right-map-mini-empty">
-          <Typography.Text type="secondary">等待地图视角</Typography.Text>
+          <Typography.Text type="secondary">
+            {english ? "Waiting for map view" : "等待地图视角"}
+          </Typography.Text>
         </div>
       ) : null}
     </div>
@@ -1016,6 +1208,7 @@ function VectorEcologyOverviewPanel({
   loading,
   error,
 }: InsightPanelProps) {
+  const english = usePanelEnglish();
   const insight = useMemo(
     () =>
       createInsightStats(
@@ -1087,13 +1280,24 @@ function VectorEcologyOverviewPanel({
   const qualityScore = qualityReadinessScore(insight.qualityIssues, insight);
 
   if (!insight.hasData && loading) {
-    return <InsightState loading text="正在生成可视化摘要" />;
+    return (
+      <InsightState
+        loading
+        text={
+          english ? "Generating visualization summary" : "正在生成可视化摘要"
+        }
+      />
+    );
   }
   if (!insight.hasData) {
     return (
       <InsightState
         error={error}
-        text="请选择或加载一个地理数据资源后查看可视化洞察"
+        text={
+          english
+            ? "Select or load a geographic data resource to view insights"
+            : "请选择或加载一个地理数据资源后查看可视化洞察"
+        }
       />
     );
   }
@@ -1103,10 +1307,12 @@ function VectorEcologyOverviewPanel({
       <DataAssetOverview insight={insight} qualityScore={qualityScore} />
       <div className="eco-trend-card">
         <div className="right-panel-heading eco-chart-heading">
-          <Typography.Text strong>数值字段分布</Typography.Text>
+          <Typography.Text strong>
+            {english ? "Numeric field distribution" : "数值字段分布"}
+          </Typography.Text>
           <FieldStatSelect
             options={numericOptions}
-            placeholder="选择字段"
+            placeholder={english ? "Select field" : "选择字段"}
             value={primaryNumeric?.field ?? null}
             onChange={setSelectedNumericField}
           />
@@ -1114,15 +1320,23 @@ function VectorEcologyOverviewPanel({
         {primaryNumeric ? (
           <HistogramChart stat={primaryNumeric} />
         ) : (
-          <ChartEmpty text="暂无可解析的连续数值字段" />
+          <ChartEmpty
+            text={
+              english
+                ? "No continuous numeric fields could be parsed"
+                : "暂无可解析的连续数值字段"
+            }
+          />
         )}
       </div>
       <div className="eco-distribution-card">
         <div className="right-panel-heading eco-chart-heading">
-          <Typography.Text strong>分类字段构成</Typography.Text>
+          <Typography.Text strong>
+            {english ? "Categorical field composition" : "分类字段构成"}
+          </Typography.Text>
           <FieldStatSelect
             options={categoryOptions}
-            placeholder="选择字段"
+            placeholder={english ? "Select field" : "选择字段"}
             value={primaryCategory?.field ?? null}
             onChange={setSelectedCategoryField}
           />
@@ -1130,13 +1344,25 @@ function VectorEcologyOverviewPanel({
         {primaryCategory ? (
           <DonutDistribution stat={primaryCategory} />
         ) : (
-          <ChartEmpty text="暂无适合做分类构成的字段" />
+          <ChartEmpty
+            text={
+              english
+                ? "No fields are suitable for categorical composition"
+                : "暂无适合做分类构成的字段"
+            }
+          />
         )}
       </div>
       <div className="eco-spatial-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>空间状态与校验风险</Typography.Text>
-          {loading ? <Tag color="processing">刷新中</Tag> : null}
+          <Typography.Text strong>
+            {english
+              ? "Spatial status and validation risks"
+              : "空间状态与校验风险"}
+          </Typography.Text>
+          {loading ? (
+            <Tag color="processing">{english ? "Refreshing" : "刷新中"}</Tag>
+          ) : null}
         </div>
         <SpatialQualityStrip insight={insight} error={error} />
       </div>
@@ -1161,11 +1387,15 @@ function EcologyFactorPanel({
   loading: boolean;
   error: string | null;
 }) {
+  const english = usePanelEnglish();
   const insight = useMemo(
     () => createInsightStats(summary, selectedLayer, null, null),
     [selectedLayer, summary],
   );
-  const plan = featurePlanFor(insight.domainType);
+  const plan = localizedFeaturePlan(
+    featurePlanFor(insight.domainType),
+    english,
+  );
   const categoryForDomain = bestCategoryStat(
     insight.categoryStats,
     plan.categoryHints,
@@ -1177,7 +1407,12 @@ function EcologyFactorPanel({
   const primaryNumeric = numericForDomain[0] ?? insight.numericStats[0] ?? null;
 
   if (!insight.hasData && loading) {
-    return <InsightState loading text="正在加载要素图表方案" />;
+    return (
+      <InsightState
+        loading
+        text={english ? "Loading feature-chart layout" : "正在加载要素图表方案"}
+      />
+    );
   }
 
   if (
@@ -1252,7 +1487,13 @@ function EcologyFactorPanel({
         <div className="right-panel-heading">
           <Typography.Text strong>{plan.title}</Typography.Text>
           <Typography.Text type="secondary">
-            {summary ? "聚合字段驱动" : "本地字段驱动"}
+            {summary
+              ? english
+                ? "Driven by aggregated fields"
+                : "聚合字段驱动"
+              : english
+                ? "Driven by local fields"
+                : "本地字段驱动"}
           </Typography.Text>
         </div>
         <div className="eco-factor-layout">
@@ -1262,7 +1503,14 @@ function EcologyFactorPanel({
               title={plan.radarTitle}
             />
           ) : (
-            <ChartEmpty compact text="数值字段不足，暂不绘制雷达画像" />
+            <ChartEmpty
+              compact
+              text={
+                english
+                  ? "Not enough numeric fields for a radar profile"
+                  : "数值字段不足，暂不绘制雷达画像"
+              }
+            />
           )}
           <RecommendationList insight={insight} />
         </div>
@@ -1273,27 +1521,47 @@ function EcologyFactorPanel({
             <Typography.Text strong>
               {categoryForDomain
                 ? `${categoryForDomain.label} TopN`
-                : "分类排行"}
+                : english
+                  ? "Category ranking"
+                  : "分类排行"}
             </Typography.Text>
             <BarChartOutlined style={{ fontSize: 14 }} />
           </div>
           {categoryForDomain ? (
             <HorizontalBars stat={categoryForDomain} />
           ) : (
-            <ChartEmpty text="暂无可用于排行的分类字段" />
+            <ChartEmpty
+              text={
+                english
+                  ? "No categorical fields are available for ranking"
+                  : "暂无可用于排行的分类字段"
+              }
+            />
           )}
         </div>
         <div className="eco-rose-card">
           <div className="right-panel-heading">
             <Typography.Text strong>
-              {primaryNumeric ? `${primaryNumeric.label} 分位` : "数值分位"}
+              {primaryNumeric
+                ? english
+                  ? `${primaryNumeric.label} quantiles`
+                  : `${primaryNumeric.label} 分位`
+                : english
+                  ? "Numeric quantiles"
+                  : "数值分位"}
             </Typography.Text>
             <SlidersOutlined style={{ fontSize: 14 }} />
           </div>
           {primaryNumeric ? (
             <BoxRangeChart stat={primaryNumeric} />
           ) : (
-            <ChartEmpty text="暂无可用于分位展示的数值字段" />
+            <ChartEmpty
+              text={
+                english
+                  ? "No numeric fields are available for quantile display"
+                  : "暂无可用于分位展示的数值字段"
+              }
+            />
           )}
         </div>
       </div>
@@ -1301,7 +1569,13 @@ function EcologyFactorPanel({
         <div className="right-panel-heading">
           <Typography.Text strong>{plan.matrixTitle}</Typography.Text>
           <Tag color={error ? "warning" : "processing"}>
-            {error ? "接口异常" : "字段衍生"}
+            {error
+              ? english
+                ? "API issue"
+                : "接口异常"
+              : english
+                ? "Derived from fields"
+                : "字段衍生"}
           </Tag>
         </div>
         <FieldDensityMatrix insight={insight} />
@@ -1327,6 +1601,7 @@ function EcologyMonitorPanel({
   loading,
   error,
 }: InsightPanelProps) {
+  const english = usePanelEnglish();
   const insight = useMemo(
     () =>
       createInsightStats(
@@ -1365,43 +1640,81 @@ function EcologyMonitorPanel({
       <div className="monitor-grid">
         <span className="eco-tone-green">
           <strong>{issueCounts.info}</strong>
-          <small>信息提示</small>
-          <em>{loading ? "刷新中" : "质量清单"}</em>
+          <small>{english ? "Information" : "信息提示"}</small>
+          <em>
+            {loading
+              ? english
+                ? "Refreshing"
+                : "刷新中"
+              : english
+                ? "Quality checklist"
+                : "质量清单"}
+          </em>
         </span>
         <span className="eco-tone-amber">
           <strong>{issueCounts.warning}</strong>
-          <small>需关注项</small>
-          <em>后续可转监测规则</em>
+          <small>{english ? "Attention needed" : "需关注项"}</small>
+          <em>
+            {english ? "Can become monitoring rules" : "后续可转监测规则"}
+          </em>
         </span>
         <span className="eco-tone-red">
           <strong>{issueCounts.error}</strong>
-          <small>阻断异常</small>
-          <em>{error ? "接口待恢复" : "当前摘要"}</em>
+          <small>{english ? "Blocking issues" : "阻断异常"}</small>
+          <em>
+            {error
+              ? english
+                ? "API recovery pending"
+                : "接口待恢复"
+              : english
+                ? "Current summary"
+                : "当前摘要"}
+          </em>
         </span>
       </div>
       <div className="eco-risk-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>数据质量监测预览</Typography.Text>
-          <Typography.Text type="secondary">第三阶段占位</Typography.Text>
+          <Typography.Text strong>
+            {english ? "Data-quality monitoring preview" : "数据质量监测预览"}
+          </Typography.Text>
+          <Typography.Text type="secondary">
+            {english ? "Reserved for Phase 3" : "第三阶段占位"}
+          </Typography.Text>
         </div>
         <QualityList issues={insight.qualityIssues} />
       </div>
       <div className="monitor-placeholder">
         <div className="right-panel-heading">
           <Typography.Text strong>{insight.monitorTitle}</Typography.Text>
-          <Tag color="processing">前端预留</Tag>
+          <Tag color="processing">
+            {english ? "UI placeholder" : "前端预留"}
+          </Tag>
         </div>
         <MonitorFlow items={monitorItems} />
       </div>
       <div className="monitor-placeholder">
         <div className="right-panel-heading">
-          <Typography.Text strong>后续闭环任务</Typography.Text>
-          <Tag color="default">未启用</Tag>
+          <Typography.Text strong>
+            {english ? "Future closed-loop tasks" : "后续闭环任务"}
+          </Typography.Text>
+          <Tag color="default">{english ? "Disabled" : "未启用"}</Tag>
         </div>
         <div className="eco-monitor-brief">
-          <span>阈值配置将绑定资源字段、空间范围和业务类型。</span>
-          <span>定时扫描将基于第二阶段聚合结果生成异常清单。</span>
-          <span>通知、复核、处置记录将在后续形成监测任务闭环。</span>
+          <span>
+            {english
+              ? "Thresholds will be bound to resource fields, spatial extents, and business types."
+              : "阈值配置将绑定资源字段、空间范围和业务类型。"}
+          </span>
+          <span>
+            {english
+              ? "Scheduled scans will generate issue lists from Phase 2 aggregation results."
+              : "定时扫描将基于第二阶段聚合结果生成异常清单。"}
+          </span>
+          <span>
+            {english
+              ? "Notifications, review, and response records will form a future monitoring loop."
+              : "通知、复核、处置记录将在后续形成监测任务闭环。"}
+          </span>
         </div>
       </div>
     </div>
@@ -1451,6 +1764,7 @@ function RasterOverviewPanel({
   resource: ResourceListItem | null;
   summary: ResourceVisualizationSummary | null;
 }) {
+  const english = usePanelEnglish();
   const raster = useMemo(
     () => createRasterInsightModel(profile, layer, summary, resource),
     [layer, profile, resource, summary],
@@ -1460,13 +1774,22 @@ function RasterOverviewPanel({
   );
 
   if (!hasRasterMetadata && loading) {
-    return <InsightState loading text="正在读取栅格元数据" />;
+    return (
+      <InsightState
+        loading
+        text={english ? "Reading raster metadata" : "正在读取栅格元数据"}
+      />
+    );
   }
   if (!hasRasterMetadata) {
     return (
       <InsightState
         error={error}
-        text="当前栅格尚未生成可用的波段、尺寸和空间范围元数据"
+        text={
+          english
+            ? "This raster does not yet have usable band, size, or spatial-extent metadata"
+            : "当前栅格尚未生成可用的波段、尺寸和空间范围元数据"
+        }
       />
     );
   }
@@ -1477,16 +1800,22 @@ function RasterOverviewPanel({
         <div className="right-panel-heading raster-heading">
           <span>
             <FileImageOutlined style={{ fontSize: 16 }} />
-            <Typography.Text strong>栅格数据集概览</Typography.Text>
+            <Typography.Text strong>
+              {english ? "Raster dataset overview" : "栅格数据集概览"}
+            </Typography.Text>
           </span>
           <Tag color={rasterStatusColor(raster.datasetStatus)}>
-            {rasterDatasetStatusLabel(raster.datasetStatus)}
+            {rasterDatasetStatusLabel(raster.datasetStatus, english)}
           </Tag>
         </div>
         <div className="raster-kind-line">
-          <strong>{rasterKindLabel(raster.rasterKind)}</strong>
-          <span>{raster.driver || "未知格式"}</span>
-          {loading ? <em>元数据刷新中</em> : null}
+          <strong>{rasterKindLabel(raster.rasterKind, english)}</strong>
+          <span>
+            {raster.driver || (english ? "Unknown format" : "未知格式")}
+          </span>
+          {loading ? (
+            <em>{english ? "Refreshing metadata" : "元数据刷新中"}</em>
+          ) : null}
         </div>
         <div className="raster-metric-grid">
           <span>
@@ -1495,33 +1824,39 @@ function RasterOverviewPanel({
                 ? `${formatCompactNumber(raster.size[0])} × ${formatCompactNumber(raster.size[1])}`
                 : "-"}
             </b>
-            像素尺寸
+            {english ? "Pixel dimensions" : "像素尺寸"}
           </span>
           <span>
-            <b>{formatRasterPixelCount(raster.pixelCount)}</b>
-            总像元
+            <b>{formatRasterPixelCount(raster.pixelCount, english)}</b>
+            {english ? "Total pixels" : "总像元"}
           </span>
           <span>
             <b>{raster.bands.length || "-"}</b>
-            波段
+            {english ? "Bands" : "波段"}
           </span>
           <span title={raster.coordinateSystem}>
             <b>{raster.coordinateSystem || "-"}</b>
-            坐标系统
+            {english ? "Coordinate system" : "坐标系统"}
           </span>
         </div>
       </div>
 
       <div className="eco-trend-card raster-range-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>像元值域（元数据）</Typography.Text>
+          <Typography.Text strong>
+            {english ? "Pixel value range (metadata)" : "像元值域（元数据）"}
+          </Typography.Text>
           <Typography.Text type="secondary">
-            {raster.bands.length} 个波段
+            {english
+              ? `${raster.bands.length} bands`
+              : `${raster.bands.length} 个波段`}
           </Typography.Text>
         </div>
         <RasterBandRangeChart bands={raster.bands} />
         <Typography.Text className="raster-chart-note" type="secondary">
-          当前仅展示后端提取的最小值与最大值，不将值域误绘制为像元分布。
+          {english
+            ? "Only backend-extracted minimum and maximum values are shown; value ranges are not misrepresented as pixel distributions."
+            : "当前仅展示后端提取的最小值与最大值，不将值域误绘制为像元分布。"}
         </Typography.Text>
       </div>
 
@@ -1529,9 +1864,19 @@ function RasterOverviewPanel({
 
       <div className="eco-spatial-card raster-spatial-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>空间覆盖与数据体量</Typography.Text>
+          <Typography.Text strong>
+            {english
+              ? "Spatial coverage and data volume"
+              : "空间覆盖与数据体量"}
+          </Typography.Text>
           <Tag color={raster.bounds.length === 4 ? "green" : "warning"}>
-            {raster.bounds.length === 4 ? "范围已登记" : "缺少范围"}
+            {raster.bounds.length === 4
+              ? english
+                ? "Extent registered"
+                : "范围已登记"
+              : english
+                ? "Extent missing"
+                : "缺少范围"}
           </Tag>
         </div>
         <RasterFootprint raster={raster} />
@@ -1558,6 +1903,7 @@ function RasterBandPanel({
   resource: ResourceListItem | null;
   summary: ResourceVisualizationSummary | null;
 }) {
+  const english = usePanelEnglish();
   const raster = useMemo(
     () => createRasterInsightModel(profile, layer, summary, resource),
     [layer, profile, resource, summary],
@@ -1581,7 +1927,12 @@ function RasterBandPanel({
     null;
 
   if (!raster.bands.length && loading) {
-    return <InsightState loading text="正在读取波段信息" />;
+    return (
+      <InsightState
+        loading
+        text={english ? "Reading band information" : "正在读取波段信息"}
+      />
+    );
   }
 
   return (
@@ -1590,10 +1941,12 @@ function RasterBandPanel({
         <div className="right-panel-heading eco-chart-heading">
           <span>
             <BgColorsOutlined style={{ fontSize: 15 }} />
-            <Typography.Text strong>波段值域与数据类型</Typography.Text>
+            <Typography.Text strong>
+              {english ? "Band ranges and data types" : "波段值域与数据类型"}
+            </Typography.Text>
           </span>
           <Select
-            aria-label="选择栅格波段"
+            aria-label={english ? "Select raster band" : "选择栅格波段"}
             className="eco-field-select"
             disabled={!raster.bands.length}
             options={raster.bands.map((band) => ({
@@ -1608,14 +1961,24 @@ function RasterBandPanel({
         {selectedBand ? (
           <RasterBandFocus band={selectedBand} />
         ) : (
-          <ChartEmpty text="当前栅格没有可展示的波段元数据" />
+          <ChartEmpty
+            text={
+              english
+                ? "This raster has no band metadata to display"
+                : "当前栅格没有可展示的波段元数据"
+            }
+          />
         )}
       </div>
 
       <div className="eco-field-profile-card raster-band-list-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>全部波段</Typography.Text>
-          <Typography.Text type="secondary">统一值域对比</Typography.Text>
+          <Typography.Text strong>
+            {english ? "All bands" : "全部波段"}
+          </Typography.Text>
+          <Typography.Text type="secondary">
+            {english ? "Unified range comparison" : "统一值域对比"}
+          </Typography.Text>
         </div>
         <RasterBandRangeChart bands={raster.bands} />
       </div>
@@ -1648,6 +2011,7 @@ function RasterQualityPanel({
   resource: ResourceListItem | null;
   summary: ResourceVisualizationSummary | null;
 }) {
+  const english = usePanelEnglish();
   const raster = useMemo(
     () => createRasterInsightModel(profile, layer, summary, resource),
     [layer, profile, resource, summary],
@@ -1660,28 +2024,44 @@ function RasterQualityPanel({
     <div className="eco-tab-panel raster-quality-panel">
       <div className="eco-status-card raster-quality-hero">
         <div className="right-panel-heading">
-          <Typography.Text strong>栅格可用性检查</Typography.Text>
-          {loading ? <Tag color="processing">刷新中</Tag> : null}
+          <Typography.Text strong>
+            {english ? "Raster readiness checks" : "栅格可用性检查"}
+          </Typography.Text>
+          {loading ? (
+            <Tag color="processing">{english ? "Refreshing" : "刷新中"}</Tag>
+          ) : null}
         </div>
         <div className="raster-readiness-grid">
           <RasterReadinessStep
-            label="元数据"
-            detail={metadataReady ? "尺寸与波段可用" : "信息不完整"}
+            label={english ? "Metadata" : "元数据"}
+            detail={
+              metadataReady
+                ? english
+                  ? "Dimensions and bands available"
+                  : "尺寸与波段可用"
+                : english
+                  ? "Information incomplete"
+                  : "信息不完整"
+            }
             ready={metadataReady}
           />
           <RasterReadinessStep
-            label="COG 预处理"
-            detail={rasterDatasetStatusLabel(raster.datasetStatus)}
+            label={english ? "COG preprocessing" : "COG 预处理"}
+            detail={rasterDatasetStatusLabel(raster.datasetStatus, english)}
             ready={preprocessingReady}
           />
           <RasterReadinessStep
-            label="XYZ 图层"
+            label={english ? "XYZ layer" : "XYZ 图层"}
             detail={
               tilesReady
-                ? "地图已加载"
+                ? english
+                  ? "Loaded on map"
+                  : "地图已加载"
                 : layer
-                  ? renderStatusLabel(raster.renderStatus)
-                  : "尚未加载"
+                  ? renderStatusLabel(raster.renderStatus, english)
+                  : english
+                    ? "Not loaded"
+                    : "尚未加载"
             }
             ready={tilesReady}
           />
@@ -1690,16 +2070,20 @@ function RasterQualityPanel({
 
       <div className="eco-risk-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>元数据与渲染风险</Typography.Text>
+          <Typography.Text strong>
+            {english ? "Metadata and rendering risks" : "元数据与渲染风险"}
+          </Typography.Text>
           <Typography.Text type="secondary">
-            {insight.qualityIssues.length} 项
+            {english
+              ? `${insight.qualityIssues.length} items`
+              : `${insight.qualityIssues.length} 项`}
           </Typography.Text>
         </div>
         {error ? (
           <div className="eco-quality-list">
             <span className="eco-quality-warning">
               <ExclamationCircleOutlined style={{ fontSize: 14 }} />
-              <b>摘要接口异常</b>
+              <b>{english ? "Summary API issue" : "摘要接口异常"}</b>
               <small>{error}</small>
             </span>
           </div>
@@ -1710,13 +2094,15 @@ function RasterQualityPanel({
 
       <div className="eco-field-profile-card raster-delivery-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>后端交付状态</Typography.Text>
+          <Typography.Text strong>
+            {english ? "Backend delivery status" : "后端交付状态"}
+          </Typography.Text>
           <Tag color={tilesReady ? "green" : "default"}>XYZ</Tag>
         </div>
         <div className="raster-delivery-facts">
           <span>
-            <b>{renderStatusLabel(raster.renderStatus)}</b>
-            当前渲染
+            <b>{renderStatusLabel(raster.renderStatus, english)}</b>
+            {english ? "Current rendering" : "当前渲染"}
           </span>
           <span>
             <b>
@@ -1724,11 +2110,19 @@ function RasterQualityPanel({
                 ? "-"
                 : `${Math.round(raster.renderProgress)}%`}
             </b>
-            任务进度
+            {english ? "Job progress" : "任务进度"}
           </span>
           <span>
-            <b>{raster.symbolization.nodata.enabled ? "已启用" : "未启用"}</b>
-            NoData 透明
+            <b>
+              {raster.symbolization.nodata.enabled
+                ? english
+                  ? "Enabled"
+                  : "已启用"
+                : english
+                  ? "Disabled"
+                  : "未启用"}
+            </b>
+            {english ? "NoData transparency" : "NoData 透明"}
           </span>
         </div>
         {raster.renderMessages.length ? (
@@ -1745,7 +2139,13 @@ function RasterQualityPanel({
           </div>
         ) : (
           <Typography.Text type="secondary">
-            {layer ? "暂无渲染任务消息" : "加载到地图后可查看瓦片交付状态"}
+            {layer
+              ? english
+                ? "No rendering-job messages"
+                : "暂无渲染任务消息"
+              : english
+                ? "Load on the map to view tile delivery status"
+                : "加载到地图后可查看瓦片交付状态"}
           </Typography.Text>
         )}
       </div>
@@ -1776,6 +2176,7 @@ function RasterReadinessStep({
 }
 
 function RasterBandFocus({ band }: { band: RasterBandInsight }) {
+  const english = usePanelEnglish();
   const range =
     band.min !== null && band.max !== null
       ? Math.abs(band.max - band.min)
@@ -1785,29 +2186,40 @@ function RasterBandFocus({ band }: { band: RasterBandInsight }) {
       <div className="raster-band-focus-value">
         <span>B{band.band}</span>
         <strong>{band.label}</strong>
-        <small>{band.colorInterpretation || "未标注颜色解释"}</small>
+        <small>
+          {band.colorInterpretation ||
+            (english
+              ? "Colour interpretation not specified"
+              : "未标注颜色解释")}
+        </small>
       </div>
       <div className="raster-band-focus-range">
         <i />
         <div>
           <span>
-            <small>最小值</small>
+            <small>{english ? "Minimum" : "最小值"}</small>
             <b>{formatNumber(band.min)}</b>
           </span>
           <span>
-            <small>值域跨度</small>
+            <small>{english ? "Range" : "值域跨度"}</small>
             <b>{formatNumber(range)}</b>
           </span>
           <span>
-            <small>最大值</small>
+            <small>{english ? "Maximum" : "最大值"}</small>
             <b>{formatNumber(band.max)}</b>
           </span>
         </div>
       </div>
       <div className="raster-band-type-line">
-        <Tag>{band.type || "未知类型"}</Tag>
+        <Tag>{band.type || (english ? "Unknown type" : "未知类型")}</Tag>
         <Tag color={band.isInteger ? "blue" : "cyan"}>
-          {band.isInteger ? "整型像元" : "连续像元"}
+          {band.isInteger
+            ? english
+              ? "Integer pixels"
+              : "整型像元"
+            : english
+              ? "Continuous pixels"
+              : "连续像元"}
         </Tag>
       </div>
     </div>
@@ -1815,20 +2227,31 @@ function RasterBandFocus({ band }: { band: RasterBandInsight }) {
 }
 
 function RasterBandRangeChart({ bands }: { bands: RasterBandInsight[] }) {
+  const english = usePanelEnglish();
   const validValues = bands.flatMap((band) =>
     [band.min, band.max].filter((value): value is number => value !== null),
   );
   if (!bands.length) {
-    return <ChartEmpty compact text="暂无波段值域元数据" />;
+    return (
+      <ChartEmpty
+        compact
+        text={english ? "No band-range metadata" : "暂无波段值域元数据"}
+      />
+    );
   }
   const domainMin = validValues.length ? Math.min(...validValues) : 0;
   const domainMax = validValues.length ? Math.max(...validValues) : 1;
 
   return (
-    <div className="raster-band-range-chart" aria-label="栅格波段值域对比图">
+    <div
+      className="raster-band-range-chart"
+      aria-label={
+        english ? "Raster band-range comparison" : "栅格波段值域对比图"
+      }
+    >
       <div className="raster-range-axis">
         <span>{formatNumber(domainMin)}</span>
-        <span>统一值域</span>
+        <span>{english ? "Shared range" : "统一值域"}</span>
         <span>{formatNumber(domainMax)}</span>
       </div>
       {bands.slice(0, 12).map((band) => {
@@ -1855,7 +2278,7 @@ function RasterBandRangeChart({ bands }: { bands: RasterBandInsight[] }) {
                   }
                 />
               ) : (
-                <em>无值域</em>
+                <em>{english ? "No range" : "无值域"}</em>
               )}
             </div>
             <span className="raster-range-values">
@@ -1890,37 +2313,62 @@ export function rasterBandRangePosition(
 }
 
 function RasterRenderingSummary({ raster }: { raster: RasterInsightModel }) {
+  const english = usePanelEnglish();
   const activeBands = raster.symbolization.bands
     .map((band) => `B${band}`)
     .join(" / ");
   return (
     <div className="eco-distribution-card raster-render-card">
       <div className="right-panel-heading">
-        <Typography.Text strong>当前后端渲染方案</Typography.Text>
-        <Tag color="cyan">{renderModeLabel(raster.symbolization.mode)}</Tag>
+        <Typography.Text strong>
+          {english ? "Current backend rendering" : "当前后端渲染方案"}
+        </Typography.Text>
+        <Tag color="cyan">
+          {renderModeLabel(raster.symbolization.mode, english)}
+        </Tag>
       </div>
       <div
         className={`raster-palette-strip raster-palette-${raster.symbolization.mode === "pseudocolor" ? raster.symbolization.palette : raster.symbolization.mode}`}
         role="img"
-        aria-label={`${renderModeLabel(raster.symbolization.mode)}色带预览`}
+        aria-label={
+          english
+            ? `${renderModeLabel(raster.symbolization.mode, true)} palette preview`
+            : `${renderModeLabel(raster.symbolization.mode)}色带预览`
+        }
       >
-        <span>{activeBands || "未指定波段"}</span>
+        <span>
+          {activeBands || (english ? "No bands specified" : "未指定波段")}
+        </span>
       </div>
       <div className="raster-render-facts">
         <span>
           <b>{activeBands || "-"}</b>
-          输出波段
+          {english ? "Output bands" : "输出波段"}
         </span>
         <span>
           <b>{raster.symbolization.opacity}%</b>
-          图层透明度
+          {english ? "Layer opacity" : "图层透明度"}
         </span>
         <span>
-          <b>{raster.symbolization.stretch.enabled ? "Min–Max" : "关闭"}</b>
-          拉伸
+          <b>
+            {raster.symbolization.stretch.enabled
+              ? "Min–Max"
+              : english
+                ? "Off"
+                : "关闭"}
+          </b>
+          {english ? "Stretch" : "拉伸"}
         </span>
         <span>
-          <b>{raster.symbolization.nodata.enabled ? "透明" : "保留"}</b>
+          <b>
+            {raster.symbolization.nodata.enabled
+              ? english
+                ? "Transparent"
+                : "透明"
+              : english
+                ? "Retained"
+                : "保留"}
+          </b>
           NoData
         </span>
       </div>
@@ -1929,6 +2377,7 @@ function RasterRenderingSummary({ raster }: { raster: RasterInsightModel }) {
 }
 
 function RasterFootprint({ raster }: { raster: RasterInsightModel }) {
+  const english = usePanelEnglish();
   const bounds = raster.bounds;
   const approximateResolution = approximateRasterResolution(
     bounds,
@@ -1937,28 +2386,35 @@ function RasterFootprint({ raster }: { raster: RasterInsightModel }) {
   const totalSize = raster.sourceFileSize + raster.processedFileSize;
   return (
     <div className="raster-footprint-layout">
-      <div className="raster-footprint-graphic" aria-label="栅格空间范围示意">
+      <div
+        className="raster-footprint-graphic"
+        aria-label={
+          english ? "Raster spatial extent diagram" : "栅格空间范围示意"
+        }
+      >
         <i />
         <span>Raster</span>
       </div>
       <div className="raster-footprint-facts">
         <span>
-          <small>WGS84 范围</small>
+          <small>{english ? "WGS84 extent" : "WGS84 范围"}</small>
           <b title={formatBounds(bounds)}>{formatBounds(bounds)}</b>
         </span>
         <span>
-          <small>视图像元跨度（约）</small>
+          <small>
+            {english ? "Approximate pixel span" : "视图像元跨度（约）"}
+          </small>
           <b>{approximateResolution}</b>
         </span>
         <span>
-          <small>源文件 / 预处理</small>
+          <small>{english ? "Source / processed" : "源文件 / 预处理"}</small>
           <b>
             {formatBytes(raster.sourceFileSize)} /{" "}
             {formatBytes(raster.processedFileSize)}
           </b>
         </span>
         <span>
-          <small>合计体量</small>
+          <small>{english ? "Total size" : "合计体量"}</small>
           <b>{totalSize ? formatBytes(totalSize) : "-"}</b>
         </span>
       </div>
@@ -2057,12 +2513,16 @@ function bandNumberFromField(field: string) {
   return match ? Number(match[1]) : null;
 }
 
-export function formatRasterPixelCount(value: number | null) {
+export function formatRasterPixelCount(value: number | null, english = false) {
   if (value === null || !Number.isFinite(value)) return "-";
   if (value >= 1_000_000_000)
-    return `${formatNumber(value / 1_000_000_000)} 十亿`;
-  if (value >= 1_000_000) return `${formatNumber(value / 1_000_000)} 百万`;
-  if (value >= 10_000) return `${formatNumber(value / 10_000)} 万`;
+    return `${formatNumber(value / 1_000_000_000)} ${english ? "billion" : "十亿"}`;
+  if (value >= 1_000_000)
+    return `${formatNumber(value / 1_000_000)} ${english ? "million" : "百万"}`;
+  if (value >= 10_000)
+    return english
+      ? formatCompactNumber(value)
+      : `${formatNumber(value / 10_000)} 万`;
   return formatNumber(value);
 }
 
@@ -2103,23 +2563,44 @@ function formatBytes(value: number) {
   return `${formatNumber(value / 1024 ** unitIndex)} ${units[unitIndex]}`;
 }
 
-function rasterKindLabel(kind: RasterInsightModel["rasterKind"]) {
-  return {
-    imagery: "多波段影像",
-    continuous: "连续型栅格",
-    categorical: "分类栅格",
-    unknown: "栅格数据",
-  }[kind];
+function rasterKindLabel(
+  kind: RasterInsightModel["rasterKind"],
+  english = false,
+) {
+  return english
+    ? {
+        imagery: "Multiband imagery",
+        continuous: "Continuous raster",
+        categorical: "Categorical raster",
+        unknown: "Raster data",
+      }[kind]
+    : {
+        imagery: "多波段影像",
+        continuous: "连续型栅格",
+        categorical: "分类栅格",
+        unknown: "栅格数据",
+      }[kind];
 }
 
-function rasterDatasetStatusLabel(status: RasterInsightModel["datasetStatus"]) {
-  return {
-    pending: "等待预处理",
-    processing: "预处理中",
-    ready: "预处理就绪",
-    failed: "预处理失败",
-    metadata: "元数据可用",
-  }[status];
+function rasterDatasetStatusLabel(
+  status: RasterInsightModel["datasetStatus"],
+  english = false,
+) {
+  return english
+    ? {
+        pending: "Waiting for preprocessing",
+        processing: "Preprocessing",
+        ready: "Preprocessing ready",
+        failed: "Preprocessing failed",
+        metadata: "Metadata available",
+      }[status]
+    : {
+        pending: "等待预处理",
+        processing: "预处理中",
+        ready: "预处理就绪",
+        failed: "预处理失败",
+        metadata: "元数据可用",
+      }[status];
 }
 
 function rasterStatusColor(status: RasterInsightModel["datasetStatus"]) {
@@ -2129,26 +2610,43 @@ function rasterStatusColor(status: RasterInsightModel["datasetStatus"]) {
   return "default";
 }
 
-function renderModeLabel(mode: RasterSymbolization["mode"]) {
-  return {
-    gray: "单波段灰度",
-    rgb: "RGB 合成",
-    pseudocolor: "伪彩色",
-    unique: "唯一值分类",
-  }[mode];
+function renderModeLabel(mode: RasterSymbolization["mode"], english = false) {
+  return english
+    ? {
+        gray: "Single-band grayscale",
+        rgb: "RGB composite",
+        pseudocolor: "Pseudocolor",
+        unique: "Unique-value classes",
+      }[mode]
+    : {
+        gray: "单波段灰度",
+        rgb: "RGB 合成",
+        pseudocolor: "伪彩色",
+        unique: "唯一值分类",
+      }[mode];
 }
 
-function renderStatusLabel(status: string) {
+function renderStatusLabel(status: string, english = false) {
   return (
-    {
-      ready: "瓦片已就绪",
-      queued: "等待渲染",
-      running: "渲染中",
-      processing: "处理中",
-      failed: "渲染失败",
-      not_loaded: "尚未加载",
-      metadata: "仅元数据",
-    }[status] ?? status
+    (english
+      ? {
+          ready: "Tiles ready",
+          queued: "Waiting to render",
+          running: "Rendering",
+          processing: "Processing",
+          failed: "Rendering failed",
+          not_loaded: "Not loaded",
+          metadata: "Metadata only",
+        }
+      : {
+          ready: "瓦片已就绪",
+          queued: "等待渲染",
+          running: "渲染中",
+          processing: "处理中",
+          failed: "渲染失败",
+          not_loaded: "尚未加载",
+          metadata: "仅元数据",
+        })[status] ?? status
   );
 }
 
@@ -2163,37 +2661,48 @@ function GermplasmFactorPanel({
   insight: InsightStats;
   loading: boolean;
 }) {
+  const english = usePanelEnglish();
   const germplasm = germplasmStatsFor(insight);
   return (
     <div className="eco-tab-panel eco-factor-panel eco-germplasm-panel">
       <div className="eco-factor-card eco-germplasm-hero-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>种质来源与采集特征</Typography.Text>
+          <Typography.Text strong>
+            {english
+              ? "Germplasm origin and collection traits"
+              : "种质来源与采集特征"}
+          </Typography.Text>
           <Typography.Text type="secondary">
-            {loading ? "刷新中" : "样本采集画像"}
+            {insightUiText(loading ? "刷新中" : "样本采集画像", english)}
           </Typography.Text>
         </div>
         <GermplasmCollectionPortrait stats={germplasm} />
       </div>
       <div className="eco-germplasm-card eco-germplasm-sex-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>性别结构</Typography.Text>
+          <Typography.Text strong>
+            {insightUiText("性别结构", english)}
+          </Typography.Text>
           <BarChartOutlined style={{ fontSize: 14 }} />
         </div>
         <GermplasmSexMirror stats={germplasm} />
       </div>
       <div className="eco-germplasm-card eco-germplasm-altitude-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>海拔梯度</Typography.Text>
+          <Typography.Text strong>
+            {insightUiText("海拔梯度", english)}
+          </Typography.Text>
           <SlidersOutlined style={{ fontSize: 14 }} />
         </div>
         <GermplasmAltitudeGradient stat={germplasm.altitudeStat} />
       </div>
       <div className="eco-risk-card eco-germplasm-health-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>字段健康与图表适配</Typography.Text>
+          <Typography.Text strong>
+            {insightUiText("字段健康与图表适配", english)}
+          </Typography.Text>
           <Tag color={error ? "warning" : "processing"}>
-            {error ? "接口异常" : "字段体检"}
+            {insightUiText(error ? "接口异常" : "字段体检", english)}
           </Tag>
         </div>
         <GermplasmFieldHealthMatrix stats={germplasm} />
@@ -2209,6 +2718,7 @@ function GermplasmFactorPanel({
 }
 
 function GermplasmCollectionPortrait({ stats }: { stats: GermplasmStats }) {
+  const english = usePanelEnglish();
   return (
     <div className="eco-germplasm-portrait">
       <div className="eco-germplasm-sample-card">
@@ -2227,12 +2737,15 @@ function GermplasmCollectionPortrait({ stats }: { stats: GermplasmStats }) {
           ))}
         </div>
         <div className="eco-germplasm-sample-core">
-          <small>种质样本</small>
+          <small>{insightUiText("种质样本", english)}</small>
           <strong>{formatCompactNumber(stats.sampleTotal)}</strong>
           <span>
             {stats.locationStat
-              ? `${stats.locationStat.uniqueCount} 个采集地点`
-              : "采集地点待统计"}
+              ? insightUiText(
+                  `${stats.locationStat.uniqueCount} 个采集地点`,
+                  english,
+                )
+              : insightUiText("采集地点待统计", english)}
           </span>
         </div>
       </div>
@@ -2242,7 +2755,7 @@ function GermplasmCollectionPortrait({ stats }: { stats: GermplasmStats }) {
             className={`eco-germplasm-trait eco-tone-${metric.tone}`}
             key={metric.label}
           >
-            <b>{metric.label}</b>
+            <b>{insightUiText(metric.label, english)}</b>
             <i>
               <em style={{ width: `${Math.round(metric.value * 100)}%` }} />
             </i>
@@ -2255,9 +2768,10 @@ function GermplasmCollectionPortrait({ stats }: { stats: GermplasmStats }) {
 }
 
 function GermplasmSexMirror({ stats }: { stats: GermplasmStats }) {
+  const english = usePanelEnglish();
   const sex = stats.sex;
   if (!sex.stat) {
-    return <ChartEmpty text="暂无性别字段统计" />;
+    return <ChartEmpty text={insightUiText("暂无性别字段统计", english)} />;
   }
   const total = Math.max(sex.total, sex.female + sex.male + sex.pending, 1);
   const tracks = [
@@ -2283,7 +2797,7 @@ function GermplasmSexMirror({ stats }: { stats: GermplasmStats }) {
             key={track.key}
           >
             <span>
-              <b>{track.label}</b>
+              <b>{insightUiText(track.label, english)}</b>
               <small>{formatPercent(track.ratio)}</small>
             </span>
             <strong>{formatCompactNumber(track.value)}</strong>
@@ -2296,21 +2810,21 @@ function GermplasmSexMirror({ stats }: { stats: GermplasmStats }) {
       <div className="eco-sex-balance-strip">
         <span>
           <b>{formatPercent(sex.balance)}</b>
-          均衡度
+          {insightUiText("均衡度", english)}
         </span>
         <span>
           <b>{formatCompactNumber(sex.pending)}</b>
-          待标准化
+          {insightUiText("待标准化", english)}
         </span>
         <span>
           <b>{formatPercent(sex.validRatio)}</b>
-          可识别
+          {insightUiText("可识别", english)}
         </span>
       </div>
       {sex.pending > 0 ? (
         <div className="eco-sex-warning">
           <ExclamationCircleOutlined style={{ fontSize: 13 }} />
-          <span>存在性别标签标准化风险</span>
+          <span>{insightUiText("存在性别标签标准化风险", english)}</span>
         </div>
       ) : null}
     </div>
@@ -2318,11 +2832,14 @@ function GermplasmSexMirror({ stats }: { stats: GermplasmStats }) {
 }
 
 function GermplasmAltitudeGradient({ stat }: { stat: NumericStat | null }) {
+  const english = usePanelEnglish();
   if (!stat) {
-    return <ChartEmpty text="暂无海拔字段统计" />;
+    return <ChartEmpty text={insightUiText("暂无海拔字段统计", english)} />;
   }
   if (stat.min === null || stat.max === null || stat.min === stat.max) {
-    return <ChartEmpty text="海拔字段缺少有效梯度范围" />;
+    return (
+      <ChartEmpty text={insightUiText("海拔字段缺少有效梯度范围", english)} />
+    );
   }
   const maxCount = Math.max(...stat.histogram.map((bin) => bin.count), 1);
   const ridgePoints = stat.histogram.length
@@ -2376,19 +2893,19 @@ function GermplasmAltitudeGradient({ stat }: { stat: NumericStat | null }) {
       <div className="eco-altitude-values">
         <span>
           <b>{formatNumber(stat.min)}</b>
-          低值
+          {insightUiText("低值", english)}
         </span>
         <span>
           <b>{formatNumber(stat.median)}</b>
-          中位
+          {insightUiText("中位", english)}
         </span>
         <span>
           <b>{formatNumber(stat.max)}</b>
-          高值
+          {insightUiText("高值", english)}
         </span>
         <span>
           <b>{formatCompactNumber(stat.nullCount)}</b>
-          缺失
+          {insightUiText("缺失", english)}
         </span>
       </div>
     </div>
@@ -2396,13 +2913,14 @@ function GermplasmAltitudeGradient({ stat }: { stat: NumericStat | null }) {
 }
 
 function GermplasmFieldHealthMatrix({ stats }: { stats: GermplasmStats }) {
+  const english = usePanelEnglish();
   return (
     <div className="eco-germplasm-health-matrix">
       {stats.healthRows.map((row) => (
         <div className="eco-germplasm-health-row" key={row.label}>
           <span className="eco-germplasm-health-label">
-            <b>{row.label}</b>
-            <small>{row.hint}</small>
+            <b>{insightUiText(row.label, english)}</b>
+            <small>{insightUiText(row.hint, english)}</small>
           </span>
           <div className="eco-germplasm-health-meters">
             {row.cells.map((cell) => (
@@ -2411,7 +2929,7 @@ function GermplasmFieldHealthMatrix({ stats }: { stats: GermplasmStats }) {
                 key={`${row.label}-${cell.label}`}
                 title={`${row.label} ${cell.label} ${formatPercent(cell.value)}`}
               >
-                <small>{cell.label}</small>
+                <small>{insightUiText(cell.label, english)}</small>
                 <strong>{formatPercent(cell.value)}</strong>
                 <i>
                   <em style={{ width: `${Math.round(cell.value * 100)}%` }} />
@@ -2436,37 +2954,48 @@ function IndividualFactorPanel({
   insight: InsightStats;
   loading: boolean;
 }) {
+  const english = usePanelEnglish();
   const individual = individualStatsFor(insight);
   return (
     <div className="eco-tab-panel eco-factor-panel eco-individual-panel">
       <div className="eco-factor-card eco-individual-hero-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>个体分类与生长属性</Typography.Text>
+          <Typography.Text strong>
+            {english
+              ? "Individual classification and growth traits"
+              : "个体分类与生长属性"}
+          </Typography.Text>
           <Typography.Text type="secondary">
-            {loading ? "刷新中" : "分类谱系画像"}
+            {insightUiText(loading ? "刷新中" : "分类谱系画像", english)}
           </Typography.Text>
         </div>
         <IndividualClassificationPortrait stats={individual} />
       </div>
       <div className="eco-individual-card eco-individual-rank-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>科排序 TopN</Typography.Text>
+          <Typography.Text strong>
+            {insightUiText("科排序 TopN", english)}
+          </Typography.Text>
           <BarChartOutlined style={{ fontSize: 14 }} />
         </div>
         <IndividualOrderRanking stats={individual} />
       </div>
       <div className="eco-individual-card eco-individual-order-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>科排序序列分布</Typography.Text>
+          <Typography.Text strong>
+            {insightUiText("科排序序列分布", english)}
+          </Typography.Text>
           <SlidersOutlined style={{ fontSize: 14 }} />
         </div>
         <IndividualOrderSequence stats={individual} />
       </div>
       <div className="eco-risk-card eco-individual-field-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>分类字段适配矩阵</Typography.Text>
+          <Typography.Text strong>
+            {insightUiText("分类字段适配矩阵", english)}
+          </Typography.Text>
           <Tag color={error ? "warning" : "processing"}>
-            {error ? "接口异常" : "字段适配"}
+            {insightUiText(error ? "接口异常" : "字段适配", english)}
           </Tag>
         </div>
         <IndividualFieldMatrix stats={individual} />
@@ -2486,16 +3015,20 @@ function IndividualClassificationPortrait({
 }: {
   stats: IndividualStats;
 }) {
+  const english = usePanelEnglish();
   return (
     <div className="eco-individual-portrait">
       <div className="eco-individual-taxonomy-card">
         <div className="eco-individual-taxonomy-core">
-          <small>个体记录</small>
+          <small>{insightUiText("个体记录", english)}</small>
           <strong>{formatCompactNumber(stats.recordTotal)}</strong>
           <span>
             {stats.speciesStat
-              ? `${stats.speciesStat.uniqueCount} 个物种`
-              : "物种字段待统计"}
+              ? insightUiText(
+                  `${stats.speciesStat.uniqueCount} 个物种`,
+                  english,
+                )
+              : insightUiText("物种字段待统计", english)}
           </span>
         </div>
         <div className="eco-individual-taxonomy-rings" aria-hidden="true">
@@ -2519,7 +3052,7 @@ function IndividualClassificationPortrait({
             className={`eco-individual-taxonomy-metric eco-tone-${metric.tone}`}
             key={metric.label}
           >
-            <b>{metric.label}</b>
+            <b>{insightUiText(metric.label, english)}</b>
             <strong>{metric.display}</strong>
             <i>
               <em style={{ width: `${Math.round(metric.value * 100)}%` }} />
@@ -2532,9 +3065,12 @@ function IndividualClassificationPortrait({
 }
 
 function IndividualOrderRanking({ stats }: { stats: IndividualStats }) {
+  const english = usePanelEnglish();
   const stat = stats.orderCategoryStat ?? stats.familyStat;
   if (!stat) {
-    return <ChartEmpty text="暂无科排序或科类字段统计" />;
+    return (
+      <ChartEmpty text={insightUiText("暂无科排序或科类字段统计", english)} />
+    );
   }
   const items = categoryDisplayItems(stat).slice(0, 6);
   const maxCount = Math.max(...items.map((item) => item.count), 1);
@@ -2546,7 +3082,7 @@ function IndividualOrderRanking({ stats }: { stats: IndividualStats }) {
           key={`${stat.field}-${item.label}`}
         >
           <span>
-            <b>{item.label || "未填写"}</b>
+            <b>{item.label || (english ? "Not provided" : "未填写")}</b>
             <small>{formatPercent(item.ratio)}</small>
           </span>
           <i>
@@ -2565,15 +3101,18 @@ function IndividualOrderRanking({ stats }: { stats: IndividualStats }) {
 }
 
 function IndividualOrderSequence({ stats }: { stats: IndividualStats }) {
+  const english = usePanelEnglish();
   const numeric = stats.orderNumericStat;
   const category = stats.orderCategoryStat;
   if (!numeric && !category) {
-    return <ChartEmpty text="暂无科排序字段统计" />;
+    return <ChartEmpty text={insightUiText("暂无科排序字段统计", english)} />;
   }
   const min = numeric?.min ?? minimumCategoryNumber(category);
   const max = numeric?.max ?? maximumCategoryNumber(category);
   if (min === null || max === null || min === max) {
-    return <ChartEmpty text="科排序字段缺少可用序列范围" />;
+    return (
+      <ChartEmpty text={insightUiText("科排序字段缺少可用序列范围", english)} />
+    );
   }
   const range = max - min;
   const items = category ? categoryDisplayItems(category).slice(0, 8) : [];
@@ -2620,19 +3159,19 @@ function IndividualOrderSequence({ stats }: { stats: IndividualStats }) {
       <div className="eco-individual-order-stats">
         <span>
           <b>{formatNumber(min)}</b>
-          最小
+          {insightUiText("最小", english)}
         </span>
         <span>
           <b>{formatNumber(numeric?.median ?? null)}</b>
-          中位
+          {insightUiText("中位", english)}
         </span>
         <span>
           <b>{formatNumber(max)}</b>
-          最大
+          {insightUiText("最大", english)}
         </span>
         <span>
           <b>{formatCompactNumber(category?.uniqueCount ?? 0)}</b>
-          类别
+          {insightUiText("类别", english)}
         </span>
       </div>
     </div>
@@ -2640,13 +3179,14 @@ function IndividualOrderSequence({ stats }: { stats: IndividualStats }) {
 }
 
 function IndividualFieldMatrix({ stats }: { stats: IndividualStats }) {
+  const english = usePanelEnglish();
   return (
     <div className="eco-individual-field-matrix">
       {stats.fieldRows.map((row) => (
         <div className="eco-individual-field-row" key={row.label}>
           <span className="eco-individual-field-label">
-            <b>{row.label}</b>
-            <small>{row.hint}</small>
+            <b>{insightUiText(row.label, english)}</b>
+            <small>{insightUiText(row.hint, english)}</small>
           </span>
           <div className="eco-individual-field-cells">
             {row.cells.map((cell) => (
@@ -2655,7 +3195,7 @@ function IndividualFieldMatrix({ stats }: { stats: IndividualStats }) {
                 key={`${row.label}-${cell.label}`}
                 title={`${row.label} ${cell.label} ${formatPercent(cell.value)}`}
               >
-                <small>{cell.label}</small>
+                <small>{insightUiText(cell.label, english)}</small>
                 <strong>{formatPercent(cell.value)}</strong>
                 <i>
                   <em style={{ width: `${Math.round(cell.value * 100)}%` }} />
@@ -2680,37 +3220,48 @@ function CommunityFactorPanel({
   insight: InsightStats;
   loading: boolean;
 }) {
+  const english = usePanelEnglish();
   const community = communityStatsFor(insight);
   return (
     <div className="eco-tab-panel eco-factor-panel eco-community-panel">
       <div className="eco-factor-card eco-community-hero-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>群落多样性与环境梯度</Typography.Text>
+          <Typography.Text strong>
+            {english
+              ? "Community diversity and environmental gradient"
+              : "群落多样性与环境梯度"}
+          </Typography.Text>
           <Typography.Text type="secondary">
-            {loading ? "刷新中" : "生态梯度画像"}
+            {insightUiText(loading ? "刷新中" : "生态梯度画像", english)}
           </Typography.Text>
         </div>
         <CommunityDiversityPortrait stats={community} />
       </div>
       <div className="eco-community-card eco-community-group-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>样方分组格局</Typography.Text>
+          <Typography.Text strong>
+            {insightUiText("样方分组格局", english)}
+          </Typography.Text>
           <BarChartOutlined style={{ fontSize: 14 }} />
         </div>
         <CommunityGroupBalance stats={community} />
       </div>
       <div className="eco-community-card eco-community-gradient-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>多样性指数梯度</Typography.Text>
+          <Typography.Text strong>
+            {insightUiText("多样性指数梯度", english)}
+          </Typography.Text>
           <SlidersOutlined style={{ fontSize: 14 }} />
         </div>
         <CommunityDiversityGradient stats={community} />
       </div>
       <div className="eco-risk-card eco-community-field-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>性状环境适配矩阵</Typography.Text>
+          <Typography.Text strong>
+            {insightUiText("性状环境适配矩阵", english)}
+          </Typography.Text>
           <Tag color={error ? "warning" : "processing"}>
-            {error ? "接口异常" : "字段适配"}
+            {insightUiText(error ? "接口异常" : "字段适配", english)}
           </Tag>
         </div>
         <CommunityFieldMatrix stats={community} />
@@ -2726,16 +3277,21 @@ function CommunityFactorPanel({
 }
 
 function CommunityDiversityPortrait({ stats }: { stats: CommunityStats }) {
+  const english = usePanelEnglish();
   return (
     <div className="eco-community-portrait">
       <div className="eco-community-gradient-map">
         <div className="eco-community-gradient-core">
-          <small>群落样方</small>
+          <small>{english ? "Community plots" : "群落样方"}</small>
           <strong>{formatCompactNumber(stats.plotTotal)}</strong>
           <span>
             {stats.groupStat
-              ? `${stats.groupStat.uniqueCount} 个分组`
-              : "分组待统计"}
+              ? english
+                ? `${stats.groupStat.uniqueCount} groups`
+                : `${stats.groupStat.uniqueCount} 个分组`
+              : english
+                ? "Groups pending"
+                : "分组待统计"}
           </span>
         </div>
         <svg
@@ -2763,7 +3319,7 @@ function CommunityDiversityPortrait({ stats }: { stats: CommunityStats }) {
             className={`eco-community-metric eco-tone-${metric.tone}`}
             key={metric.label}
           >
-            <b>{metric.label}</b>
+            <b>{insightUiText(metric.label, english)}</b>
             <strong>{metric.display}</strong>
             <i>
               <em style={{ width: `${Math.round(metric.value * 100)}%` }} />
@@ -2776,9 +3332,14 @@ function CommunityDiversityPortrait({ stats }: { stats: CommunityStats }) {
 }
 
 function CommunityGroupBalance({ stats }: { stats: CommunityStats }) {
+  const english = usePanelEnglish();
   const stat = stats.groupStat;
   if (!stat) {
-    return <ChartEmpty text="暂无样方分组字段统计" />;
+    return (
+      <ChartEmpty
+        text={english ? "No plot-group statistics" : "暂无样方分组字段统计"}
+      />
+    );
   }
   const items = categoryDisplayItems(stat).slice(0, 6);
   const maxCount = Math.max(...items.map((item) => item.count), 1);
@@ -2790,7 +3351,7 @@ function CommunityGroupBalance({ stats }: { stats: CommunityStats }) {
           key={`${stat.field}-${item.label}`}
         >
           <span>
-            <b>{item.label || "未填写"}</b>
+            <b>{item.label || (english ? "Not provided" : "未填写")}</b>
             <small>{formatPercent(item.ratio)}</small>
           </span>
           <i>
@@ -2809,6 +3370,7 @@ function CommunityGroupBalance({ stats }: { stats: CommunityStats }) {
 }
 
 function CommunityDiversityGradient({ stats }: { stats: CommunityStats }) {
+  const english = usePanelEnglish();
   const primary = stats.shannonStat ?? stats.richnessStat ?? stats.raoStat;
   if (
     !primary ||
@@ -2816,7 +3378,13 @@ function CommunityDiversityGradient({ stats }: { stats: CommunityStats }) {
     primary.max === null ||
     primary.min === primary.max
   ) {
-    return <ChartEmpty text="暂无可用多样性指数范围" />;
+    return (
+      <ChartEmpty
+        text={
+          english ? "No usable diversity-index range" : "暂无可用多样性指数范围"
+        }
+      />
+    );
   }
   const range = primary.max - primary.min;
   const q1 = percentPosition(primary.q1 ?? primary.min, primary.min, range);
@@ -2847,19 +3415,19 @@ function CommunityDiversityGradient({ stats }: { stats: CommunityStats }) {
       <div className="eco-community-gradient-values">
         <span>
           <b>{formatNumber(primary.min)}</b>
-          低值
+          {insightUiText("低值", english)}
         </span>
         <span>
           <b>{formatNumber(primary.median)}</b>
-          中位
+          {insightUiText("中位", english)}
         </span>
         <span>
           <b>{formatNumber(primary.max)}</b>
-          高值
+          {insightUiText("高值", english)}
         </span>
         <span>
           <b>{formatCompactNumber(primary.nullCount)}</b>
-          缺失
+          {insightUiText("缺失", english)}
         </span>
       </div>
     </div>
@@ -2867,13 +3435,14 @@ function CommunityDiversityGradient({ stats }: { stats: CommunityStats }) {
 }
 
 function CommunityFieldMatrix({ stats }: { stats: CommunityStats }) {
+  const english = usePanelEnglish();
   return (
     <div className="eco-community-field-matrix">
       {stats.fieldRows.map((row) => (
         <div className="eco-community-field-row" key={row.label}>
           <span className="eco-community-field-label">
-            <b>{row.label}</b>
-            <small>{row.hint}</small>
+            <b>{insightUiText(row.label, english)}</b>
+            <small>{insightUiText(row.hint, english)}</small>
           </span>
           <div className="eco-community-field-cells">
             {row.cells.map((cell) => (
@@ -2882,7 +3451,7 @@ function CommunityFieldMatrix({ stats }: { stats: CommunityStats }) {
                 key={`${row.label}-${cell.label}`}
                 title={`${row.label} ${cell.label} ${formatPercent(cell.value)}`}
               >
-                <small>{cell.label}</small>
+                <small>{insightUiText(cell.label, english)}</small>
                 <strong>{formatPercent(cell.value)}</strong>
                 <i>
                   <em style={{ width: `${Math.round(cell.value * 100)}%` }} />
@@ -2907,6 +3476,7 @@ function PopulationSurveyFactorPanel({
   insight: InsightStats;
   loading: boolean;
 }) {
+  const english = usePanelEnglish();
   const stats = populationSurveyStatsFor(insight);
   const isFieldSurvey = insight.domainType === "field_survey";
   return (
@@ -2914,28 +3484,44 @@ function PopulationSurveyFactorPanel({
       <div className="eco-factor-card eco-pop-survey-hero-card">
         <div className="right-panel-heading">
           <Typography.Text strong>
-            {isFieldSurvey ? "调查样方与物种记录" : "种群样方与优势度画像"}
+            {isFieldSurvey
+              ? english
+                ? "Survey plots and species records"
+                : "调查样方与物种记录"
+              : english
+                ? "Population plots and dominance profile"
+                : "种群样方与优势度画像"}
           </Typography.Text>
           <Typography.Text type="secondary">
             {loading
-              ? "刷新中"
+              ? insightUiText("刷新中", english)
               : isFieldSurvey
-                ? "野外记录画像"
-                : "种群结构画像"}
+                ? english
+                  ? "Field-record profile"
+                  : "野外记录画像"
+                : english
+                  ? "Population-structure profile"
+                  : "种群结构画像"}
           </Typography.Text>
         </div>
         <PopulationSurveyStructurePortrait stats={stats} />
       </div>
       <div className="eco-pop-survey-card eco-pop-survey-dominance-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>物种优势 TopN</Typography.Text>
+          <Typography.Text strong>
+            {english ? "Species dominance Top N" : "物种优势 TopN"}
+          </Typography.Text>
           <BarChartOutlined style={{ fontSize: 14 }} />
         </div>
         <PopulationSurveySpeciesDominance stats={stats} />
       </div>
       <div className="eco-pop-survey-card eco-pop-survey-gradient-card">
         <div className="right-panel-heading">
-          <Typography.Text strong>密度与重要值梯度</Typography.Text>
+          <Typography.Text strong>
+            {english
+              ? "Density and importance-value gradient"
+              : "密度与重要值梯度"}
+          </Typography.Text>
           <SlidersOutlined style={{ fontSize: 14 }} />
         </div>
         <PopulationSurveyGradient stats={stats} />
@@ -2943,10 +3529,16 @@ function PopulationSurveyFactorPanel({
       <div className="eco-risk-card eco-pop-survey-field-card">
         <div className="right-panel-heading">
           <Typography.Text strong>
-            {isFieldSurvey ? "调查字段适配矩阵" : "种群字段适配矩阵"}
+            {isFieldSurvey
+              ? english
+                ? "Survey-field suitability matrix"
+                : "调查字段适配矩阵"
+              : english
+                ? "Population-field suitability matrix"
+                : "种群字段适配矩阵"}
           </Typography.Text>
           <Tag color={error ? "warning" : "processing"}>
-            {error ? "接口异常" : "字段适配"}
+            {insightUiText(error ? "接口异常" : "字段适配", english)}
           </Tag>
         </div>
         <PopulationSurveyFieldMatrix stats={stats} />
@@ -2966,10 +3558,15 @@ function PopulationSurveyStructurePortrait({
 }: {
   stats: PopulationSurveyStats;
 }) {
+  const english = usePanelEnglish();
   const isFieldSurvey = stats.domainType === "field_survey";
   const plotLabel = stats.plotStat
-    ? `${formatCompactNumber(stats.plotStat.uniqueCount)} 个样方`
-    : "样方待统计";
+    ? english
+      ? `${formatCompactNumber(stats.plotStat.uniqueCount)} plots`
+      : `${formatCompactNumber(stats.plotStat.uniqueCount)} 个样方`
+    : english
+      ? "Plots pending"
+      : "样方待统计";
   const lineCount = clamp(
     Math.round(
       stats.transectStat?.uniqueCount ?? stats.plotStat?.uniqueCount ?? 4,
@@ -3007,7 +3604,15 @@ function PopulationSurveyStructurePortrait({
           })}
         </svg>
         <div className="eco-pop-survey-core">
-          <small>{isFieldSurvey ? "调查记录" : "种群记录"}</small>
+          <small>
+            {isFieldSurvey
+              ? english
+                ? "Survey records"
+                : "调查记录"
+              : english
+                ? "Population records"
+                : "种群记录"}
+          </small>
           <strong>{formatCompactNumber(stats.recordTotal)}</strong>
           <span>{plotLabel}</span>
         </div>
@@ -3018,7 +3623,7 @@ function PopulationSurveyStructurePortrait({
             className={`eco-pop-survey-metric eco-tone-${metric.tone}`}
             key={metric.label}
           >
-            <b>{metric.label}</b>
+            <b>{insightUiText(metric.label, english)}</b>
             <strong>{metric.display}</strong>
             <i>
               <em style={{ width: `${Math.round(metric.value * 100)}%` }} />
@@ -3035,9 +3640,18 @@ function PopulationSurveySpeciesDominance({
 }: {
   stats: PopulationSurveyStats;
 }) {
+  const english = usePanelEnglish();
   const stat = stats.speciesStat ?? stats.plotStat ?? stats.habitatStat;
   if (!stat) {
-    return <ChartEmpty text="暂无物种、样方或栖息地分类统计" />;
+    return (
+      <ChartEmpty
+        text={
+          english
+            ? "No species, plot, or habitat statistics"
+            : "暂无物种、样方或栖息地分类统计"
+        }
+      />
+    );
   }
   const items = categoryDisplayItems(stat).slice(0, 7);
   const maxCount = Math.max(...items.map((item) => item.count), 1);
@@ -3050,7 +3664,7 @@ function PopulationSurveySpeciesDominance({
         >
           <span className="eco-pop-survey-rank">{index + 1}</span>
           <span className="eco-pop-survey-name">
-            <b>{item.label || "未填写"}</b>
+            <b>{item.label || (english ? "Not provided" : "未填写")}</b>
             <small>{formatPercent(item.ratio)}</small>
           </span>
           <i>
@@ -3068,14 +3682,31 @@ function PopulationSurveySpeciesDominance({
 }
 
 function PopulationSurveyGradient({ stats }: { stats: PopulationSurveyStats }) {
+  const english = usePanelEnglish();
   const lanes = [
-    { label: "密度", stat: stats.densityStat, tone: "cyan" as Tone },
-    { label: "重要值", stat: stats.importanceStat, tone: "amber" as Tone },
+    {
+      label: english ? "Density" : "密度",
+      stat: stats.densityStat,
+      tone: "cyan" as Tone,
+    },
+    {
+      label: english ? "Importance value" : "重要值",
+      stat: stats.importanceStat,
+      tone: "amber" as Tone,
+    },
   ].filter((lane): lane is { label: string; stat: NumericStat; tone: Tone } =>
     Boolean(lane.stat),
   );
   if (!lanes.length) {
-    return <ChartEmpty text="暂无密度或重要值字段统计" />;
+    return (
+      <ChartEmpty
+        text={
+          english
+            ? "No density or importance-value statistics"
+            : "暂无密度或重要值字段统计"
+        }
+      />
+    );
   }
   return (
     <div className="eco-pop-survey-gradient">
@@ -3095,19 +3726,19 @@ function PopulationSurveyGradient({ stats }: { stats: PopulationSurveyStats }) {
                 stats.actualPlantCountStat?.median,
             )}
           </b>
-          株数中位
+          {english ? "Median plant count" : "株数中位"}
         </span>
         <span>
           <b>{formatNumber(stats.coverStat?.median)}</b>
-          盖度中位
+          {english ? "Median cover" : "盖度中位"}
         </span>
         <span>
           <b>{formatNumber(stats.frequencyStat?.median)}</b>
-          频度中位
+          {english ? "Median frequency" : "频度中位"}
         </span>
         <span>
           <b>{stats.bioStats.length}</b>
-          气候字段
+          {english ? "Climate fields" : "气候字段"}
         </span>
       </div>
     </div>
@@ -3123,6 +3754,7 @@ function PopulationSurveyMetricLane({
   stat: NumericStat;
   tone: Tone;
 }) {
+  const english = usePanelEnglish();
   const bins = stat.histogram.length
     ? stat.histogram
     : syntheticHistogram(stat);
@@ -3152,19 +3784,19 @@ function PopulationSurveyMetricLane({
       <div className="eco-pop-survey-range-row">
         <span>
           <b>{formatNumber(stat.min)}</b>
-          低值
+          {insightUiText("低值", english)}
         </span>
         <span>
           <b>{formatNumber(stat.q1)}</b>
-          下四分
+          {english ? "Q1" : "下四分"}
         </span>
         <span>
           <b>{formatNumber(stat.q3)}</b>
-          上四分
+          {english ? "Q3" : "上四分"}
         </span>
         <span>
           <b>{formatNumber(stat.max)}</b>
-          高值
+          {insightUiText("高值", english)}
         </span>
       </div>
     </div>
@@ -3176,13 +3808,14 @@ function PopulationSurveyFieldMatrix({
 }: {
   stats: PopulationSurveyStats;
 }) {
+  const english = usePanelEnglish();
   return (
     <div className="eco-pop-survey-field-matrix">
       {stats.fieldRows.map((row) => (
         <div className="eco-pop-survey-field-row" key={row.label}>
           <span className="eco-pop-survey-field-label">
-            <b>{row.label}</b>
-            <small>{row.hint}</small>
+            <b>{insightUiText(row.label, english)}</b>
+            <small>{insightUiText(row.hint, english)}</small>
           </span>
           <div className="eco-pop-survey-field-cells">
             {row.cells.map((cell) => (
@@ -3191,7 +3824,7 @@ function PopulationSurveyFieldMatrix({
                 key={`${row.label}-${cell.label}`}
                 title={`${row.label} ${cell.label} ${formatPercent(cell.value)}`}
               >
-                <small>{cell.label}</small>
+                <small>{insightUiText(cell.label, english)}</small>
                 <strong>{formatPercent(cell.value)}</strong>
                 <i>
                   <em style={{ height: `${Math.round(cell.value * 100)}%` }} />
@@ -3351,6 +3984,7 @@ function DataAssetOverview({
   insight: InsightStats;
   qualityScore: number;
 }) {
+  const english = usePanelEnglish();
   const assetScale = assetScaleFor(insight);
   const chartFieldCount =
     insight.categoryStats.length + insight.numericStats.length;
@@ -3373,19 +4007,19 @@ function DataAssetOverview({
         <MetricRibbon
           metrics={[
             {
-              label: "空间",
+              label: insightUiText("空间", english),
               tone: "green",
               value: coverageRatio,
               text: formatPercent(coverageRatio),
             },
             {
-              label: "字段",
+              label: insightUiText("字段", english),
               tone: "cyan",
               value: fieldRatio,
               text: formatPercent(fieldRatio),
             },
             {
-              label: "质量",
+              label: insightUiText("质量", english),
               tone: blockingRisks ? "amber" : "green",
               value: qualityScore / 100,
               text: String(qualityScore),
@@ -3395,17 +4029,21 @@ function DataAssetOverview({
       </div>
       <div className="eco-asset-mini-grid">
         <AssetMiniCard
-          caption={assetScale.label}
+          caption={insightUiText(assetScale.label, english)}
           tone="green"
-          title="数据规模"
+          title={insightUiText("数据规模", english)}
           value={assetScale.value}
         >
           <Sparkline values={sparkValuesFromCounts(scaleValues)} />
         </AssetMiniCard>
         <AssetMiniCard
-          caption={`分类 ${insight.categoryStats.length} · 数值 ${insight.numericStats.length}`}
+          caption={
+            english
+              ? `Categorical ${insight.categoryStats.length} · Numeric ${insight.numericStats.length}`
+              : `分类 ${insight.categoryStats.length} · 数值 ${insight.numericStats.length}`
+          }
           tone={chartFieldCount > 0 ? "cyan" : "red"}
-          title="字段结构"
+          title={insightUiText("字段结构", english)}
           value={`${chartFieldCount}/${fieldTotal || 0}`}
         >
           <SegmentMeter
@@ -3417,9 +4055,17 @@ function DataAssetOverview({
           />
         </AssetMiniCard>
         <AssetMiniCard
-          caption={blockingRisks ? `风险 ${blockingRisks} 项` : "未见阻断风险"}
+          caption={
+            blockingRisks
+              ? english
+                ? `${blockingRisks} risks`
+                : `风险 ${blockingRisks} 项`
+              : english
+                ? "No blocking risks"
+                : "未见阻断风险"
+          }
           tone={blockingRisks ? "amber" : "green"}
-          title="校验状态"
+          title={insightUiText("校验状态", english)}
           value={String(qualityScore)}
         >
           <SegmentMeter segments={riskSegments(issueCounts)} />
@@ -3436,6 +4082,7 @@ function AssetScaleDial({
   assetScale: ReturnType<typeof assetScaleFor>;
   qualityScore: number;
 }) {
+  const english = usePanelEnglish();
   return (
     <div className="eco-asset-dial">
       <svg
@@ -3480,9 +4127,9 @@ function AssetScaleDial({
         />
       </svg>
       <div className="eco-asset-dial-core">
-        <small>数据规模</small>
+        <small>{insightUiText("数据规模", english)}</small>
         <strong>{assetScale.value}</strong>
-        <span>{assetScale.label}</span>
+        <span>{insightUiText(assetScale.label, english)}</span>
       </div>
     </div>
   );
@@ -3678,6 +4325,7 @@ function NumericDotDistribution({ stat }: { stat: NumericStat }) {
 }
 
 function QuantileStrip({ stat }: { stat: NumericStat }) {
+  const english = usePanelEnglish();
   if (stat.min === null || stat.max === null || stat.min === stat.max) {
     return null;
   }
@@ -3705,7 +4353,7 @@ function QuantileStrip({ stat }: { stat: NumericStat }) {
         <i
           className="eco-quantile-mean"
           style={{ left: `${mean}%` }}
-          title="均值"
+          title={english ? "Mean" : "均值"}
         />
       </div>
       <div className="eco-quantile-labels">
@@ -3933,20 +4581,34 @@ function RecommendationList({ insight }: { insight: InsightStats }) {
 }
 
 function FieldDensityMatrix({ insight }: { insight: InsightStats }) {
+  const english = usePanelEnglish();
   const rows = [
     ...insight.categoryStats.slice(0, 3).map((stat) => fieldMatrixRow(stat)),
     ...insight.numericStats.slice(0, 3).map((stat) => numericMatrixRow(stat)),
   ].slice(0, 5);
   if (!rows.length) {
-    return <ChartEmpty text="暂无字段统计可生成热力矩阵" />;
+    return (
+      <ChartEmpty
+        text={
+          english
+            ? "No field statistics for a heat matrix"
+            : "暂无字段统计可生成热力矩阵"
+        }
+      />
+    );
   }
   return (
     <div
       className="eco-risk-matrix eco-field-matrix"
-      aria-label="字段可视化热力矩阵"
+      aria-label={
+        english ? "Field visualization heat matrix" : "字段可视化热力矩阵"
+      }
     >
       <span className="eco-field-matrix-head" />
-      {["覆盖", "结构", "主导", "图表"].map((label) => (
+      {(english
+        ? ["Coverage", "Structure", "Dominance", "Chart"]
+        : ["覆盖", "结构", "主导", "图表"]
+      ).map((label) => (
         <span className="eco-field-matrix-head" key={label}>
           {label}
         </span>
@@ -3978,12 +4640,15 @@ function RasterMetadataPanel({
   insight: InsightStats;
   layer: LoadedRasterLayer;
 }) {
+  const english = usePanelEnglish();
   const metadata = layer.rasterMetadata;
   const size = metadata?.size ?? [];
   return (
     <div className="eco-field-profile-card">
       <div className="right-panel-heading">
-        <Typography.Text strong>栅格影像元数据</Typography.Text>
+        <Typography.Text strong>
+          {english ? "Raster imagery metadata" : "栅格影像元数据"}
+        </Typography.Text>
         <Tag color={layer.renderStatus === "ready" ? "green" : "processing"}>
           {layer.renderStatus ?? "metadata"}
         </Tag>
@@ -3991,11 +4656,11 @@ function RasterMetadataPanel({
       <div className="eco-raster-meta">
         <span>
           <b>{metadata?.bands?.length ?? insight.profile.fieldCount}</b>
-          波段数量
+          {english ? "Band count" : "波段数量"}
         </span>
         <span>
           <b>{size.length >= 2 ? `${size[0]} x ${size[1]}` : "-"}</b>
-          像素尺寸
+          {english ? "Pixel dimensions" : "像素尺寸"}
         </span>
         <span>
           <b>
@@ -4005,7 +4670,7 @@ function RasterMetadataPanel({
                 "-",
             )}
           </b>
-          坐标系统
+          {english ? "Coordinate system" : "坐标系统"}
         </span>
       </div>
     </div>
@@ -4013,20 +4678,31 @@ function RasterMetadataPanel({
 }
 
 function FieldProfileList({ insight }: { insight: InsightStats }) {
+  const english = usePanelEnglish();
   const fields = insight.fieldNames.slice(0, 10);
   const chartFields = new Set([
     ...insight.categoryStats.map((stat) => stat.label),
     ...insight.numericStats.map((stat) => stat.label),
   ]);
   if (!fields.length) {
-    return <ChartEmpty text="暂无字段 profile 可展示" />;
+    return (
+      <ChartEmpty
+        text={
+          english ? "No field profile to display" : "暂无字段 profile 可展示"
+        }
+      />
+    );
   }
   return (
     <>
       <div className="right-panel-heading">
-        <Typography.Text strong>字段 profile</Typography.Text>
+        <Typography.Text strong>
+          {english ? "Field profile" : "字段 profile"}
+        </Typography.Text>
         <Typography.Text type="secondary">
-          {fields.length} 项预览
+          {english
+            ? `${fields.length} fields previewed`
+            : `${fields.length} 项预览`}
         </Typography.Text>
       </div>
       <div className="eco-field-chip-grid">
@@ -4050,6 +4726,7 @@ function SpatialQualityStrip({
   insight: InsightStats;
   error: string | null;
 }) {
+  const english = usePanelEnglish();
   const spatial = insight.spatialSummary;
   const profile = insight.profile;
   const geometryItems = spatial.geometryTypes.length
@@ -4078,7 +4755,7 @@ function SpatialQualityStrip({
             <i className="eco-spatial-centroid" />
           </div>
           <div className="eco-spatial-maplet-foot">
-            <span>空间覆盖</span>
+            <span>{english ? "Spatial coverage" : "空间覆盖"}</span>
             <strong>{formatPercent(coverage)}</strong>
             <i>
               <em />
@@ -4088,15 +4765,23 @@ function SpatialQualityStrip({
         <div className="eco-spatial-facts">
           <span>
             <b>{profile.geometryType || "-"}</b>
-            几何 / 影像
+            {english ? "Geometry / imagery" : "几何 / 影像"}
           </span>
           <span>
-            <b>{spatialBounds.length === 4 ? "已登记" : "缺失"}</b>
-            空间范围
+            <b>
+              {spatialBounds.length === 4
+                ? english
+                  ? "Registered"
+                  : "已登记"
+                : english
+                  ? "Missing"
+                  : "缺失"}
+            </b>
+            {english ? "Spatial extent" : "空间范围"}
           </span>
           <span>
             <b>{geometryItems?.[0]?.label ?? sourceText(insight.source)}</b>
-            摘要来源
+            {english ? "Summary source" : "摘要来源"}
           </span>
         </div>
       </div>
@@ -4110,22 +4795,22 @@ function SpatialQualityStrip({
         <div className="eco-risk-pills">
           <span className="eco-tone-red">
             <b>{issueCounts.error}</b>
-            错误
+            {english ? "Errors" : "错误"}
           </span>
           <span className="eco-tone-amber">
             <b>{issueCounts.warning}</b>
-            警告
+            {english ? "Warnings" : "警告"}
           </span>
           <span className="eco-tone-green">
             <b>{issueCounts.info}</b>
-            提示
+            {english ? "Notices" : "提示"}
           </span>
         </div>
         <div className="eco-validation-list">
           {error ? (
             <span className="eco-quality-warning">
               <ExclamationCircleOutlined style={{ fontSize: 14 }} />
-              <b>接口异常</b>
+              <b>{english ? "API error" : "接口异常"}</b>
               <small>{error}</small>
             </span>
           ) : topIssues.length ? (
@@ -4146,8 +4831,12 @@ function SpatialQualityStrip({
           ) : (
             <span className="eco-quality-info">
               <CheckCircleOutlined style={{ fontSize: 14 }} />
-              <b>校验通过</b>
-              <small>当前摘要未发现数据导入或空间质量风险。</small>
+              <b>{english ? "Validation passed" : "校验通过"}</b>
+              <small>
+                {english
+                  ? "No data-import or spatial-quality risks were found in the current summary."
+                  : "当前摘要未发现数据导入或空间质量风险。"}
+              </small>
             </span>
           )}
         </div>

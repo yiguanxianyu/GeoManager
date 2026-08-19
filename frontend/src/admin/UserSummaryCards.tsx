@@ -5,6 +5,7 @@ import {
 } from "@ant-design/icons";
 import { BorderBeam, Card, Col, Row, Statistic, Typography } from "antd";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { oceanBorderBeam } from "../components/oceanBorderBeam";
 
 export type UserSummaryMetrics = {
@@ -14,28 +15,39 @@ export type UserSummaryMetrics = {
 };
 
 export function UserSummaryCards({ metrics }: { metrics: UserSummaryMetrics }) {
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   return (
     <Row gutter={[16, 16]}>
       <UserSummaryCard
-        title="启用账号"
+        title={english ? "Active accounts" : "启用账号"}
         value={metrics.active}
-        suffix="个"
+        suffix={english ? "" : "个"}
         icon={<CheckCircleOutlined />}
-        description="当前可登录平台的账号"
+        description={
+          english ? "Accounts that can sign in" : "当前可登录平台的账号"
+        }
       />
       <UserSummaryCard
-        title="停用账号"
+        title={english ? "Disabled accounts" : "停用账号"}
         value={metrics.disabled}
-        suffix="个"
+        suffix={english ? "" : "个"}
         icon={<StopOutlined />}
-        description="已禁止登录的平台账号"
+        description={
+          english ? "Accounts blocked from signing in" : "已禁止登录的平台账号"
+        }
       />
       <UserSummaryCard
-        title="角色数量"
+        title={english ? "Roles" : "角色数量"}
         value={metrics.groups}
-        suffix="个"
+        suffix={english ? "" : "个"}
         icon={<TeamOutlined />}
-        description="当前可分配的权限角色"
+        description={
+          english
+            ? "Permission roles available for assignment"
+            : "当前可分配的权限角色"
+        }
       />
     </Row>
   );

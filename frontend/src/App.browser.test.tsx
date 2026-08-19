@@ -47,6 +47,7 @@ const { MockApiError, mockApi } = vi.hoisted(() => {
       workspaces: vi.fn(),
       scanCatalogSources: vi.fn(),
       scanRasterSources: vi.fn(),
+      renderRasterAsync: vi.fn(),
       rasterJob: vi.fn(),
       adminOperationLogs: vi.fn(),
       adminSystemLogs: vi.fn(),
@@ -65,7 +66,19 @@ vi.mock("./api/client", () => ({
 }));
 
 vi.mock("./components/MapCanvas", () => ({
-  default: () => <div data-testid="map-canvas" />,
+  default: ({
+    loadedLayers = [],
+  }: {
+    loadedLayers?: Array<{ layerType?: string; tileUrl?: string }>;
+  }) => (
+    <div
+      data-testid="map-canvas"
+      data-raster-tile-url={
+        loadedLayers.find((layer) => layer.layerType === "raster")?.tileUrl ??
+        ""
+      }
+    />
+  ),
 }));
 
 const bootstrap: Bootstrap = {
@@ -363,6 +376,99 @@ const tarimVectorProfile: DataResourceProfile = {
   bounds: [87.6, 43.7951, 87.6428, 43.81245],
 };
 
+const tarimRasterResource: ResourceListItem = {
+  ...tarimVectorResource,
+  id: 24,
+  name: "塔里木河胡杨遥感影像",
+  code: "tarim-poplar-raster-2026",
+  dataType: "raster",
+  domainType: "raster",
+  availableViews: ["map", "metadata"],
+  defaultView: "map",
+  spatialExtent: "88.328434,40.079174,88.401642,40.160831",
+  coordinateSystem: "EPSG:3857",
+  fileFormat: "COG",
+  isQueryable: false,
+  isRenderable: true,
+  itemCount: 1,
+};
+
+const tarimRasterRules = {
+  mode: "gray",
+  bands: [1],
+  palette: "poplar",
+  uniqueValues: [],
+  alphaBand: "mask",
+  nodata: { enabled: true },
+  stretch: {
+    enabled: true,
+    type: "minmax",
+    perBand: { "1": { min: 0, max: 255 } },
+  },
+};
+
+const tarimRasterProfile: DataResourceProfile = {
+  resource: tarimRasterResource,
+  fields: [],
+  featureCount: 0,
+  geometryType: "Raster",
+  bounds: [88.328434, 40.079174, 88.401642, 40.160831],
+  raster: {
+    id: 24,
+    name: tarimRasterResource.name,
+    code: tarimRasterResource.code,
+    status: "ready",
+    sourcePath: "tarim-poplar-raster.tif",
+    processedPath: "tarim-poplar-raster.cog.tif",
+    sourceMetadataPath: "source/tarim-poplar-raster.json",
+    processedMetadataPath: "preprocessed/tarim-poplar-raster.json",
+    dataResourceId: tarimRasterResource.id,
+    mapLayerId: 24,
+    bandCount: 1,
+    bounds3857: [9832676.279, 4877454.34, 9840825.79, 4889341.335],
+    bounds4326: [88.328434, 40.079174, 88.401642, 40.160831],
+    imageCoordinates: [
+      [88.328434, 40.160831],
+      [88.401642, 40.160831],
+      [88.401642, 40.079174],
+      [88.328434, 40.079174],
+    ],
+    defaultRules: tarimRasterRules,
+    sourceFileSize: 4464959,
+    processedFileSize: 5861035,
+    progressLog: "",
+    errorMessage: "",
+    importedAt: "2026-06-18T12:00:00+08:00",
+    processedAt: "2026-06-18T12:10:00+08:00",
+    metadata: {
+      size: [12444, 18151],
+      driver: "GTiff",
+      coordinateSystem: 3857,
+      bands: [
+        {
+          band: 1,
+          type: "Byte",
+          description: "遥感灰度",
+          colorInterpretation: "Gray",
+          min: 0,
+          max: 255,
+          isInteger: true,
+        },
+      ],
+    },
+  },
+};
+
+const tarimRasterRenderResult = {
+  tileUrl: "/api/raster/tiles/24/tarim-default/{z}/{x}/{y}.png",
+  styleHash: "tarim-default",
+  minZoom: 0,
+  maxZoom: 16,
+  tileSampling: "linear",
+  imageCoordinates: tarimRasterProfile.raster?.imageCoordinates ?? [],
+  rules: tarimRasterRules,
+};
+
 const tarimQueryResult: ResourceQueryResult = {
   resourceId: 21,
   resourceName: "塔里木河胡杨样地监测点",
@@ -496,6 +602,18 @@ describe("application critical flows", () => {
     mockApi.scanRasterSources.mockResolvedValue({
       id: "scan-job",
       status: "ready",
+    });
+    mockApi.renderRasterAsync.mockResolvedValue({
+      id: "render-job",
+      kind: "render",
+      status: "ready",
+      stage: "ready",
+      progressPercent: 100,
+      messages: ["默认栅格瓦片已就绪"],
+      result: tarimRasterRenderResult,
+      error: "",
+      createdAt: "2026-08-11T10:00:00+08:00",
+      updatedAt: "2026-08-11T10:00:01+08:00",
     });
     mockApi.rasterJob.mockResolvedValue({
       id: "scan-job",
@@ -793,6 +911,72 @@ describe("application critical flows", () => {
       expect(
         layerItems.some((item) =>
           item.textContent?.includes("塔里木河胡杨样地监测点"),
+        ),
+      ).toBe(true);
+    });
+  });
+
+  it("quick-loads a raster into the map without a manual symbolization click", async () => {
+    const readyJob = {
+      id: "render-job-raster-load",
+      kind: "render",
+      status: "ready",
+      stage: "ready",
+      progressPercent: 100,
+      messages: ["默认栅格瓦片已就绪"],
+      result: tarimRasterRenderResult,
+      error: "",
+      createdAt: "2026-08-11T10:00:00+08:00",
+      updatedAt: "2026-08-11T10:00:01+08:00",
+    };
+    let resolveRender: (job: typeof readyJob) => void = () => undefined;
+    mockApi.me.mockResolvedValue({ authenticated: true, user: normalUser });
+    mockApi.resources.mockResolvedValue({ items: [tarimRasterResource] });
+    mockApi.resourceProfile.mockResolvedValue(tarimRasterProfile);
+    mockApi.renderRasterAsync.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRender = resolve;
+        }),
+    );
+
+    renderApp("/map");
+
+    expect(
+      await screen.findByText(tarimRasterResource.name, {}, { timeout: 10000 }),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "快速加载" }));
+
+    const progress = await screen.findByRole("status", {
+      name: `${tarimRasterResource.name}加载进度`,
+    });
+    expect(progress).toHaveTextContent("正在准备栅格瓦片服务");
+    expect(screen.getByTestId("map-canvas")).toHaveAttribute(
+      "data-raster-tile-url",
+      "",
+    );
+
+    resolveRender(readyJob);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("map-canvas")).toHaveAttribute(
+        "data-raster-tile-url",
+        tarimRasterRenderResult.tileUrl,
+      );
+    });
+    expect(
+      screen.queryByRole("status", {
+        name: `${tarimRasterResource.name}加载进度`,
+      }),
+    ).not.toBeInTheDocument();
+    expect(mockApi.renderRasterAsync).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("tab", { name: /图层/ }));
+    await waitFor(() => {
+      const layerItems = screen.getAllByRole("treeitem");
+      expect(
+        layerItems.some((item) =>
+          item.textContent?.includes(tarimRasterResource.name),
         ),
       ).toBe(true);
     });

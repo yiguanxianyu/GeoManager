@@ -12,6 +12,7 @@
     "check:api": "pnpm run api:lint && openapi-ts -o .cache/api-check --silent && node scripts/compare-api-dirs.mjs src/api/generated .cache/api-check",
     "api:changes:check": "node scripts/check-api-change-requests.mjs",
     "brand:check": "node scripts/check-platform-brand.mjs",
+    "i18n:check": "node scripts/check-i18n.mjs",
     "verify:mapbox-nearest": "node scripts/verify-mapbox-nearest-raster-patch.mjs",
     "mock:build": "node scripts/ensure-dir.mjs ../mock/prism && redocly bundle ../docs/openapi.yaml --config ./redocly.yaml -o ../mock/prism/openapi.prism.json --ext json && node scripts/inject-prism-examples.mjs",
     "mock:api": "pnpm run mock:build && prism mock ../mock/prism/openapi.prism.json --host 127.0.0.1 --port 4010",
@@ -20,7 +21,7 @@
     "demo:record": "node scripts/record-demo.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "build": "vite build",
-    "build:verify": "pnpm run brand:check && pnpm run check:api && pnpm run typecheck && vite build",
+    "build:verify": "pnpm run brand:check && pnpm run i18n:check && pnpm run check:api && pnpm run typecheck && vite build",
     "perf:mock": "node scripts/perf-mock.mjs",
     "perf:compare": "node scripts/perf-compare.mjs",
     "preview": "vite preview --host 127.0.0.1",
@@ -39,9 +40,11 @@
     "antd": "^6.4.4",
     "dayjs": "^1.11.21",
     "geotiff": "^3.0.5",
+    "i18next": "^26.3.6",
     "mapbox-gl": "^3.25.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-i18next": "^17.0.11",
     "react-router-dom": "^7.18.0"
   },
   "devDependencies": {

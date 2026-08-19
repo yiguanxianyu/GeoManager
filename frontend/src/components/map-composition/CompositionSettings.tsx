@@ -1,4 +1,5 @@
 import { Button, Collapse, InputNumber, Select, Space, Switch } from "antd";
+import { useTranslation } from "react-i18next";
 import {
   panMapBounds,
   suggestedGeographicGridInterval,
@@ -32,6 +33,9 @@ export default function CompositionSettings({
   liveMapBounds,
   onChange,
 }: Props) {
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   function patchPage(values: Partial<MapCompositionLayout["page"]>) {
     onChange((current) => ({
       ...current,
@@ -67,10 +71,10 @@ export default function CompositionSettings({
       items={[
         {
           key: "page",
-          label: "页面设置",
+          label: english ? "Page setup" : "页面设置",
           children: (
             <div className="composition-field-grid">
-              <Field label="纸张">
+              <Field label={english ? "Paper" : "纸张"}>
                 <Select
                   value={layout.page.preset}
                   options={[
@@ -88,12 +92,15 @@ export default function CompositionSettings({
                   }
                 />
               </Field>
-              <Field label="方向">
+              <Field label={english ? "Orientation" : "方向"}>
                 <Select
                   value={layout.page.orientation}
                   options={[
-                    { label: "横向", value: "landscape" },
-                    { label: "纵向", value: "portrait" },
+                    {
+                      label: english ? "Landscape" : "横向",
+                      value: "landscape",
+                    },
+                    { label: english ? "Portrait" : "纵向", value: "portrait" },
                   ]}
                   onChange={(orientation) =>
                     onChange((current) =>
@@ -117,7 +124,7 @@ export default function CompositionSettings({
                   }
                 />
               </Field>
-              <Field label="背景">
+              <Field label={english ? "Background" : "背景"}>
                 <input
                   type="color"
                   value={layout.page.backgroundColor}
@@ -135,10 +142,12 @@ export default function CompositionSettings({
                     )
                   }
                 >
-                  恢复标准版式
+                  {english ? "Restore standard layout" : "恢复标准版式"}
                 </Button>
                 <small>
-                  保留标题、地图范围和说明内容，重新整理全部要素并恢复白色纸张。
+                  {english
+                    ? "Keep the title, map extent, and notes; rearrange all elements on a white page."
+                    : "保留标题、地图范围和说明内容，重新整理全部要素并恢复白色纸张。"}
                 </small>
               </div>
             </div>
@@ -146,7 +155,7 @@ export default function CompositionSettings({
         },
         {
           key: "map",
-          label: "地图框与范围",
+          label: english ? "Map frame and extent" : "地图框与范围",
           children: (
             <>
               <BoundsEditor
@@ -160,88 +169,112 @@ export default function CompositionSettings({
                     patchElement("mapFrame", { bounds: [...liveMapBounds] })
                   }
                 >
-                  使用当前工作台范围
+                  {english
+                    ? "Use current workspace extent"
+                    : "使用当前工作台范围"}
                 </Button>
                 <Space.Compact block>
                   <Button
                     size="small"
-                    aria-label="地图范围向左平移"
+                    aria-label={
+                      english ? "Pan map extent left" : "地图范围向左平移"
+                    }
                     onClick={() =>
                       updateMapBounds((bounds) =>
                         panMapBounds(bounds, -0.12, 0),
                       )
                     }
                   >
-                    左移
+                    {english ? "Left" : "左移"}
                   </Button>
                   <Button
                     size="small"
-                    aria-label="地图范围向右平移"
+                    aria-label={
+                      english ? "Pan map extent right" : "地图范围向右平移"
+                    }
                     onClick={() =>
                       updateMapBounds((bounds) => panMapBounds(bounds, 0.12, 0))
                     }
                   >
-                    右移
+                    {english ? "Right" : "右移"}
                   </Button>
                   <Button
                     size="small"
-                    aria-label="地图范围向上平移"
+                    aria-label={
+                      english ? "Pan map extent up" : "地图范围向上平移"
+                    }
                     onClick={() =>
                       updateMapBounds((bounds) => panMapBounds(bounds, 0, 0.12))
                     }
                   >
-                    上移
+                    {english ? "Up" : "上移"}
                   </Button>
                   <Button
                     size="small"
-                    aria-label="地图范围向下平移"
+                    aria-label={
+                      english ? "Pan map extent down" : "地图范围向下平移"
+                    }
                     onClick={() =>
                       updateMapBounds((bounds) =>
                         panMapBounds(bounds, 0, -0.12),
                       )
                     }
                   >
-                    下移
+                    {english ? "Down" : "下移"}
                   </Button>
                   <Button
                     size="small"
-                    aria-label="放大地图范围"
+                    aria-label={english ? "Zoom in map extent" : "放大地图范围"}
                     onClick={() =>
                       updateMapBounds((bounds) => zoomMapBounds(bounds, 0.8))
                     }
                   >
-                    放大
+                    {english ? "Zoom in" : "放大"}
                   </Button>
                   <Button
                     size="small"
-                    aria-label="缩小地图范围"
+                    aria-label={
+                      english ? "Zoom out map extent" : "缩小地图范围"
+                    }
                     onClick={() =>
                       updateMapBounds((bounds) => zoomMapBounds(bounds, 1.25))
                     }
                   >
-                    缩小
+                    {english ? "Zoom out" : "缩小"}
                   </Button>
                 </Space.Compact>
-                <small>可平移或缩放地图内容；修改后预览会自动刷新。</small>
+                <small>
+                  {english
+                    ? "Pan or zoom the map content; the preview refreshes automatically."
+                    : "可平移或缩放地图内容；修改后预览会自动刷新。"}
+                </small>
               </div>
               <BoxEditor
                 value={layout.mapFrame}
                 onChange={(values) => patchElement("mapFrame", values)}
               />
               <div className="composition-field-grid">
-                <Field label="格网">
+                <Field label={english ? "Grid" : "格网"}>
                   <Switch
                     checked={layout.grid.enabled}
                     onChange={(enabled) => patchElement("grid", { enabled })}
                   />
                 </Field>
-                <Field label="类型">
+                <Field label={english ? "Type" : "类型"}>
                   <Select
                     disabled={!layout.grid.enabled}
                     value={layout.grid.type}
                     options={[
-                      { label: "经纬网", value: "geographic" },
-                      { label: "Web Mercator 投影格网", value: "projected" },
+                      {
+                        label: english ? "Geographic graticule" : "经纬网",
+                        value: "geographic",
+                      },
+                      {
+                        label: english
+                          ? "Web Mercator projected grid"
+                          : "Web Mercator 投影格网",
+                        value: "projected",
+                      },
                     ]}
                     onChange={(type) =>
                       onChange((current) => ({
@@ -265,8 +298,12 @@ export default function CompositionSettings({
                 <Field
                   label={
                     layout.grid.type === "projected"
-                      ? "间隔（米）"
-                      : "间隔（度）"
+                      ? english
+                        ? "Interval (meters)"
+                        : "间隔（米）"
+                      : english
+                        ? "Interval (degrees)"
+                        : "间隔（度）"
                   }
                 >
                   <InputNumber
@@ -286,36 +323,36 @@ export default function CompositionSettings({
         },
         {
           key: "elements",
-          label: "地图整饰要素",
+          label: english ? "Map elements" : "地图整饰要素",
           children: (
             <div className="composition-element-settings">
               <TextEditor
-                label="标题"
+                label={english ? "Title" : "标题"}
                 value={layout.title}
                 onChange={(values) => patchElement("title", values)}
               />
               <TextEditor
-                label="副标题"
+                label={english ? "Subtitle" : "副标题"}
                 value={layout.subtitle}
                 onChange={(values) => patchElement("subtitle", values)}
               />
               <Toggle
-                label="图例"
+                label={english ? "Legend" : "图例"}
                 checked={layout.legend.enabled}
                 onChange={(enabled) => patchElement("legend", { enabled })}
               />
               <Toggle
-                label="指北针"
+                label={english ? "North arrow" : "指北针"}
                 checked={layout.northArrow.enabled}
                 onChange={(enabled) => patchElement("northArrow", { enabled })}
               />
               <Toggle
-                label="比例尺"
+                label={english ? "Scale bar" : "比例尺"}
                 checked={layout.scaleBar.enabled}
                 onChange={(enabled) => patchElement("scaleBar", { enabled })}
               />
               <Toggle
-                label="区位副图"
+                label={english ? "Overview inset" : "区位副图"}
                 checked={layout.overview.enabled}
                 onChange={(enabled) => patchElement("overview", { enabled })}
               />
@@ -336,17 +373,19 @@ export default function CompositionSettings({
         },
         {
           key: "notes",
-          label: "数据来源与制图说明",
+          label: english
+            ? "Data source and cartographic notes"
+            : "数据来源与制图说明",
           children: (
             <>
               <TextEditor
-                label="数据来源"
+                label={english ? "Data source" : "数据来源"}
                 value={layout.source}
                 multiline
                 onChange={(values) => patchElement("source", values)}
               />
               <TextEditor
-                label="制图说明"
+                label={english ? "Cartographic notes" : "制图说明"}
                 value={layout.note}
                 multiline
                 onChange={(values) => patchElement("note", values)}

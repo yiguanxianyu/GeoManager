@@ -24,6 +24,7 @@ import {
   RequireWorkspaceInventory,
 } from "./router";
 import type { Bootstrap, User } from "./types";
+import i18n, { type AppLocale } from "./i18n";
 
 const AdminAuthPage = lazy(() => import("./admin/AdminAuthPage"));
 const AdminDataBackupPage = lazy(() => import("./admin/AdminDataBackupPage"));
@@ -77,7 +78,12 @@ function RouteLoading() {
 
 const startupRetryDelaysMs = [300, 700, 1200, 2000];
 
-export default function App() {
+export default function App({
+  locale,
+}: {
+  locale?: AppLocale;
+  languageVersion?: string;
+} = {}) {
   const { message } = AntApp.useApp();
   const [bootstrap, setBootstrap] = useState<Bootstrap | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -123,7 +129,9 @@ export default function App() {
         }
       } catch (error) {
         message.error(
-          error instanceof Error ? error.message : "系统初始化失败",
+          error instanceof Error
+            ? error.message
+            : i18n.t("errors.startupFailed"),
         );
       } finally {
         if (mounted) {
@@ -136,6 +144,12 @@ export default function App() {
       mounted = false;
     };
   }, [message]);
+
+  useEffect(() => {
+    if (bootstrap) {
+      applyPlatformDocumentTitle(bootstrap.systemName, locale);
+    }
+  }, [bootstrap, locale]);
 
   if (loading || !bootstrap) {
     return (

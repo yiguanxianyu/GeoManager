@@ -14,6 +14,8 @@ import { protectionCases, speciesArchiveSections } from "../about/contentV2";
 import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useAppContext } from "../contexts/AppContext";
 import { KnowledgeSection } from "./AboutPage";
+import { currentLocale } from "../i18n";
+import { EnglishKnowledgePage } from "./EnglishEditorialPages";
 
 const navigation = [
   {
@@ -39,6 +41,10 @@ const navigation = [
 export default function KnowledgePage() {
   const { user } = useAppContext();
   const section = aboutSectionByKey("knowledge");
+
+  if (currentLocale() === "en-US") {
+    return <EnglishKnowledgePage />;
+  }
 
   return (
     <Layout className="workspace">

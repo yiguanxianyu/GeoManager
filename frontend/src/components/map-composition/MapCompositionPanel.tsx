@@ -11,6 +11,7 @@ import {
   Select,
 } from "antd";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type {
   MapComposition,
@@ -59,6 +60,9 @@ export default function MapCompositionPanel({
   onDeleted,
 }: Props) {
   const { message, notification } = App.useApp();
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const [publishForm] = Form.useForm<PublishValues>();
   const [restoreForm] = Form.useForm<RestoreValues>();
   const [status, setStatus] = useState<"all" | MapComposition["status"]>("all");
@@ -98,7 +102,13 @@ export default function MapCompositionPanel({
       });
       setPreviewTitle(`${composition.name} · V${version.versionNumber}`);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "专题图预览失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to preview thematic map"
+            : "专题图预览失败",
+      );
     }
   }
 
@@ -113,7 +123,11 @@ export default function MapCompositionPanel({
       downloadBlob(result.blob, result.filename);
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "专题成果下载失败",
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to download thematic result"
+            : "专题成果下载失败",
       );
     }
   }
@@ -123,7 +137,11 @@ export default function MapCompositionPanel({
       composition.publishedVersion?.versionNumber ??
       composition.currentVersion?.versionNumber;
     if (!defaultVersion) {
-      message.warning("请先生成至少一个专题成果版本");
+      message.warning(
+        english
+          ? "Generate at least one thematic result version first"
+          : "请先生成至少一个专题成果版本",
+      );
       return;
     }
     setPublishingComposition(composition);
@@ -146,11 +164,21 @@ export default function MapCompositionPanel({
       setPublishingComposition(null);
       message.success(
         publishingComposition.status === "published"
-          ? "专题发布版本和范围已更新"
-          : "专题已发布",
+          ? english
+            ? "Published version and audience updated"
+            : "专题发布版本和范围已更新"
+          : english
+            ? "Thematic map published"
+            : "专题已发布",
       );
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "专题发布失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to publish thematic map"
+            : "专题发布失败",
+      );
     } finally {
       setPublishing(false);
     }
@@ -160,9 +188,19 @@ export default function MapCompositionPanel({
     try {
       const result = await api.unpublishMapComposition(composition.id);
       onChanged(result);
-      message.success("专题已下架，仅所属用户和管理员可见");
+      message.success(
+        english
+          ? "The thematic map is unpublished and visible only to its owner and administrators"
+          : "专题已下架，仅所属用户和管理员可见",
+      );
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "专题下架失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to unpublish thematic map"
+            : "专题下架失败",
+      );
     }
   }
 
@@ -172,8 +210,12 @@ export default function MapCompositionPanel({
     setRestoringComposition(composition);
     restoreForm.setFieldsValue({
       versionNumber: version.versionNumber,
-      name: `${composition.name} V${version.versionNumber} 恢复工程`,
-      description: `由专题“${composition.name}”成果 V${version.versionNumber} 恢复`,
+      name: english
+        ? `${composition.name} V${version.versionNumber} restored project`
+        : `${composition.name} V${version.versionNumber} 恢复工程`,
+      description: english
+        ? `Restored from thematic result “${composition.name}” V${version.versionNumber}`
+        : `由专题“${composition.name}”成果 V${version.versionNumber} 恢复`,
       accessGroupIds: [],
       unavailableResourcePolicy: "skip",
     });
@@ -191,18 +233,30 @@ export default function MapCompositionPanel({
       setRestoringComposition(null);
       if (result.warnings.length > 0) {
         notification.warning({
-          message: "工程已恢复，部分图层未加载",
+          message: english
+            ? "Project restored; some layers were not loaded"
+            : "工程已恢复，部分图层未加载",
           description: result.warnings
             .map((warning) => warning.message)
-            .join("；"),
+            .join(english ? "; " : "；"),
           duration: 8,
         });
       } else {
-        message.success("专题版本已还原为新工程");
+        message.success(
+          english
+            ? "The thematic version was restored as a new project"
+            : "专题版本已还原为新工程",
+        );
       }
       await onRestored(result.project);
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "专题还原失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to restore thematic map"
+            : "专题还原失败",
+      );
     } finally {
       setRestoring(false);
     }
@@ -212,9 +266,15 @@ export default function MapCompositionPanel({
     try {
       await api.deleteMapComposition(composition.id);
       onDeleted(composition.id);
-      message.success("出图稿已删除");
+      message.success(english ? "Map draft deleted" : "出图稿已删除");
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "出图稿删除失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to delete map draft"
+            : "出图稿删除失败",
+      );
     }
   }
 
@@ -225,10 +285,10 @@ export default function MapCompositionPanel({
           size="small"
           value={status}
           options={[
-            { label: "全部", value: "all" },
-            { label: "草稿", value: "draft" },
-            { label: "未发布", value: "completed" },
-            { label: "已发布", value: "published" },
+            { label: english ? "All" : "全部", value: "all" },
+            { label: english ? "Draft" : "草稿", value: "draft" },
+            { label: english ? "Unpublished" : "未发布", value: "completed" },
+            { label: english ? "Published" : "已发布", value: "published" },
           ]}
           onChange={(value) =>
             setStatus(value as "all" | MapComposition["status"])
@@ -244,7 +304,9 @@ export default function MapCompositionPanel({
       {visibleItems.length === 0 ? (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="暂无可见专题出图成果"
+          description={
+            english ? "No visible thematic-map results" : "暂无可见专题出图成果"
+          }
         />
       ) : (
         <div className="map-composition-list">
@@ -282,11 +344,15 @@ export default function MapCompositionPanel({
       <Modal
         title={
           publishingComposition?.status === "published"
-            ? "更新专题发布"
-            : "发布专题"
+            ? english
+              ? "Update publication"
+              : "更新专题发布"
+            : english
+              ? "Publish thematic map"
+              : "发布专题"
         }
         open={Boolean(publishingComposition)}
-        okText="确认发布"
+        okText={english ? "Publish" : "确认发布"}
         confirmLoading={publishing}
         onOk={() => void submitPublish()}
         onCancel={() => setPublishingComposition(null)}
@@ -295,33 +361,59 @@ export default function MapCompositionPanel({
         <Alert
           type="info"
           showIcon
-          title="发布前仅所属用户、平台管理员和超级管理员可见"
-          description="发布后，只有所选角色中具备专题查看权限的用户可以访问；下载和还原能力继续由角色功能权限控制。"
+          title={
+            english
+              ? "Before publication, only the owner and platform/super administrators can view it"
+              : "发布前仅所属用户、平台管理员和超级管理员可见"
+          }
+          description={
+            english
+              ? "After publication, only selected roles with thematic-view permission can access it. Download and restore remain controlled by role permissions."
+              : "发布后，只有所选角色中具备专题查看权限的用户可以访问；下载和还原能力继续由角色功能权限控制。"
+          }
           style={{ marginBottom: 16 }}
         />
         <Form form={publishForm} layout="vertical">
           <Form.Item
             name="versionNumber"
-            label="正式发布版本"
-            rules={[{ required: true, message: "请选择发布版本" }]}
+            label={english ? "Published version" : "正式发布版本"}
+            rules={[
+              {
+                required: true,
+                message: english
+                  ? "Select a version to publish"
+                  : "请选择发布版本",
+              },
+            ]}
           >
             <Select
               options={(publishingComposition?.versions ?? []).map(
                 (version) => ({
                   value: version.versionNumber,
-                  label: `V${version.versionNumber} · ${version.format.toUpperCase()} · ${new Date(version.createdAt).toLocaleString("zh-CN")}`,
+                  label: `V${version.versionNumber} · ${version.format.toUpperCase()} · ${new Date(version.createdAt).toLocaleString(english ? "en-US" : "zh-CN")}`,
                 }),
               )}
             />
           </Form.Item>
           <Form.Item
             name="audienceGroupIds"
-            label="发布可见角色"
-            rules={[{ required: true, message: "请至少选择一个可见角色" }]}
+            label={english ? "Visible roles after publication" : "发布可见角色"}
+            rules={[
+              {
+                required: true,
+                message: english
+                  ? "Select at least one visible role"
+                  : "请至少选择一个可见角色",
+              },
+            ]}
           >
             <Select
               mode="multiple"
-              placeholder="请选择专题发布后可见的角色"
+              placeholder={
+                english
+                  ? "Select roles that can view the published thematic map"
+                  : "请选择专题发布后可见的角色"
+              }
               options={availableAudienceGroups.map((group) => ({
                 value: group.id,
                 label: group.name,
@@ -331,9 +423,13 @@ export default function MapCompositionPanel({
         </Form>
       </Modal>
       <Modal
-        title="还原专题版本为新工程"
+        title={
+          english
+            ? "Restore thematic version as a new project"
+            : "还原专题版本为新工程"
+        }
         open={Boolean(restoringComposition)}
-        okText="创建并加载工程"
+        okText={english ? "Create and load project" : "创建并加载工程"}
         confirmLoading={restoring}
         onOk={() => void submitRestore()}
         onCancel={() => setRestoringComposition(null)}
@@ -342,8 +438,15 @@ export default function MapCompositionPanel({
         <Form form={restoreForm} layout="vertical">
           <Form.Item
             name="versionNumber"
-            label="恢复版本"
-            rules={[{ required: true, message: "请选择恢复版本" }]}
+            label={english ? "Version to restore" : "恢复版本"}
+            rules={[
+              {
+                required: true,
+                message: english
+                  ? "Select a version to restore"
+                  : "请选择恢复版本",
+              },
+            ]}
           >
             <Select
               options={(restoringComposition?.versions ?? []).map(
@@ -356,15 +459,28 @@ export default function MapCompositionPanel({
           </Form.Item>
           <Form.Item
             name="name"
-            label="新工程名称"
-            rules={[{ required: true, message: "请输入新工程名称" }]}
+            label={english ? "New project name" : "新工程名称"}
+            rules={[
+              {
+                required: true,
+                message: english
+                  ? "Enter the new project name"
+                  : "请输入新工程名称",
+              },
+            ]}
           >
             <Input maxLength={160} />
           </Form.Item>
-          <Form.Item name="description" label="工程说明">
+          <Form.Item
+            name="description"
+            label={english ? "Project description" : "工程说明"}
+          >
             <Input.TextArea rows={3} maxLength={2000} />
           </Form.Item>
-          <Form.Item name="accessGroupIds" label="工程额外可见角色">
+          <Form.Item
+            name="accessGroupIds"
+            label={english ? "Additional project roles" : "工程额外可见角色"}
+          >
             <Select
               mode="multiple"
               allowClear
@@ -376,13 +492,23 @@ export default function MapCompositionPanel({
           </Form.Item>
           <Form.Item
             name="unavailableResourcePolicy"
-            label="不可用资源处理"
+            label={english ? "Unavailable-resource policy" : "不可用资源处理"}
             rules={[{ required: true }]}
           >
             <Select
               options={[
-                { value: "skip", label: "跳过并提示（推荐）" },
-                { value: "fail", label: "存在不可用资源时停止恢复" },
+                {
+                  value: "skip",
+                  label: english
+                    ? "Skip and report (recommended)"
+                    : "跳过并提示（推荐）",
+                },
+                {
+                  value: "fail",
+                  label: english
+                    ? "Stop restoring if any resource is unavailable"
+                    : "存在不可用资源时停止恢复",
+                },
               ]}
             />
           </Form.Item>

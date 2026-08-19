@@ -21,7 +21,9 @@ import {
 } from "antd";
 import type { ReactNode } from "react";
 import { useCallback, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import i18n, { currentLocale } from "../i18n";
 import {
   defaultVectorSymbolization,
   normalizeSymbolIconImage,
@@ -94,7 +96,7 @@ type RecommendedSymbolizationTemplate =
 const rgbBandLabels = ["R", "G", "B"] as const;
 const heatmapPalettes = [
   {
-    label: "生态密度",
+    labelKey: "symbolization.paletteEcology",
     value: [
       "interpolate",
       ["linear"],
@@ -116,7 +118,7 @@ const heatmapPalettes = [
     ],
   },
   {
-    label: "冷暖过渡",
+    labelKey: "symbolization.paletteThermal",
     value: [
       "interpolate",
       ["linear"],
@@ -134,7 +136,7 @@ const heatmapPalettes = [
     ],
   },
   {
-    label: "单色强度",
+    labelKey: "symbolization.paletteMono",
     value: [
       "interpolate",
       ["linear"],
@@ -302,10 +304,16 @@ const symbolizationOptionLabels: Record<string, string> = {
 };
 
 function displaySymbolizationLabel(label: string) {
+  if (currentLocale() === "en-US") {
+    return label === "启用 nodata"
+      ? i18n.t("symbolization.enableNoData")
+      : label;
+  }
   return symbolizationLabels[label] ?? label;
 }
 
 function displaySymbolizationOption(option: string) {
+  if (currentLocale() === "en-US") return option;
   return symbolizationOptionLabels[option] ?? option;
 }
 
@@ -361,6 +369,7 @@ export function VectorSymbolizationEditor({
   onChange: (value: VectorSymbolization) => void;
   onApply?: () => void;
 }) {
+  useTranslation();
   const { message } = App.useApp();
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -371,9 +380,13 @@ export function VectorSymbolizationEditor({
   const copyJson = useCallback(async () => {
     try {
       await copyText(JSON.stringify(value, null, 2));
-      message.success("符号化方案 JSON 已复制");
+      message.success(i18n.t("symbolization.jsonCopied"));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "复制失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : i18n.t("symbolization.copyFailed"),
+      );
     }
   }, [value, message]);
 
@@ -392,7 +405,7 @@ export function VectorSymbolizationEditor({
     }
     onChange({ ...imported, renderer });
     setImportOpen(false);
-    message.success("方案已导入编辑器，请点击“确定”正式应用");
+    message.success(i18n.t("symbolization.importedToEditor"));
   }
   function updateRoot<Key extends keyof VectorSymbolization>(
     key: Key,
@@ -459,7 +472,9 @@ export function VectorSymbolizationEditor({
     if (!canApplyRecommendedSymbolizations) return;
     const next = mergeRecommendedSymbolization(value, template);
     onChange(next);
-    message.success(`已应用推荐方案：${template.name}`);
+    message.success(
+      i18n.t("symbolization.recommendationApplied", { name: template.name }),
+    );
   }
 
   function countsForField(fieldName: string) {
@@ -758,7 +773,7 @@ export function VectorSymbolizationEditor({
   }
 
   const textFieldOptions = [
-    { value: "", label: "不显示" },
+    { value: "", label: i18n.t("symbolization.hidden") },
     ...fields.map((field) => ({
       value: "{" + field.name + "}",
       label: field.name,
@@ -778,7 +793,7 @@ export function VectorSymbolizationEditor({
   const cluster = value.cluster ?? defaultVectorSymbolization.cluster;
   const selectedHeatmapWeightField = value.heatmap.heatmapWeightField ?? "";
   const heatmapWeightFieldOptions = [
-    { value: "", label: "按点位数量" },
+    { value: "", label: i18n.t("symbolization.byPointCount") },
     ...fields.filter(isNumericResourceField).map((field) => ({
       value: field.name,
       label: field.description
@@ -838,7 +853,7 @@ export function VectorSymbolizationEditor({
     hasPolygon: geometryUnknown || normalizedGeometry.includes("polygon"),
   };
   const geometrySummary = geometryUnknown
-    ? "自动识别可用表达方式"
+    ? i18n.t("symbolization.autoExpression")
     : geometryType;
   const selectedIconImage =
     normalizeSymbolIconImage(value.symbol.iconImage).trim() ||
@@ -855,7 +870,7 @@ export function VectorSymbolizationEditor({
       ? []
       : [
           {
-            label: "当前图标",
+            label: i18n.t("symbolization.currentIcon"),
             options: [{ value: selectedIconImage, label: selectedIconImage }],
           },
         ]),
@@ -869,7 +884,7 @@ export function VectorSymbolizationEditor({
   const currentHeatmapColor = JSON.stringify(value.heatmap.heatmapColor);
   const heatmapPaletteOptions: Array<{ label: string; value: string }> =
     heatmapPalettes.map((palette) => ({
-      label: palette.label,
+      label: i18n.t(palette.labelKey),
       value: JSON.stringify(palette.value),
     }));
   if (
@@ -878,7 +893,7 @@ export function VectorSymbolizationEditor({
     )
   ) {
     heatmapPaletteOptions.unshift({
-      label: "当前自定义色带",
+      label: i18n.t("symbolization.currentPalette"),
       value: currentHeatmapColor,
     });
   }
@@ -981,7 +996,7 @@ export function VectorSymbolizationEditor({
       size="small"
       title={
         <SymbolizationTitle
-          title="图层样式"
+          title={i18n.t("symbolization.layerStyle")}
           onApply={readOnly ? undefined : onApply}
           onCopy={copyJson}
           onImport={readOnly ? undefined : () => setImportOpen(true)}
@@ -993,9 +1008,11 @@ export function VectorSymbolizationEditor({
           <section className="symbolization-section recommended-symbolization-section">
             <div className="symbolization-section-head">
               <div>
-                <Typography.Text strong>推荐方案</Typography.Text>
+                <Typography.Text strong>
+                  {i18n.t("symbolization.recommendations")}
+                </Typography.Text>
                 <Typography.Text type="secondary">
-                  根据业务类型和字段命中结果生成，可应用后继续细调
+                  {i18n.t("symbolization.recommendationsDescription")}
                 </Typography.Text>
               </div>
             </div>
@@ -1003,7 +1020,7 @@ export function VectorSymbolizationEditor({
               <div className="recommended-symbolization-loading">
                 <Spin size="small" />
                 <Typography.Text type="secondary">
-                  正在读取后端推荐模板
+                  {i18n.t("symbolization.loadingRecommendations")}
                 </Typography.Text>
               </div>
             )}
@@ -1011,7 +1028,7 @@ export function VectorSymbolizationEditor({
               <Alert
                 type="warning"
                 showIcon
-                title="推荐方案暂时不可用"
+                title={i18n.t("symbolization.recommendationUnavailable")}
                 description={recommendedSymbolizationsError}
               />
             )}
@@ -1028,7 +1045,11 @@ export function VectorSymbolizationEditor({
                           {template.name}
                         </Typography.Text>
                         <Space size={4}>
-                          {template.isPrimary && <Tag color="green">默认</Tag>}
+                          {template.isPrimary && (
+                            <Tag color="green">
+                              {i18n.t("symbolization.primary")}
+                            </Tag>
+                          )}
                           <Tag>
                             {recommendedRendererLabel(template.rendererType)}
                           </Tag>
@@ -1036,8 +1057,10 @@ export function VectorSymbolizationEditor({
                       </div>
                       <Typography.Text type="secondary">
                         {template.primaryField
-                          ? `字段：${template.primaryField}`
-                          : "未命中主字段"}
+                          ? i18n.t("symbolization.primaryField", {
+                              field: template.primaryField,
+                            })
+                          : i18n.t("symbolization.noPrimaryField")}
                       </Typography.Text>
                       <Typography.Paragraph
                         className="recommended-symbolization-description"
@@ -1069,10 +1092,12 @@ export function VectorSymbolizationEditor({
                         type={template.isPrimary ? "primary" : "default"}
                         onClick={() => applyRecommendedSymbolization(template)}
                       >
-                        应用
+                        {i18n.t("symbolization.apply")}
                       </Button>
                     ) : (
-                      <Tag color="blue">仅预览</Tag>
+                      <Tag color="blue">
+                        {i18n.t("symbolization.previewOnly")}
+                      </Tag>
                     )}
                   </div>
                 ))}
@@ -1082,7 +1107,7 @@ export function VectorSymbolizationEditor({
               !recommendedSymbolizationsError &&
               visibleRecommendedSymbolizations.length === 0 && (
                 <Typography.Text type="secondary">
-                  当前资源暂无可直接应用的推荐符号化模板。
+                  {i18n.t("symbolization.noRecommendations")}
                 </Typography.Text>
               )}
           </section>
@@ -1092,33 +1117,51 @@ export function VectorSymbolizationEditor({
           <Alert
             type="info"
             showIcon
-            title="当前账号仅可查看推荐方案"
-            description="应用或保存符号化模板需要自定义符号化权限。"
+            title={i18n.t("symbolization.readOnlyTitle")}
+            description={i18n.t("symbolization.readOnlyDescription")}
           />
         ) : (
           <>
             <section className="symbolization-section">
               <div className="symbolization-section-head">
                 <div>
-                  <Typography.Text strong>表达方式</Typography.Text>
+                  <Typography.Text strong>
+                    {i18n.t("symbolization.expression")}
+                  </Typography.Text>
                   <Typography.Text type="secondary">
-                    {geometrySummary} · 先选择图层要如何被看见
+                    {i18n.t("symbolization.expressionDescription", {
+                      geometry: geometrySummary,
+                    })}
                   </Typography.Text>
                 </div>
               </div>
               {(geometry.hasPoint ||
                 geometry.hasLine ||
                 geometry.hasPolygon) && (
-                <ControlRow label="字段表达">
+                <ControlRow label={i18n.t("symbolization.fieldExpression")}>
                   <Segmented
                     block
                     value={expressionMode}
                     options={[
-                      { value: "single", label: "单一符号" },
-                      { value: "uniqueValue", label: "唯一值分类" },
-                      { value: "graduated", label: "数值分级" },
+                      {
+                        value: "single",
+                        label: i18n.t("symbolization.single"),
+                      },
+                      {
+                        value: "uniqueValue",
+                        label: i18n.t("symbolization.unique"),
+                      },
+                      {
+                        value: "graduated",
+                        label: i18n.t("symbolization.graduated"),
+                      },
                       ...(geometry.hasPoint
-                        ? [{ value: "heatmap", label: "密度热力" }]
+                        ? [
+                            {
+                              value: "heatmap",
+                              label: i18n.t("symbolization.heatmap"),
+                            },
+                          ]
                         : []),
                     ]}
                     onChange={(mode) =>
@@ -1128,15 +1171,21 @@ export function VectorSymbolizationEditor({
                 </ControlRow>
               )}
               {geometry.hasPoint && expressionMode === "single" && (
-                <ControlRow label="点符号类型">
+                <ControlRow label={i18n.t("symbolization.pointSymbolType")}>
                   <Segmented
                     block
                     value={
                       value.pointMode === "heatmap" ? "circle" : value.pointMode
                     }
                     options={[
-                      { value: "circle", label: "圆点" },
-                      { value: "symbol", label: "图标" },
+                      {
+                        value: "circle",
+                        label: i18n.t("symbolization.circleSymbol"),
+                      },
+                      {
+                        value: "symbol",
+                        label: i18n.t("symbolization.iconSymbol"),
+                      },
                     ]}
                     onChange={(mode) =>
                       updateRoot(
@@ -1155,8 +1204,10 @@ export function VectorSymbolizationEditor({
                         className="symbolization-preset-button"
                         onClick={() => applyPreset("line")}
                       >
-                        <span>河流线</span>
-                        <small>连续线条，适合河道边界</small>
+                        <span>{i18n.t("symbolization.riverLine")}</span>
+                        <small>
+                          {i18n.t("symbolization.riverLineDescription")}
+                        </small>
                       </Button>
                       <Button
                         className="symbolization-preset-button"
@@ -1165,8 +1216,10 @@ export function VectorSymbolizationEditor({
                           updateLinePattern("dash");
                         }}
                       >
-                        <span>虚线辅助线</span>
-                        <small>适合规划线和参考线</small>
+                        <span>{i18n.t("symbolization.dashedGuide")}</span>
+                        <small>
+                          {i18n.t("symbolization.dashedGuideDescription")}
+                        </small>
                       </Button>
                     </>
                   )}
@@ -1176,8 +1229,10 @@ export function VectorSymbolizationEditor({
                         className="symbolization-preset-button"
                         onClick={() => applyPreset("fill")}
                       >
-                        <span>保护区</span>
-                        <small>半透明填充保留底图信息</small>
+                        <span>{i18n.t("symbolization.protectedArea")}</span>
+                        <small>
+                          {i18n.t("symbolization.protectedAreaDescription")}
+                        </small>
                       </Button>
                       <Button
                         className="symbolization-preset-button"
@@ -1193,8 +1248,10 @@ export function VectorSymbolizationEditor({
                           })
                         }
                       >
-                        <span>分区填色</span>
-                        <small>弱化填充，突出边界</small>
+                        <span>{i18n.t("symbolization.zoningFill")}</span>
+                        <small>
+                          {i18n.t("symbolization.zoningFillDescription")}
+                        </small>
                       </Button>
                     </>
                   )}
@@ -1206,20 +1263,26 @@ export function VectorSymbolizationEditor({
               <section className="symbolization-section unique-symbolization-section">
                 <div className="symbolization-section-head">
                   <div>
-                    <Typography.Text strong>字段分类</Typography.Text>
+                    <Typography.Text strong>
+                      {i18n.t("symbolization.fieldClassification")}
+                    </Typography.Text>
                     <Typography.Text type="secondary">
-                      一个图例类别可以包含多个原始值，用于合并别名和录入变体
+                      {i18n.t("symbolization.classificationDescription")}
                     </Typography.Text>
                   </div>
                   {uniqueRenderer.templateId === germplasmDnaSexTemplateId && (
-                    <Tag color="green">种质默认模板</Tag>
+                    <Tag color="green">
+                      {i18n.t("symbolization.germplasmTemplate")}
+                    </Tag>
                   )}
                 </div>
                 <Space
                   orientation="vertical"
                   className="full-width symbolization-stack"
                 >
-                  <ControlRow label="分类字段">
+                  <ControlRow
+                    label={i18n.t("symbolization.classificationField")}
+                  >
                     <Select
                       className="full-width"
                       value={uniqueRenderer.field}
@@ -1231,7 +1294,7 @@ export function VectorSymbolizationEditor({
                     <Alert
                       type="info"
                       showIcon
-                      title="已应用分类值合并"
+                      title={i18n.t("symbolization.mergedValues")}
                       description={uniqueRenderer.normalizationNotes.join(" ")}
                     />
                   ) : null}
@@ -1266,7 +1329,7 @@ export function VectorSymbolizationEditor({
                           mode="tags"
                           value={item.values}
                           options={uniqueValueOptions}
-                          placeholder="包含原始值"
+                          placeholder={i18n.t("symbolization.includedValues")}
                           onChange={(values) =>
                             updateUniqueClass(item.id, { values })
                           }
@@ -1292,8 +1355,10 @@ export function VectorSymbolizationEditor({
                         />
                         <InputNumber
                           className="unique-class-size"
-                          aria-label={`${item.label} 图标大小倍数`}
-                          title="图标大小倍数：1 为默认大小，0.2 为默认大小的 20%，5 为 5 倍。"
+                          aria-label={i18n.t("symbolization.iconScaleLabel", {
+                            name: item.label,
+                          })}
+                          title={i18n.t("symbolization.iconScaleHelp")}
                           value={item.size}
                           min={0.2}
                           max={5}
@@ -1305,7 +1370,9 @@ export function VectorSymbolizationEditor({
                           }
                         />
                         <Typography.Text className="unique-class-count">
-                          {item.count} 条
+                          {i18n.t("symbolization.recordCount", {
+                            count: item.count,
+                          })}
                         </Typography.Text>
                       </div>
                     ))}
@@ -1359,8 +1426,10 @@ export function VectorSymbolizationEditor({
                       />
                       <InputNumber
                         className="unique-class-size"
-                        aria-label={`${uniqueRenderer.defaultClass.label} 图标大小倍数`}
-                        title="图标大小倍数：1 为默认大小，0.2 为默认大小的 20%，5 为 5 倍。"
+                        aria-label={i18n.t("symbolization.iconScaleLabel", {
+                          name: uniqueRenderer.defaultClass.label,
+                        })}
+                        title={i18n.t("symbolization.iconScaleHelp")}
                         value={uniqueRenderer.defaultClass.size}
                         min={0.2}
                         max={5}
@@ -1372,7 +1441,9 @@ export function VectorSymbolizationEditor({
                         }
                       />
                       <Typography.Text className="unique-class-count">
-                        {uniqueRenderer.defaultClass.count} 条
+                        {i18n.t("symbolization.recordCount", {
+                          count: uniqueRenderer.defaultClass.count,
+                        })}
                       </Typography.Text>
                     </div>
                   </div>
@@ -1384,9 +1455,11 @@ export function VectorSymbolizationEditor({
               <section className="symbolization-section unique-symbolization-section graduated-symbolization-section">
                 <div className="symbolization-section-head">
                   <div>
-                    <Typography.Text strong>数值分级</Typography.Text>
+                    <Typography.Text strong>
+                      {i18n.t("symbolization.graduated")}
+                    </Typography.Text>
                     <Typography.Text type="secondary">
-                      按连续字段区间生成图例，适合海拔、NDVI、盐分等数值型属性
+                      {i18n.t("symbolization.graduatedDescription")}
                     </Typography.Text>
                   </div>
                 </div>
@@ -1394,7 +1467,7 @@ export function VectorSymbolizationEditor({
                   orientation="vertical"
                   className="full-width symbolization-stack"
                 >
-                  <ControlRow label="分级字段">
+                  <ControlRow label={i18n.t("symbolization.graduatedField")}>
                     <Select
                       className="full-width"
                       value={graduatedRenderer.field}
@@ -1402,14 +1475,23 @@ export function VectorSymbolizationEditor({
                       onChange={changeGraduatedField}
                     />
                   </ControlRow>
-                  <ControlRow label="分级方法">
+                  <ControlRow label={i18n.t("symbolization.graduatedMethod")}>
                     <Segmented
                       block
                       value={graduatedRenderer.method}
                       options={[
-                        { value: "equalInterval", label: "等距分级" },
-                        { value: "quantile", label: "分位数" },
-                        { value: "manual", label: "自定义" },
+                        {
+                          value: "equalInterval",
+                          label: i18n.t("symbolization.equalInterval"),
+                        },
+                        {
+                          value: "quantile",
+                          label: i18n.t("symbolization.quantile"),
+                        },
+                        {
+                          value: "manual",
+                          label: i18n.t("symbolization.custom"),
+                        },
                       ]}
                       onChange={(method) =>
                         updateGraduatedRenderer((renderer) =>
@@ -1421,7 +1503,7 @@ export function VectorSymbolizationEditor({
                     />
                   </ControlRow>
                   <div className="graduated-control-grid">
-                    <ControlRow label="分级数量">
+                    <ControlRow label={i18n.t("symbolization.classCount")}>
                       <InputNumber
                         className="full-width"
                         value={graduatedRenderer.classCount}
@@ -1440,7 +1522,7 @@ export function VectorSymbolizationEditor({
                         }
                       />
                     </ControlRow>
-                    <ControlRow label="小数位">
+                    <ControlRow label={i18n.t("symbolization.decimals")}>
                       <InputNumber
                         className="full-width"
                         value={graduatedRenderer.precision}
@@ -1461,8 +1543,8 @@ export function VectorSymbolizationEditor({
                   <ControlRow
                     label={
                       graduatedRenderer.method === "manual"
-                        ? "新增级色带"
-                        : "色带"
+                        ? i18n.t("symbolization.newRamp")
+                        : i18n.t("symbolization.colorRamp")
                     }
                   >
                     <Select
@@ -1482,8 +1564,10 @@ export function VectorSymbolizationEditor({
                     <Alert
                       type="warning"
                       showIcon
-                      title="当前字段没有可用于分级的数值"
-                      description="请切换到海拔、NDVI、盐分等可解析为数字的字段，或检查原始属性值。"
+                      title={i18n.t("symbolization.noNumericValues")}
+                      description={i18n.t(
+                        "symbolization.noNumericValuesDescription",
+                      )}
                     />
                   )}
                   <div className="unique-class-list">
@@ -1569,8 +1653,10 @@ export function VectorSymbolizationEditor({
                         />
                         <InputNumber
                           className="unique-class-size"
-                          aria-label={`${item.label} 图标大小倍数`}
-                          title="图标大小倍数：1 为默认大小，0.2 为默认大小的 20%，5 为 5 倍。"
+                          aria-label={i18n.t("symbolization.iconScaleLabel", {
+                            name: item.label,
+                          })}
+                          title={i18n.t("symbolization.iconScaleHelp")}
                           value={item.size}
                           min={0.2}
                           max={5}
@@ -1582,7 +1668,9 @@ export function VectorSymbolizationEditor({
                           }
                         />
                         <Typography.Text className="unique-class-count">
-                          {item.count} 条
+                          {i18n.t("symbolization.recordCount", {
+                            count: item.count,
+                          })}
                         </Typography.Text>
                       </div>
                     ))}
@@ -1637,8 +1725,10 @@ export function VectorSymbolizationEditor({
                       />
                       <InputNumber
                         className="unique-class-size"
-                        aria-label={`${graduatedRenderer.defaultClass.label} 图标大小倍数`}
-                        title="图标大小倍数：1 为默认大小，0.2 为默认大小的 20%，5 为 5 倍。"
+                        aria-label={i18n.t("symbolization.iconScaleLabel", {
+                          name: graduatedRenderer.defaultClass.label,
+                        })}
+                        title={i18n.t("symbolization.iconScaleHelp")}
                         value={graduatedRenderer.defaultClass.size}
                         min={0.2}
                         max={5}
@@ -1650,7 +1740,9 @@ export function VectorSymbolizationEditor({
                         }
                       />
                       <Typography.Text className="unique-class-count">
-                        {graduatedRenderer.defaultClass.count} 条
+                        {i18n.t("symbolization.recordCount", {
+                          count: graduatedRenderer.defaultClass.count,
+                        })}
                       </Typography.Text>
                     </div>
                   </div>
@@ -1661,9 +1753,11 @@ export function VectorSymbolizationEditor({
             <section className="symbolization-section">
               <div className="symbolization-section-head">
                 <div>
-                  <Typography.Text strong>基础样式</Typography.Text>
+                  <Typography.Text strong>
+                    {i18n.t("symbolization.baseStyle")}
+                  </Typography.Text>
                   <Typography.Text type="secondary">
-                    只保留最常改、最容易判断效果的样式项
+                    {i18n.t("symbolization.baseStyleDescription")}
                   </Typography.Text>
                 </div>
               </div>
@@ -1671,7 +1765,7 @@ export function VectorSymbolizationEditor({
                 orientation="vertical"
                 className="full-width symbolization-stack"
               >
-                <ControlRow label="图层透明度">
+                <ControlRow label={i18n.t("symbolization.layerOpacity")}>
                   <Slider
                     value={value.opacity}
                     min={5}
@@ -1685,12 +1779,12 @@ export function VectorSymbolizationEditor({
                   value.pointMode === "circle" && (
                     <>
                       <ColorField
-                        label="点颜色"
+                        label={i18n.t("symbolization.pointColor")}
                         value={value.circle.circleColor}
                         onChange={(next) => updateCircle("circleColor", next)}
                       />
                       <NumberField
-                        label="点大小"
+                        label={i18n.t("symbolization.pointSize")}
                         value={value.circle.circleRadius}
                         min={2}
                         max={80}
@@ -1698,14 +1792,14 @@ export function VectorSymbolizationEditor({
                         onChange={(next) => updateCircle("circleRadius", next)}
                       />
                       <ColorField
-                        label="描边颜色"
+                        label={i18n.t("symbolization.strokeColor")}
                         value={value.circle.circleStrokeColor}
                         onChange={(next) =>
                           updateCircle("circleStrokeColor", next)
                         }
                       />
                       <NumberField
-                        label="描边粗细"
+                        label={i18n.t("symbolization.strokeWidth")}
                         value={value.circle.circleStrokeWidth}
                         min={0}
                         max={20}
@@ -1721,7 +1815,7 @@ export function VectorSymbolizationEditor({
                   expressionMode === "single" &&
                   value.pointMode === "symbol" && (
                     <>
-                      <ControlRow label="图标类型">
+                      <ControlRow label={i18n.t("symbolization.iconType")}>
                         <Popover
                           trigger="click"
                           placement="bottomLeft"
@@ -1757,7 +1851,11 @@ export function VectorSymbolizationEditor({
                                       }
                                     >
                                       <span>{group.label}</span>
-                                      <small>{group.options.length} 个</small>
+                                      <small>
+                                        {i18n.t("symbolization.optionCount", {
+                                          count: group.options.length,
+                                        })}
+                                      </small>
                                     </button>
                                     {isActive && (
                                       <div className="symbol-icon-picker-options">
@@ -1818,12 +1916,12 @@ export function VectorSymbolizationEditor({
                         </Popover>
                       </ControlRow>
                       <ColorField
-                        label="图标颜色"
+                        label={i18n.t("symbolization.iconColor")}
                         value={value.symbol.iconColor}
                         onChange={(next) => updateSymbol("iconColor", next)}
                       />
                       <NumberField
-                        label="图标大小"
+                        label={i18n.t("symbolization.iconSize")}
                         value={value.symbol.iconSize}
                         min={0.2}
                         max={5}
@@ -1840,11 +1938,13 @@ export function VectorSymbolizationEditor({
                       showIcon
                       title={
                         selectedHeatmapWeightField
-                          ? `密度热力按 ${selectedHeatmapWeightField} 字段加权，缩放时自动淡出为点位明细。`
-                          : "密度热力用于显示点位聚集程度，当前按点位数量计算密度，缩放时自动淡出为点位明细。"
+                          ? i18n.t("symbolization.heatmapWeighted", {
+                              field: selectedHeatmapWeightField,
+                            })
+                          : i18n.t("symbolization.heatmapByCount")
                       }
                     />
-                    <ControlRow label="权重字段">
+                    <ControlRow label={i18n.t("symbolization.weightField")}>
                       <Select
                         className="full-width"
                         value={selectedHeatmapWeightField}
@@ -1856,7 +1956,7 @@ export function VectorSymbolizationEditor({
                     </ControlRow>
                     {selectedHeatmapWeightField && (
                       <NumberField
-                        label="权重上限"
+                        label={i18n.t("symbolization.weightMaximum")}
                         value={value.heatmap.heatmapWeightFieldMax ?? 1}
                         min={1}
                         max={100000}
@@ -1866,7 +1966,7 @@ export function VectorSymbolizationEditor({
                         }
                       />
                     )}
-                    <ControlRow label="热力色带">
+                    <ControlRow label={i18n.t("symbolization.heatmapPalette")}>
                       <Select
                         className="full-width"
                         value={currentHeatmapColor}
@@ -1877,7 +1977,7 @@ export function VectorSymbolizationEditor({
                       />
                     </ControlRow>
                     <NumberField
-                      label="影响半径"
+                      label={i18n.t("symbolization.radius")}
                       value={value.heatmap.heatmapRadius ?? 24}
                       min={1}
                       max={80}
@@ -1885,7 +1985,7 @@ export function VectorSymbolizationEditor({
                       onChange={(next) => updateHeatmap("heatmapRadius", next)}
                     />
                     <NumberField
-                      label="热力强度"
+                      label={i18n.t("symbolization.intensity")}
                       value={value.heatmap.heatmapIntensity ?? 0.9}
                       min={0}
                       max={3}
@@ -1895,7 +1995,7 @@ export function VectorSymbolizationEditor({
                       }
                     />
                     <NumberField
-                      label="热力透明度"
+                      label={i18n.t("symbolization.heatmapOpacity")}
                       value={value.heatmap.heatmapOpacity ?? 0.78}
                       min={0}
                       max={1}
@@ -1906,11 +2006,11 @@ export function VectorSymbolizationEditor({
                 )}
 
                 {geometry.hasPoint && expressionMode === "single" && (
-                  <ControlRow label="点位聚合">
+                  <ControlRow label={i18n.t("symbolization.clustering")}>
                     <Switch
                       checked={cluster.enabled}
-                      checkedChildren="开启"
-                      unCheckedChildren="关闭"
+                      checkedChildren={i18n.t("symbolization.on")}
+                      unCheckedChildren={i18n.t("symbolization.off")}
                       onChange={(enabled) => updateCluster("enabled", enabled)}
                     />
                   </ControlRow>
@@ -1920,26 +2020,35 @@ export function VectorSymbolizationEditor({
                   <>
                     <Divider className="symbolization-divider" />
                     <ColorField
-                      label="线颜色"
+                      label={i18n.t("symbolization.lineColor")}
                       value={value.line.lineColor}
                       onChange={(next) => updateLine("lineColor", next)}
                     />
                     <NumberField
-                      label="线宽"
+                      label={i18n.t("symbolization.lineWidth")}
                       value={value.line.lineWidth}
                       min={0}
                       max={40}
                       step={0.2}
                       onChange={(next) => updateLine("lineWidth", next)}
                     />
-                    <ControlRow label="线型">
+                    <ControlRow label={i18n.t("symbolization.lineStyle")}>
                       <Segmented
                         block
                         value={linePattern}
                         options={[
-                          { value: "solid", label: "实线" },
-                          { value: "dash", label: "虚线" },
-                          { value: "dot", label: "点线" },
+                          {
+                            value: "solid",
+                            label: i18n.t("symbolization.solid"),
+                          },
+                          {
+                            value: "dash",
+                            label: i18n.t("symbolization.dashed"),
+                          },
+                          {
+                            value: "dot",
+                            label: i18n.t("symbolization.dotted"),
+                          },
                         ]}
                         onChange={(next) =>
                           updateLinePattern(next as LinePattern)
@@ -1953,12 +2062,12 @@ export function VectorSymbolizationEditor({
                   <>
                     <Divider className="symbolization-divider" />
                     <ColorField
-                      label="填充颜色"
+                      label={i18n.t("symbolization.fillColor")}
                       value={value.fill.fillColor}
                       onChange={(next) => updateFill("fillColor", next)}
                     />
                     <NumberField
-                      label="填充透明度"
+                      label={i18n.t("symbolization.fillOpacity")}
                       value={value.fill.fillOpacity}
                       min={0}
                       max={1}
@@ -1966,7 +2075,7 @@ export function VectorSymbolizationEditor({
                       onChange={(next) => updateFill("fillOpacity", next)}
                     />
                     <ColorField
-                      label="边界颜色"
+                      label={i18n.t("symbolization.boundaryColor")}
                       value={value.fill.fillOutlineColor}
                       onChange={(next) => updateFill("fillOutlineColor", next)}
                     />
@@ -1979,9 +2088,11 @@ export function VectorSymbolizationEditor({
               <section className="symbolization-section">
                 <div className="symbolization-section-head">
                   <div>
-                    <Typography.Text strong>标注</Typography.Text>
+                    <Typography.Text strong>
+                      {i18n.t("symbolization.labels")}
+                    </Typography.Text>
                     <Typography.Text type="secondary">
-                      点位名称、编号等文字信息在这里统一设置
+                      {i18n.t("symbolization.labelsDescription")}
                     </Typography.Text>
                   </div>
                 </div>
@@ -1989,14 +2100,14 @@ export function VectorSymbolizationEditor({
                   orientation="vertical"
                   className="full-width symbolization-stack"
                 >
-                  <ControlRow label="显示标注">
+                  <ControlRow label={i18n.t("symbolization.showLabels")}>
                     <Switch
                       checked={labelEnabled}
                       disabled={!defaultLabelField && !labelEnabled}
                       onChange={updateLabelEnabled}
                     />
                   </ControlRow>
-                  <ControlRow label="标注字段">
+                  <ControlRow label={i18n.t("symbolization.labelField")}>
                     <Select
                       className="full-width"
                       disabled={!labelEnabled}
@@ -2006,7 +2117,7 @@ export function VectorSymbolizationEditor({
                     />
                   </ControlRow>
                   <NumberField
-                    label="字号"
+                    label={i18n.t("symbolization.fontSize")}
                     value={value.symbol.textSize}
                     min={8}
                     max={48}
@@ -2014,24 +2125,30 @@ export function VectorSymbolizationEditor({
                     onChange={(next) => updateSymbol("textSize", next)}
                   />
                   <ColorField
-                    label="文字颜色"
+                    label={i18n.t("symbolization.textColor")}
                     value={value.symbol.textColor}
                     onChange={(next) => updateSymbol("textColor", next)}
                   />
                   <ColorField
-                    label="描边颜色"
+                    label={i18n.t("symbolization.strokeColor")}
                     value={value.symbol.textHaloColor}
                     onChange={(next) => updateSymbol("textHaloColor", next)}
                   />
-                  <ControlRow label="避让策略">
+                  <ControlRow label={i18n.t("symbolization.collisionStrategy")}>
                     <Segmented
                       block
                       value={
                         value.symbol.textAllowOverlap ? "overlap" : "avoid"
                       }
                       options={[
-                        { value: "avoid", label: "自动避让" },
-                        { value: "overlap", label: "允许重叠" },
+                        {
+                          value: "avoid",
+                          label: i18n.t("symbolization.avoid"),
+                        },
+                        {
+                          value: "overlap",
+                          label: i18n.t("symbolization.overlap"),
+                        },
                       ]}
                       onChange={(next) =>
                         updateLabelCollision(next as "avoid" | "overlap")
@@ -2044,19 +2161,21 @@ export function VectorSymbolizationEditor({
 
             <details className="symbolization-advanced">
               <summary>
-                <span>高级设置</span>
+                <span>{i18n.t("symbolization.advanced")}</span>
               </summary>
               <Space
                 orientation="vertical"
                 className="full-width symbolization-stack"
               >
                 <Button size="small" onClick={copyJson}>
-                  复制符号化 JSON
+                  {i18n.t("symbolization.copySymbolizationJson")}
                 </Button>
 
                 {geometry.hasPoint && value.pointMode === "circle" && (
                   <>
-                    <Typography.Text strong>圆点高级</Typography.Text>
+                    <Typography.Text strong>
+                      {i18n.t("symbolization.circleAdvanced")}
+                    </Typography.Text>
                     <NumberField
                       label="circle-blur"
                       value={value.circle.circleBlur}
@@ -2089,7 +2208,9 @@ export function VectorSymbolizationEditor({
 
                 {geometry.hasPoint && value.pointMode === "symbol" && (
                   <>
-                    <Typography.Text strong>图标高级</Typography.Text>
+                    <Typography.Text strong>
+                      {i18n.t("symbolization.iconAdvanced")}
+                    </Typography.Text>
                     <TextField
                       label="icon-image"
                       value={value.symbol.iconImage}
@@ -2153,7 +2274,9 @@ export function VectorSymbolizationEditor({
 
                 {geometry.hasPoint && value.pointMode === "heatmap" && (
                   <>
-                    <Typography.Text strong>热力高级</Typography.Text>
+                    <Typography.Text strong>
+                      {i18n.t("symbolization.heatmapAdvanced")}
+                    </Typography.Text>
                     <NumberField
                       label="heatmap-weight"
                       value={value.heatmap.heatmapWeight ?? 0.72}
@@ -2168,7 +2291,9 @@ export function VectorSymbolizationEditor({
                 {geometry.hasPoint && value.pointMode !== "heatmap" && (
                   <>
                     <Divider className="symbolization-divider" />
-                    <Typography.Text strong>聚合高级</Typography.Text>
+                    <Typography.Text strong>
+                      {i18n.t("symbolization.clusterAdvanced")}
+                    </Typography.Text>
                     <BooleanField
                       label="cluster-enabled"
                       value={cluster.enabled}
@@ -2195,7 +2320,9 @@ export function VectorSymbolizationEditor({
                       </>
                     )}
                     <Divider className="symbolization-divider" />
-                    <Typography.Text strong>标注高级</Typography.Text>
+                    <Typography.Text strong>
+                      {i18n.t("symbolization.labelAdvanced")}
+                    </Typography.Text>
                     <TextListField
                       label="text-font"
                       value={value.symbol.textFont}
@@ -2249,7 +2376,9 @@ export function VectorSymbolizationEditor({
                 {geometry.hasLine && (
                   <>
                     <Divider className="symbolization-divider" />
-                    <Typography.Text strong>线高级</Typography.Text>
+                    <Typography.Text strong>
+                      {i18n.t("symbolization.lineAdvanced")}
+                    </Typography.Text>
                     <NumberField
                       label="line-opacity"
                       value={value.line.lineOpacity}
@@ -2286,7 +2415,9 @@ export function VectorSymbolizationEditor({
                 {geometry.hasPolygon && (
                   <>
                     <Divider className="symbolization-divider" />
-                    <Typography.Text strong>面高级</Typography.Text>
+                    <Typography.Text strong>
+                      {i18n.t("symbolization.fillAdvanced")}
+                    </Typography.Text>
                     <BooleanField
                       label="fill-antialias"
                       value={value.fill.fillAntialias}
@@ -2312,7 +2443,7 @@ export function VectorSymbolizationEditor({
       </Space>
       <SymbolizationImportDialog
         open={importOpen}
-        kind="矢量"
+        kind={i18n.t("symbolization.vectorKind")}
         onCancel={() => setImportOpen(false)}
         onImport={importJson}
       />
@@ -2372,9 +2503,13 @@ function markRendererUpdated(
 function recommendedRendererLabel(
   rendererType: RecommendedSymbolizationTemplate["rendererType"],
 ) {
-  if (rendererType === "uniqueValue") return "唯一值";
-  if (rendererType === "graduated") return "数值分级";
-  return "单一符号";
+  if (rendererType === "uniqueValue") {
+    return i18n.t("symbolization.rendererUnique");
+  }
+  if (rendererType === "graduated") {
+    return i18n.t("symbolization.rendererGraduated");
+  }
+  return i18n.t("symbolization.rendererSingle");
 }
 
 function recommendedClassPreviews(template: RecommendedSymbolizationTemplate) {
@@ -2430,20 +2565,27 @@ export function RasterSymbolizationEditor({
   restoringDefault?: boolean;
   datasetId?: number;
 }) {
+  useTranslation();
   const { message } = App.useApp();
   const [classifying, setClassifying] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const bandOptions = (
     bands.length > 0
       ? bands
-      : [{ band: 1, description: "波段 1", type: "Byte" } as RasterBandMetadata]
+      : [
+          {
+            band: 1,
+            description: i18n.t("symbolization.bandDefault"),
+            type: "Byte",
+          } as RasterBandMetadata,
+        ]
   ).map((band) => ({
     value: band.band,
     label: `${band.band} · ${band.description || band.type}`,
   }));
   const alphaBandOptions = [
-    { value: "mask", label: "掩膜" },
-    { value: "none", label: "无" },
+    { value: "mask", label: i18n.t("symbolization.mask") },
+    { value: "none", label: i18n.t("symbolization.noData") },
     ...bandOptions,
   ];
   const selectedBands =
@@ -2485,9 +2627,13 @@ export function RasterSymbolizationEditor({
   const copyJson = useCallback(async () => {
     try {
       await copyText(JSON.stringify(value, null, 2));
-      message.success("符号化方案 JSON 已复制");
+      message.success(i18n.t("symbolization.jsonCopied"));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "复制失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : i18n.t("symbolization.copyFailed"),
+      );
     }
   }, [value, message]);
 
@@ -2495,16 +2641,16 @@ export function RasterSymbolizationEditor({
     const imported = parseRasterSymbolizationJson(text, bands);
     onChange(imported);
     setImportOpen(false);
-    message.success("方案已导入编辑器，请点击“确定”正式应用");
+    message.success(i18n.t("symbolization.importedToEditor"));
   }
 
   async function classifyUniqueValues() {
     if (!datasetId) {
-      message.warning("缺少栅格数据集编号");
+      message.warning(i18n.t("symbolization.missingRasterId"));
       return;
     }
     if (!uniqueBandIsInteger) {
-      message.warning("唯一值分类仅支持整型波段");
+      message.warning(i18n.t("symbolization.integerBandOnly"));
       return;
     }
     setClassifying(true);
@@ -2518,9 +2664,17 @@ export function RasterSymbolizationEditor({
         bands: [uniqueBand],
         uniqueValues: result.items,
       });
-      message.success(`已分类 ${result.items.length} 个唯一值`);
+      message.success(
+        i18n.t("symbolization.classifiedValues", {
+          count: result.items.length,
+        }),
+      );
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "唯一值分类失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : i18n.t("symbolization.classificationFailed"),
+      );
     } finally {
       setClassifying(false);
     }
@@ -2560,7 +2714,7 @@ export function RasterSymbolizationEditor({
       size="small"
       title={
         <SymbolizationTitle
-          title="栅格符号化"
+          title={i18n.t("symbolization.rasterTitle")}
           onApply={onApply}
           onCopy={copyJson}
           onImport={() => setImportOpen(true)}
@@ -2574,7 +2728,7 @@ export function RasterSymbolizationEditor({
           loading={restoringDefault}
           onClick={onRestoreDefault}
         >
-          恢复数据默认样式
+          {i18n.t("symbolization.restoreDefault")}
         </Button>
       ) : null}
       <Tabs
@@ -2582,13 +2736,13 @@ export function RasterSymbolizationEditor({
         items={[
           {
             key: "render",
-            label: "渲染",
+            label: i18n.t("symbolization.render"),
             children: (
               <Space
                 orientation="vertical"
                 className="full-width symbolization-stack"
               >
-                <ControlRow label="透明度">
+                <ControlRow label={i18n.t("symbolization.opacity")}>
                   <Slider
                     value={value.opacity}
                     min={5}
@@ -2596,15 +2750,24 @@ export function RasterSymbolizationEditor({
                     onChange={(opacity) => update({ opacity })}
                   />
                 </ControlRow>
-                <ControlRow label="模式">
+                <ControlRow label={i18n.t("symbolization.mode")}>
                   <Segmented
                     block
                     value={value.mode}
                     options={[
-                      { value: "gray", label: "灰度" },
+                      {
+                        value: "gray",
+                        label: i18n.t("symbolization.grayscale"),
+                      },
                       { value: "rgb", label: "RGB" },
-                      { value: "pseudocolor", label: "伪彩色" },
-                      { value: "unique", label: "唯一值" },
+                      {
+                        value: "pseudocolor",
+                        label: i18n.t("symbolization.pseudocolor"),
+                      },
+                      {
+                        value: "unique",
+                        label: i18n.t("symbolization.rendererUnique"),
+                      },
                     ]}
                     onChange={(mode) =>
                       updateMode(mode as RasterSymbolization["mode"])
@@ -2615,7 +2778,7 @@ export function RasterSymbolizationEditor({
                   const label =
                     value.mode === "rgb"
                       ? (rgbBandLabels[index] ?? "band")
-                      : "波段";
+                      : i18n.t("symbolization.band");
                   return (
                     <ControlRow key={label} label={label}>
                       <Select
@@ -2645,7 +2808,7 @@ export function RasterSymbolizationEditor({
                   </ControlRow>
                 )}
                 <BooleanField
-                  label="启用 nodata"
+                  label={i18n.t("symbolization.enableNoData")}
                   value={value.nodata.enabled}
                   onChange={(enabled) =>
                     update({ nodata: { ...value.nodata, enabled } })
@@ -2653,7 +2816,7 @@ export function RasterSymbolizationEditor({
                 />
                 {value.mode === "pseudocolor" && (
                   <SelectField
-                    label="色带"
+                    label={i18n.t("symbolization.palette")}
                     value={value.palette}
                     options={
                       ["poplar", "viridis", "terrain", "thermal"] as const
@@ -2666,14 +2829,14 @@ export function RasterSymbolizationEditor({
           },
           {
             key: "stretch",
-            label: "拉伸",
+            label: i18n.t("symbolization.stretch"),
             children: (
               <Space
                 orientation="vertical"
                 className="full-width symbolization-stack"
               >
                 <BooleanField
-                  label="启用拉伸"
+                  label={i18n.t("symbolization.enableStretch")}
                   value={value.stretch.enabled}
                   onChange={(enabled) =>
                     update({ stretch: { ...value.stretch, enabled } })
@@ -2688,7 +2851,7 @@ export function RasterSymbolizationEditor({
                     <Space.Compact key={band} className="full-width">
                       <Input
                         className="stretch-band-label"
-                        value={`波段 ${band}`}
+                        value={i18n.t("symbolization.bandNumber", { band })}
                         disabled
                       />
                       <InputNumber
@@ -2721,13 +2884,13 @@ export function RasterSymbolizationEditor({
           },
           {
             key: "unique",
-            label: "唯一值",
+            label: i18n.t("symbolization.rendererUnique"),
             children: (
               <Space
                 orientation="vertical"
                 className="full-width symbolization-stack"
               >
-                <ControlRow label="分类波段">
+                <ControlRow label={i18n.t("symbolization.classificationField")}>
                   <Select
                     className="full-width"
                     value={uniqueBand}
@@ -2741,7 +2904,7 @@ export function RasterSymbolizationEditor({
                   <Alert
                     type="warning"
                     showIcon
-                    title="唯一值分类仅支持整型波段，浮点型波段不适用。"
+                    title={i18n.t("symbolization.integerBandHelp")}
                   />
                 )}
                 <Button
@@ -2750,11 +2913,11 @@ export function RasterSymbolizationEditor({
                   disabled={!datasetId || !uniqueBandIsInteger}
                   onClick={classifyUniqueValues}
                 >
-                  分类
+                  {i18n.t("symbolization.classify")}
                 </Button>
                 {value.uniqueValues.length === 0 && (
                   <Typography.Text type="secondary">
-                    选择整型波段后点击分类，即时计算唯一值。
+                    {i18n.t("symbolization.classifyHint")}
                   </Typography.Text>
                 )}
                 {value.uniqueValues.map((item, index) => (
@@ -2781,7 +2944,7 @@ export function RasterSymbolizationEditor({
       />
       <SymbolizationImportDialog
         open={importOpen}
-        kind="栅格"
+        kind={i18n.t("symbolization.rasterKind")}
         onCancel={() => setImportOpen(false)}
         onImport={importJson}
       />
@@ -2835,7 +2998,7 @@ function SymbolizationImportDialog({
   onImport,
 }: {
   open: boolean;
-  kind: "矢量" | "栅格";
+  kind: string;
   onCancel: () => void;
   onImport: (text: string) => void;
 }) {
@@ -2855,14 +3018,16 @@ function SymbolizationImportDialog({
       setValidationError(null);
     } catch (error) {
       setValidationError(
-        error instanceof Error ? error.message : "符号化方案校验失败",
+        error instanceof Error
+          ? error.message
+          : i18n.t("symbolization.validationFailed"),
       );
     }
   }
 
   return (
     <Modal
-      title={`导入${kind}符号化方案`}
+      title={i18n.t("symbolization.importTitle", { kind })}
       open={open}
       rootClassName="symbolization-import-modal"
       width="min(640px, calc(100vw - 32px))"
@@ -2871,9 +3036,9 @@ function SymbolizationImportDialog({
       onCancel={resetAndCancel}
       footer={
         <Space>
-          <Button onClick={resetAndCancel}>取消</Button>
+          <Button onClick={resetAndCancel}>{i18n.t("common.cancel")}</Button>
           <Button type="primary" onClick={submitImport}>
-            校验并导入
+            {i18n.t("symbolization.validateAndImport")}
           </Button>
         </Space>
       }
@@ -2882,15 +3047,15 @@ function SymbolizationImportDialog({
         <Alert
           type="info"
           showIcon
-          title="粘贴由“复制 JSON”生成的完整方案"
-          description="导入会先更新当前编辑器。确认预览无误后，请点击主窗口的“确定”正式应用。"
+          title={i18n.t("symbolization.pasteTitle")}
+          description={i18n.t("symbolization.pasteDescription")}
         />
         <Input.TextArea
           autoFocus
-          aria-label="符号化方案 JSON"
+          aria-label={i18n.t("symbolization.jsonLabel")}
           value={jsonText}
           rows={12}
-          placeholder="在此粘贴符号化方案 JSON（Ctrl+V）"
+          placeholder={i18n.t("symbolization.jsonPlaceholder")}
           status={validationError ? "error" : undefined}
           onChange={(event) => {
             setJsonText(event.target.value);
@@ -2901,7 +3066,7 @@ function SymbolizationImportDialog({
           <Alert
             type="error"
             showIcon
-            title="方案无法导入"
+            title={i18n.t("symbolization.cannotImport")}
             description={validationError}
           />
         )}
@@ -2927,12 +3092,12 @@ function SymbolizationTitle({
       <Space size={4} wrap>
         {onCopy && (
           <Button size="small" autoInsertSpace={false} onClick={onCopy}>
-            复制 JSON
+            {i18n.t("symbolization.copyJson")}
           </Button>
         )}
         {onImport && (
           <Button size="small" autoInsertSpace={false} onClick={onImport}>
-            导入 JSON
+            {i18n.t("symbolization.importJson")}
           </Button>
         )}
         {onApply && (
@@ -2942,7 +3107,7 @@ function SymbolizationTitle({
             autoInsertSpace={false}
             onClick={onApply}
           >
-            确定
+            {i18n.t("common.confirm")}
           </Button>
         )}
       </Space>

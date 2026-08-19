@@ -12,6 +12,7 @@ import {
   Descriptions,
   Empty,
   Input,
+  Progress,
   Select,
   Space,
   Spin,
@@ -19,6 +20,7 @@ import {
   Typography,
 } from "antd";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type {
   AttributeFilter,
   DataResourceProfile,
@@ -33,6 +35,15 @@ import {
   resourceSpatialExtent,
 } from "../utils/resources";
 
+export interface DataResourceLoadProgress {
+  percent: number;
+  message: string;
+}
+
+export type DataResourceLoadReporter = (
+  progress: DataResourceLoadProgress,
+) => void;
+
 interface Props {
   resources: ResourceListItem[];
   profile: DataResourceProfile | null;
@@ -46,21 +57,15 @@ interface Props {
   searchKeyword?: string;
   onFilterResources: (filters: ResourceFilters) => void;
   onSelectResource: (resource: ResourceListItem) => void;
-  onQuickLoadResource: (resource: ResourceListItem) => Promise<void> | void;
+  onQuickLoadResource: (
+    resource: ResourceListItem,
+    reportProgress: DataResourceLoadReporter,
+  ) => Promise<void> | void;
   onQueryAndLoad: (filters: AttributeFilter[]) => void;
-  onLoadRaster: () => void;
+  onLoadRaster: (
+    reportProgress: DataResourceLoadReporter,
+  ) => Promise<void> | void;
 }
-
-const operatorOptions = [
-  { label: "包含", value: "contains" },
-  { label: "等于", value: "eq" },
-  { label: "不等于", value: "ne" },
-  { label: "大于", value: "gt" },
-  { label: "大于等于", value: "gte" },
-  { label: "小于", value: "lt" },
-  { label: "小于等于", value: "lte" },
-  { label: "介于", value: "between" },
-];
 
 const allDataFilterValue = "__all__";
 
@@ -81,6 +86,7 @@ export default function DataPanel({
   onQueryAndLoad,
   onLoadRaster,
 }: Props) {
+  const { t } = useTranslation();
   const [resourceFilters, setResourceFilters] = useState<ResourceFilters>({});
   const [attributeFilters, setAttributeFilters] = useState<AttributeFilter[]>(
     [],
@@ -90,16 +96,29 @@ export default function DataPanel({
     useState<AttributeFilter["operator"]>("contains");
   const [value, setValue] = useState("");
   const [valueTo, setValueTo] = useState("");
-  const [quickLoadingResourceIds, setQuickLoadingResourceIds] = useState(
-    () => new Set<ResourceListItem["id"]>(),
+  const [resourceLoadProgress, setResourceLoadProgress] = useState(
+    () => new Map<ResourceListItem["id"], DataResourceLoadProgress>(),
   );
 
   const categoryFilterOptions = useMemo(
     () => [
-      { value: allDataFilterValue, label: "全部分类" },
+      { value: allDataFilterValue, label: t("map.allCategories") },
       ...categoryOptions,
     ],
-    [categoryOptions],
+    [categoryOptions, t],
+  );
+  const operatorOptions = useMemo(
+    () => [
+      { label: t("map.contains"), value: "contains" },
+      { label: t("map.equals"), value: "eq" },
+      { label: t("map.notEquals"), value: "ne" },
+      { label: t("map.greaterThan"), value: "gt" },
+      { label: t("map.greaterThanOrEqual"), value: "gte" },
+      { label: t("map.lessThan"), value: "lt" },
+      { label: t("map.lessThanOrEqual"), value: "lte" },
+      { label: t("map.between"), value: "between" },
+    ],
+    [t],
   );
 
   const fieldOptions = (profile?.fields ?? []).map((item) => ({
@@ -179,36 +198,68 @@ export default function DataPanel({
     setAttributeFilters((current) => current.filter((item) => item.id !== id));
   }
 
-  async function quickLoadResource(resource: ResourceListItem) {
-    setQuickLoadingResourceIds((current) => new Set(current).add(resource.id));
+  function reportResourceLoad(
+    resourceId: ResourceListItem["id"],
+    progress: DataResourceLoadProgress,
+  ) {
+    setResourceLoadProgress((current) => {
+      const next = new Map(current);
+      next.set(resourceId, {
+        percent: Math.min(100, Math.max(0, progress.percent)),
+        message: progress.message,
+      });
+      return next;
+    });
+  }
+
+  async function runResourceLoad(
+    resource: ResourceListItem,
+    loader: (reportProgress: DataResourceLoadReporter) => Promise<void> | void,
+  ) {
+    reportResourceLoad(resource.id, {
+      percent: 5,
+      message: t("map.loadingResourceInfo"),
+    });
     try {
-      await onQuickLoadResource(resource);
+      await loader((progress) => reportResourceLoad(resource.id, progress));
     } finally {
-      setQuickLoadingResourceIds((current) => {
-        const next = new Set(current);
+      setResourceLoadProgress((current) => {
+        const next = new Map(current);
         next.delete(resource.id);
         return next;
       });
     }
   }
 
+  async function quickLoadResource(resource: ResourceListItem) {
+    await runResourceLoad(resource, (reportProgress) =>
+      onQuickLoadResource(resource, reportProgress),
+    );
+  }
+
+  async function loadSelectedRaster() {
+    const resource = resources.find((item) => item.id === selectedResourceId);
+    if (!resource) return;
+    await runResourceLoad(resource, onLoadRaster);
+  }
+
   return (
     <section className="panel-section data-panel">
       <div className="subsection-title">
         <SearchOutlined style={{ fontSize: 15 }} />
-        <Typography.Text strong>元数据筛选</Typography.Text>
+        <Typography.Text strong>{t("map.metadataFilter")}</Typography.Text>
       </div>
       <Space orientation="vertical" className="full-width compact-stack">
         <Input
           prefix={<SearchOutlined style={{ fontSize: 15 }} />}
-          placeholder="数据名称、来源或单位"
+          placeholder={t("map.resourceSearchPlaceholder")}
           value={resourceFilters.q}
           onChange={(event) => updateResourceFilter("q", event.target.value)}
           allowClear
         />
         <div className="data-filter-row">
           <Select
-            placeholder="数据分类"
+            placeholder={t("map.dataCategory")}
             value={resourceFilters.categoryCode ?? allDataFilterValue}
             allowClear
             options={categoryFilterOptions}
@@ -220,15 +271,15 @@ export default function DataPanel({
             }}
           />
           <Select
-            placeholder="数据类型"
+            placeholder={t("map.dataType")}
             value={resourceFilters.dataType}
             allowClear
             options={[
-              { value: "vector", label: "矢量空间数据" },
-              { value: "raster", label: "栅格空间数据" },
-              { value: "table", label: "表格属性数据" },
-              { value: "document", label: "文档资料" },
-              { value: "image", label: "图片资料" },
+              { value: "vector", label: t("map.vectorData") },
+              { value: "raster", label: t("map.rasterData") },
+              { value: "table", label: t("map.tabularData") },
+              { value: "document", label: t("map.documentData") },
+              { value: "image", label: t("map.imageData") },
             ]}
             onChange={(nextValue) =>
               updateResourceFilter("dataType", nextValue)
@@ -236,7 +287,7 @@ export default function DataPanel({
           />
         </div>
         <Input
-          placeholder="数据来源"
+          placeholder={t("map.dataSource")}
           value={resourceFilters.source}
           onChange={(event) =>
             updateResourceFilter("source", event.target.value)
@@ -260,73 +311,88 @@ export default function DataPanel({
             onFilterResources(cleanResourceFilters(resourceFilters))
           }
         >
-          筛选数据
+          {t("map.filterData")}
         </Button>
       </Space>
 
       <div className="subsection-title">
         <UnorderedListOutlined style={{ fontSize: 15 }} />
-        <Typography.Text strong>数据资源</Typography.Text>
+        <Typography.Text strong>{t("map.dataResources")}</Typography.Text>
       </div>
       {resources.length > 0 ? (
-        <ul className="resource-list" aria-label="数据资源">
-          {resources.map((resource) => (
-            <li
-              key={resource.id}
-              className={
-                resource.id === selectedResourceId
-                  ? "resource-row resource-row-active"
-                  : "resource-row"
-              }
-            >
-              <div className="resource-row-content">
-                <Typography.Text strong className="resource-row-title">
-                  {resource.name}
-                  {!resource.isQueryable && !resource.isRenderable && (
-                    <Tag>仅元数据</Tag>
-                  )}
-                  {resource.isRenderable && <Tag color="blue">栅格</Tag>}
-                </Typography.Text>
-                <Typography.Text type="secondary" className="resource-row-meta">
-                  {resourcePrimaryCategoryName(resource) ?? "待归类"} ·{" "}
-                  {resourceFormatLabel(resource)}
-                </Typography.Text>
-              </div>
-              <Button
-                size="small"
-                type={
-                  resource.id === selectedResourceId ? "primary" : "default"
+        <ul className="resource-list" aria-label={t("map.dataResources")}>
+          {resources.map((resource) => {
+            const loadProgress = resourceLoadProgress.get(resource.id);
+            return (
+              <li
+                key={resource.id}
+                className={
+                  resource.id === selectedResourceId
+                    ? "resource-row resource-row-active"
+                    : "resource-row"
                 }
-                disabled={!resource.isQueryable && !resource.isRenderable}
-                onClick={() => onSelectResource(resource)}
               >
-                选择
-              </Button>
-              <Button
-                size="small"
-                type="primary"
-                ghost
-                className="resource-quick-load-button"
-                disabled={!resource.isQueryable && !resource.isRenderable}
-                loading={quickLoadingResourceIds.has(resource.id)}
-                onClick={() => void quickLoadResource(resource)}
-              >
-                快速加载
-              </Button>
-            </li>
-          ))}
+                <div className="resource-row-content">
+                  <Typography.Text strong className="resource-row-title">
+                    {resource.name}
+                    {!resource.isQueryable && !resource.isRenderable && (
+                      <Tag>{t("common.metadataOnly")}</Tag>
+                    )}
+                    {resource.isRenderable && (
+                      <Tag color="blue">{t("common.raster")}</Tag>
+                    )}
+                  </Typography.Text>
+                  <Typography.Text
+                    type="secondary"
+                    className="resource-row-meta"
+                  >
+                    {resourcePrimaryCategoryName(resource) ??
+                      t("common.uncategorized")}{" "}
+                    · {resourceFormatLabel(resource)}
+                  </Typography.Text>
+                </div>
+                <Button
+                  size="small"
+                  type={
+                    resource.id === selectedResourceId ? "primary" : "default"
+                  }
+                  disabled={!resource.isQueryable && !resource.isRenderable}
+                  onClick={() => onSelectResource(resource)}
+                >
+                  {t("common.select")}
+                </Button>
+                <Button
+                  size="small"
+                  type="primary"
+                  ghost
+                  className="resource-quick-load-button"
+                  disabled={!resource.isQueryable && !resource.isRenderable}
+                  loading={Boolean(loadProgress)}
+                  onClick={() => void quickLoadResource(resource)}
+                >
+                  {t("map.quickLoad")}
+                </Button>
+                {loadProgress && (
+                  <DataResourceLoadFeedback
+                    resource={resource}
+                    progress={loadProgress}
+                  />
+                )}
+              </li>
+            );
+          })}
         </ul>
       ) : loadingResources ? (
         <div className="data-panel-loading" role="status">
           <Spin size="small" />
           <Typography.Text type="secondary">
-            正在同步数据目录...
+            {t("map.syncingCatalog")}
           </Typography.Text>
         </div>
       ) : (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="暂无数据资源"
+          description={t("map.noResources")}
         />
       )}
 
@@ -334,25 +400,33 @@ export default function DataPanel({
         <>
           <div className="subsection-title">
             <EnvironmentOutlined style={{ fontSize: 15 }} />
-            <Typography.Text strong>字段与元信息</Typography.Text>
+            <Typography.Text strong>
+              {t("map.fieldsAndMetadata")}
+            </Typography.Text>
           </div>
           <Descriptions size="small" column={1} bordered>
-            <Descriptions.Item label="数据来源">
+            <Descriptions.Item label={t("map.dataSource")}>
               {profile.resource.source || "-"}
             </Descriptions.Item>
-            <Descriptions.Item label="提供单位">
+            <Descriptions.Item label={t("map.provider")}>
               {resourceProvider(profile.resource) || "-"}
             </Descriptions.Item>
-            <Descriptions.Item label="空间范围">
+            <Descriptions.Item label={t("map.spatialExtent")}>
               {resourceSpatialExtent(profile.resource) || "-"}
             </Descriptions.Item>
-            <Descriptions.Item label={selectedIsRaster ? "波段数" : "要素数"}>
+            <Descriptions.Item
+              label={
+                selectedIsRaster ? t("map.bandCount") : t("map.featureCount")
+              }
+            >
               {selectedIsRaster
                 ? (profile.raster?.bandCount ?? "-")
                 : (profile.featureCount ?? "-")}
             </Descriptions.Item>
             <Descriptions.Item
-              label={selectedIsRaster ? "栅格大小" : "几何类型"}
+              label={
+                selectedIsRaster ? t("map.rasterSize") : t("map.geometryType")
+              }
             >
               {selectedIsRaster
                 ? profile.raster?.metadata.size?.join(" x ") || "-"
@@ -364,10 +438,10 @@ export default function DataPanel({
               className="inline-alert"
               type="info"
               showIcon
-              title="正在读取字段信息"
+              title={t("map.readingFields")}
             />
           ) : (
-            <ul className="field-list" aria-label="字段列表">
+            <ul className="field-list" aria-label={t("map.fieldList")}>
               {profile.fields.map((item) => (
                 <li className="field-row" key={item.name}>
                   <Typography.Text>{item.name}</Typography.Text>
@@ -385,12 +459,12 @@ export default function DataPanel({
         <>
           <div className="subsection-title">
             <PlusOutlined style={{ fontSize: 15 }} />
-            <Typography.Text strong>属性查询</Typography.Text>
+            <Typography.Text strong>{t("map.attributeQuery")}</Typography.Text>
           </div>
           <Space orientation="vertical" className="full-width compact-stack">
             <div className="attribute-filter-row">
               <Select
-                placeholder="选择字段"
+                placeholder={t("map.selectField")}
                 value={field}
                 options={fieldOptions}
                 onChange={setField}
@@ -403,13 +477,13 @@ export default function DataPanel({
               />
             </div>
             <Input
-              placeholder="字段值"
+              placeholder={t("map.fieldValue")}
               value={value}
               onChange={(event) => setValue(event.target.value)}
             />
             {operator === "between" && (
               <Input
-                placeholder="结束值"
+                placeholder={t("map.endValue")}
                 value={valueTo}
                 onChange={(event) => setValueTo(event.target.value)}
               />
@@ -420,7 +494,7 @@ export default function DataPanel({
                 disabled={!field || !value.trim()}
                 onClick={addAttributeFilter}
               >
-                添加属性条件
+                {t("map.addCondition")}
               </Button>
               {canQueryAndLoadVector && (
                 <Button
@@ -429,7 +503,7 @@ export default function DataPanel({
                   disabled={!profile}
                   onClick={() => onQueryAndLoad(attributeFilters)}
                 >
-                  查询并加载
+                  {t("map.queryAndLoad")}
                 </Button>
               )}
             </div>
@@ -441,7 +515,8 @@ export default function DataPanel({
                 closable
                 onClose={() => removeAttributeFilter(item.id)}
               >
-                {item.field} {operatorLabel(item.operator)} {item.value}
+                {item.field} {operatorLabel(item.operator, operatorOptions)}{" "}
+                {item.value}
                 {item.valueTo ? ` - ${item.valueTo}` : ""}
               </Tag>
             ))}
@@ -454,13 +529,46 @@ export default function DataPanel({
           <Button
             type="primary"
             disabled={!profile?.raster}
-            onClick={onLoadRaster}
+            loading={
+              selectedResourceId !== null &&
+              resourceLoadProgress.has(selectedResourceId)
+            }
+            onClick={() => void loadSelectedRaster()}
           >
-            加载栅格
+            {t("map.loadRaster")}
           </Button>
         </div>
       )}
     </section>
+  );
+}
+
+function DataResourceLoadFeedback({
+  resource,
+  progress,
+}: {
+  resource: ResourceListItem;
+  progress: DataResourceLoadProgress;
+}) {
+  const { t } = useTranslation();
+  const percent = Math.round(progress.percent);
+  return (
+    <div
+      className="data-resource-load-feedback"
+      role="status"
+      aria-live="polite"
+      aria-label={t("map.loadProgress", { name: resource.name })}
+    >
+      <div className="data-resource-load-heading">
+        <span>
+          <Spin size="small" />
+          {t("map.loadingToGlobe")}
+        </span>
+        <b>{percent}%</b>
+      </div>
+      <Progress percent={percent} size="small" showInfo={false} />
+      <small>{progress.message}</small>
+    </div>
   );
 }
 
@@ -493,7 +601,10 @@ function cleanResourceFilters(filters: ResourceFilters): ResourceFilters {
   return next;
 }
 
-function operatorLabel(operator: AttributeFilter["operator"]) {
+function operatorLabel(
+  operator: AttributeFilter["operator"],
+  operatorOptions: Array<{ label: string; value: string }>,
+) {
   return (
     operatorOptions.find((item) => item.value === operator)?.label ?? operator
   );

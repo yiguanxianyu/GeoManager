@@ -25,6 +25,7 @@ import type { ColumnsType } from "antd/es/table";
 import type { TablePaginationConfig } from "antd/es/table/interface";
 import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import { useEnglishLanguage, localText } from "../i18n/useEnglishLanguage";
 import type { AdminDataResourceList } from "../types";
 import {
   type AccessScopeId,
@@ -144,6 +145,8 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
   onDelete,
   onExport,
 }: ManagedCollectionPageProps<TItem>) {
+  const english = useEnglishLanguage();
+  const l = (zh: string, en: string) => localText(english, zh, en);
   const [filterForm] = Form.useForm();
   const [editForm] = Form.useForm<ManagedFormValues>();
   const [selectedItem, setSelectedItem] = useState<TItem | null>(null);
@@ -158,14 +161,15 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
     () => [
       ...columns,
       {
-        title: "更新时间",
+        title: l("更新时间", "Updated at"),
         dataIndex: "updatedAt",
         key: "updatedAt",
         width: 190,
-        render: (value: string) => new Date(value).toLocaleString("zh-CN"),
+        render: (value: string) =>
+          new Date(value).toLocaleString(english ? "en-US" : "zh-CN"),
       },
       {
-        title: "操作",
+        title: l("操作", "Actions"),
         key: "actions",
         width: 164,
         render: (_, record) => {
@@ -175,17 +179,32 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
             canDelete && (canDeleteItem?.(record) ?? true);
           return (
             <Space>
-              <Tooltip title="配置">
+              <Tooltip title={l("配置", "Configure")}>
                 <Button
-                  aria-label={`配置${rowName(record)}`}
+                  aria-label={l(
+                    `配置${rowName(record)}`,
+                    `Configure ${rowName(record)}`,
+                  )}
                   icon={<SettingOutlined />}
                   onClick={() => openDrawer(record)}
                   disabled={!recordCanMaintain && !record.canManageAccess}
                 />
               </Tooltip>
-              <Tooltip title={recordCanDelete ? "删除" : "当前用户无删除权限"}>
+              <Tooltip
+                title={
+                  recordCanDelete
+                    ? l("删除", "Delete")
+                    : l(
+                        "当前用户无删除权限",
+                        "You do not have delete permission",
+                      )
+                }
+              >
                 <Button
-                  aria-label={`删除${rowName(record)}`}
+                  aria-label={l(
+                    `删除${rowName(record)}`,
+                    `Delete ${rowName(record)}`,
+                  )}
                   danger
                   icon={<DeleteOutlined />}
                   disabled={!recordCanDelete}
@@ -197,7 +216,15 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
         },
       },
     ],
-    [canDelete, canDeleteItem, canMaintain, canMaintainItem, columns, rowName],
+    [
+      canDelete,
+      canDeleteItem,
+      canMaintain,
+      canMaintainItem,
+      columns,
+      english,
+      rowName,
+    ],
   );
 
   const selectedCanMaintain = Boolean(
@@ -209,7 +236,7 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
     pageSize: Number(filters.pageSize ?? 10),
     total,
     showSizeChanger: true,
-    showTotal: (nextTotal) => `共 ${nextTotal} 条`,
+    showTotal: (nextTotal) => l(`共 ${nextTotal} 条`, `${nextTotal} items`),
     onChange: onPageChange,
   };
 
@@ -282,7 +309,10 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
             <Form.Item name="q" className="inventory-search-item">
               <Input
                 allowClear
-                placeholder="按名称、来源或所属用户快速检索"
+                placeholder={l(
+                  "按名称、来源或所属用户快速检索",
+                  "Search by name, source, or owner",
+                )}
                 onPressEnter={() => filterForm.submit()}
               />
             </Form.Item>
@@ -292,10 +322,10 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
                 icon={<FilterOutlined />}
                 onClick={() => filterForm.submit()}
               >
-                筛选
+                {l("筛选", "Filter")}
               </Button>
               <Button icon={<ReloadOutlined />} onClick={resetFilters}>
-                重置
+                {l("重置", "Reset")}
               </Button>
               {exportFormats.map((format) => (
                 <Button
@@ -374,7 +404,7 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
             disabled={!selectedCanMaintain && !selectedItem?.canManageAccess}
             onClick={saveSelected}
           >
-            保存
+            {l("保存", "Save")}
           </Button>
         }
       >
@@ -392,14 +422,22 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
               layout="vertical"
               className="inventory-drawer-form"
             >
-              <Typography.Title level={5}>访问权限</Typography.Title>
-              <Form.Item name="accessGroupIds" label="允许访问的角色">
+              <Typography.Title level={5}>
+                {l("访问权限", "Access permissions")}
+              </Typography.Title>
+              <Form.Item
+                name="accessGroupIds"
+                label={l("允许访问的角色", "Roles allowed to access")}
+              >
                 <Select
                   mode="multiple"
                   disabled={
                     !selectedCanMaintain && !selectedItem.canManageAccess
                   }
-                  placeholder="选择需要共享的角色"
+                  placeholder={l(
+                    "选择需要共享的角色",
+                    "Select roles to share with",
+                  )}
                   onChange={(nextValue) =>
                     editForm.setFieldValue(
                       "accessGroupIds",
@@ -424,7 +462,10 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
                 <Alert
                   type="warning"
                   showIcon
-                  title="游客可见后，无需登录账号即可浏览和查询该对象。"
+                  title={l(
+                    "游客可见后，无需登录账号即可浏览和查询该对象。",
+                    "When visible to guests, this object can be browsed and queried without an authenticated account.",
+                  )}
                 />
               )}
               {renderFormItems(selectedItem, selectedCanMaintain)}
@@ -437,7 +478,7 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
         title={deleteTitle}
         open={Boolean(deleteTarget)}
         confirmLoading={deleting}
-        okText="确认删除"
+        okText={l("确认删除", "Confirm delete")}
         okButtonProps={{
           danger: true,
           disabled: deleteText !== (deleteTarget ? rowName(deleteTarget) : ""),
@@ -455,7 +496,7 @@ export default function ManagedCollectionPage<TItem extends ManagedItemBase>({
         <Input
           value={deleteText}
           onChange={(event) => setDeleteText(event.target.value)}
-          placeholder="输入完整名称"
+          placeholder={l("输入完整名称", "Enter the full name")}
           style={{ marginTop: 12 }}
         />
       </Modal>

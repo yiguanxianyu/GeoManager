@@ -21,6 +21,7 @@ import {
   Tooltip,
 } from "antd";
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type {
   WorkspaceAccessGroup,
@@ -56,13 +57,23 @@ export default function WorkspaceScenePanel({
   onCreateComposition,
 }: WorkspaceScenePanelProps) {
   const { message } = App.useApp();
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const [form] = Form.useForm<WorkspaceEditValues>();
   const [loading, setLoading] = useState(false);
   const [loadingSceneId, setLoadingSceneId] = useState<number | null>(null);
   const [searchText, setSearchText] = useState("");
   const [editingScene, setEditingScene] = useState<WorkspaceScene | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
-  const label = kind === "project" ? "工程" : "专题";
+  const label =
+    kind === "project"
+      ? english
+        ? "project"
+        : "工程"
+      : english
+        ? "thematic map"
+        : "专题";
   const filteredItems = useMemo(() => {
     const query = searchText.trim().toLocaleLowerCase("zh-CN");
     if (!query) return items;
@@ -83,7 +94,11 @@ export default function WorkspaceScenePanel({
       await onRefresh();
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : `${label}加载失败`,
+        error instanceof Error
+          ? error.message
+          : english
+            ? `Failed to load ${label}`
+            : `${label}加载失败`,
       );
     } finally {
       setLoading(false);
@@ -96,7 +111,11 @@ export default function WorkspaceScenePanel({
       await onLoad(scene);
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : `${label}加载失败`,
+        error instanceof Error
+          ? error.message
+          : english
+            ? `Failed to load ${label}`
+            : `${label}加载失败`,
       );
     } finally {
       setLoadingSceneId(null);
@@ -107,10 +126,14 @@ export default function WorkspaceScenePanel({
     try {
       await api.deleteWorkspace(scene.id);
       onDelete(scene.id);
-      message.success(`${label}已删除`);
+      message.success(english ? `${label} deleted` : `${label}已删除`);
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : `${label}删除失败`,
+        error instanceof Error
+          ? error.message
+          : english
+            ? `Failed to delete ${label}`
+            : `${label}删除失败`,
       );
     }
   }
@@ -145,10 +168,18 @@ export default function WorkspaceScenePanel({
       });
       if ("id" in updated) onUpdate(updated);
       setEditingScene(null);
-      message.success(`${label}信息和可见范围已更新`);
+      message.success(
+        english
+          ? `${label} information and visibility updated`
+          : `${label}信息和可见范围已更新`,
+      );
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : `${label}更新失败`,
+        error instanceof Error
+          ? error.message
+          : english
+            ? `Failed to update ${label}`
+            : `${label}更新失败`,
       );
     } finally {
       setSavingEdit(false);
@@ -162,7 +193,11 @@ export default function WorkspaceScenePanel({
           allowClear
           size="small"
           prefix={<SearchOutlined />}
-          placeholder={`搜索${label}、所属用户或共享角色`}
+          placeholder={
+            english
+              ? `Search ${label}, owner, or shared role`
+              : `搜索${label}、所属用户或共享角色`
+          }
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
         />
@@ -172,19 +207,31 @@ export default function WorkspaceScenePanel({
           onClick={() => void loadItems()}
           loading={loading}
         >
-          刷新
+          {english ? "Refresh" : "刷新"}
         </Button>
       </div>
       <div className="workspace-scene-summary">
-        共 {items.length} 个可加载{label}
-        {searchText.trim() ? `，匹配 ${filteredItems.length} 个` : ""}
+        {english
+          ? `${items.length} loadable ${label}${items.length === 1 ? "" : "s"}`
+          : `共 ${items.length} 个可加载${label}`}
+        {searchText.trim()
+          ? english
+            ? `; ${filteredItems.length} matches`
+            : `，匹配 ${filteredItems.length} 个`
+          : ""}
       </div>
       {filteredItems.length === 0 ? (
         <Empty
           className="layer-empty"
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={
-            searchText.trim() ? `没有匹配的${label}` : `暂无可见${label}`
+            searchText.trim()
+              ? english
+                ? `No matching ${label}`
+                : `没有匹配的${label}`
+              : english
+                ? `No visible ${label}`
+                : `暂无可见${label}`
           }
         />
       ) : (
@@ -198,15 +245,26 @@ export default function WorkspaceScenePanel({
                     <UserOutlined />
                     {scene.owner.displayName || scene.owner.username}
                     <Tag color={scene.isOwner ? "cyan" : "blue"}>
-                      {scene.isOwner ? "我的" : "共享"}
+                      {scene.isOwner
+                        ? english
+                          ? "Mine"
+                          : "我的"
+                        : english
+                          ? "Shared"
+                          : "共享"}
                     </Tag>
                   </small>
-                  <small>{scene.description || "未填写说明"}</small>
+                  <small>
+                    {scene.description ||
+                      (english ? "No description" : "未填写说明")}
+                  </small>
                   <small className="workspace-scene-access">
                     <TeamOutlined />
                     {scene.accessGroups.length > 0
                       ? scene.accessGroups.map((group) => group.name).join("、")
-                      : "仅所属用户可见"}
+                      : english
+                        ? "Visible to owner only"
+                        : "仅所属用户可见"}
                   </small>
                 </span>
               </div>
@@ -220,7 +278,7 @@ export default function WorkspaceScenePanel({
                   }
                   onClick={() => void loadScene(scene)}
                 >
-                  加载
+                  {english ? "Load" : "加载"}
                 </Button>
                 {kind === "project" && onCreateComposition ? (
                   <Button
@@ -229,13 +287,21 @@ export default function WorkspaceScenePanel({
                     disabled={!scene.isOwner}
                     onClick={() => void onCreateComposition(scene)}
                   >
-                    新建出图
+                    {english ? "New map output" : "新建出图"}
                   </Button>
                 ) : null}
                 {(scene.canEdit || scene.canManageAccess) && (
-                  <Tooltip title={`编辑${label}和可见范围`}>
+                  <Tooltip
+                    title={
+                      english
+                        ? `Edit ${label} and visibility`
+                        : `编辑${label}和可见范围`
+                    }
+                  >
                     <Button
-                      aria-label={`编辑${scene.name}`}
+                      aria-label={
+                        english ? `Edit ${scene.name}` : `编辑${scene.name}`
+                      }
                       size="small"
                       icon={<EditOutlined style={{ fontSize: 14 }} />}
                       onClick={() => openEditScene(scene)}
@@ -244,14 +310,20 @@ export default function WorkspaceScenePanel({
                 )}
                 {scene.canDelete && (
                   <Popconfirm
-                    title={`删除${label}`}
-                    description={`确认删除“${scene.name}”？`}
-                    okText="删除"
-                    cancelText="取消"
+                    title={english ? `Delete ${label}` : `删除${label}`}
+                    description={
+                      english
+                        ? `Delete “${scene.name}”?`
+                        : `确认删除“${scene.name}”？`
+                    }
+                    okText={english ? "Delete" : "删除"}
+                    cancelText={english ? "Cancel" : "取消"}
                     onConfirm={() => void removeScene(scene)}
                   >
                     <Button
-                      aria-label={`删除${scene.name}`}
+                      aria-label={
+                        english ? `Delete ${scene.name}` : `删除${scene.name}`
+                      }
                       className="topic-scenario-delete-button"
                       size="small"
                       danger
@@ -265,10 +337,10 @@ export default function WorkspaceScenePanel({
         </div>
       )}
       <Modal
-        title={`编辑${label}`}
+        title={english ? `Edit ${label}` : `编辑${label}`}
         open={Boolean(editingScene)}
-        okText="保存"
-        cancelText="取消"
+        okText={english ? "Save" : "保存"}
+        cancelText={english ? "Cancel" : "取消"}
         confirmLoading={savingEdit}
         onOk={() => void submitEditScene()}
         onCancel={() => setEditingScene(null)}
@@ -277,19 +349,29 @@ export default function WorkspaceScenePanel({
         <Form form={form} layout="vertical" requiredMark={false}>
           <Form.Item
             name="name"
-            label={`${label}名称`}
+            label={english ? `${label} name` : `${label}名称`}
             rules={[
               {
                 required: true,
                 whitespace: true,
-                message: `请输入${label}名称`,
+                message: english
+                  ? `Enter the ${label} name`
+                  : `请输入${label}名称`,
               },
-              { max: 160, message: `${label}名称不能超过 160 个字符` },
+              {
+                max: 160,
+                message: english
+                  ? `${label} name cannot exceed 160 characters`
+                  : `${label}名称不能超过 160 个字符`,
+              },
             ]}
           >
             <Input disabled={!editingScene?.canEdit} />
           </Form.Item>
-          <Form.Item name="description" label={`${label}说明`}>
+          <Form.Item
+            name="description"
+            label={english ? `${label} description` : `${label}说明`}
+          >
             <Input.TextArea
               rows={4}
               maxLength={1000}
@@ -297,11 +379,18 @@ export default function WorkspaceScenePanel({
               disabled={!editingScene?.canEdit}
             />
           </Form.Item>
-          <Form.Item name="accessGroupIds" label="额外可见角色">
+          <Form.Item
+            name="accessGroupIds"
+            label={english ? "Additional visible roles" : "额外可见角色"}
+          >
             <Select
               mode="multiple"
               allowClear
-              placeholder="不选择时仅所属用户可见"
+              placeholder={
+                english
+                  ? "If none are selected, only the owner can view it"
+                  : "不选择时仅所属用户可见"
+              }
               options={accessGroups.map((group) => ({
                 value: group.id,
                 label: group.name,
@@ -309,7 +398,9 @@ export default function WorkspaceScenePanel({
             />
           </Form.Item>
           <div className="workspace-scene-fixed-access">
-            所属用户本人始终可见；平台会自动保留必要的系统访问范围。
+            {english
+              ? "The owner can always view this item; the platform also retains required system access."
+              : "所属用户本人始终可见；平台会自动保留必要的系统访问范围。"}
           </div>
         </Form>
       </Modal>

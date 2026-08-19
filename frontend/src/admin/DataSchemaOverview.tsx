@@ -17,7 +17,9 @@ import {
 } from "antd";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { localText, useEnglishLanguage } from "../i18n/useEnglishLanguage";
 import type { DataSchemaSummary } from "../types";
+import { taxonomyTree } from "../utils/taxonomy";
 
 type CatalogNode = DataSchemaSummary["catalogTree"][number];
 
@@ -55,6 +57,8 @@ export default function DataSchemaOverview({
   canBrowseData,
 }: DataSchemaOverviewProps) {
   const { message } = AntApp.useApp();
+  const english = useEnglishLanguage();
+  const l = (zh: string, en: string) => localText(english, zh, en);
   const [schema, setSchema] = useState<DataSchemaSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -67,19 +71,21 @@ export default function DataSchemaOverview({
       setSchema(await api.dataSchemaSummary());
     } catch (nextError) {
       const messageText =
-        nextError instanceof Error ? nextError.message : "数据分类架构加载失败";
+        nextError instanceof Error
+          ? nextError.message
+          : l("数据分类架构加载失败", "Failed to load the data taxonomy");
       setError(messageText);
       message.error(messageText);
     } finally {
       setLoading(false);
     }
-  }, [canBrowseData, message]);
+  }, [canBrowseData, english, message]);
 
   useEffect(() => {
     void loadSchema();
   }, [loadSchema]);
 
-  const catalogGroups = schema?.catalogTree ?? [];
+  const catalogGroups = schema ? taxonomyTree(schema) : [];
   const selectableCategories = useMemo(
     () => collectSelectableCategories(catalogGroups),
     [catalogGroups],
@@ -88,7 +94,14 @@ export default function DataSchemaOverview({
   if (!canBrowseData) {
     return (
       <ProCard className="admin-section-card">
-        <Alert type="info" showIcon title="当前账号暂无平台数据体系浏览权限" />
+        <Alert
+          type="info"
+          showIcon
+          title={l(
+            "当前账号暂无平台数据体系浏览权限",
+            "This account cannot browse the platform data taxonomy",
+          )}
+        />
       </ProCard>
     );
   }
@@ -99,7 +112,7 @@ export default function DataSchemaOverview({
       title={
         <Space>
           <DatabaseOutlined />
-          <span>数据体系概览</span>
+          <span>{l("数据体系概览", "Data taxonomy overview")}</span>
         </Space>
       }
       extra={
@@ -108,7 +121,7 @@ export default function DataSchemaOverview({
           loading={loading}
           onClick={() => void loadSchema()}
         >
-          刷新
+          {l("刷新", "Refresh")}
         </Button>
       }
     >
@@ -128,26 +141,42 @@ export default function DataSchemaOverview({
               aria-labelledby="schema-title"
             >
               <div className="data-schema-hero-copy">
-                <Tag color="success">平台数据分类</Tag>
+                <Tag color="success">
+                  {l("平台数据分类", "Platform data taxonomy")}
+                </Tag>
                 <Typography.Title id="schema-title" level={3}>
-                  平台数据分为四个大类和十五个小类
+                  {l(
+                    "平台数据分为四个大类和十五个小类",
+                    "Platform data is organized into four domains and fifteen categories",
+                  )}
                 </Typography.Title>
                 <Typography.Paragraph>
-                  四个大类概括平台数据覆盖的主要领域，十五个小类进一步说明数据的具体内容。每项数据归入一个小类；暂时无法确定分类的数据统一显示在“未分组（其他）”中。
+                  {l(
+                    "四个大类概括平台数据覆盖的主要领域，十五个小类进一步说明数据的具体内容。每项数据归入一个小类；暂时无法确定分类的数据统一显示在“未分组（其他）”中。",
+                    "The four domains summarize the platform's main subject areas, while fifteen categories describe their contents. Each resource belongs to one category; data awaiting classification appears under Unclassified (Other).",
+                  )}
                 </Typography.Paragraph>
               </div>
-              <div className="data-schema-kpis" aria-label="分类体系关键指标">
+              <div
+                className="data-schema-kpis"
+                aria-label={l("分类体系关键指标", "Taxonomy key metrics")}
+              >
                 <SchemaKpi
                   value={catalogGroups.length}
-                  unit="类"
-                  label="数据大类"
+                  unit={l("类", "")}
+                  label={l("数据大类", "Domains")}
                 />
                 <SchemaKpi
                   value={selectableCategories.length}
-                  unit="类"
-                  label="数据小类"
+                  unit={l("类", "")}
+                  label={l("数据小类", "Categories")}
                 />
-                <SchemaKpi value={1} unit="组" label="未分组数据" warning />
+                <SchemaKpi
+                  value={1}
+                  unit={l("组", "")}
+                  label={l("未分组数据", "Unclassified group")}
+                  warning
+                />
               </div>
             </section>
 
@@ -158,29 +187,50 @@ export default function DataSchemaOverview({
               <SectionHeading
                 id="schema-blueprint-title"
                 icon={<ApartmentOutlined />}
-                title="如何查看和使用数据分类"
-                description="按照“大类—小类—数据资源”的顺序，快速了解平台有什么数据"
+                title={l(
+                  "如何查看和使用数据分类",
+                  "How to read and use the data taxonomy",
+                )}
+                description={l(
+                  "按照“大类—小类—数据资源”的顺序，快速了解平台有什么数据",
+                  "Follow domain → category → resource to quickly understand available platform data",
+                )}
               />
               <div className="data-schema-blueprint">
                 <BlueprintStep
                   sequence="01"
-                  title="先看四个大类"
-                  description="了解基础地理、生境、空间分布和专题研究四个主要数据领域"
+                  title={l("先看四个大类", "Start with the four domains")}
+                  description={l(
+                    "了解基础地理、生境、空间分布和专题研究四个主要数据领域",
+                    "Review base geography, habitat, spatial distribution, and thematic research",
+                  )}
                 />
                 <BlueprintStep
                   sequence="02"
-                  title="再看十五个小类"
-                  description="根据行政区划、水、土壤、个体、群落、遥感等主题定位数据"
+                  title={l(
+                    "再看十五个小类",
+                    "Then review the fifteen categories",
+                  )}
+                  description={l(
+                    "根据行政区划、水、土壤、个体、群落、遥感等主题定位数据",
+                    "Locate data by administrative boundaries, water, soil, individuals, communities, remote sensing, and other subjects",
+                  )}
                 />
                 <BlueprintStep
                   sequence="03"
-                  title="展开查看数据"
-                  description="在下方分类分组中查看数据数量、规模、状态和具体资源"
+                  title={l("展开查看数据", "Expand to inspect resources")}
+                  description={l(
+                    "在下方分类分组中查看数据数量、规模、状态和具体资源",
+                    "Inspect data counts, scale, status, and individual resources in each group below",
+                  )}
                 />
                 <BlueprintStep
                   sequence="04"
-                  title="关注未分组数据"
-                  description="尚未明确归属的数据仍可查看，并会在分类确认后归入相应小类"
+                  title={l("关注未分组数据", "Review unclassified data")}
+                  description={l(
+                    "尚未明确归属的数据仍可查看，并会在分类确认后归入相应小类",
+                    "Data without a confirmed category remains visible and will move to the appropriate category after review",
+                  )}
                 />
               </div>
             </section>
@@ -192,8 +242,11 @@ export default function DataSchemaOverview({
               <SectionHeading
                 id="schema-taxonomy-title"
                 icon={<DatabaseOutlined />}
-                title="平台数据分类一览"
-                description="每个大类下列出具体小类及其包含的数据内容"
+                title={l("平台数据分类一览", "Platform taxonomy at a glance")}
+                description={l(
+                  "每个大类下列出具体小类及其包含的数据内容",
+                  "Each domain lists its categories and the data they contain",
+                )}
               />
               <div className="data-schema-category-grid">
                 {catalogGroups.map((group, index) => (
@@ -205,7 +258,12 @@ export default function DataSchemaOverview({
             <UnclassifiedDataNote />
           </div>
         ) : (
-          <Empty description="暂无平台数据体系信息" />
+          <Empty
+            description={l(
+              "暂无平台数据体系信息",
+              "No platform taxonomy information",
+            )}
+          />
         )}
       </Spin>
     </ProCard>
@@ -281,10 +339,11 @@ function BlueprintStep({
 }
 
 function CatalogGroup({ group, index }: { group: CatalogNode; index: number }) {
+  const english = useEnglishLanguage();
   const categories = collectSelectableCategories([group]);
   const meta = catalogGroupMeta[group.code] ?? {
     sequence: String(index + 1).padStart(2, "0"),
-    shortName: "业务分类",
+    shortName: english ? "Business category" : "业务分类",
     tone: "default",
   };
 
@@ -296,9 +355,22 @@ function CatalogGroup({ group, index }: { group: CatalogNode; index: number }) {
         <span className="data-schema-category-sequence">{meta.sequence}</span>
         <div>
           <Typography.Title level={5}>{group.name}</Typography.Title>
-          <Typography.Text>{meta.shortName}</Typography.Text>
+          <Typography.Text>
+            {english
+              ? ({
+                  base_geo: "Spatial foundation",
+                  habitat: "Environmental baseline",
+                  distribution: "Distribution evidence",
+                  thematic: "Thematic research",
+                }[group.code] ?? meta.shortName)
+              : meta.shortName}
+          </Typography.Text>
         </div>
-        <Tag>{categories.length} 个小类</Tag>
+        <Tag>
+          {english
+            ? `${categories.length} categories`
+            : `${categories.length} 个小类`}
+        </Tag>
       </header>
       <Typography.Paragraph className="data-schema-category-description">
         {group.description}
@@ -319,6 +391,8 @@ function CatalogGroup({ group, index }: { group: CatalogNode; index: number }) {
 }
 
 function UnclassifiedDataNote() {
+  const english = useEnglishLanguage();
+  const l = (zh: string, en: string) => localText(english, zh, en);
   return (
     <section className="data-schema-other" aria-labelledby="schema-other-title">
       <div className="data-schema-other-heading">
@@ -328,21 +402,29 @@ function UnclassifiedDataNote() {
         <div>
           <Space size={8} wrap>
             <Typography.Title id="schema-other-title" level={4}>
-              未分组（其他）数据
+              {l("未分组（其他）数据", "Unclassified (Other) data")}
             </Typography.Title>
-            <Tag color="warning">等待补充分类</Tag>
+            <Tag color="warning">
+              {l("等待补充分类", "Awaiting classification")}
+            </Tag>
           </Space>
           <Typography.Text type="secondary">
-            这里集中显示暂时无法确定所属小类的数据。它不是第五个大类，也不会影响用户查看数据内容。
+            {l(
+              "这里集中显示暂时无法确定所属小类的数据。它不是第五个大类，也不会影响用户查看数据内容。",
+              "This section collects data whose category is not yet known. It is not a fifth domain and does not prevent users from viewing the data.",
+            )}
           </Typography.Text>
         </div>
       </div>
-      <div className="data-schema-governance-flow" aria-label="未分组数据说明">
-        <span>分类暂未明确</span>
+      <div
+        className="data-schema-governance-flow"
+        aria-label={l("未分组数据说明", "Unclassified data flow")}
+      >
+        <span>{l("分类暂未明确", "Category not yet confirmed")}</span>
         <i>→</i>
-        <span>仍可正常查看</span>
+        <span>{l("仍可正常查看", "Remains viewable")}</span>
         <i>→</i>
-        <span>确认后归入对应小类</span>
+        <span>{l("确认后归入对应小类", "Assigned after confirmation")}</span>
       </div>
     </section>
   );

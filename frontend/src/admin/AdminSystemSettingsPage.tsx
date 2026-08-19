@@ -3,6 +3,7 @@ import { ProCard, ProDescriptions } from "@ant-design/pro-components";
 import { App, Skeleton } from "antd";
 import type { Key } from "react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
 import { applyPlatformDocumentTitle } from "../config/platformBrand";
@@ -32,40 +33,57 @@ export const ADMIN_SETTING_RANGES = {
   symbolizerTimeoutSeconds: { min: 10, max: 600 },
 } as const;
 
-function integerRangeRule(min: number, max: number, label: string) {
+function integerRangeRule(
+  min: number,
+  max: number,
+  label: string,
+  english = false,
+) {
   return {
     type: "number" as const,
     min,
     max,
-    message: `${label}必须是 ${min} 到 ${max} 之间的整数`,
+    message: english
+      ? `${label} must be an integer from ${min} to ${max}`
+      : `${label}必须是 ${min} 到 ${max} 之间的整数`,
   };
 }
 
-const basemapValueEnum = {
-  satellite: { text: "Mapbox 卫星实景图" },
-  "mapbox-streets": { text: "Mapbox 街道图" },
-  "tianditu-vector": { text: "天地图矢量注记图" },
-  "tianditu-imagery": { text: "天地图卫星影像图" },
-};
-
-const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptionItem>[] =
-  [
+function createSettingDescriptionColumns(
+  english = false,
+): ProDescriptionsItemProps<BasicSettingDescriptionItem>[] {
+  const basemapValueEnum = {
+    satellite: { text: english ? "Mapbox Satellite" : "Mapbox 卫星实景图" },
+    "mapbox-streets": { text: english ? "Mapbox Streets" : "Mapbox 街道图" },
+    "tianditu-vector": {
+      text: english ? "Tianditu Vector with labels" : "天地图矢量注记图",
+    },
+    "tianditu-imagery": {
+      text: english ? "Tianditu Imagery" : "天地图卫星影像图",
+    },
+  };
+  return [
     {
-      title: "系统名称",
+      title: english ? "System name" : "系统名称",
       dataIndex: "systemName",
       span: 3,
       formItemProps: {
-        rules: [{ required: true, message: "请输入系统名称" }],
+        rules: [
+          {
+            required: true,
+            message: english ? "Enter the system name" : "请输入系统名称",
+          },
+        ],
       },
     },
     {
-      title: "开放注册",
+      title: english ? "Open registration" : "开放注册",
       dataIndex: "allowRegistration",
       valueType: "switch",
       span: 3,
     },
     {
-      title: "默认经度",
+      title: english ? "Default longitude" : "默认经度",
       dataIndex: "defaultCenterLon",
       valueType: "digit",
       span: 3,
@@ -75,7 +93,7 @@ const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptio
       },
     },
     {
-      title: "默认纬度",
+      title: english ? "Default latitude" : "默认纬度",
       dataIndex: "defaultCenterLat",
       valueType: "digit",
       span: 3,
@@ -85,7 +103,7 @@ const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptio
       },
     },
     {
-      title: "默认缩放",
+      title: english ? "Default zoom" : "默认缩放",
       dataIndex: "defaultZoom",
       valueType: "digit",
       span: 3,
@@ -95,7 +113,7 @@ const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptio
       },
     },
     {
-      title: "默认底图",
+      title: english ? "Default basemap" : "默认底图",
       dataIndex: "defaultBasemap",
       valueType: "select",
       valueEnum: basemapValueEnum,
@@ -109,16 +127,17 @@ const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptio
       render: (dom) => <span className="admin-token-text">{dom}</span>,
     },
     {
-      title: "天地图浏览器 Key",
+      title: english ? "Tianditu browser key" : "天地图浏览器 Key",
       dataIndex: "tiandituAccessToken",
       span: 6,
       copyable: true,
-      tooltip:
-        "仅填写天地图控制台签发的浏览器端 Key；控制台需同时放行本地 localhost/127.0.0.1 和生产域名，否则会返回 403 域名不匹配",
+      tooltip: english
+        ? "Use a browser key issued by Tianditu. Allow localhost/127.0.0.1 and the production domain in the console, or requests will return a 403 domain mismatch."
+        : "仅填写天地图控制台签发的浏览器端 Key；控制台需同时放行本地 localhost/127.0.0.1 和生产域名，否则会返回 403 域名不匹配",
       render: (dom) => <span className="admin-token-text">{dom}</span>,
     },
     {
-      title: "上传上限 MB",
+      title: english ? "Upload limit (MB)" : "上传上限 MB",
       dataIndex: "uploadMaxMb",
       valueType: "digit",
       span: 2,
@@ -131,15 +150,17 @@ const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptio
           integerRangeRule(
             ADMIN_SETTING_RANGES.uploadMaxMb.min,
             ADMIN_SETTING_RANGES.uploadMaxMb.max,
-            "上传上限",
+            english ? "Upload limit" : "上传上限",
+            english,
           ),
         ],
       },
-      tooltip:
-        "栅格与独立成果文件最高可设置为 1024 MB；矢量和表格受更低的内存安全限制，专题出图 PNG 固定为 128 MB，不随本项变化。应用服务器请求体上限为 1152 MiB。",
+      tooltip: english
+        ? "Raster and standalone result files can be set up to 1024 MB. Vector and table imports have lower memory-safety limits; thematic PNG output remains fixed at 128 MB. The application-server body limit is 1152 MiB."
+        : "栅格与独立成果文件最高可设置为 1024 MB；矢量和表格受更低的内存安全限制，专题出图 PNG 固定为 128 MB，不随本项变化。应用服务器请求体上限为 1152 MiB。",
     },
     {
-      title: "查询结果上限",
+      title: english ? "Query result limit" : "查询结果上限",
       dataIndex: "queryResultLimit",
       valueType: "digit",
       span: 2,
@@ -148,11 +169,18 @@ const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptio
         precision: 0,
       },
       formItemProps: {
-        rules: [integerRangeRule(100, 10_000, "查询结果上限")],
+        rules: [
+          integerRangeRule(
+            100,
+            10_000,
+            english ? "Query result limit" : "查询结果上限",
+            english,
+          ),
+        ],
       },
     },
     {
-      title: "栅格单边像素上限",
+      title: english ? "Raster side-pixel limit" : "栅格单边像素上限",
       dataIndex: "maxRasterSidePixels",
       valueType: "digit",
       span: 2,
@@ -161,11 +189,18 @@ const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptio
         precision: 0,
       },
       formItemProps: {
-        rules: [integerRangeRule(1, 12_000, "栅格单边像素上限")],
+        rules: [
+          integerRangeRule(
+            1,
+            12_000,
+            english ? "Raster side-pixel limit" : "栅格单边像素上限",
+            english,
+          ),
+        ],
       },
     },
     {
-      title: "栅格超时秒数",
+      title: english ? "Raster timeout (seconds)" : "栅格超时秒数",
       dataIndex: "symbolizerTimeoutSeconds",
       valueType: "digit",
       span: 2,
@@ -174,13 +209,24 @@ const settingDescriptionColumns: ProDescriptionsItemProps<BasicSettingDescriptio
         precision: 0,
       },
       formItemProps: {
-        rules: [integerRangeRule(10, 600, "栅格超时秒数")],
+        rules: [
+          integerRangeRule(
+            10,
+            600,
+            english ? "Raster timeout" : "栅格超时秒数",
+            english,
+          ),
+        ],
       },
     },
   ];
+}
 
 export default function AdminSystemSettingsPage() {
   const { message } = App.useApp();
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const { bootstrap, setBootstrap } = useAppContext();
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -194,7 +240,11 @@ export default function AdminSystemSettingsPage() {
         setSettings(data);
       } catch (error) {
         message.error(
-          error instanceof Error ? error.message : "系统设置加载失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to load system settings"
+              : "系统设置加载失败",
         );
       } finally {
         if (mounted) {
@@ -206,7 +256,7 @@ export default function AdminSystemSettingsPage() {
     return () => {
       mounted = false;
     };
-  }, [message]);
+  }, [english, message]);
 
   async function handleSave(values: BasicSettingValues): Promise<boolean> {
     try {
@@ -239,11 +289,19 @@ export default function AdminSystemSettingsPage() {
         limits: updated.limits,
       });
       applyPlatformDocumentTitle(updated.systemName);
-      message.success("系统设置已写入运行配置");
+      message.success(
+        english
+          ? "System settings written to runtime configuration"
+          : "系统设置已写入运行配置",
+      );
       return true;
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "系统设置保存失败",
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to save system settings"
+            : "系统设置保存失败",
       );
       return false;
     }
@@ -271,10 +329,13 @@ export default function AdminSystemSettingsPage() {
 
   return (
     <div className="admin-page-stack">
-      <ProCard title="基础配置" className="admin-section-card">
+      <ProCard
+        title={english ? "Basic configuration" : "基础配置"}
+        className="admin-section-card"
+      >
         <ProDescriptions<BasicSettingDescriptionItem>
           column={6}
-          columns={settingDescriptionColumns}
+          columns={createSettingDescriptionColumns(english)}
           dataSource={settingDescriptionData}
           editable={
             settings?.editable
@@ -283,7 +344,7 @@ export default function AdminSystemSettingsPage() {
                 }
               : undefined
           }
-          emptyText="未配置"
+          emptyText={english ? "Not configured" : "未配置"}
         />
       </ProCard>
     </div>

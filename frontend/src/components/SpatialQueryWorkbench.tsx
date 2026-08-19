@@ -23,6 +23,8 @@ import {
 } from "antd";
 import type React from "react";
 import { useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import type { MapImageExportOptions, TileZoomRange } from "../map/mapExport";
 import type { DrawMode } from "../map/spatialDraw";
 import type {
@@ -119,6 +121,7 @@ export default function SpatialQueryWorkbench({
   onClearSpatialResult,
   onExportMapPng,
 }: Props) {
+  const { t } = useTranslation();
   const [target, setTarget] = useState<SpatialQueryTarget>("selectedResource");
   const currentGeometry = spatialFilter?.geometry ?? exportClipGeometry;
   const targetStates = useMemo(
@@ -133,14 +136,14 @@ export default function SpatialQueryWorkbench({
   const activeTarget = targetStates[target];
 
   return (
-    <section className="spatial-workbench" aria-label="空间查询工作台">
+    <section className="spatial-workbench" aria-label={t("spatial.workbench")}>
       <div className="spatial-workbench-heading">
         <span>
           <AimOutlined style={{ fontSize: 15 }} />
-          <Typography.Text strong>空间查询工作台</Typography.Text>
+          <Typography.Text strong>{t("spatial.workbench")}</Typography.Text>
         </span>
         <Typography.Text type="secondary">
-          底部面板仅处理空间范围筛选，字段查询仍保留在左侧数据面板
+          {t("spatial.workbenchDescription")}
         </Typography.Text>
       </div>
       <div className="spatial-workbench-grid">
@@ -222,17 +225,19 @@ function RangeSection({
 >) {
   const geometry = spatialFilter?.geometry ?? exportClipGeometry;
   const rangeLabel = spatialFilter
-    ? `已设置${spatialModeName(spatialFilter.mode)}`
+    ? i18n.t("spatial.modeSet", {
+        mode: spatialModeName(spatialFilter.mode),
+      })
     : geometry
-      ? "已设置范围"
-      : "未设置范围";
+      ? i18n.t("spatial.rangeSet")
+      : i18n.t("spatial.rangeUnset");
   const metrics = geometryMetrics(geometry);
 
   return (
     <section className="spatial-workbench-section">
       <SectionHeading
         icon={<AimOutlined style={{ fontSize: 15 }} />}
-        title="空间范围"
+        title={i18n.t("spatial.spatialRange")}
         tag={<Tag color={geometry ? "green" : "default"}>{rangeLabel}</Tag>}
       />
       <DrawingPanel
@@ -251,8 +256,14 @@ function RangeSection({
         onExportMapPng={onExportMapPng}
       />
       <div className="spatial-workbench-meta">
-        <Metric label="范围坐标" value={metrics.boundsLabel} />
-        <Metric label="估算面积" value={metrics.areaLabel} />
+        <Metric
+          label={i18n.t("spatial.rangeCoordinates")}
+          value={metrics.boundsLabel}
+        />
+        <Metric
+          label={i18n.t("spatial.estimatedArea")}
+          value={metrics.areaLabel}
+        />
       </div>
     </section>
   );
@@ -316,7 +327,7 @@ function TargetSection({
     <section className="spatial-workbench-section">
       <SectionHeading
         icon={<DatabaseOutlined style={{ fontSize: 15 }} />}
-        title="查询对象"
+        title={i18n.t("spatial.queryTarget")}
         tag={<Tag color={active.ready ? "green" : "default"}>{active.tag}</Tag>}
       />
       <Segmented
@@ -325,17 +336,19 @@ function TargetSection({
         value={target}
         options={[
           {
-            label: "资源",
+            label: i18n.t("spatial.resource"),
             value: "selectedResource",
             disabled: resourceOptions.length === 0 && !selectedResource,
           },
           {
-            label: "图层",
+            label: i18n.t("spatial.layer"),
             value: "selectedLayer",
             disabled: layerOptions.length === 0 && !selectedLayer,
           },
         ]}
-        onChange={(nextValue) => onTargetChange(nextValue as SpatialQueryTarget)}
+        onChange={(nextValue) =>
+          onTargetChange(nextValue as SpatialQueryTarget)
+        }
       />
       {target === "selectedResource" ? (
         <div className="spatial-target-picker-row">
@@ -346,10 +359,10 @@ function TargetSection({
             size="small"
             loading={loadingResourceProfile}
             value={selectedResource?.id}
-            placeholder="选择可查询矢量资源"
+            placeholder={i18n.t("spatial.selectVectorResource")}
             optionFilterProp="label"
             options={resourceOptions}
-            notFoundContent="暂无可查询资源"
+            notFoundContent={i18n.t("spatial.noQueryableResource")}
             onChange={(value) => void onSelectTargetResource(value ?? null)}
           />
           <Button
@@ -358,7 +371,7 @@ function TargetSection({
             disabled={!selectedResource}
             onClick={() => void onSelectTargetResource(null)}
           >
-            清除
+            {i18n.t("common.clear")}
           </Button>
         </div>
       ) : (
@@ -369,10 +382,10 @@ function TargetSection({
             className="spatial-target-select"
             size="small"
             value={selectedLayer?.id}
-            placeholder="选择已加载矢量图层"
+            placeholder={i18n.t("spatial.selectVectorLayer")}
             optionFilterProp="label"
             options={layerOptions}
-            notFoundContent="暂无可用图层"
+            notFoundContent={i18n.t("spatial.noAvailableLayer")}
             onChange={(value) => onSelectTargetLayer(value ?? null)}
           />
           <Button
@@ -381,7 +394,7 @@ function TargetSection({
             disabled={!selectedLayer}
             onClick={() => onSelectTargetLayer(null)}
           >
-            清除
+            {i18n.t("common.clear")}
           </Button>
         </div>
       )}
@@ -389,11 +402,16 @@ function TargetSection({
         <Typography.Text className="spatial-target-name" strong>
           {active.name}
         </Typography.Text>
-        <Typography.Text className="spatial-target-description" type="secondary">
+        <Typography.Text
+          className="spatial-target-description"
+          type="secondary"
+        >
           {active.description}
         </Typography.Text>
         <Space className="spatial-target-tags" size={6} wrap>
-          <Tag color={active.ready ? "green" : "default"}>{active.typeLabel}</Tag>
+          <Tag color={active.ready ? "green" : "default"}>
+            {active.typeLabel}
+          </Tag>
           {active.extent ? <Tag>{active.extent}</Tag> : null}
         </Space>
       </div>
@@ -443,7 +461,7 @@ function ResultSection({
             <FileSearchOutlined style={{ fontSize: 15 }} />
           )
         }
-        title="查询结果与操作"
+        title={i18n.t("spatial.resultsAndActions")}
         tag={<Tag color={status.color}>{status.label}</Tag>}
       />
       {result ? (
@@ -452,25 +470,48 @@ function ResultSection({
             <Typography.Text strong>{result.targetName}</Typography.Text>
             <Typography.Text type="secondary">
               {result.loadedLayerName
-                ? `已加载为图层：${result.loadedLayerName}`
-                : "临时结果，加载后进入图层树管理"}
+                ? i18n.t("spatial.loadedAsLayer", {
+                    name: result.loadedLayerName,
+                  })
+                : i18n.t("spatial.temporaryResult")}
             </Typography.Text>
           </div>
           <div className="spatial-result-metrics">
-            <Metric label="命中" value={`${result.totalCount} 条`} />
-            <Metric label="返回" value={`${result.returnedCount} 条`} />
             <Metric
-              label="截断"
-              value={result.limitExceeded ? `超过 ${result.limit}` : "否"}
-            />
-            <Metric label="耗时" value={`${result.elapsedMs} ms`} />
-            <Metric
-              label="边界"
-              value={formatBounds(result.bounds) || "无有效范围"}
+              label={i18n.t("spatial.hits")}
+              value={i18n.t("common.records", { count: result.totalCount })}
             />
             <Metric
-              label="警告"
-              value={result.warningCount ? `${result.warningCount} 项` : "无"}
+              label={i18n.t("spatial.returned")}
+              value={i18n.t("common.records", { count: result.returnedCount })}
+            />
+            <Metric
+              label={i18n.t("spatial.truncated")}
+              value={
+                result.limitExceeded
+                  ? i18n.t("spatial.overLimit", { limit: result.limit })
+                  : i18n.t("common.no")
+              }
+            />
+            <Metric
+              label={i18n.t("spatial.elapsed")}
+              value={`${result.elapsedMs} ms`}
+            />
+            <Metric
+              label={i18n.t("spatial.boundary")}
+              value={
+                formatBounds(result.bounds) || i18n.t("spatial.noValidExtent")
+              }
+            />
+            <Metric
+              label={i18n.t("spatial.warning")}
+              value={
+                result.warningCount
+                  ? i18n.t("spatial.warningCount", {
+                      count: result.warningCount,
+                    })
+                  : i18n.t("spatial.none")
+              }
             />
           </div>
         </div>
@@ -489,36 +530,40 @@ function ResultSection({
           disabled={!canRun}
           onClick={() => void onRunSpatialQuery(target)}
         >
-          执行查询
+          {i18n.t("spatial.runQuery")}
         </Button>
         <Button
           icon={<FolderOpenOutlined style={{ fontSize: 14 }} />}
           disabled={!hasResultRows || resultLoaded}
           onClick={onLoadSpatialResult}
         >
-          加载为图层
+          {i18n.t("spatial.loadAsLayer")}
         </Button>
         <Button
           icon={<PushpinOutlined style={{ fontSize: 14 }} />}
           disabled={!hasResultRows}
           onClick={onLocateSpatialResult}
         >
-          定位
+          {i18n.t("spatial.locate")}
         </Button>
         <Button
           icon={<TableOutlined style={{ fontSize: 14 }} />}
           disabled={!hasResultRows}
           onClick={onOpenSpatialResultTable}
         >
-          属性表
+          {i18n.t("spatial.attributeTable")}
         </Button>
-        <Tooltip title={canExportData ? undefined : "当前用户无数据导出权限"}>
+        <Tooltip
+          title={
+            canExportData ? undefined : i18n.t("spatial.noExportPermission")
+          }
+        >
           <Button
             icon={<DownloadOutlined style={{ fontSize: 14 }} />}
             disabled={!hasResultRows || !canExportData}
             onClick={onExportSpatialResult}
           >
-            导出
+            {i18n.t("spatial.export")}
           </Button>
         </Tooltip>
         <Button
@@ -526,7 +571,7 @@ function ResultSection({
           disabled={!result}
           onClick={onClearSpatialResult}
         >
-          清空
+          {i18n.t("common.clear")}
         </Button>
       </div>
     </section>
@@ -571,14 +616,19 @@ function DrawingPanel({
     try {
       const geometry = geometryFromGeojson(JSON.parse(await file.text()));
       if (!geometry) {
-        message.warning("GeoJSON 中未找到可用坐标范围");
+        message.warning(i18n.t("spatial.geoJsonNoBounds"));
         return;
       }
-      void onImportSpatialFilter({ mode: inferSpatialMode(geometry), geometry });
-      message.success("空间范围边界已导入");
+      void onImportSpatialFilter({
+        mode: inferSpatialMode(geometry),
+        geometry,
+      });
+      message.success(i18n.t("spatial.boundsImported"));
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "GeoJSON 文件读取失败",
+        error instanceof Error
+          ? error.message
+          : i18n.t("spatial.geoJsonReadFailed"),
       );
     } finally {
       if (fileInputRef.current) {
@@ -589,7 +639,7 @@ function DrawingPanel({
 
   function handleExportGeojson() {
     if (!currentGeometry) {
-      message.warning("请先绘制或导入空间范围");
+      message.warning(i18n.t("spatial.drawOrImportFirst"));
       return;
     }
     const geojson = {
@@ -629,14 +679,16 @@ function DrawingPanel({
         className="spatial-range-mode-selector"
         value={activeDraw?.purpose === "query" ? activeDraw.mode : "none"}
         options={[
-          { label: "无", value: "none" },
-          { label: "矩形", value: "rectangle" },
-          { label: "圆形", value: "circle" },
-          { label: "椭圆", value: "ellipse" },
-          { label: "多边形", value: "polygon" },
+          { label: i18n.t("spatial.drawNone"), value: "none" },
+          { label: i18n.t("spatial.rectangle"), value: "rectangle" },
+          { label: i18n.t("spatial.circle"), value: "circle" },
+          { label: i18n.t("spatial.ellipse"), value: "ellipse" },
+          { label: i18n.t("spatial.polygon"), value: "polygon" },
         ]}
         onChange={(nextValue) =>
-          onStartQueryDraw(nextValue === "none" ? null : (nextValue as DrawMode))
+          onStartQueryDraw(
+            nextValue === "none" ? null : (nextValue as DrawMode),
+          )
         }
       />
       <input
@@ -655,21 +707,21 @@ function DrawingPanel({
           disabled={!canUseCurrentViewRange}
           onClick={onUseCurrentViewRange}
         >
-          当前视图
+          {i18n.t("spatial.currentView")}
         </Button>
         <Button
           size="small"
           disabled={!canUseSelectedLayerRange}
           onClick={onUseSelectedLayerRange}
         >
-          图层范围
+          {i18n.t("spatial.layerExtent")}
         </Button>
         <Button
           size="small"
           icon={<UploadOutlined style={{ fontSize: 13 }} />}
           onClick={() => fileInputRef.current?.click()}
         >
-          导入
+          {i18n.t("spatial.import")}
         </Button>
         <Button
           size="small"
@@ -677,7 +729,7 @@ function DrawingPanel({
           disabled={!currentGeometry}
           onClick={handleExportGeojson}
         >
-          导出范围
+          {i18n.t("spatial.exportRange")}
         </Button>
         <Button
           size="small"
@@ -685,7 +737,7 @@ function DrawingPanel({
           disabled={!currentGeometry || !canExportData}
           onClick={handleExportMapImage}
         >
-          地图图片
+          {i18n.t("spatial.mapImage")}
         </Button>
         <Button
           size="small"
@@ -693,7 +745,7 @@ function DrawingPanel({
           disabled={!currentGeometry}
           onClick={onClearSpatialFilter}
         >
-          清除
+          {i18n.t("common.clear")}
         </Button>
       </div>
     </div>
@@ -755,26 +807,32 @@ function spatialTargetStates(
   return {
     selectedResource: {
       ready: resourceReady,
-      tag: resourceReady ? "可查询" : "未就绪",
-      name: selectedResource?.name ?? "未选择资源",
+      tag: resourceReady ? i18n.t("spatial.ready") : i18n.t("spatial.notReady"),
+      name: selectedResource?.name ?? i18n.t("spatial.noResourceSelected"),
       description: selectedResource
         ? resourceReady
-          ? "左侧当前资源，可按底部空间范围筛选"
-          : "上方已选择的资源不可查询，或字段信息尚未加载完成"
-        : "请通过上方下拉框选择可查询矢量资源",
-      typeLabel: selectedResource?.dataType === "vector" ? "矢量资源" : "资源",
+          ? i18n.t("spatial.selectedResourceReady")
+          : i18n.t("spatial.selectedResourceNotReady")
+        : i18n.t("spatial.selectResourceHint"),
+      typeLabel:
+        selectedResource?.dataType === "vector"
+          ? i18n.t("spatial.vectorResource")
+          : i18n.t("spatial.resource"),
       extent: selectedResource ? resourceSpatialExtent(selectedResource) : "",
     },
     selectedLayer: {
       ready: layerReady,
-      tag: layerReady ? "可查询" : "未就绪",
-      name: selectedLayer?.name ?? "未选择图层",
+      tag: layerReady ? i18n.t("spatial.ready") : i18n.t("spatial.notReady"),
+      name: selectedLayer?.name ?? i18n.t("spatial.noLayerSelected"),
       description: selectedLayer
         ? layerReady
-          ? "图层树当前图层，将按来源资源重新执行空间查询"
-          : "上方已选择的图层不是可反查来源资源的矢量图层"
-        : "请通过上方下拉框选择已加载矢量图层",
-      typeLabel: selectedLayer?.layerType === "vector" ? "矢量图层" : "图层",
+          ? i18n.t("spatial.selectedLayerReady")
+          : i18n.t("spatial.selectedLayerNotReady")
+        : i18n.t("spatial.selectLayerHint"),
+      typeLabel:
+        selectedLayer?.layerType === "vector"
+          ? i18n.t("spatial.vectorLayer")
+          : i18n.t("spatial.layer"),
       extent: selectedLayer
         ? String(
             selectedLayer.metadata.空间范围 ??
@@ -794,52 +852,54 @@ function spatialResultStatus(
 ) {
   if (querying) {
     return {
-      label: "查询中",
+      label: i18n.t("spatial.querying"),
       color: "processing",
-      description: "正在查询空间范围内的要素",
+      description: i18n.t("spatial.queryingDescription"),
     };
   }
   if (result?.returnedCount === 0) {
     return {
-      label: "无命中结果",
+      label: i18n.t("spatial.noHits"),
       color: "default",
-      description: "当前空间范围内没有命中要素",
+      description: i18n.t("spatial.noHitsDescription"),
     };
   }
   if (result?.loadedLayerName) {
     return {
-      label: "已加载图层",
+      label: i18n.t("spatial.resultLoaded"),
       color: "green",
-      description: "查询结果已进入图层树",
+      description: i18n.t("spatial.resultLoadedDescription"),
     };
   }
   if (result) {
     return {
-      label: result.limitExceeded ? "结果超过上限" : "查询成功",
+      label: result.limitExceeded
+        ? i18n.t("spatial.resultOverLimit")
+        : i18n.t("spatial.querySucceeded"),
       color: result.limitExceeded ? "warning" : "green",
-      description: "查询完成，可加载为结果图层",
+      description: i18n.t("spatial.querySucceededDescription"),
     };
   }
   if (hasRange && targetReady) {
     return {
-      label: "待执行",
+      label: i18n.t("spatial.pending"),
       color: "blue",
-      description: "范围和对象已就绪",
+      description: i18n.t("spatial.pendingDescription"),
     };
   }
   return {
-    label: "未查询",
+    label: i18n.t("spatial.notQueried"),
     color: "default",
-    description: "设置空间范围并选择查询对象",
+    description: i18n.t("spatial.notQueriedDescription"),
   };
 }
 
 function spatialModeName(mode: SpatialFilter["mode"]) {
   const names: Record<SpatialFilter["mode"], string> = {
-    rectangle: "矩形范围",
-    circle: "圆形范围",
-    ellipse: "椭圆范围",
-    polygon: "多边形范围",
+    rectangle: i18n.t("spatial.rectangleRange"),
+    circle: i18n.t("spatial.circleRange"),
+    ellipse: i18n.t("spatial.ellipseRange"),
+    polygon: i18n.t("spatial.polygonRange"),
   };
   return names[mode];
 }
@@ -873,8 +933,8 @@ function firstSupportedGeometry(value: unknown): GeoJsonGeometry | null {
 function boundaryGeometryFromGeojson(value: unknown): GeoJsonGeometry | null {
   const points: Array<[number, number]> = [];
   collectGeojsonCoordinates(value, points);
-  const finitePoints = points.filter(([lng, lat]) =>
-    Number.isFinite(lng) && Number.isFinite(lat),
+  const finitePoints = points.filter(
+    ([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat),
   );
   if (finitePoints.length === 0) return null;
   const lngs = finitePoints.map((point) => point[0]);
@@ -960,17 +1020,25 @@ function isRectanglePolygon(coordinates: unknown) {
 
 function geometryMetrics(geometry: GeoJsonGeometry | null | undefined) {
   if (!geometry) {
-    return { boundsLabel: "未设置", areaLabel: "未设置" };
+    return {
+      boundsLabel: i18n.t("spatial.notSet"),
+      areaLabel: i18n.t("spatial.notSet"),
+    };
   }
   return {
-    boundsLabel: formatBounds(boundsForGeometry(geometry)) || "无有效坐标",
+    boundsLabel:
+      formatBounds(boundsForGeometry(geometry)) ||
+      i18n.t("spatial.noValidCoordinates"),
     areaLabel: formatArea(estimateAreaSqKm(geometry)),
   };
 }
 
 function boundsForGeometry(geometry: GeoJsonGeometry): number[] {
   const points: Array<[number, number]> = [];
-  extractCoordinates((geometry as { coordinates?: unknown }).coordinates, points);
+  extractCoordinates(
+    (geometry as { coordinates?: unknown }).coordinates,
+    points,
+  );
   if (points.length === 0) return [];
   const lngs = points.map((point) => point[0]);
   const lats = points.map((point) => point[1]);
@@ -1033,8 +1101,10 @@ function isCoordinatePair(value: unknown): value is [number, number] {
 }
 
 function formatArea(value: number | null) {
-  if (value === null) return "暂不计算";
-  if (!Number.isFinite(value) || value <= 0) return "小于 0.01 km²";
+  if (value === null) return i18n.t("spatial.notCalculated");
+  if (!Number.isFinite(value) || value <= 0) {
+    return i18n.t("spatial.lessThanArea");
+  }
   if (value < 1) return `${value.toFixed(2)} km²`;
   return `${Math.round(value).toLocaleString("zh-CN")} km²`;
 }

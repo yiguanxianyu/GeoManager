@@ -77,16 +77,33 @@ function resourceFingerprintForUrl(rawUrl: string) {
   return "[external-resource]";
 }
 
-export function summarizeMapErrorForUser(message: string, maxLength = 160) {
+export function summarizeMapErrorForUser(
+  message: string,
+  maxLength = 160,
+  english = false,
+) {
   const summary = message
     .trim()
     .replace(/^error:\s*/i, "")
-    .replace(externalUrlPattern, "外部地图资源")
-    .replace(/failed to fetch/gi, "地图资源请求失败")
-    .replace(/network error/gi, "网络请求失败")
+    .replace(
+      externalUrlPattern,
+      english ? "external map resource" : "外部地图资源",
+    )
+    .replace(
+      /failed to fetch/gi,
+      english ? "map resource request failed" : "地图资源请求失败",
+    )
+    .replace(
+      /network error/gi,
+      english ? "network request failed" : "网络请求失败",
+    )
     .replace(/\s+/g, " ")
     .trim();
-  const fallback = summary || "地图资源暂时无法访问，请稍后重试";
+  const fallback =
+    summary ||
+    (english
+      ? "The map resource is temporarily unavailable. Try again later."
+      : "地图资源暂时无法访问，请稍后重试");
   return fallback.length <= maxLength
     ? fallback
     : `${fallback.slice(0, Math.max(1, maxLength - 1))}…`;

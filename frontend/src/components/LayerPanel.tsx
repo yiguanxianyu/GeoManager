@@ -44,7 +44,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
+import i18n from "../i18n";
 import {
   type DropPlacement,
   type ExportFormat,
@@ -89,6 +91,7 @@ const VectorSymbolizationEditor = lazy(() =>
 export default function LayerPanel() {
   const ctx = useLayerContext();
   const { message } = App.useApp();
+  const { t } = useTranslation();
   const [saveForm] = Form.useForm<SaveWorkspaceFormValues>();
   const groups = ctx.groups;
   const [collapsedGroupIds, setCollapsedGroupIds] = useState<Set<string>>(
@@ -134,8 +137,8 @@ export default function LayerPanel() {
     [saveTargetScenes, selectedSaveTargetId],
   );
   const layerTreeLabel = groups.some((group) => group.isManual)
-    ? "已加载图层与图层组"
-    : "已加载图层";
+    ? t("layerPanel.loadedLayersAndGroups")
+    : t("layerPanel.loadedLayers");
 
   const setDragTargetIfChanged = useCallback(
     (next: { groupId: string; placement: DropPlacement } | null) => {
@@ -274,11 +277,11 @@ export default function LayerPanel() {
 
   function openSaveWorkspace() {
     if (!ctx.canCreateWorkspaces) {
-      message.warning("当前用户无新增工程权限");
+      message.warning(t("layerPanel.noCreatePermission"));
       return;
     }
     if (groups.length === 0) {
-      message.warning("当前没有可保存的图层");
+      message.warning(t("layerPanel.noLayersToSave"));
       return;
     }
     setSaveMode("create");
@@ -298,7 +301,7 @@ export default function LayerPanel() {
         ? saveTargetScenes.find((scene) => scene.id === values.targetId)
         : null;
     if (saveMode === "update" && !targetScene) {
-      message.warning("请选择要覆盖的工程");
+      message.warning(t("layerPanel.selectOverwriteTarget"));
       return;
     }
     setSavingWorkspace(true);
@@ -505,9 +508,11 @@ export default function LayerPanel() {
   }
 
   function createManualLayerGroup() {
-    const group = createEmptyLayerGroup(`图层组 ${groups.length + 1}`);
+    const group = createEmptyLayerGroup(
+      t("layerPanel.groupDefaultName", { number: groups.length + 1 }),
+    );
     ctx.addGroup(group);
-    message.success("已新建图层组");
+    message.success(t("layerPanel.groupCreated"));
   }
 
   return (
@@ -519,14 +524,14 @@ export default function LayerPanel() {
           disabled={groups.length === 0 || !ctx.canCreateWorkspaces}
           onClick={openSaveWorkspace}
         >
-          保存为工程
+          {t("layerPanel.saveAsProject")}
         </Button>
         <Button
           size="small"
           icon={<PlusOutlined style={{ fontSize: 14 }} />}
           onClick={createManualLayerGroup}
         >
-          新建图层组
+          {t("layerPanel.createGroup")}
         </Button>
       </div>
       {groups.length > 0 ? (
@@ -684,7 +689,9 @@ export default function LayerPanel() {
                       />
                     ))}
                     {group.children.length === 0 ? (
-                      <div className="layer-children-empty">拖动图层到此组</div>
+                      <div className="layer-children-empty">
+                        {t("layerPanel.dropLayerHere")}
+                      </div>
                     ) : null}
                   </fieldset>
                 )}
@@ -696,27 +703,27 @@ export default function LayerPanel() {
         <Empty
           className="layer-empty"
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="暂无已加载图层"
+          description={t("layerPanel.noLoadedLayers")}
         />
       )}
       <Modal
-        title="保存为工程"
+        title={t("layerPanel.saveAsProject")}
         open={saveOpen}
-        okText="保存"
+        okText={t("layerPanel.save")}
         confirmLoading={savingWorkspace}
         onOk={submitSaveWorkspace}
         onCancel={() => setSaveOpen(false)}
         destroyOnHidden
       >
         <Form form={saveForm} layout="vertical">
-          <Form.Item label="保存方式">
+          <Form.Item label={t("layerPanel.saveMode")}>
             <Segmented
               block
               value={saveMode}
               options={[
-                { label: "新建", value: "create" },
+                { label: t("layerPanel.create"), value: "create" },
                 {
-                  label: "覆盖已有工程",
+                  label: t("layerPanel.overwriteProject"),
                   value: "update",
                   disabled: saveTargetScenes.length === 0,
                 },
@@ -748,11 +755,13 @@ export default function LayerPanel() {
             <>
               <Form.Item
                 name="targetId"
-                label="选择工程"
-                rules={[{ required: true, message: "请选择保存目标" }]}
+                label={t("layerPanel.selectProject")}
+                rules={[
+                  { required: true, message: t("layerPanel.selectSaveTarget") },
+                ]}
               >
                 <Select
-                  placeholder="请选择要覆盖的工程"
+                  placeholder={t("layerPanel.overwritePlaceholder")}
                   options={saveTargetScenes.map((scene) => ({
                     value: scene.id,
                     label: scene.name,
@@ -775,8 +784,10 @@ export default function LayerPanel() {
                   className="workspace-save-overwrite-alert"
                   type="warning"
                   showIcon
-                  title={`将覆盖“${selectedSaveTarget.name}”`}
-                  description="当前图层树、视图状态和符号化配置会替换该保存项的快照，名称和说明保持不变。"
+                  title={t("layerPanel.overwriteTitle", {
+                    name: selectedSaveTarget.name,
+                  })}
+                  description={t("layerPanel.overwriteDescription")}
                 />
               ) : null}
             </>
@@ -784,21 +795,24 @@ export default function LayerPanel() {
             <>
               <Form.Item
                 name="name"
-                label="工程名称"
-                rules={[{ required: true, message: "请输入名称" }]}
+                label={t("layerPanel.projectName")}
+                rules={[{ required: true, message: t("layerPanel.enterName") }]}
               >
                 <Input maxLength={80} />
               </Form.Item>
-              <Form.Item name="description" label="说明">
+              <Form.Item name="description" label={t("common.description")}>
                 <Input.TextArea rows={3} maxLength={300} />
               </Form.Item>
             </>
           )}
-          <Form.Item name="accessGroupIds" label="额外可见角色">
+          <Form.Item
+            name="accessGroupIds"
+            label={t("layerPanel.extraVisibleRoles")}
+          >
             <Select
               mode="multiple"
               allowClear
-              placeholder="不选择时仅所属用户可见"
+              placeholder={t("layerPanel.ownerOnlyPlaceholder")}
               options={ctx.workspaceAccessGroups.map((group) => ({
                 value: group.id,
                 label: group.name,
@@ -809,8 +823,8 @@ export default function LayerPanel() {
             className="workspace-save-fixed-access-alert"
             type="info"
             showIcon
-            title="所属用户本人始终可见"
-            description="平台会自动保留必要的系统访问范围，无需手动配置。"
+            title={t("layerPanel.ownerAlwaysVisible")}
+            description={t("layerPanel.systemAccessDescription")}
           />
         </Form>
       </Modal>
@@ -893,12 +907,22 @@ function LayerGroupNode({
     >
       <div className="layer-row-main">
         <div className="layer-heading">
-          <LayerTooltip title={expanded ? "折叠" : "展开"}>
+          <LayerTooltip
+            title={
+              expanded
+                ? i18n.t("layerPanel.collapse")
+                : i18n.t("layerPanel.expand")
+            }
+          >
             <Button
               className="layer-icon-button"
               type="text"
               size="small"
-              aria-label={expanded ? `折叠${group.name}` : `展开${group.name}`}
+              aria-label={
+                expanded
+                  ? i18n.t("layerPanel.collapseNamed", { name: group.name })
+                  : i18n.t("layerPanel.expandNamed", { name: group.name })
+              }
               icon={
                 expanded ? (
                   <DownOutlined style={{ fontSize: 14 }} />
@@ -916,7 +940,10 @@ function LayerGroupNode({
             className="visibility-switch"
             checked={group.visible}
             size="small"
-            aria-label={`${group.visible ? "隐藏" : "显示"}图层组${group.name}`}
+            aria-label={i18n.t(
+              group.visible ? "layerPanel.hideGroup" : "layerPanel.showGroup",
+              { name: group.name },
+            )}
             checkedChildren={<EyeOutlined style={{ fontSize: 10 }} />}
             unCheckedChildren={
               <EyeInvisibleOutlined style={{ fontSize: 10 }} />
@@ -937,12 +964,12 @@ function LayerGroupNode({
             canUseCustomSymbolization={false}
             canExportData={ctx.canExportData}
           />
-          <LayerTooltip title="排序">
+          <LayerTooltip title={i18n.t("layerPanel.sort")}>
             <Button
               className="layer-drag-handle action-btn"
               type="text"
               size="small"
-              aria-label={`拖动${group.name}排序`}
+              aria-label={i18n.t("layerPanel.dragGroup", { name: group.name })}
               draggable
               icon={<HolderOutlined style={{ fontSize: 14 }} />}
               onDragStart={onDragStart}
@@ -963,7 +990,7 @@ function LayerGroupNode({
           {group.name}
         </Typography.Text>
         <Button size="small" type="link" onClick={onSelect}>
-          选中
+          {i18n.t("layerPanel.select")}
         </Button>
       </div>
     </div>
@@ -1032,7 +1059,10 @@ function LayerItemNode({
             className="visibility-switch"
             checked={layer.visible}
             size="small"
-            aria-label={`${layer.visible ? "隐藏" : "显示"}图层${layer.name}`}
+            aria-label={i18n.t(
+              layer.visible ? "layerPanel.hideLayer" : "layerPanel.showLayer",
+              { name: layer.name },
+            )}
             checkedChildren={<EyeOutlined style={{ fontSize: 10 }} />}
             unCheckedChildren={
               <EyeInvisibleOutlined style={{ fontSize: 10 }} />
@@ -1044,8 +1074,8 @@ function LayerItemNode({
           <LayerTooltip
             title={
               ctx.isLayerExtentVisible(layer.id)
-                ? "隐藏图层范围"
-                : "显示图层范围"
+                ? i18n.t("layerPanel.hideExtent")
+                : i18n.t("layerPanel.showExtent")
             }
           >
             <Switch
@@ -1054,7 +1084,12 @@ function LayerItemNode({
               size="small"
               checkedChildren={<AimOutlined style={{ fontSize: 10 }} />}
               unCheckedChildren={<AimOutlined style={{ fontSize: 10 }} />}
-              aria-label={`${ctx.isLayerExtentVisible(layer.id) ? "隐藏" : "显示"}${layer.name}范围`}
+              aria-label={i18n.t(
+                ctx.isLayerExtentVisible(layer.id)
+                  ? "layerPanel.hideNamedExtent"
+                  : "layerPanel.showNamedExtent",
+                { name: layer.name },
+              )}
               onChange={(checked) =>
                 ctx.setLayerExtentVisibility(layer.id, checked)
               }
@@ -1091,12 +1126,12 @@ function LayerItemNode({
             canExportData={ctx.canExportData}
             onOpenTable={() => ctx.openLayerTable(groupId, layer.id)}
           />
-          <LayerTooltip title="拖动排序">
+          <LayerTooltip title={i18n.t("layerPanel.dragToSort")}>
             <Button
               className="layer-drag-handle action-btn"
               type="text"
               size="small"
-              aria-label={`拖动${layer.name}排序`}
+              aria-label={i18n.t("layerPanel.dragLayer", { name: layer.name })}
               draggable
               icon={<HolderOutlined style={{ fontSize: 14 }} />}
               onDragStart={onDragStart}
@@ -1121,7 +1156,9 @@ function LayerItemNode({
           type={selected ? "primary" : "link"}
           onClick={onSelect}
         >
-          {selected ? "已选" : "选中"}
+          {selected
+            ? i18n.t("layerPanel.selected")
+            : i18n.t("layerPanel.select")}
         </Button>
       </div>
       <RasterRenderFeedback layer={layer} />
@@ -1145,10 +1182,16 @@ function RasterRenderFeedback({ layer }: { layer: LoadedLayer }) {
       <div
         className="layer-raster-render-feedback is-failed"
         role="alert"
-        aria-label={`${layer.name}渲染失败`}
+        aria-label={i18n.t("layerPanel.renderFailed", { name: layer.name })}
       >
-        <strong>{isUniqueValue ? "唯一值配色渲染失败" : "栅格渲染失败"}</strong>
-        <small>{latestMessage || layer.summary || "请稍后重试"}</small>
+        <strong>
+          {isUniqueValue
+            ? i18n.t("layerPanel.uniqueRenderFailed")
+            : i18n.t("layerPanel.rasterRenderFailed")}
+        </strong>
+        <small>
+          {latestMessage || layer.summary || i18n.t("layerPanel.retryLater")}
+        </small>
       </div>
     );
   }
@@ -1158,19 +1201,21 @@ function RasterRenderFeedback({ layer }: { layer: LoadedLayer }) {
       className="layer-raster-render-feedback"
       role="status"
       aria-live="polite"
-      aria-label={`${layer.name}渲染状态`}
+      aria-label={i18n.t("layerPanel.renderStatus", { name: layer.name })}
     >
       <div className="layer-raster-render-heading">
         <span>
           <Spin size="small" />
-          {isUniqueValue ? "唯一值配色正在后台生成" : "栅格正在后台渲染"}
+          {isUniqueValue
+            ? i18n.t("layerPanel.uniqueRendering")
+            : i18n.t("layerPanel.rasterRendering")}
         </span>
         <b>{Math.round(progress)}%</b>
       </div>
       <Progress percent={progress} size="small" showInfo={false} />
       <small>
-        {latestMessage || "正在准备渲染任务"}
-        ；地图暂时保留当前样式，完成后自动更新
+        {latestMessage || i18n.t("layerPanel.preparingRender")}
+        {`; ${i18n.t("layerPanel.autoUpdateNotice")}`}
       </small>
     </div>
   );
@@ -1202,7 +1247,10 @@ function LayerLegend({ layer }: { layer: LoadedLayer }) {
       : [];
   if (visibleClasses.length === 0) return null;
   return (
-    <div className="layer-legend-strip" aria-label={`${layer.name}图例`}>
+    <div
+      className="layer-legend-strip"
+      aria-label={i18n.t("layerPanel.legendLabel", { name: layer.name })}
+    >
       {visibleClasses.slice(0, 6).map((item) => (
         <span className="layer-legend-item" key={item.id}>
           <i style={{ backgroundColor: item.color }} />
@@ -1359,7 +1407,9 @@ function NodeActions({
       if (recommendedRequestRef.current !== requestId) return;
       setRecommendedSymbolizations([]);
       setRecommendedSymbolizationsError(
-        error instanceof Error ? error.message : "无法获取推荐符号化方案",
+        error instanceof Error
+          ? error.message
+          : i18n.t("layerPanel.recommendationFailed"),
       );
     } finally {
       if (recommendedRequestRef.current === requestId) {
@@ -1397,15 +1447,15 @@ function NodeActions({
       (item) => item.layerType === "vector" || item.datasetId,
     );
     if (exportableItems.length === 0) {
-      message.warning("当前对象没有可导出的数据");
+      message.warning(i18n.t("layerPanel.noExportData"));
       return;
     }
     if (exportReproject && !exportEpsg) {
-      message.warning("请填写目标坐标系 EPSG");
+      message.warning(i18n.t("layerPanel.enterTargetEpsg"));
       return;
     }
     if (exportClip && !ctx.exportClipGeometry) {
-      message.warning("请先在底部图形绘制中设置空间范围");
+      message.warning(i18n.t("layerPanel.setSpatialExtent"));
       return;
     }
     setExportRunning(true);
@@ -1445,16 +1495,18 @@ function NodeActions({
     try {
       const profile = await api.resourceProfile(sourceResource);
       if (!profile.raster?.defaultRules) {
-        message.warning("该栅格数据没有可恢复的默认符号化方案");
+        message.warning(i18n.t("layerPanel.noDefaultRasterStyle"));
         return;
       }
       setDraftSymbolization(
         rasterSymbolizationFromRules(profile.raster.defaultRules),
       );
-      message.success("已恢复数据默认样式，请点击确定应用");
+      message.success(i18n.t("layerPanel.defaultStyleRestored"));
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "恢复栅格默认样式失败",
+        error instanceof Error
+          ? error.message
+          : i18n.t("layerPanel.restoreDefaultFailed"),
       );
     } finally {
       setRestoringRasterDefault(false);
@@ -1510,28 +1562,32 @@ function NodeActions({
       <div
         className="icon-cluster"
         role="toolbar"
-        aria-label={`${subjectName}图层操作`}
+        aria-label={i18n.t("layerPanel.layerActions", { name: subjectName })}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.stopPropagation()}
       >
         {onOpenTable && (
-          <LayerTooltip title="数据表">
+          <LayerTooltip title={i18n.t("layerPanel.dataTable")}>
             <Button
               className="action-btn"
               type="text"
               size="small"
-              aria-label={`${subjectName}数据表`}
+              aria-label={i18n.t("layerPanel.dataTableFor", {
+                name: subjectName,
+              })}
               icon={<TableOutlined style={{ fontSize: 14 }} />}
               onClick={onOpenTable}
             />
           </LayerTooltip>
         )}
-        <LayerTooltip title="定位">
+        <LayerTooltip title={i18n.t("layerPanel.locate")}>
           <Button
             className="action-btn"
             type="text"
             size="small"
-            aria-label={`定位${subjectName}`}
+            aria-label={i18n.t("layerPanel.locateNamed", {
+              name: subjectName,
+            })}
             icon={<AimOutlined style={{ fontSize: 14 }} />}
             onClick={onLocate}
           />
@@ -1545,7 +1601,7 @@ function NodeActions({
             onOpenChange={handleExportOpenChange}
             content={
               <ExportOptionsCard
-                title={`导出 ${subjectName}`}
+                title={i18n.t("layerPanel.exportNamed", { name: subjectName })}
                 epsg={exportEpsg}
                 format={exportFormat}
                 reproject={exportReproject}
@@ -1563,12 +1619,14 @@ function NodeActions({
               />
             }
           >
-            <LayerTooltip title="导出">
+            <LayerTooltip title={i18n.t("layerPanel.export")}>
               <Button
                 className="action-btn"
                 type="text"
                 size="small"
-                aria-label={`导出${subjectName}`}
+                aria-label={i18n.t("layerPanel.exportNamedLabel", {
+                  name: subjectName,
+                })}
                 icon={<DownloadOutlined style={{ fontSize: 14 }} />}
               />
             </LayerTooltip>
@@ -1576,7 +1634,11 @@ function NodeActions({
         )}
         {canOpenSymbolization && (
           <LayerTooltip
-            title={canUseCustomSymbolization ? "符号化" : "推荐符号化预览"}
+            title={
+              canUseCustomSymbolization
+                ? i18n.t("layerPanel.symbolization")
+                : i18n.t("layerPanel.recommendationPreview")
+            }
           >
             <Button
               className={`action-btn symbolization-action-btn${
@@ -1586,8 +1648,12 @@ function NodeActions({
               size="small"
               aria-label={
                 canUseCustomSymbolization
-                  ? `${subjectName}符号化`
-                  : `${subjectName}推荐符号化预览`
+                  ? i18n.t("layerPanel.symbolizationFor", {
+                      name: subjectName,
+                    })
+                  : i18n.t("layerPanel.recommendationFor", {
+                      name: subjectName,
+                    })
               }
               aria-expanded={symbolizationOpen}
               aria-haspopup="dialog"
@@ -1596,12 +1662,12 @@ function NodeActions({
             />
           </LayerTooltip>
         )}
-        <LayerTooltip title="移除">
+        <LayerTooltip title={i18n.t("layerPanel.remove")}>
           <Button
             className="action-btn"
             type="text"
             size="small"
-            aria-label={`移除${subjectName}`}
+            aria-label={i18n.t("layerPanel.removeNamed", { name: subjectName })}
             icon={<DeleteOutlined style={{ fontSize: 14 }} />}
             onClick={onRemove}
           />
@@ -1611,8 +1677,8 @@ function NodeActions({
         <Modal
           title={
             canUseCustomSymbolization
-              ? `${subjectName}符号化`
-              : `${subjectName}推荐符号化预览`
+              ? i18n.t("layerPanel.symbolizationFor", { name: subjectName })
+              : i18n.t("layerPanel.recommendationFor", { name: subjectName })
           }
           open={symbolizationOpen}
           footer={null}
@@ -1708,7 +1774,9 @@ function ExportOptionsCard({
     <Card className="symbolization-card export-card" size="small" title={title}>
       <Space orientation="vertical" className="full-width symbolization-stack">
         <div className="export-option-row">
-          <Typography.Text strong>矢量格式</Typography.Text>
+          <Typography.Text strong>
+            {i18n.t("layerPanel.vectorFormat")}
+          </Typography.Text>
           <Segmented<ExportFormat>
             size="small"
             value={format}
@@ -1720,11 +1788,13 @@ function ExportOptionsCard({
           />
         </div>
         <div className="export-option-row">
-          <Typography.Text strong>重投影</Typography.Text>
+          <Typography.Text strong>
+            {i18n.t("layerPanel.reproject")}
+          </Typography.Text>
           <Switch checked={reproject} onChange={onReprojectChange} />
         </div>
         <label className="export-epsg-field" htmlFor="export-epsg-input">
-          <span>目标坐标系 EPSG</span>
+          <span>{i18n.t("layerPanel.targetEpsg")}</span>
           <InputNumber
             id="export-epsg-input"
             className="full-width"
@@ -1738,7 +1808,7 @@ function ExportOptionsCard({
           />
         </label>
         <div className="export-option-row">
-          <Typography.Text strong>裁切</Typography.Text>
+          <Typography.Text strong>{i18n.t("layerPanel.clip")}</Typography.Text>
           <Switch checked={clip} onChange={onClipChange} />
         </div>
         {clip && (
@@ -1746,11 +1816,11 @@ function ExportOptionsCard({
             <div className="export-clip-actions">
               <Typography.Text type={clipReady ? "success" : "secondary"}>
                 {clipReady
-                  ? "已设置空间范围"
-                  : "请在底部图形绘制中设置空间范围"}
+                  ? i18n.t("layerPanel.extentSet")
+                  : i18n.t("layerPanel.setExtentInDrawing")}
               </Typography.Text>
               <Button size="small" onClick={onClearClip} disabled={!clipReady}>
-                清除
+                {i18n.t("common.clear")}
               </Button>
             </div>
           </Space>
@@ -1770,7 +1840,7 @@ function ExportOptionsCard({
           disabled={running || (clip && !clipReady)}
           onClick={onExport}
         >
-          导出
+          {i18n.t("layerPanel.export")}
         </Button>
       </Space>
     </Card>

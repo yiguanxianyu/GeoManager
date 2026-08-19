@@ -6,6 +6,7 @@ import {
   registerForbiddenHandler,
   unregisterForbiddenHandler,
 } from "./client";
+import { setLocale } from "../i18n";
 
 function jsonResponse(body: unknown, init: ResponseInit = {}) {
   const headers = new Headers(init.headers);
@@ -30,8 +31,9 @@ function requestPath(request: Request) {
 describe("api client", () => {
   const fetchMock = vi.fn();
 
-  beforeEach(() => {
+  beforeEach(async () => {
     fetchMock.mockReset();
+    await setLocale("zh-CN");
     vi.stubGlobal("fetch", fetchMock);
     setTestCookie("csrftoken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/");
   });
@@ -53,12 +55,27 @@ describe("api client", () => {
     expect(request.method).toBe("POST");
     expect(request.credentials).toBe("include");
     expect(headers.get("X-CSRFToken")).toBe("secure token");
+    expect(headers.get("Accept-Language")).toBe("zh-CN");
     expect(headers.get("Content-Type")).toBe("application/json");
     expect(JSON.parse(await request.clone().text())).toEqual({
       username: "tester",
       password: "pass12345",
       remember: true,
     });
+  });
+
+  it("sends the selected English locale and localizes known legacy errors", async () => {
+    await setLocale("en-US");
+    fetchMock.mockResolvedValue(
+      jsonResponse({ detail: "账号或密码错误" }, { status: 400 }),
+    );
+
+    await expect(api.login("tester", "wrong", false)).rejects.toMatchObject({
+      message: "Incorrect account or password",
+    });
+    expect(capturedRequest(fetchMock).headers.get("Accept-Language")).toBe(
+      "en-US",
+    );
   });
 
   it("does not force JSON content type for FormData uploads", async () => {

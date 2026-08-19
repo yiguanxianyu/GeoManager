@@ -63,6 +63,8 @@ import {
 import { fitBoundsOptions } from "../map/mapViewport";
 import type { AdminDashboard, AdminDashboardServer } from "../types";
 import { startSequentialPolling } from "../utils/sequentialPolling";
+import { useTranslation } from "react-i18next";
+import { useEnglishLanguage } from "../i18n/useEnglishLanguage";
 import { UserSummaryCards } from "./UserSummaryCards";
 
 const serverRefreshMs = 5000;
@@ -136,6 +138,9 @@ export default function AdminDashboardPage({
   scope = "all",
 }: AdminDashboardPageProps) {
   const { message } = App.useApp();
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const { user } = useAppContext();
   const [period, setPeriod] = useState<ActivePeriod>("day");
   const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
@@ -158,14 +163,20 @@ export default function AdminDashboardPage({
         }
       } catch (error) {
         if (signal?.aborted) return;
-        message.error(error instanceof Error ? error.message : "概览加载失败");
+        message.error(
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to load overview"
+              : "概览加载失败",
+        );
       } finally {
         if (!signal?.aborted) {
           setDashboardLoading(false);
         }
       }
     },
-    [message, period],
+    [english, message, period],
   );
 
   const loadServer = useCallback(
@@ -183,7 +194,11 @@ export default function AdminDashboardPage({
       } catch (error) {
         if (signal.aborted) return false;
         message.error(
-          error instanceof Error ? error.message : "服务器监控加载失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to load server monitoring"
+              : "服务器监控加载失败",
         );
       } finally {
         if (!signal.aborted) {
@@ -192,7 +207,7 @@ export default function AdminDashboardPage({
       }
       return !signal.aborted;
     },
-    [canViewServerCards, message],
+    [canViewServerCards, english, message],
   );
 
   useEffect(() => {
@@ -261,8 +276,12 @@ export default function AdminDashboardPage({
           <Empty
             description={
               scope === "data"
-                ? "当前账号暂无可查看的数据概览卡片"
-                : "当前账号暂无可查看的概览卡片"
+                ? english
+                  ? "This account has no data-overview cards to view"
+                  : "当前账号暂无可查看的数据概览卡片"
+                : english
+                  ? "This account has no overview cards to view"
+                  : "当前账号暂无可查看的概览卡片"
             }
           />
         </ProCard>
@@ -278,70 +297,104 @@ export default function AdminDashboardPage({
       {scope !== "data" && hasMetricCards && (
         <section className="admin-dashboard-section">
           <div className="admin-dashboard-section-heading">
-            <Typography.Title level={4}>数据概览</Typography.Title>
+            <Typography.Title level={4}>
+              {english ? "Data overview" : "数据概览"}
+            </Typography.Title>
           </div>
           <Row gutter={[16, 16]}>
             {dashboard.cards.resources && (
               <MetricCard
-                title="数据资源"
+                title={english ? "Data resources" : "数据资源"}
                 value={dashboard.cards.resources.total}
-                suffix="项"
+                suffix={english ? "" : "项"}
                 icon={<DatabaseOutlined />}
-                description={`启用 ${dashboard.cards.resources.active} 项`}
+                description={
+                  english
+                    ? `${dashboard.cards.resources.active} active`
+                    : `启用 ${dashboard.cards.resources.active} 项`
+                }
               />
             )}
             {dashboard.cards.layers && (
               <MetricCard
-                title="图层数"
+                title={english ? "Layers" : "图层数"}
                 value={dashboard.cards.layers.total}
-                suffix="个"
+                suffix={english ? "" : "个"}
                 icon={<ClusterOutlined />}
-                description={`启用 ${dashboard.cards.layers.active} 个`}
+                description={
+                  english
+                    ? `${dashboard.cards.layers.active} active`
+                    : `启用 ${dashboard.cards.layers.active} 个`
+                }
               />
             )}
             {dashboard.cards.rasters && (
               <MetricCard
-                title="栅格数量"
+                title={english ? "Rasters" : "栅格数量"}
                 value={dashboard.cards.rasters.resources}
-                suffix="项"
+                suffix={english ? "" : "项"}
                 icon={<HddOutlined />}
-                description={`栅格数据集 ${dashboard.cards.rasters.datasets} 个，栅格图层 ${dashboard.cards.rasters.layers} 个`}
+                description={
+                  english
+                    ? `${dashboard.cards.rasters.datasets} raster datasets; ${dashboard.cards.rasters.layers} raster layers`
+                    : `栅格数据集 ${dashboard.cards.rasters.datasets} 个，栅格图层 ${dashboard.cards.rasters.layers} 个`
+                }
               />
             )}
             {dataOverview && (
               <>
                 <MetricCard
-                  title="我上传的数据大小"
+                  title={english ? "Size of my uploads" : "我上传的数据大小"}
                   value={formatBytes(dataOverview.ownUploads.totalSizeBytes)}
                   suffix=""
                   icon={<CloudUploadOutlined />}
-                  description={`启用 ${dataOverview.ownUploads.activeResources} / ${dataOverview.ownUploads.totalResources} 项`}
+                  description={
+                    english
+                      ? `${dataOverview.ownUploads.activeResources} / ${dataOverview.ownUploads.totalResources} active`
+                      : `启用 ${dataOverview.ownUploads.activeResources} / ${dataOverview.ownUploads.totalResources} 项`
+                  }
                 />
                 <MetricCard
-                  title="我上传的数据条目"
+                  title={english ? "Items in my uploads" : "我上传的数据条目"}
                   value={dataOverview.ownUploads.totalItemCount}
-                  suffix="条"
+                  suffix={english ? "" : "条"}
                   icon={<DatabaseOutlined />}
-                  description="按导入行数、栅格数据集和扫描文件统计"
+                  description={
+                    english
+                      ? "Counted from imported rows, raster datasets, and scanned files"
+                      : "按导入行数、栅格数据集和扫描文件统计"
+                  }
                 />
                 {canViewVisibleDataOverview &&
                   dataOverview.visibleResources && (
                     <>
                       <MetricCard
-                        title="我可见的数据大小"
+                        title={
+                          english ? "Size of visible data" : "我可见的数据大小"
+                        }
                         value={formatBytes(
                           dataOverview.visibleResources.totalSizeBytes,
                         )}
                         suffix=""
                         icon={<HddOutlined />}
-                        description={`启用 ${dataOverview.visibleResources.activeResources} / ${dataOverview.visibleResources.totalResources} 项`}
+                        description={
+                          english
+                            ? `${dataOverview.visibleResources.activeResources} / ${dataOverview.visibleResources.totalResources} active`
+                            : `启用 ${dataOverview.visibleResources.activeResources} / ${dataOverview.visibleResources.totalResources} 项`
+                        }
                       />
                       <MetricCard
-                        title="我可见的数据条目"
+                        title={
+                          english ? "Visible data items" : "我可见的数据条目"
+                        }
                         value={dataOverview.visibleResources.totalItemCount}
-                        suffix="条"
+                        suffix={english ? "" : "条"}
                         icon={<DatabaseOutlined />}
-                        description="按当前账号可访问数据统计"
+                        description={
+                          english
+                            ? "Based on data accessible to this account"
+                            : "按当前账号可访问数据统计"
+                        }
                       />
                     </>
                   )}
@@ -354,9 +407,13 @@ export default function AdminDashboardPage({
       {showOperationCards && dashboard.cards.users && (
         <section className="admin-dashboard-section">
           <div className="admin-dashboard-section-heading">
-            <Typography.Title level={4}>用户信息</Typography.Title>
+            <Typography.Title level={4}>
+              {english ? "User information" : "用户信息"}
+            </Typography.Title>
             <Typography.Text type="secondary">
-              当前系统共 {dashboard.cards.users.total} 个账号
+              {english
+                ? `${dashboard.cards.users.total} accounts in the system`
+                : `当前系统共 ${dashboard.cards.users.total} 个账号`}
             </Typography.Text>
           </div>
           <UserSummaryCards
@@ -378,7 +435,9 @@ export default function AdminDashboardPage({
               styles={{ body: { padding: 0 } }}
             >
               <div className="admin-active-tabs">
-                <div className="admin-active-tab-current">账号活跃与登录</div>
+                <div className="admin-active-tab-current">
+                  {english ? "Account activity and sign-ins" : "账号活跃与登录"}
+                </div>
                 <div className="admin-active-actions">
                   {(["day", "week", "month"] as ActivePeriod[]).map((item) => (
                     <Button
@@ -391,7 +450,8 @@ export default function AdminDashboardPage({
                     </Button>
                   ))}
                   <Tag color="green">
-                    {dashboard.cards.activeUsers.rangeStart} 至{" "}
+                    {dashboard.cards.activeUsers.rangeStart}{" "}
+                    {english ? "to" : "至"}{" "}
                     {dashboard.cards.activeUsers.rangeEnd}
                   </Tag>
                 </div>
@@ -405,18 +465,24 @@ export default function AdminDashboardPage({
                   <div className="admin-active-chart-heading">
                     <Space size={18} wrap>
                       <Statistic
-                        title={`${periodLabels[period]}活跃账号`}
+                        title={
+                          english
+                            ? `${{ day: "Today", week: "This week", month: "This month" }[period]} active accounts`
+                            : `${periodLabels[period]}活跃账号`
+                        }
                         value={dashboard.cards.activeUsers.count}
-                        suffix="个"
+                        suffix={english ? "" : "个"}
                       />
                       <Statistic
-                        title="成功登录次数"
+                        title={english ? "Successful sign-ins" : "成功登录次数"}
                         value={dashboard.cards.activeUsers.loginCount}
-                        suffix="次"
+                        suffix={english ? "" : "次"}
                       />
                     </Space>
                     <Typography.Text type="secondary">
-                      活跃账号按已认证访问去重；登录次数包含账号密码、游客及注册自动登录
+                      {english
+                        ? "Active accounts are deduplicated from authenticated access. Sign-ins include password, guest, and post-registration sessions."
+                        : "活跃账号按已认证访问去重；登录次数包含账号密码、游客及注册自动登录"}
                     </Typography.Text>
                   </div>
                   <div className="admin-active-chart">
@@ -425,7 +491,9 @@ export default function AdminDashboardPage({
                 </Col>
                 <Col xs={24} xl={8}>
                   <div className="admin-active-rank">
-                    <Typography.Title level={4}>登录次数排名</Typography.Title>
+                    <Typography.Title level={4}>
+                      {english ? "Sign-in ranking" : "登录次数排名"}
+                    </Typography.Title>
                     <ul>
                       {dashboard.cards.activeUsers.ranking.map(
                         (item, index) => (
@@ -445,14 +513,20 @@ export default function AdminDashboardPage({
                             >
                               {item.displayName}
                             </span>
-                            <span>{item.loginCount} 次</span>
+                            <span>
+                              {english
+                                ? `${item.loginCount} sign-ins`
+                                : `${item.loginCount} 次`}
+                            </span>
                           </li>
                         ),
                       )}
                     </ul>
                     {dashboard.cards.activeUsers.ranking.length === 0 && (
                       <Typography.Text type="secondary">
-                        当前周期暂无登录记录
+                        {english
+                          ? "No sign-ins in the current period"
+                          : "当前周期暂无登录记录"}
                       </Typography.Text>
                     )}
                   </div>
@@ -466,9 +540,11 @@ export default function AdminDashboardPage({
       {canViewServerCards && (serverLoading || !server || hasServerCards) && (
         <section className="admin-dashboard-section">
           <div className="admin-dashboard-section-heading">
-            <Typography.Title level={4}>服务器信息</Typography.Title>
+            <Typography.Title level={4}>
+              {english ? "Server information" : "服务器信息"}
+            </Typography.Title>
             <Typography.Text type="secondary">
-              每 5 秒自动刷新
+              {english ? "Refreshes every 5 seconds" : "每 5 秒自动刷新"}
               {server ? ` · ${formatDateTime(server.generatedAt)}` : ""}
             </Typography.Text>
           </div>
@@ -484,19 +560,25 @@ export default function AdminDashboardPage({
                   model={server.cards.cpu.model}
                   usage={server.cards.cpu.usagePercent}
                   lines={[
-                    `物理核心 ${server.cards.cpu.physicalCount}，逻辑核心 ${server.cards.cpu.logicalCount}`,
-                    `负载 ${server.cards.cpu.loadAverage.join(" / ")}`,
+                    english
+                      ? `${server.cards.cpu.physicalCount} physical cores; ${server.cards.cpu.logicalCount} logical cores`
+                      : `物理核心 ${server.cards.cpu.physicalCount}，逻辑核心 ${server.cards.cpu.logicalCount}`,
+                    english
+                      ? `Load ${server.cards.cpu.loadAverage.join(" / ")}`
+                      : `负载 ${server.cards.cpu.loadAverage.join(" / ")}`,
                   ]}
                   icon={<BarChartOutlined />}
                 />
               )}
               {server.cards.memory && (
                 <ServerCard
-                  title="内存"
+                  title={english ? "Memory" : "内存"}
                   model={server.cards.memory.model}
                   usage={server.cards.memory.usagePercent}
                   lines={[
-                    `数量 ${server.cards.memory.slotCount}`,
+                    english
+                      ? `${server.cards.memory.slotCount} slots`
+                      : `数量 ${server.cards.memory.slotCount}`,
                     `${formatBytes(server.cards.memory.usedBytes)} / ${formatBytes(
                       server.cards.memory.totalBytes,
                     )}`,
@@ -506,11 +588,13 @@ export default function AdminDashboardPage({
               )}
               {server.cards.disks && (
                 <ServerCard
-                  title="硬盘"
+                  title={english ? "Disks" : "硬盘"}
                   model={diskModelText(server)}
                   usage={server.cards.disks.usagePercent}
                   lines={[
-                    `数量 ${server.cards.disks.count}`,
+                    english
+                      ? `${server.cards.disks.count} disks`
+                      : `数量 ${server.cards.disks.count}`,
                     `${formatBytes(server.cards.disks.usedBytes)} / ${formatBytes(
                       server.cards.disks.totalBytes,
                     )}`,
@@ -531,17 +615,21 @@ function ActiveUsersChart({
 }: {
   data: { label: string; count: number }[];
 }) {
+  const english = useEnglishLanguage();
   const maxCount = Math.max(...data.map((item) => item.count), 0);
   if (data.length === 0) {
     return (
-      <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无数据" />
+      <Empty
+        image={Empty.PRESENTED_IMAGE_SIMPLE}
+        description={english ? "No data" : "暂无数据"}
+      />
     );
   }
   return (
     <div
       className="admin-active-lite-chart"
       role="list"
-      aria-label="活跃账号柱状图"
+      aria-label={english ? "Active-account bar chart" : "活跃账号柱状图"}
     >
       {data.map((item) => {
         const ratio = maxCount > 0 ? item.count / maxCount : 0;
@@ -550,7 +638,11 @@ function ActiveUsersChart({
             className="admin-active-lite-bar"
             role="listitem"
             key={item.label}
-            title={`${item.label}：${item.count} 个活跃账号`}
+            title={
+              english
+                ? `${item.label}: ${item.count} active accounts`
+                : `${item.label}：${item.count} 个活跃账号`
+            }
           >
             <div className="admin-active-lite-bar-track">
               <div
@@ -620,17 +712,18 @@ function CompactBoundsMetric({
 }: {
   bounds: [number, number, number, number];
 }) {
+  const english = useEnglishLanguage();
   return (
     <div className="admin-dashboard-bounds-value">
       <span>
-        <small>经度</small>
+        <small>{english ? "Longitude" : "经度"}</small>
         <strong>
           {formatCoordinateLabel(bounds[0], "lng")} -{" "}
           {formatCoordinateLabel(bounds[2], "lng")}
         </strong>
       </span>
       <span>
-        <small>纬度</small>
+        <small>{english ? "Latitude" : "纬度"}</small>
         <strong>
           {formatCoordinateLabel(bounds[1], "lat")} -{" "}
           {formatCoordinateLabel(bounds[3], "lat")}
@@ -647,16 +740,21 @@ function DataOverviewTabs({
   overview: DataOverviewCard;
   canViewVisible: boolean;
 }) {
+  const english = useEnglishLanguage();
   const items: TabsProps["items"] = [];
   if (canViewVisible && overview.visibleResources) {
     items.push({
       key: "visibleResources",
-      label: "我可见的",
+      label: english ? "Visible to me" : "我可见的",
       children: (
         <DataOverviewScopePanel
-          title="我可见的数据概览"
+          title={english ? "Visible-data overview" : "我可见的数据概览"}
           scope={overview.visibleResources}
-          itemDescription="按当前账号可访问数据统计"
+          itemDescription={
+            english
+              ? "Calculated from data accessible to the current account"
+              : "按当前账号可访问数据统计"
+          }
           footer={
             overview.uploaders && overview.uploaders.length > 0 ? (
               <DataOverviewUploaders uploaders={overview.uploaders} />
@@ -668,12 +766,16 @@ function DataOverviewTabs({
   }
   items.push({
     key: "ownUploads",
-    label: "我上传的",
+    label: english ? "My uploads" : "我上传的",
     children: (
       <DataOverviewScopePanel
-        title="我上传的数据概览"
+        title={english ? "My-upload overview" : "我上传的数据概览"}
         scope={overview.ownUploads}
-        itemDescription="按当前账号上传的数据统计"
+        itemDescription={
+          english
+            ? "Calculated from data uploaded by the current account"
+            : "按当前账号上传的数据统计"
+        }
       />
     ),
   });
@@ -691,6 +793,7 @@ function DataOverviewScopePanel({
   itemDescription: string;
   footer?: ReactNode;
 }) {
+  const english = useEnglishLanguage();
   const spatialSummary = scope.spatialSummary;
   return (
     <div className="admin-page-stack">
@@ -700,45 +803,59 @@ function DataOverviewScopePanel({
         </div>
         <Row gutter={[16, 16]}>
           <MetricCard
-            title="数据资源"
+            title={english ? "Data resources" : "数据资源"}
             value={scope.totalResources}
-            suffix="项"
+            suffix={english ? "" : "项"}
             icon={<DatabaseOutlined />}
-            description={`启用 ${scope.activeResources} 项`}
+            description={
+              english
+                ? `${scope.activeResources} enabled`
+                : `启用 ${scope.activeResources} 项`
+            }
             accent="#2f9c76"
           />
           <MetricCard
-            title="数据大小"
+            title={english ? "Data size" : "数据大小"}
             value={formatBytes(scope.totalSizeBytes)}
             icon={<HddOutlined />}
-            description="按已登记数据文件大小统计"
+            description={
+              english
+                ? "Calculated from registered data-file sizes"
+                : "按已登记数据文件大小统计"
+            }
             accent="#3f8fd2"
           />
           <MetricCard
-            title="数据条目"
+            title={english ? "Data items" : "数据条目"}
             value={scope.totalItemCount}
-            suffix="条"
+            suffix={english ? "" : "条"}
             icon={<DatabaseOutlined />}
             description={itemDescription}
             accent="#d58a2a"
           />
           <MetricCard
-            title="空间数据"
+            title={english ? "Spatial data" : "空间数据"}
             value={spatialSummary.spatialResourceCount}
-            suffix="项"
+            suffix={english ? "" : "项"}
             icon={<AimOutlined />}
             description={
               spatialSummary.missingSpatialResourceCount > 0
-                ? `${spatialSummary.missingSpatialResourceCount} 项暂无空间范围`
-                : "具备可解析经纬度范围"
+                ? english
+                  ? `${spatialSummary.missingSpatialResourceCount} resources have no spatial extent`
+                  : `${spatialSummary.missingSpatialResourceCount} 项暂无空间范围`
+                : english
+                  ? "Longitude/latitude extents are available"
+                  : "具备可解析经纬度范围"
             }
             accent="#8b6dd7"
           />
           <MetricCard
-            title="空间覆盖"
+            title={english ? "Spatial coverage" : "空间覆盖"}
             value={
               hasBounds(spatialSummary.totalBounds) ? (
                 <CompactBoundsMetric bounds={spatialSummary.totalBounds} />
+              ) : english ? (
+                "No extent"
               ) : (
                 "暂无范围"
               )
@@ -746,8 +863,12 @@ function DataOverviewScopePanel({
             icon={<EnvironmentOutlined />}
             description={
               hasBounds(spatialSummary.totalBounds)
-                ? "按当前范围内可见数据合并"
-                : "导入空间范围后自动展示"
+                ? english
+                  ? "Merged from visible data in the current scope"
+                  : "按当前范围内可见数据合并"
+                : english
+                  ? "Shown automatically after spatial extents are imported"
+                  : "导入空间范围后自动展示"
             }
             accent="#d45f7a"
           />
@@ -768,6 +889,7 @@ function DataOverviewUploaders({
 }: {
   uploaders: NonNullable<DataOverviewCard["uploaders"]>;
 }) {
+  const english = useEnglishLanguage();
   const maxResources = Math.max(
     ...uploaders.map((item) => item.resourceCount),
     0,
@@ -775,7 +897,10 @@ function DataOverviewUploaders({
   return (
     <BorderBeam color={oceanBorderBeam}>
       <Card className="admin-dashboard-card admin-overview-panel-card">
-        <PanelTitle icon={<CloudUploadOutlined />} title="上传者贡献排行" />
+        <PanelTitle
+          icon={<CloudUploadOutlined />}
+          title={english ? "Uploader contribution ranking" : "上传者贡献排行"}
+        />
         <div className="admin-uploader-rank-list">
           {uploaders.map((item, index) => {
             const ratio =
@@ -791,11 +916,13 @@ function DataOverviewUploaders({
                 <div className="admin-uploader-main">
                   <div className="admin-uploader-title-line">
                     <Typography.Text strong title={item.user.displayName}>
-                      {item.user.displayName || "未记录"}
+                      {item.user.displayName ||
+                        (english ? "Not recorded" : "未记录")}
                     </Typography.Text>
                   </div>
                   <Typography.Text type="secondary">
-                    {item.user.username || "未记录账号"}
+                    {item.user.username ||
+                      (english ? "Account not recorded" : "未记录账号")}
                   </Typography.Text>
                   <div className="admin-uploader-rank-track">
                     <span style={{ width: `${Math.max(ratio * 100, 8)}%` }} />
@@ -809,15 +936,15 @@ function DataOverviewUploaders({
                 <div className="admin-uploader-metrics">
                   <span>
                     <strong>{item.resourceCount}</strong>
-                    <small>项资源</small>
+                    <small>{english ? "resources" : "项资源"}</small>
                   </span>
                   <span>
                     <strong>{formatBytes(item.sizeBytes)}</strong>
-                    <small>数据量</small>
+                    <small>{english ? "data size" : "数据量"}</small>
                   </span>
                   <span>
                     <strong>{formatNumber(item.itemCount)}</strong>
-                    <small>条目</small>
+                    <small>{english ? "items" : "条目"}</small>
                   </span>
                 </div>
               </div>
@@ -830,6 +957,7 @@ function DataOverviewUploaders({
 }
 
 function DataOverviewSpatialPanel({ scope }: { scope: DataOverviewScope }) {
+  const english = useEnglishLanguage();
   const [viewMode, setViewMode] = useState<SpatialViewMode>("extent");
   const [heatmapMetric, setHeatmapMetric] =
     useState<HeatmapMetric>("resourceCount");
@@ -850,7 +978,10 @@ function DataOverviewSpatialPanel({ scope }: { scope: DataOverviewScope }) {
     <BorderBeam color={oceanBorderBeam}>
       <Card className="admin-dashboard-card admin-spatial-overview-card">
         <div className="admin-spatial-overview-heading">
-          <PanelTitle icon={<HeatMapOutlined />} title="空间覆盖概览" />
+          <PanelTitle
+            icon={<HeatMapOutlined />}
+            title={english ? "Spatial coverage overview" : "空间覆盖概览"}
+          />
           <Space className="admin-spatial-mode-controls" wrap>
             <Segmented
               size="large"
@@ -860,7 +991,7 @@ function DataOverviewSpatialPanel({ scope }: { scope: DataOverviewScope }) {
                   label: (
                     <span className="admin-spatial-segment-label">
                       <AimOutlined />
-                      范围框
+                      {english ? "Extents" : "范围框"}
                     </span>
                   ),
                   value: "extent",
@@ -869,7 +1000,7 @@ function DataOverviewSpatialPanel({ scope }: { scope: DataOverviewScope }) {
                   label: (
                     <span className="admin-spatial-segment-label">
                       <HeatMapOutlined />
-                      热力图
+                      {english ? "Heatmap" : "热力图"}
                     </span>
                   ),
                   value: "heatmap",
@@ -887,7 +1018,7 @@ function DataOverviewSpatialPanel({ scope }: { scope: DataOverviewScope }) {
                   label: (
                     <span className="admin-spatial-segment-label">
                       <ClusterOutlined />
-                      按数据集
+                      {english ? "By dataset" : "按数据集"}
                     </span>
                   ),
                   value: "resourceCount",
@@ -896,7 +1027,7 @@ function DataOverviewSpatialPanel({ scope }: { scope: DataOverviewScope }) {
                   label: (
                     <span className="admin-spatial-segment-label">
                       <DatabaseOutlined />
-                      按条目
+                      {english ? "By items" : "按条目"}
                     </span>
                   ),
                   value: "itemCount",
@@ -912,7 +1043,13 @@ function DataOverviewSpatialPanel({ scope }: { scope: DataOverviewScope }) {
                 }
                 onClick={() => setShowHeatmapRanges((value) => !value)}
               >
-                {showHeatmapRanges ? "隐藏范围框" : "显示范围框"}
+                {showHeatmapRanges
+                  ? english
+                    ? "Hide extents"
+                    : "隐藏范围框"
+                  : english
+                    ? "Show extents"
+                    : "显示范围框"}
               </Button>
             )}
           </Space>
@@ -927,33 +1064,56 @@ function DataOverviewSpatialPanel({ scope }: { scope: DataOverviewScope }) {
           <div className="admin-spatial-side-panel">
             <div className="admin-spatial-side-stats">
               <OverviewMiniStat
-                label="空间数据"
-                value={`${summary.spatialResourceCount} 项`}
+                label={english ? "Spatial data" : "空间数据"}
+                value={
+                  english
+                    ? `${summary.spatialResourceCount}`
+                    : `${summary.spatialResourceCount} 项`
+                }
               />
               <OverviewMiniStat
-                label="范围解析率"
+                label={english ? "Extent parsing rate" : "范围解析率"}
                 value={`${spatialCoverageRatio}%`}
               />
               <OverviewMiniStat
-                label="热力网格"
-                value={`${summary.heatmapCells.length} 个`}
+                label={english ? "Heatmap cells" : "热力网格"}
+                value={
+                  english
+                    ? `${summary.heatmapCells.length}`
+                    : `${summary.heatmapCells.length} 个`
+                }
               />
             </div>
             <div className="admin-spatial-bounds-block">
-              <Typography.Text strong>合并覆盖范围</Typography.Text>
+              <Typography.Text strong>
+                {english ? "Merged coverage extent" : "合并覆盖范围"}
+              </Typography.Text>
               <Typography.Text type="secondary">
                 {hasBounds(summary.totalBounds)
-                  ? `经度 ${formatCoordinateLabel(
-                      summary.totalBounds[0],
-                      "lng",
-                    )} - ${formatCoordinateLabel(
-                      summary.totalBounds[2],
-                      "lng",
-                    )}，纬度 ${formatCoordinateLabel(
-                      summary.totalBounds[1],
-                      "lat",
-                    )} - ${formatCoordinateLabel(summary.totalBounds[3], "lat")}`
-                  : "暂无可解析空间范围"}
+                  ? english
+                    ? `Longitude ${formatCoordinateLabel(
+                        summary.totalBounds[0],
+                        "lng",
+                      )} - ${formatCoordinateLabel(
+                        summary.totalBounds[2],
+                        "lng",
+                      )}, latitude ${formatCoordinateLabel(
+                        summary.totalBounds[1],
+                        "lat",
+                      )} - ${formatCoordinateLabel(summary.totalBounds[3], "lat")}`
+                    : `经度 ${formatCoordinateLabel(
+                        summary.totalBounds[0],
+                        "lng",
+                      )} - ${formatCoordinateLabel(
+                        summary.totalBounds[2],
+                        "lng",
+                      )}，纬度 ${formatCoordinateLabel(
+                        summary.totalBounds[1],
+                        "lat",
+                      )} - ${formatCoordinateLabel(summary.totalBounds[3], "lat")}`
+                  : english
+                    ? "No parseable spatial extent"
+                    : "暂无可解析空间范围"}
               </Typography.Text>
               <div className="admin-spatial-bounds-meta">
                 <Tag
@@ -963,12 +1123,18 @@ function DataOverviewSpatialPanel({ scope }: { scope: DataOverviewScope }) {
                       : "success"
                   }
                 >
-                  缺失 {summary.missingSpatialResourceCount} 项
+                  {english
+                    ? `${summary.missingSpatialResourceCount} missing`
+                    : `缺失 ${summary.missingSpatialResourceCount} 项`}
                 </Tag>
                 <Tag>
                   {hasBounds(summary.totalBounds)
-                    ? `估算 ${formatArea(boundsAreaKm2(summary.totalBounds))}`
-                    : "暂无面积"}
+                    ? english
+                      ? `Estimated ${formatArea(boundsAreaKm2(summary.totalBounds))}`
+                      : `估算 ${formatArea(boundsAreaKm2(summary.totalBounds))}`
+                    : english
+                      ? "No area"
+                      : "暂无面积"}
                 </Tag>
               </div>
             </div>
@@ -976,12 +1142,27 @@ function DataOverviewSpatialPanel({ scope }: { scope: DataOverviewScope }) {
               {Object.entries(dataTypeLabels).map(([type, label]) => (
                 <span key={type}>
                   <i style={{ background: dataTypeColor(type) }} />
-                  {label}
+                  {english
+                    ? ((
+                        {
+                          vector: "Vector",
+                          raster: "Raster",
+                          gene: "Gene",
+                          table: "Table",
+                          document: "Document",
+                          image: "Image",
+                        } as Record<string, string>
+                      )[type] ?? label)
+                    : label}
                 </span>
               ))}
             </div>
             {summary.resourceExtentsTruncated && (
-              <Tag color="warning">已优先展示覆盖面积最大的 80 项</Tag>
+              <Tag color="warning">
+                {english
+                  ? "Showing the 80 resources with the largest coverage first"
+                  : "已优先展示覆盖面积最大的 80 项"}
+              </Tag>
             )}
             <CoverageRankingPanel summary={summary} />
           </div>
@@ -1002,6 +1183,7 @@ function DataOverviewMap({
   heatmapMetric: HeatmapMetric;
   showRangeOverlays: boolean;
 }) {
+  const english = useEnglishLanguage();
   const mapId = useId().replace(/:/g, "");
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapboxMap | null>(null);
@@ -1025,7 +1207,7 @@ function DataOverviewMap({
       bearing: 0,
       center: boundsCenter(totalBounds),
       container,
-      language: mapLabelLanguage,
+      language: mapLabelLanguage(),
       localIdeographFontFamily: '"Microsoft YaHei", "PingFang SC", sans-serif',
       minZoom: 1.1,
       performanceMetricsCollection: false,
@@ -1133,7 +1315,7 @@ function DataOverviewMap({
       <div className="admin-spatial-map admin-spatial-map-empty">
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="暂无空间范围"
+          description={english ? "No spatial extent" : "暂无空间范围"}
         />
       </div>
     );
@@ -1144,20 +1326,33 @@ function DataOverviewMap({
       <div ref={containerRef} className="admin-spatial-map-canvas" />
       {showRangeOverlays && (
         <div className="admin-spatial-map-caption">
-          <strong>平台总体范围</strong>
+          <strong>{english ? "Platform-wide extent" : "平台总体范围"}</strong>
           <span>{formatCompactBounds(totalBounds)}</span>
         </div>
       )}
       <div className="admin-spatial-map-legend">
-        {showRangeOverlays && <span className="total">平台总体范围</span>}
-        {showRangeOverlays && <span className="dataset">数据集范围</span>}
-        {viewMode === "heatmap" && <span className="heat">热力覆盖</span>}
+        {showRangeOverlays && (
+          <span className="total">
+            {english ? "Platform extent" : "平台总体范围"}
+          </span>
+        )}
+        {showRangeOverlays && (
+          <span className="dataset">
+            {english ? "Dataset extent" : "数据集范围"}
+          </span>
+        )}
+        {viewMode === "heatmap" && (
+          <span className="heat">
+            {english ? "Heatmap coverage" : "热力覆盖"}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
 function DataTypeDistributionCard({ scope }: { scope: DataOverviewScope }) {
+  const english = useEnglishLanguage();
   const typeTotal = scope.typeBreakdown.reduce(
     (sum, item) => sum + item.count,
     0,
@@ -1168,14 +1363,19 @@ function DataTypeDistributionCard({ scope }: { scope: DataOverviewScope }) {
     <div className="admin-overview-grid-format">
       <BorderBeam color={oceanBorderBeam}>
         <Card className="admin-dashboard-card admin-overview-panel-card">
-          <PanelTitle icon={<PieChartOutlined />} title="数据格式类型" />
+          <PanelTitle
+            icon={<PieChartOutlined />}
+            title={english ? "Data format types" : "数据格式类型"}
+          />
           <Typography.Text type="secondary" className="admin-panel-subtitle">
-            按资源的物理存储格式统计数量、体量与数据条目
+            {english
+              ? "Resource counts, sizes, and items by physical storage format"
+              : "按资源的物理存储格式统计数量、体量与数据条目"}
           </Typography.Text>
           {scope.typeBreakdown.length === 0 ? (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="暂无数据"
+              description={english ? "No data" : "暂无数据"}
             />
           ) : (
             <div className="admin-type-distribution">
@@ -1185,7 +1385,7 @@ function DataTypeDistributionCard({ scope }: { scope: DataOverviewScope }) {
               >
                 <div>
                   <strong>{scope.totalResources}</strong>
-                  <span>项资源</span>
+                  <span>{english ? "resources" : "项资源"}</span>
                 </div>
               </div>
               <div className="admin-type-breakdown-list">
@@ -1204,7 +1404,9 @@ function DataTypeDistributionCard({ scope }: { scope: DataOverviewScope }) {
                           style={{ background: color }}
                         />
                         <Typography.Text strong>
-                          {dataTypeLabels[item.dataType] ?? item.dataType}
+                          {english
+                            ? dashboardDataTypeName(item.dataType)
+                            : (dataTypeLabels[item.dataType] ?? item.dataType)}
                         </Typography.Text>
                         <Tag>{percent.toFixed(0)}%</Tag>
                       </div>
@@ -1220,9 +1422,17 @@ function DataTypeDistributionCard({ scope }: { scope: DataOverviewScope }) {
                         />
                       </div>
                       <div className="admin-type-breakdown-meta">
-                        <span>{item.count} 项</span>
+                        <span>
+                          {english
+                            ? `${item.count} resources`
+                            : `${item.count} 项`}
+                        </span>
                         <span>{formatBytes(item.sizeBytes)}</span>
-                        <span>{formatNumber(item.itemCount)} 条</span>
+                        <span>
+                          {english
+                            ? `${formatNumber(item.itemCount)} items`
+                            : `${formatNumber(item.itemCount)} 条`}
+                        </span>
                       </div>
                     </div>
                   );
@@ -1241,6 +1451,7 @@ function BusinessCategoryDistributionCard({
 }: {
   scope: DataOverviewScope;
 }) {
+  const english = useEnglishLanguage();
   const categoryTotal = scope.categoryBreakdown.reduce(
     (sum, category) => sum + category.count,
     0,
@@ -1256,16 +1467,27 @@ function BusinessCategoryDistributionCard({
         <Card className="admin-dashboard-card admin-overview-panel-card">
           <div className="admin-category-panel-heading">
             <div>
-              <PanelTitle icon={<ClusterOutlined />} title="业务分类分布" />
+              <PanelTitle
+                icon={<ClusterOutlined />}
+                title={
+                  english ? "Business-category distribution" : "业务分类分布"
+                }
+              />
               <Typography.Text
                 type="secondary"
                 className="admin-panel-subtitle"
               >
-                按平台权威分类体系统计四个大类及其十五个小类
+                {english
+                  ? "Four domains and fifteen categories in the authoritative platform taxonomy"
+                  : "按平台权威分类体系统计四个大类及其十五个小类"}
               </Typography.Text>
             </div>
             {scope.unclassifiedCount > 0 && (
-              <Tag color="warning">待分类 {scope.unclassifiedCount} 项</Tag>
+              <Tag color="warning">
+                {english
+                  ? `${scope.unclassifiedCount} pending classification`
+                  : `待分类 ${scope.unclassifiedCount} 项`}
+              </Tag>
             )}
           </div>
           <div className="admin-category-summary">
@@ -1275,7 +1497,7 @@ function BusinessCategoryDistributionCard({
             >
               <div>
                 <strong>{categoryTotal}</strong>
-                <span>已分类资源</span>
+                <span>{english ? "classified resources" : "已分类资源"}</span>
               </div>
             </div>
             <div className="admin-category-major-list">
@@ -1294,8 +1516,19 @@ function BusinessCategoryDistributionCard({
                       className="admin-type-swatch"
                       style={{ background: color }}
                     />
-                    <Typography.Text strong title={category.categoryName}>
-                      {category.categoryName}
+                    <Typography.Text
+                      strong
+                      title={dashboardCategoryName(
+                        category.categoryCode,
+                        category.categoryName,
+                        english,
+                      )}
+                    >
+                      {dashboardCategoryName(
+                        category.categoryCode,
+                        category.categoryName,
+                        english,
+                      )}
                     </Typography.Text>
                     <strong>{category.count}</strong>
                     <span>{percent.toFixed(0)}%</span>
@@ -1321,10 +1554,18 @@ function BusinessCategoryDistributionCard({
                     <span>
                       <i style={{ background: color }} />
                       <Typography.Text strong>
-                        {category.categoryName}
+                        {dashboardCategoryName(
+                          category.categoryCode,
+                          category.categoryName,
+                          english,
+                        )}
                       </Typography.Text>
                     </span>
-                    <Tag>{category.count} 项</Tag>
+                    <Tag>
+                      {english
+                        ? `${category.count} resources`
+                        : `${category.count} 项`}
+                    </Tag>
                   </div>
                   <div className="admin-category-leaf-list">
                     {category.children.map((child) => {
@@ -1338,7 +1579,11 @@ function BusinessCategoryDistributionCard({
                           className="admin-category-leaf-row"
                         >
                           <span className="admin-category-leaf-name">
-                            {child.categoryName}
+                            {dashboardCategoryName(
+                              child.categoryCode,
+                              child.categoryName,
+                              english,
+                            )}
                           </span>
                           <span className="admin-category-leaf-track">
                             <i style={{ width: `${width}%` }} />
@@ -1363,6 +1608,7 @@ function CoverageRankingPanel({
 }: {
   summary: DataOverviewSpatialSummary;
 }) {
+  const english = useEnglishLanguage();
   const maxArea = Math.max(
     ...summary.coverageRanking.map((item) => item.coverageAreaKm2),
     0,
@@ -1371,7 +1617,10 @@ function CoverageRankingPanel({
   return (
     <section className="admin-spatial-ranking-panel">
       <div className="admin-spatial-ranking-heading">
-        <PanelTitle icon={<BarChartOutlined />} title="空间覆盖排行" />
+        <PanelTitle
+          icon={<BarChartOutlined />}
+          title={english ? "Spatial coverage ranking" : "空间覆盖排行"}
+        />
         <Typography.Text type="secondary">
           TOP {Math.min(summary.coverageRanking.length, 8)}
         </Typography.Text>
@@ -1379,7 +1628,7 @@ function CoverageRankingPanel({
       {summary.coverageRanking.length === 0 ? (
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
-          description="暂无空间范围"
+          description={english ? "No spatial extent" : "暂无空间范围"}
         />
       ) : (
         <div className="admin-coverage-rank-list">
@@ -1399,14 +1648,20 @@ function CoverageRankingPanel({
                     </Typography.Text>
                   </div>
                   <div className="admin-coverage-rank-meta">
-                    <span>{formatNumber(item.itemCount)} 条</span>
+                    <span>
+                      {english
+                        ? `${formatNumber(item.itemCount)} items`
+                        : `${formatNumber(item.itemCount)} 条`}
+                    </span>
                     <span>{formatBytes(item.sizeBytes)}</span>
                     <span>{item.uploaderName}</span>
                   </div>
                 </div>
                 <div className="admin-coverage-rank-side">
                   <Tag style={{ color, borderColor: color }}>
-                    {dataTypeLabels[item.dataType] ?? item.dataType}
+                    {english
+                      ? dashboardDataTypeName(item.dataType)
+                      : (dataTypeLabels[item.dataType] ?? item.dataType)}
                   </Tag>
                   <Typography.Text className="admin-coverage-rank-value">
                     {formatArea(item.coverageAreaKm2)}
@@ -2193,4 +2448,52 @@ function diskModelText(server: AdminDashboardServer) {
     .map((device) => device.model || device.name)
     .filter(Boolean);
   return models.length > 0 ? models.join("、") : disks.mount;
+}
+
+function dashboardDataTypeName(dataType: string) {
+  return (
+    (
+      {
+        vector: "Vector",
+        raster: "Raster",
+        gene: "Gene",
+        table: "Table",
+        document: "Document",
+        image: "Image",
+      } as Record<string, string>
+    )[dataType] ?? dataType
+  );
+}
+
+function dashboardCategoryName(
+  code: string,
+  fallback: string,
+  english: boolean,
+) {
+  if (!english) return fallback;
+  return (
+    (
+      {
+        base_geo: "Base geographic information",
+        base_geo_admin: "Administrative boundaries",
+        base_geo_elements: "Base geographic features",
+        base_geo_lucc: "LUCC",
+        habitat: "Poplar habitat data",
+        habitat_water: "Water",
+        habitat_soil: "Soil",
+        habitat_climate: "Climate",
+        habitat_biotic: "Biotic environment",
+        distribution: "Poplar spatial distribution",
+        distribution_vector: "Distribution vectors",
+        distribution_survey_image: "Survey-site images",
+        thematic: "Poplar thematic data",
+        thematic_gene_germplasm: "Genes and germplasm",
+        thematic_individual: "Individuals",
+        thematic_population: "Populations",
+        thematic_community: "Communities",
+        thematic_ecosystem: "Ecosystems",
+        thematic_landscape_rs: "Landscape and remote sensing",
+      } as Record<string, string>
+    )[code] ?? fallback
+  );
 }

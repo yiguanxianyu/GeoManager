@@ -19,8 +19,11 @@ import {
   useState,
 } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
-import DataPanel from "../components/DataPanel";
+import DataPanel, {
+  type DataResourceLoadReporter,
+} from "../components/DataPanel";
 import LayerDataTableModal from "../components/LayerDataTableModal";
 import LayerPanel from "../components/LayerPanel";
 import RightSidePanel from "../components/RightSidePanel";
@@ -74,6 +77,7 @@ import type {
   ResourceFilters,
   ResourceListItem,
   ResourceQueryResult,
+  RasterJob,
   ResourceVisualizationSummary,
   SpatialFilter,
   WorkspaceScene,
@@ -100,6 +104,7 @@ import {
   isGeographicResource,
   resourceSpatialExtent,
 } from "../utils/resources";
+import { isAbortError } from "../utils/rasterRenderTasks";
 import { showGeojsonWarnings } from "../workspace/workspaceNotifications";
 
 type DrawPurpose = "query";
@@ -120,6 +125,30 @@ interface SpatialQueryContext {
     attributeFilters: AttributeFilter[];
     spatialFilter: SpatialFilter | null;
   };
+}
+
+function rasterDataLoadProgress(job: RasterJob, english = false) {
+  const percent =
+    job.status === "ready"
+      ? 95
+      : Math.min(94, Math.max(15, job.progressPercent));
+  const message =
+    job.status === "queued"
+      ? english
+        ? "Raster loading job is queued"
+        : "栅格加载任务正在排队"
+      : job.status === "ready"
+        ? english
+          ? "Raster tile service is ready"
+          : "栅格瓦片服务准备完成"
+        : job.status === "failed"
+          ? english
+            ? "Raster loading job failed"
+            : "栅格加载任务执行失败"
+          : english
+            ? "Generating display-ready raster tiles"
+            : "正在生成可显示的栅格瓦片";
+  return { percent, message };
 }
 
 const emptyPermissions = {
@@ -200,6 +229,9 @@ export function useLayerExport({
   permissionDeniedMessage,
   message,
 }: UseLayerExportOptions): LayerContextValue["exportLayers"] {
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(
@@ -239,7 +271,9 @@ export function useLayerExport({
           messages: job.messages,
         });
         if (job.status === "failed") {
-          throw new Error(job.error || "导出失败");
+          throw new Error(
+            job.error || (english ? "Export failed" : "导出失败"),
+          );
         }
 
         const pollStartedAt = Date.now();
@@ -249,7 +283,11 @@ export function useLayerExport({
           const elapsedMs = Date.now() - pollStartedAt;
           const remainingMs = EXPORT_POLL_TIMEOUT_MS - elapsedMs;
           if (remainingMs <= 0) {
-            throw new Error(EXPORT_POLL_TIMEOUT_MESSAGE);
+            throw new Error(
+              english
+                ? "Export job timed out. Try again later or check its status in the job center."
+                : EXPORT_POLL_TIMEOUT_MESSAGE,
+            );
           }
           await waitForExportPollDelay(
             Math.min(pollDelayMs, remainingMs),
@@ -257,13 +295,21 @@ export function useLayerExport({
           );
           throwIfExportAborted(signal);
           if (Date.now() - pollStartedAt >= EXPORT_POLL_TIMEOUT_MS) {
-            throw new Error(EXPORT_POLL_TIMEOUT_MESSAGE);
+            throw new Error(
+              english
+                ? "Export job timed out. Try again later or check its status in the job center."
+                : EXPORT_POLL_TIMEOUT_MESSAGE,
+            );
           }
 
           const next = await api.rasterJob(job.id);
           throwIfExportAborted(signal);
           if (Date.now() - pollStartedAt >= EXPORT_POLL_TIMEOUT_MS) {
-            throw new Error(EXPORT_POLL_TIMEOUT_MESSAGE);
+            throw new Error(
+              english
+                ? "Export job timed out. Try again later or check its status in the job center."
+                : EXPORT_POLL_TIMEOUT_MESSAGE,
+            );
           }
           onProgress?.({
             status: next.status,
@@ -271,7 +317,9 @@ export function useLayerExport({
             messages: next.messages,
           });
           if (next.status === "failed") {
-            throw new Error(next.error || "导出失败");
+            throw new Error(
+              next.error || (english ? "Export failed" : "导出失败"),
+            );
           }
           status = next.status;
           pollDelayMs = Math.min(
@@ -284,12 +332,18 @@ export function useLayerExport({
         const { blob, filename } = await api.downloadExport(job.id);
         throwIfExportAborted(signal);
         downloadBlob(blob, filename);
-        message.success("导出任务已完成");
+        message.success(english ? "Export job completed" : "导出任务已完成");
       } catch (error) {
         if (signal.aborted || isExportAbortError(error)) {
           return;
         }
-        message.error(error instanceof Error ? error.message : "导出失败");
+        message.error(
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Export failed"
+              : "导出失败",
+        );
         throw error;
       } finally {
         if (abortControllerRef.current === controller) {
@@ -297,7 +351,7 @@ export function useLayerExport({
         }
       }
     },
-    [canExportData, message, permissionDeniedMessage],
+    [canExportData, english, message, permissionDeniedMessage],
   );
 }
 
@@ -352,6 +406,9 @@ let lastGeoInsightCache: LastGeoInsightCache | null = null;
 export default function MapPage() {
   const { bootstrap, user } = useAppContext();
   const { message, notification } = App.useApp();
+  const { i18n } = useTranslation();
+  const english =
+    i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
   const [searchParams] = useSearchParams();
   const initialGeoInsightCache = lastGeoInsightCache;
 
@@ -463,10 +520,11 @@ export default function MapPage() {
   }, [searchParams, selectedCategoryCode]);
 
   const layerGroups = useLayerGroups(user ? `user-${user.id}` : "anonymous");
-  const { startRasterRender, setMapInstance } = useRasterRender(
-    layerGroups.updateRasterLayer,
-  );
-  const permissionDeniedMessage = `当前角色"${userRoles.length > 0 ? userRoles.join("、") : "未分配角色"}"无权限`;
+  const { prepareRasterLayer, startRasterRender, setMapInstance } =
+    useRasterRender(layerGroups.updateRasterLayer);
+  const permissionDeniedMessage = english
+    ? `Current role "${userRoles.length > 0 ? userRoles.join(", ") : "unassigned"}" is not authorized`
+    : `当前角色"${userRoles.length > 0 ? userRoles.join("、") : "未分配角色"}"无权限`;
   const exportLayers = useLayerExport({
     canExportData: permissions.canExportData,
     permissionDeniedMessage,
@@ -519,9 +577,13 @@ export default function MapPage() {
         .filter((value): value is string => Boolean(value)),
     );
     return sources.size > 0
-      ? `数据来源：${Array.from(sources).join("、")}`
-      : "数据来源：平台已加载数据资源";
-  }, [allLayers]);
+      ? english
+        ? `Data sources: ${Array.from(sources).join(", ")}`
+        : `数据来源：${Array.from(sources).join("、")}`
+      : english
+        ? "Data sources: resources loaded by the platform"
+        : "数据来源：平台已加载数据资源";
+  }, [allLayers, english]);
   const compositionFallbackBounds = useMemo<MapBounds>(
     () => boundsFromUnknown(currentMapView?.bounds, [50, 35, 100, 48]),
     [currentMapView?.bounds],
@@ -698,14 +760,24 @@ export default function MapPage() {
     Boolean(activeInsightResource) && visualizationSummaryLoading;
 
   const spatialWorkbenchStatus = activeDraw
-    ? "正在绘制空间范围"
+    ? english
+      ? "Drawing spatial area"
+      : "正在绘制空间范围"
     : spatialQuerying
-      ? "正在执行空间查询"
+      ? english
+        ? "Running spatial query"
+        : "正在执行空间查询"
       : spatialQueryResult
-        ? `命中 ${spatialQueryResult.totalCount} 条，返回 ${spatialQueryResult.returnedCount} 条`
+        ? english
+          ? `${spatialQueryResult.totalCount} matches; ${spatialQueryResult.returnedCount} returned`
+          : `命中 ${spatialQueryResult.totalCount} 条，返回 ${spatialQueryResult.returnedCount} 条`
         : spatialFilter
-          ? "已设置空间查询范围"
-          : "范围绘制、查询对象与结果加载";
+          ? english
+            ? "Spatial query area set"
+            : "已设置空间查询范围"
+          : english
+            ? "Draw an area, select a query target, and load results"
+            : "范围绘制、查询对象与结果加载";
 
   useEffect(() => {
     if (!permissions.canBrowseData || !activeInsightResource) {
@@ -732,7 +804,11 @@ export default function MapPage() {
         if (!ignore) {
           setVisualizationSummary(null);
           setVisualizationSummaryError(
-            error instanceof Error ? error.message : "可视化摘要加载失败",
+            error instanceof Error
+              ? error.message
+              : english
+                ? "Failed to load visualization summary"
+                : "可视化摘要加载失败",
           );
         }
       })
@@ -839,7 +915,11 @@ export default function MapPage() {
       } catch (error) {
         if (requestId === resourceRequestSequenceRef.current) {
           message.error(
-            error instanceof Error ? error.message : "数据资源加载失败",
+            error instanceof Error
+              ? error.message
+              : english
+                ? "Failed to load data resources"
+                : "数据资源加载失败",
           );
         }
         return [];
@@ -907,7 +987,11 @@ export default function MapPage() {
       if (requestSequence === resourceProfileRequestSequenceRef.current) {
         setResourceProfile(null);
         message.error(
-          error instanceof Error ? error.message : "读取字段和元信息失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to read fields and metadata"
+              : "读取字段和元信息失败",
         );
       }
       return null;
@@ -933,7 +1017,11 @@ export default function MapPage() {
       if (requestSequence === spatialProfileRequestSequenceRef.current) {
         setSpatialTargetResourceProfile(null);
         message.error(
-          error instanceof Error ? error.message : "读取查询对象元信息失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to read query-target metadata"
+              : "读取查询对象元信息失败",
         );
       }
       return null;
@@ -965,7 +1053,11 @@ export default function MapPage() {
   const setQueryDrawMode = useCallback(
     (mode: DrawMode | null) => {
       if (mode && basemapSwitching) {
-        message.warning("底图正在切换，请等待完成后再绘制范围");
+        message.warning(
+          english
+            ? "Wait for the basemap switch to finish before drawing an area"
+            : "底图正在切换，请等待完成后再绘制范围",
+        );
         return;
       }
       setActiveDraw(mode ? { purpose: "query", mode } : null);
@@ -979,11 +1071,17 @@ export default function MapPage() {
       return;
     }
     if (!selectedResource) {
-      message.warning("请先选择数据资源");
+      message.warning(
+        english ? "Select a data resource first" : "请先选择数据资源",
+      );
       return;
     }
     if (!resourceProfile) {
-      message.warning("请先等待字段和元信息加载完成");
+      message.warning(
+        english
+          ? "Wait for fields and metadata to finish loading"
+          : "请先等待字段和元信息加载完成",
+      );
       return;
     }
     await loadVectorResource(
@@ -992,61 +1090,110 @@ export default function MapPage() {
       attributeFilters,
       {
         spatialFilter,
-        errorMessage: "查询并加载失败",
+        errorMessage: english ? "Query and load failed" : "查询并加载失败",
       },
     );
   }
 
-  async function handleQuickLoadResource(resource: ResourceListItem) {
+  async function handleQuickLoadResource(
+    resource: ResourceListItem,
+    reportProgress: DataResourceLoadReporter = () => undefined,
+  ) {
+    reportProgress({
+      percent: 8,
+      message: english
+        ? "Reading data-resource metadata"
+        : "正在读取数据资源元信息",
+    });
     const profile = await fetchResourceProfile(resource);
     if (!profile) {
       return;
     }
     if (resource.isRenderable && resource.dataType === "raster") {
-      loadRasterResource(resource, profile);
+      await loadRasterResource(resource, profile, reportProgress);
       return;
     }
     if (resource.isQueryable) {
+      reportProgress({
+        percent: 30,
+        message: english
+          ? "Querying and building vector layer"
+          : "正在查询并构建矢量图层",
+      });
       await loadVectorResource(resource, profile, [], {
         spatialFilter: null,
-        errorMessage: "快速加载失败",
+        errorMessage: english ? "Quick load failed" : "快速加载失败",
         trackQuerying: false,
+        reportProgress,
       });
     }
   }
 
-  function handleLoadRaster() {
+  async function handleLoadRaster(reportProgress: DataResourceLoadReporter) {
     if (!permissions.canLoadRasterLayer) {
       message.warning(permissionDeniedMessage);
       return;
     }
     if (selectedResource?.dataType !== "raster" || !resourceProfile?.raster) {
-      message.warning("请先选择已完成预处理的栅格数据");
+      message.warning(
+        english
+          ? "Select a preprocessed raster resource first"
+          : "请先选择已完成预处理的栅格数据",
+      );
       return;
     }
-    loadRasterResource(selectedResource, resourceProfile);
+    await loadRasterResource(selectedResource, resourceProfile, reportProgress);
   }
 
-  function loadRasterResource(
+  async function loadRasterResource(
     resource: DataResource,
     profile: DataResourceProfile,
+    reportProgress: DataResourceLoadReporter,
   ) {
     if (!permissions.canLoadRasterLayer) {
       message.warning(permissionDeniedMessage);
       return;
     }
     const group = createRasterLayerGroup(resource, profile);
-    if (!group) return;
-    layerGroups.addGroup(group);
-    setSelectedLayerId(group.children[0]?.id ?? null);
-    const child = group.children[0] as LoadedRasterLayer;
-    void startRasterRender(
-      group.id,
-      child.id,
-      child.symbolization,
-      child,
-      "default",
-    );
+    if (!group) {
+      message.error(
+        english
+          ? "Raster metadata is incomplete and cannot be loaded"
+          : "栅格元信息不完整，无法加载",
+      );
+      return;
+    }
+    const pendingLayer = group.children[0] as LoadedRasterLayer;
+    reportProgress({
+      percent: 15,
+      message: english
+        ? "Preparing raster tile service"
+        : "正在准备栅格瓦片服务",
+    });
+    let child: LoadedRasterLayer;
+    try {
+      child = await prepareRasterLayer(pendingLayer, (job) => {
+        reportProgress(rasterDataLoadProgress(job, english));
+      });
+    } catch (error) {
+      if (isAbortError(error)) return;
+      message.error(
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to load raster"
+            : "栅格加载失败",
+      );
+      return;
+    }
+    reportProgress({
+      percent: 98,
+      message: english
+        ? "Tile service is ready; adding it to the 3D globe"
+        : "瓦片服务已就绪，正在添加到三维地球",
+    });
+    layerGroups.addGroup({ ...group, children: [child] });
+    setSelectedLayerId(child.id);
     const map = mapInstanceRef.current;
     const bounds = child.imageCoordinates
       ? boundsFromImageCoordinates(child.imageCoordinates)
@@ -1056,6 +1203,12 @@ export default function MapPage() {
         map.fitBounds(bounds, rasterFitBoundsOptions());
       });
     }
+    reportProgress({
+      percent: 100,
+      message: english
+        ? "Raster imagery loaded on the 3D globe"
+        : "栅格影像已加载到三维地球",
+    });
   }
 
   async function loadVectorResource(
@@ -1066,6 +1219,7 @@ export default function MapPage() {
       spatialFilter: SpatialFilter | null;
       errorMessage: string;
       trackQuerying?: boolean;
+      reportProgress?: DataResourceLoadReporter;
     },
   ) {
     if (!permissions.canQueryData || !permissions.canLoadVectorLayer) {
@@ -1080,8 +1234,16 @@ export default function MapPage() {
         spatialFilter: options.spatialFilter,
         limit: bootstrap.limits.queryResultLimit,
       });
+      options.reportProgress?.({
+        percent: 82,
+        message: english
+          ? "Query complete; creating map layer"
+          : "数据查询完成，正在创建地图图层",
+      });
       showGeojsonWarnings(notification, result.warnings);
-      const resultMessage = `查询命中 ${result.totalCount} 条，返回 ${result.returnedCount} 条`;
+      const resultMessage = english
+        ? `Query matched ${result.totalCount} records; ${result.returnedCount} returned`
+        : `查询命中 ${result.totalCount} 条，返回 ${result.returnedCount} 条`;
       if (result.returnedCount === 0) {
         message.warning(resultMessage);
         return;
@@ -1092,6 +1254,12 @@ export default function MapPage() {
       });
       layerGroups.addGroup(group);
       setSelectedLayerId(group.children[0]?.id ?? null);
+      options.reportProgress?.({
+        percent: 100,
+        message: english
+          ? "Vector data loaded on the 3D globe"
+          : "矢量数据已加载到三维地球",
+      });
       message.success(resultMessage);
     } catch (error) {
       message.error(
@@ -1129,7 +1297,9 @@ export default function MapPage() {
       message.open({
         key: mapErrorNotificationKey,
         type: "error",
-        content: `地图加载异常：${summarizeMapErrorForUser(errorMessage)}`,
+        content: english
+          ? `Map loading issue: ${summarizeMapErrorForUser(errorMessage, 160, true)}`
+          : `地图加载异常：${summarizeMapErrorForUser(errorMessage)}`,
         duration: 5,
       });
     },
@@ -1151,13 +1321,17 @@ export default function MapPage() {
     async (groupId: string, layerId: string) => {
       const map = mapInstanceRef.current;
       if (!map) {
-        message.warning("地图尚未准备好");
+        message.warning(english ? "The map is not ready" : "地图尚未准备好");
         return;
       }
       const targetGroup = layerGroups.groups.find((g) => g.id === groupId);
       const targetLayer = targetGroup?.children.find((l) => l.id === layerId);
       if (!targetLayer) {
-        message.warning("当前图层没有可定位的数据");
+        message.warning(
+          english
+            ? "The current layer has no locatable data"
+            : "当前图层没有可定位的数据",
+        );
         return;
       }
       if (
@@ -1172,7 +1346,11 @@ export default function MapPage() {
         }
       }
       if (targetLayer.layerType !== "vector" || !targetLayer.geojson) {
-        message.warning("当前图层没有可定位的数据");
+        message.warning(
+          english
+            ? "The current layer has no locatable data"
+            : "当前图层没有可定位的数据",
+        );
         return;
       }
       fitGeojsonBounds(
@@ -1195,7 +1373,7 @@ export default function MapPage() {
     async (groupId: string) => {
       const map = mapInstanceRef.current;
       if (!map) {
-        message.warning("地图尚未准备好");
+        message.warning(english ? "The map is not ready" : "地图尚未准备好");
         return;
       }
       const targetGroup = layerGroups.groups.find((g) => g.id === groupId);
@@ -1211,7 +1389,11 @@ export default function MapPage() {
         })
         .filter(Boolean) as LngLatBounds[];
       if (geojsons.length === 0 && rasterBounds.length === 0) {
-        message.warning("该图层组没有可定位的数据");
+        message.warning(
+          english
+            ? "This layer group has no locatable data"
+            : "该图层组没有可定位的数据",
+        );
         return;
       }
       const bounds = combinedFeatureBounds(geojsons);
@@ -1228,7 +1410,11 @@ export default function MapPage() {
         return;
       }
       if (!bounds) {
-        message.warning("无法计算图层组范围");
+        message.warning(
+          english
+            ? "Unable to calculate the layer-group extent"
+            : "无法计算图层组范围",
+        );
         return;
       }
       map.fitBounds(bounds, await mapFitBoundsOptions(map));
@@ -1294,25 +1480,41 @@ export default function MapPage() {
       }
       const map = mapInstanceRef.current;
       if (!map) {
-        message.warning("地图尚未准备好");
+        message.warning(english ? "The map is not ready" : "地图尚未准备好");
         return;
       }
       if (basemapSwitching) {
-        message.warning("底图正在切换，请等待完成后再导出");
+        message.warning(
+          english
+            ? "Wait for the basemap switch to finish before exporting"
+            : "底图正在切换，请等待完成后再导出",
+        );
         return;
       }
       try {
         map.getStyle();
       } catch {
-        message.warning("底图尚未加载完成，请稍后再导出");
+        message.warning(
+          english
+            ? "The basemap has not finished loading. Export again shortly."
+            : "底图尚未加载完成，请稍后再导出",
+        );
         return;
       }
       if (!map.isStyleLoaded()) {
-        message.warning("底图尚未加载完成，请稍后再导出");
+        message.warning(
+          english
+            ? "The basemap has not finished loading. Export again shortly."
+            : "底图尚未加载完成，请稍后再导出",
+        );
         return;
       }
       if (!sharedSpatialGeometry) {
-        message.warning("请先使用范围工具划定导出范围");
+        message.warning(
+          english
+            ? "Use the area tool to define an export area first"
+            : "请先使用范围工具划定导出范围",
+        );
         return;
       }
       setMapExporting(true);
@@ -1329,10 +1531,18 @@ export default function MapPage() {
             .slice(0, 19)
             .replace(/[-:T]/g, "")}.${extension}`,
         );
-        message.success(`地图 ${extension.toUpperCase()} 已导出`);
+        message.success(
+          english
+            ? `Map exported as ${extension.toUpperCase()}`
+            : `地图 ${extension.toUpperCase()} 已导出`,
+        );
       } catch (error) {
         message.error(
-          error instanceof Error ? error.message : "地图图片导出失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to export map image"
+              : "地图图片导出失败",
         );
       } finally {
         setMapExporting(false);
@@ -1350,12 +1560,16 @@ export default function MapPage() {
 
   function handleUseCurrentViewRange() {
     if (!currentMapView) {
-      message.warning("地图视图尚未就绪");
+      message.warning(
+        english ? "The map view is not ready" : "地图视图尚未就绪",
+      );
       return;
     }
     const [west, south, east, north] = currentMapView.bounds;
     if (![west, south, east, north].every(Number.isFinite)) {
-      message.warning("当前视图范围无效");
+      message.warning(
+        english ? "The current view extent is invalid" : "当前视图范围无效",
+      );
       return;
     }
     setSpatialFilter({
@@ -1367,12 +1581,20 @@ export default function MapPage() {
 
   function handleUseSelectedLayerRange() {
     if (!rangeSourceLayer) {
-      message.warning("请先在空间查询工作台或图层树选择图层");
+      message.warning(
+        english
+          ? "Select a layer in the spatial query workspace or layer tree first"
+          : "请先在空间查询工作台或图层树选择图层",
+      );
       return;
     }
     const geometry = layerExtentGeometryFor(rangeSourceLayer);
     if (!geometry) {
-      message.warning("当前图层没有可用空间范围");
+      message.warning(
+        english
+          ? "The current layer has no usable spatial extent"
+          : "当前图层没有可用空间范围",
+      );
       return;
     }
     setSpatialFilter({ mode: "rectangle", geometry });
@@ -1402,7 +1624,11 @@ export default function MapPage() {
         await mapFitBoundsOptions(map),
       );
     } catch {
-      message.warning("空间范围已导入，但地图定位失败");
+      message.warning(
+        english
+          ? "The spatial area was imported, but the map could not locate it"
+          : "空间范围已导入，但地图定位失败",
+      );
     }
   }
 
@@ -1421,11 +1647,19 @@ export default function MapPage() {
     }
     const resource = resources.find((item) => item.id === resourceId);
     if (!resource) {
-      message.warning("当前资源列表中没有找到该资源");
+      message.warning(
+        english
+          ? "The resource was not found in the current list"
+          : "当前资源列表中没有找到该资源",
+      );
       return;
     }
     if (resource.dataType !== "vector" || !resource.isQueryable) {
-      message.warning("请选择可查询的矢量资源");
+      message.warning(
+        english
+          ? "Select a queryable vector resource"
+          : "请选择可查询的矢量资源",
+      );
       return;
     }
     await fetchSpatialTargetResourceProfile(resource);
@@ -1439,7 +1673,9 @@ export default function MapPage() {
     }
     const layer = allLayers.find((item) => item.id === layerId);
     if (!layer || layer.layerType !== "vector") {
-      message.warning("请选择已加载的矢量图层");
+      message.warning(
+        english ? "Select a loaded vector layer" : "请选择已加载的矢量图层",
+      );
       return;
     }
     setSpatialTargetLayerId(layerId);
@@ -1455,7 +1691,11 @@ export default function MapPage() {
     };
     if (target === "selectedResource") {
       if (!spatialTargetResource) {
-        message.warning("请先在空间查询工作台选择资源");
+        message.warning(
+          english
+            ? "Select a resource in the spatial query workspace first"
+            : "请先在空间查询工作台选择资源",
+        );
         return null;
       }
       if (
@@ -1463,7 +1703,11 @@ export default function MapPage() {
         !spatialTargetResource.isQueryable ||
         !spatialTargetResourceProfile
       ) {
-        message.warning("当前资源不是可查询的矢量资源");
+        message.warning(
+          english
+            ? "The current resource is not a queryable vector resource"
+            : "当前资源不是可查询的矢量资源",
+        );
         return null;
       }
       return {
@@ -1476,7 +1720,11 @@ export default function MapPage() {
     }
 
     if (!spatialTargetLayer || spatialTargetLayer.layerType !== "vector") {
-      message.warning("请先在空间查询工作台选择矢量图层");
+      message.warning(
+        english
+          ? "Select a vector layer in the spatial query workspace first"
+          : "请先在空间查询工作台选择矢量图层",
+      );
       return null;
     }
     const resource = spatialTargetLayer.sourceResource;
@@ -1485,7 +1733,11 @@ export default function MapPage() {
       resource.dataType !== "vector" ||
       !resource.isQueryable
     ) {
-      message.warning("当前图层没有可反查的可查询来源资源");
+      message.warning(
+        english
+          ? "The current layer has no queryable source resource"
+          : "当前图层没有可反查的可查询来源资源",
+      );
       return null;
     }
     const profile =
@@ -1509,7 +1761,9 @@ export default function MapPage() {
       return;
     }
     if (!spatialFilter?.geometry) {
-      message.warning("请先设置空间查询范围");
+      message.warning(
+        english ? "Set a spatial query area first" : "请先设置空间查询范围",
+      );
       return;
     }
 
@@ -1545,7 +1799,7 @@ export default function MapPage() {
         loadedLayerName: null,
       });
 
-      const resultMessage = spatialQueryMessage(result);
+      const resultMessage = spatialQueryMessage(result, english);
       if (result.returnedCount === 0) {
         message.warning(resultMessage);
       } else if (result.limitExceeded) {
@@ -1555,7 +1809,11 @@ export default function MapPage() {
       }
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "空间查询执行失败",
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Spatial query failed"
+            : "空间查询执行失败",
       );
     } finally {
       setSpatialQuerying(false);
@@ -1571,7 +1829,9 @@ export default function MapPage() {
     }
     const name =
       spatialQueryResult.loadedLayerName ??
-      `空间查询结果 - ${spatialQueryContext.targetName}`;
+      (english
+        ? `Spatial query results - ${spatialQueryContext.targetName}`
+        : `空间查询结果 - ${spatialQueryContext.targetName}`);
     return createVectorLayerGroup(
       spatialQueryContext.resource,
       spatialQueryContext.profile,
@@ -1579,37 +1839,66 @@ export default function MapPage() {
       spatialQueryContext.query,
       {
         name,
-        metadata: {
-          查询类型: "空间查询",
-          查询对象: spatialQueryContext.targetName,
-          查询来源:
-            spatialQueryContext.target === "selectedLayer"
-              ? "当前图层"
-              : "当前资源",
-          来源资源: spatialQueryContext.resource.name,
-          空间范围: spatialQueryContext.query.spatialFilter
-            ? spatialFilterModeLabel(
-                spatialQueryContext.query.spatialFilter.mode,
-              )
-            : "未设置",
-          命中总数: spatialQueryData.totalCount,
-          返回条数: spatialQueryData.returnedCount,
-          返回上限: spatialQueryData.limit,
-          结果截断: spatialQueryData.limitExceeded ? "是" : "否",
-          后端耗时ms: spatialQueryData.elapsedMs,
-        },
+        metadata: english
+          ? {
+              "Query type": "Spatial query",
+              "Query target": spatialQueryContext.targetName,
+              "Query source":
+                spatialQueryContext.target === "selectedLayer"
+                  ? "Current layer"
+                  : "Current resource",
+              "Source resource": spatialQueryContext.resource.name,
+              "Spatial area": spatialQueryContext.query.spatialFilter
+                ? spatialFilterModeLabel(
+                    spatialQueryContext.query.spatialFilter.mode,
+                    true,
+                  )
+                : "Not set",
+              "Total matches": spatialQueryData.totalCount,
+              "Returned records": spatialQueryData.returnedCount,
+              "Return limit": spatialQueryData.limit,
+              Truncated: spatialQueryData.limitExceeded ? "Yes" : "No",
+              "Backend time (ms)": spatialQueryData.elapsedMs,
+            }
+          : {
+              查询类型: "空间查询",
+              查询对象: spatialQueryContext.targetName,
+              查询来源:
+                spatialQueryContext.target === "selectedLayer"
+                  ? "当前图层"
+                  : "当前资源",
+              来源资源: spatialQueryContext.resource.name,
+              空间范围: spatialQueryContext.query.spatialFilter
+                ? spatialFilterModeLabel(
+                    spatialQueryContext.query.spatialFilter.mode,
+                  )
+                : "未设置",
+              命中总数: spatialQueryData.totalCount,
+              返回条数: spatialQueryData.returnedCount,
+              返回上限: spatialQueryData.limit,
+              结果截断: spatialQueryData.limitExceeded ? "是" : "否",
+              后端耗时ms: spatialQueryData.elapsedMs,
+            },
       },
     );
   }
 
   function handleLoadSpatialResult() {
     if (spatialQueryResult?.loadedLayerName) {
-      message.info("空间查询结果已加载为图层");
+      message.info(
+        english
+          ? "Spatial query results are already loaded as a layer"
+          : "空间查询结果已加载为图层",
+      );
       return;
     }
     const group = createSpatialResultGroup();
     if (!group) {
-      message.warning("暂无可加载的空间查询结果");
+      message.warning(
+        english
+          ? "No spatial query results are available to load"
+          : "暂无可加载的空间查询结果",
+      );
       return;
     }
     layerGroups.addGroup(group);
@@ -1617,17 +1906,25 @@ export default function MapPage() {
     setSpatialQueryResult((current) =>
       current ? { ...current, loadedLayerName: group.name } : current,
     );
-    message.success("空间查询结果已加载为图层");
+    message.success(
+      english
+        ? "Spatial query results loaded as a layer"
+        : "空间查询结果已加载为图层",
+    );
   }
 
   async function handleLocateSpatialResult() {
     if (!spatialQueryData || spatialQueryData.returnedCount === 0) {
-      message.warning("暂无可定位的空间查询结果");
+      message.warning(
+        english
+          ? "No spatial query results are available to locate"
+          : "暂无可定位的空间查询结果",
+      );
       return;
     }
     const map = mapInstanceRef.current;
     if (!map) {
-      message.warning("地图尚未准备好");
+      message.warning(english ? "The map is not ready" : "地图尚未准备好");
       return;
     }
     fitGeojsonBounds(
@@ -1645,7 +1942,11 @@ export default function MapPage() {
       (item): item is LoadedVectorLayer => item.layerType === "vector",
     );
     if (!layer) {
-      message.warning("暂无可查看的空间查询结果");
+      message.warning(
+        english
+          ? "No spatial query results are available to view"
+          : "暂无可查看的空间查询结果",
+      );
       return;
     }
     setTableLayer(layer);
@@ -1653,11 +1954,19 @@ export default function MapPage() {
 
   function handleExportSpatialResult() {
     if (!spatialQueryData || !spatialQueryContext || !spatialQueryResult) {
-      message.warning("暂无可导出的空间查询结果");
+      message.warning(
+        english
+          ? "No spatial query results are available to export"
+          : "暂无可导出的空间查询结果",
+      );
       return;
     }
     if (spatialQueryData.returnedCount === 0) {
-      message.warning("空间查询结果为空，无法导出");
+      message.warning(
+        english
+          ? "The spatial query result is empty and cannot be exported"
+          : "空间查询结果为空，无法导出",
+      );
       return;
     }
     void exportLayers(
@@ -1666,7 +1975,9 @@ export default function MapPage() {
           layerType: "vector",
           name:
             spatialQueryResult.loadedLayerName ??
-            `空间查询结果 - ${spatialQueryContext.targetName}`,
+            (english
+              ? `Spatial query results - ${spatialQueryContext.targetName}`
+              : `空间查询结果 - ${spatialQueryContext.targetName}`),
           resourceId: spatialQueryContext.resource.id,
           geojson: spatialQueryData.geojson,
           sourceCrs:
@@ -1697,7 +2008,11 @@ export default function MapPage() {
     }
     const sceneId = Number(sceneIdText);
     if (!Number.isInteger(sceneId) || sceneId <= 0) {
-      message.warning("工程或专题参数无效");
+      message.warning(
+        english
+          ? "Invalid project or thematic-map parameter"
+          : "工程或专题参数无效",
+      );
       return;
     }
     if (loadedSceneIdRef.current === sceneId) {
@@ -1710,12 +2025,16 @@ export default function MapPage() {
       } catch (error) {
         loadedSceneIdRef.current = null;
         message.error(
-          error instanceof Error ? error.message : "工程或专题加载失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to load project or thematic map"
+              : "工程或专题加载失败",
         );
       }
     }
     void loadSceneFromUrl();
-  }, [loadWorkspaceSceneById, message, searchParams]);
+  }, [english, loadWorkspaceSceneById, message, searchParams]);
 
   const layerContextValue: LayerContextValue = {
     groups: layerGroups.groups,
@@ -1781,7 +2100,9 @@ export default function MapPage() {
           snapshot.mapView?.bounds,
           compositionFallbackBounds,
         );
-        const baseName = `${scene.name}专题图`;
+        const baseName = english
+          ? `${scene.name} thematic map`
+          : `${scene.name}专题图`;
         const sameNames = new Set(
           mapCompositions.items
             .filter((item) => item.projectId === scene.id)
@@ -1790,7 +2111,9 @@ export default function MapPage() {
         let name = baseName;
         let suffix = 2;
         while (sameNames.has(name)) {
-          name = `${baseName}（${suffix}）`;
+          name = english
+            ? `${baseName} (${suffix})`
+            : `${baseName}（${suffix}）`;
           suffix += 1;
         }
         const created = await mapCompositions.create(
@@ -1800,16 +2123,23 @@ export default function MapPage() {
         );
         setEditingComposition(created);
         setActiveLeftPanel("topics");
-        message.success("出图草稿已创建");
+        message.success(
+          english ? "Map-output draft created" : "出图草稿已创建",
+        );
       } catch (error) {
         message.error(
-          error instanceof Error ? error.message : "出图草稿创建失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to create map-output draft"
+              : "出图草稿创建失败",
         );
       }
     },
     [
       compositionFallbackBounds,
       compositionSourceText,
+      english,
       loadWorkspaceScene,
       mapCompositions,
       message,
@@ -1828,11 +2158,15 @@ export default function MapPage() {
         setEditingComposition(composition);
       } catch (error) {
         message.error(
-          error instanceof Error ? error.message : "来源工程加载失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to load source project"
+              : "来源工程加载失败",
         );
       }
     },
-    [loadWorkspaceScene, message, workspaceScenes],
+    [english, loadWorkspaceScene, message, workspaceScenes],
   );
 
   useEffect(() => {
@@ -1843,7 +2177,9 @@ export default function MapPage() {
     }
     const compositionId = Number(compositionIdText);
     if (!Number.isInteger(compositionId) || compositionId <= 0) {
-      message.warning("专题参数无效");
+      message.warning(
+        english ? "Invalid thematic-map parameter" : "专题参数无效",
+      );
       return;
     }
     if (loadedCompositionIdRef.current === compositionId) {
@@ -1855,9 +2191,15 @@ export default function MapPage() {
       .then(handleOpenMapComposition)
       .catch((error) => {
         loadedCompositionIdRef.current = null;
-        message.error(error instanceof Error ? error.message : "专题加载失败");
+        message.error(
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to load thematic map"
+              : "专题加载失败",
+        );
       });
-  }, [handleOpenMapComposition, message, searchParams]);
+  }, [english, handleOpenMapComposition, message, searchParams]);
 
   const handleLoadMapCompositionSource = useCallback(
     async (composition: MapComposition) => {
@@ -1869,11 +2211,15 @@ export default function MapPage() {
         setActiveLeftPanel("projects");
       } catch (error) {
         message.error(
-          error instanceof Error ? error.message : "来源工程加载失败",
+          error instanceof Error
+            ? error.message
+            : english
+              ? "Failed to load source project"
+              : "来源工程加载失败",
         );
       }
     },
-    [loadWorkspaceScene, message, workspaceScenes],
+    [english, loadWorkspaceScene, message, workspaceScenes],
   );
 
   const handleRestoredMapCompositionProject = useCallback(
@@ -1943,7 +2289,9 @@ export default function MapPage() {
         <div
           className="mobile-map-panel-switcher"
           role="group"
-          aria-label="移动端地图面板切换"
+          aria-label={
+            english ? "Mobile map panel switcher" : "移动端地图面板切换"
+          }
         >
           <Button
             size="small"
@@ -1951,7 +2299,7 @@ export default function MapPage() {
             aria-pressed={mobileMapPanel === "map"}
             onClick={() => setMobileMapPanel("map")}
           >
-            地图
+            {english ? "Map" : "地图"}
           </Button>
           <Button
             size="small"
@@ -1959,7 +2307,7 @@ export default function MapPage() {
             aria-pressed={mobileMapPanel === "left"}
             onClick={() => setMobileMapPanel("left")}
           >
-            数据与图层
+            {english ? "Data and layers" : "数据与图层"}
           </Button>
           <Button
             size="small"
@@ -1967,7 +2315,7 @@ export default function MapPage() {
             aria-pressed={mobileMapPanel === "right"}
             onClick={() => setMobileMapPanel("right")}
           >
-            数据洞察
+            {english ? "Data insights" : "数据洞察"}
           </Button>
         </div>
         <main className="map-stage">
@@ -2016,7 +2364,7 @@ export default function MapPage() {
                     label: (
                       <span className="tab-label">
                         <DatabaseOutlined style={{ fontSize: 14 }} />
-                        数据
+                        {english ? "Data" : "数据"}
                       </span>
                     ),
                     children: renderDataPanel(),
@@ -2026,7 +2374,7 @@ export default function MapPage() {
                     label: (
                       <span className="tab-label">
                         <ApartmentOutlined style={{ fontSize: 14 }} />
-                        图层
+                        {english ? "Layers" : "图层"}
                       </span>
                     ),
                     children: <LayerPanel />,
@@ -2036,7 +2384,7 @@ export default function MapPage() {
                     label: (
                       <span className="tab-label">
                         <FolderOpenOutlined style={{ fontSize: 14 }} />
-                        工程
+                        {english ? "Projects" : "工程"}
                       </span>
                     ),
                     children: (
@@ -2059,7 +2407,7 @@ export default function MapPage() {
                     label: (
                       <span className="tab-label">
                         <AppstoreOutlined style={{ fontSize: 14 }} />
-                        专题
+                        {english ? "Thematic maps" : "专题"}
                       </span>
                     ),
                     children: (
@@ -2096,7 +2444,7 @@ export default function MapPage() {
               ? "mobile-map-panel-visible"
               : "mobile-map-panel-hidden"
           }`}
-          aria-label="要素信息面板"
+          aria-label={english ? "Feature information panel" : "要素信息面板"}
         >
           <ConfigProvider theme={workspacePanelTheme}>
             <RightSidePanel
@@ -2121,18 +2469,28 @@ export default function MapPage() {
               ? "spatial-workbench-panel-open"
               : "spatial-workbench-panel-collapsed"
           }`}
-          aria-label="空间查询面板"
+          aria-label={english ? "Spatial query panel" : "空间查询面板"}
           aria-expanded={spatialWorkbenchOpen}
         >
           <ConfigProvider theme={workspacePanelTheme}>
             {spatialWorkbenchOpen ? (
               <>
-                <Tooltip title="隐藏空间查询工作台">
+                <Tooltip
+                  title={
+                    english
+                      ? "Hide spatial query workspace"
+                      : "隐藏空间查询工作台"
+                  }
+                >
                   <Button
                     className="spatial-workbench-collapse-button"
                     type="text"
                     icon={<DownOutlined style={{ fontSize: 14 }} />}
-                    aria-label="隐藏空间查询工作台"
+                    aria-label={
+                      english
+                        ? "Hide spatial query workspace"
+                        : "隐藏空间查询工作台"
+                    }
                     onClick={() => setSpatialWorkbenchOpen(false)}
                   />
                 </Tooltip>
@@ -2175,7 +2533,11 @@ export default function MapPage() {
               <button
                 className="spatial-workbench-peek-card"
                 type="button"
-                aria-label="打开空间查询工作台"
+                aria-label={
+                  english
+                    ? "Open spatial query workspace"
+                    : "打开空间查询工作台"
+                }
                 aria-controls="spatial-query-workbench-panel"
                 aria-expanded={spatialWorkbenchOpen}
                 onClick={() => setSpatialWorkbenchOpen(true)}
@@ -2184,11 +2546,15 @@ export default function MapPage() {
                   <AimOutlined style={{ fontSize: 15 }} />
                 </span>
                 <span className="spatial-workbench-peek-copy">
-                  <strong>打开空间查询工作台</strong>
+                  <strong>
+                    {english
+                      ? "Open spatial query workspace"
+                      : "打开空间查询工作台"}
+                  </strong>
                   <small>{spatialWorkbenchStatus}</small>
                 </span>
                 <span className="spatial-workbench-peek-action">
-                  <span>打开</span>
+                  <span>{english ? "Open" : "打开"}</span>
                   <UpOutlined style={{ fontSize: 13 }} />
                 </span>
               </button>
@@ -2246,23 +2612,27 @@ function isLeftPanelTabKey(key: string): key is LeftPanelTabKey {
   return leftPanelTabKeys.has(key);
 }
 
-function spatialFilterModeLabel(mode: SpatialFilter["mode"]) {
+function spatialFilterModeLabel(mode: SpatialFilter["mode"], english = false) {
   const labels: Record<SpatialFilter["mode"], string> = {
-    rectangle: "矩形范围",
-    circle: "圆形范围",
-    ellipse: "椭圆范围",
-    polygon: "多边形范围",
+    rectangle: english ? "Rectangle area" : "矩形范围",
+    circle: english ? "Circular area" : "圆形范围",
+    ellipse: english ? "Elliptical area" : "椭圆范围",
+    polygon: english ? "Polygon area" : "多边形范围",
   };
   return labels[mode];
 }
 
-function spatialQueryMessage(result: ResourceQueryResult) {
-  const base = `空间查询命中 ${result.totalCount} 条，返回 ${result.returnedCount} 条`;
+function spatialQueryMessage(result: ResourceQueryResult, english = false) {
+  const base = english
+    ? `Spatial query matched ${result.totalCount} records; ${result.returnedCount} returned`
+    : `空间查询命中 ${result.totalCount} 条，返回 ${result.returnedCount} 条`;
   if (result.returnedCount === 0) {
     return base;
   }
   if (result.limitExceeded) {
-    return `${base}，已按上限截断`;
+    return english
+      ? `${base}; truncated at the return limit`
+      : `${base}，已按上限截断`;
   }
   return base;
 }

@@ -1,29 +1,34 @@
 import tiandituMapWorldLogo from "../assets/tianditu-map-world.svg";
 import type { BasemapProvider } from "../map/basemapCatalog";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   provider: BasemapProvider;
 }
 
 export default function TiandituAttributionBadge({ provider }: Props) {
+  const { t } = useTranslation();
   if (provider !== "tianditu") return null;
 
   return (
-    <aside className="tianditu-attribution-badge" aria-label="天地图底图来源">
+    <aside
+      className="tianditu-attribution-badge"
+      aria-label={t("map.tiandituAttribution")}
+    >
       <a
         href="https://www.tianditu.gov.cn/"
         target="_blank"
         rel="noopener noreferrer"
-        aria-label="访问天地图官网（新窗口打开）"
+        aria-label={t("map.visitTianditu")}
       >
         <img
           src={tiandituMapWorldLogo}
-          alt="天地图 MAP WORLD"
+          alt={t("map.tiandituLogoAlt")}
           width={112}
           height={60}
           draggable={false}
         />
-        <span>天地图底图服务</span>
+        <span>{t("map.tiandituService")}</span>
       </a>
     </aside>
   );

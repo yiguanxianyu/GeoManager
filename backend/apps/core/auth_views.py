@@ -23,6 +23,7 @@ from apps.core.initialization import (
     is_superadmin_user,
 )
 from apps.core.passwords import password_validation_errors
+from apps.core.localization import localized
 from apps.core.models import RoleApplication, UserProfile
 from apps.core.permissions import (
     can_access_admin,
@@ -48,7 +49,14 @@ def login_view(request):
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except json.JSONDecodeError:
-        return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
+        return JsonResponse(
+            {
+                "detail": localized(
+                    "请求体不是有效 JSON", "The request body is not valid JSON"
+                )
+            },
+            status=400,
+        )
 
     username = str(payload.get("username", "")).strip()
     password = str(payload.get("password", ""))
@@ -64,7 +72,10 @@ def login_view(request):
             request,
             event_code=AUTH_LOGIN_FAILED,
         )
-        return JsonResponse({"detail": "账号或密码错误"}, status=400)
+        return JsonResponse(
+            {"detail": localized("账号或密码错误", "Incorrect account or password")},
+            status=400,
+        )
 
     login(request, user)
     if not remember:
@@ -102,12 +113,27 @@ def guest_login_view(request):
 @require_POST
 def register_view(request):
     if not registration_allowed():
-        return JsonResponse({"detail": "当前系统未开放自助注册"}, status=403)
+        return JsonResponse(
+            {
+                "detail": localized(
+                    "当前系统未开放自助注册",
+                    "Self-registration is currently disabled",
+                )
+            },
+            status=403,
+        )
 
     try:
         payload = json.loads(request.body.decode("utf-8"))
     except json.JSONDecodeError:
-        return JsonResponse({"detail": "请求体不是有效 JSON"}, status=400)
+        return JsonResponse(
+            {
+                "detail": localized(
+                    "请求体不是有效 JSON", "The request body is not valid JSON"
+                )
+            },
+            status=400,
+        )
 
     username = str(payload.get("username", "")).strip()
     account_purpose = str(payload.get("accountPurpose", "")).strip()
@@ -117,10 +143,18 @@ def register_view(request):
     password = str(payload.get("password", ""))
     password_confirm = str(payload.get("passwordConfirm", ""))
     if not username:
-        return JsonResponse({"detail": "请输入账号"}, status=400)
+        return JsonResponse(
+            {"detail": localized("请输入账号", "Enter your account")}, status=400
+        )
     if account_purpose not in {"standard", "research"}:
         return JsonResponse(
-            {"detail": "accountPurpose 必须是 standard 或 research"}, status=400
+            {
+                "detail": localized(
+                    "accountPurpose 必须是 standard 或 research",
+                    "accountPurpose must be standard or research",
+                )
+            },
+            status=400,
         )
     try:
         email = validate_account_email(payload.get("email"))
@@ -128,21 +162,70 @@ def register_view(request):
         return JsonResponse({"detail": str(exc)}, status=400)
     if account_purpose == "research":
         if not display_name:
-            return JsonResponse({"detail": "申请科研用户时请输入姓名"}, status=400)
+            return JsonResponse(
+                {
+                    "detail": localized(
+                        "申请科研用户时请输入姓名",
+                        "Enter your name when applying for research access",
+                    )
+                },
+                status=400,
+            )
         if len(display_name) > 150:
-            return JsonResponse({"detail": "姓名不能超过 150 个字符"}, status=400)
+            return JsonResponse(
+                {
+                    "detail": localized(
+                        "姓名不能超过 150 个字符",
+                        "The name cannot exceed 150 characters",
+                    )
+                },
+                status=400,
+            )
         if not department:
             return JsonResponse(
-                {"detail": "申请科研用户时请输入单位或部门"}, status=400
+                {
+                    "detail": localized(
+                        "申请科研用户时请输入单位或部门",
+                        "Enter an organization or department when applying for research access",
+                    )
+                },
+                status=400,
             )
         if len(department) > 120:
-            return JsonResponse({"detail": "单位或部门不能超过 120 个字符"}, status=400)
+            return JsonResponse(
+                {
+                    "detail": localized(
+                        "单位或部门不能超过 120 个字符",
+                        "The organization or department cannot exceed 120 characters",
+                    )
+                },
+                status=400,
+            )
         if not application_reason:
-            return JsonResponse({"detail": "申请科研用户时请输入申请说明"}, status=400)
+            return JsonResponse(
+                {
+                    "detail": localized(
+                        "申请科研用户时请输入申请说明",
+                        "Enter an application statement for research access",
+                    )
+                },
+                status=400,
+            )
         if len(application_reason) > 500:
-            return JsonResponse({"detail": "申请说明不能超过 500 个字符"}, status=400)
+            return JsonResponse(
+                {
+                    "detail": localized(
+                        "申请说明不能超过 500 个字符",
+                        "The application statement cannot exceed 500 characters",
+                    )
+                },
+                status=400,
+            )
     if password != password_confirm:
-        return JsonResponse({"detail": "两次输入的密码不一致"}, status=400)
+        return JsonResponse(
+            {"detail": localized("两次输入的密码不一致", "The passwords do not match")},
+            status=400,
+        )
     password_errors = password_validation_errors(password)
     if password_errors:
         return JsonResponse({"detail": "；".join(password_errors)}, status=400)
@@ -151,7 +234,10 @@ def register_view(request):
     default_user_group = ensure_default_user_group()
     User = get_user_model()
     if User.objects.filter(username=username).exists():
-        return JsonResponse({"detail": "账号已存在"}, status=400)
+        return JsonResponse(
+            {"detail": localized("账号已存在", "The account already exists")},
+            status=400,
+        )
     user = User(username=username, email=email, first_name=display_name)
     role_application = None
     try:
@@ -172,14 +258,30 @@ def register_view(request):
                 )
     except IntegrityError:
         if User.objects.filter(email__iexact=email).exists():
-            return JsonResponse({"detail": "邮箱已被使用"}, status=400)
-        return JsonResponse({"detail": "账号已存在"}, status=400)
+            return JsonResponse(
+                {
+                    "detail": localized(
+                        "邮箱已被使用", "The email address is already in use"
+                    )
+                },
+                status=400,
+            )
+        return JsonResponse(
+            {"detail": localized("账号已存在", "The account already exists")},
+            status=400,
+        )
 
     login(request, user)
     message = (
-        "用户注册成功，科研用户权限申请已提交"
+        localized(
+            "用户注册成功，科研用户权限申请已提交",
+            "Registration succeeded and the research-access application was submitted",
+        )
         if role_application
-        else "用户注册成功，已分配普通用户角色"
+        else localized(
+            "用户注册成功，已分配普通用户角色",
+            "Registration succeeded with standard-user access",
+        )
     )
     log_operation(
         user,
@@ -209,7 +311,7 @@ def logout_view(request):
     user = request.user
     logout(request)
     log_operation(user, "认证授权", "用户退出", "success", "退出登录", request)
-    return JsonResponse({"detail": "已退出"})
+    return JsonResponse({"detail": localized("已退出", "Signed out")})
 
 
 @require_GET

@@ -32,6 +32,7 @@ import {
   Tag,
   Typography,
 } from "antd";
+import type { TFunction } from "i18next";
 import {
   type ReactNode,
   useCallback,
@@ -39,6 +40,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import resultsPoplarReflectionImage from "../assets/portal/results-poplar-reflection.png";
 import WorkspaceHeader from "../components/WorkspaceHeader";
@@ -78,46 +80,15 @@ type ResultsOverviewData = {
   trend: TrendOverview[];
 };
 
-const sourceOverviewMeta: Array<Omit<SourceOverview, "count" | "percentage">> =
-  [
-    {
-      key: "mapping",
-      label: "专题图件",
-      shortLabel: "图件",
-      color: "#287b63",
-    },
-    {
-      key: "analysis",
-      label: "平台分析成果",
-      shortLabel: "分析",
-      color: "#4f86c6",
-    },
-    {
-      key: "imported",
-      label: "直接导入成果",
-      shortLabel: "导入",
-      color: "#d99a3d",
-    },
-  ];
-
-const sourceOptions: Array<{ value: ResultSource; label: string }> = [
-  { value: "all", label: "全部成果" },
-  { value: "mapping", label: "专题图件" },
-  { value: "analysis", label: "分析成果" },
-  { value: "imported", label: "导入成果" },
-];
-
-const formatOptions = [
-  { value: "png", label: "PNG 图片" },
-  { value: "jpg", label: "JPG 图片" },
-  { value: "jpeg", label: "JPEG 图片" },
-  { value: "pdf", label: "PDF 文档" },
-  { value: "csv", label: "CSV 表格" },
-  { value: "xlsx", label: "XLSX 表格" },
-];
+const sourceOverviewMeta = [
+  { key: "mapping", color: "#287b63" },
+  { key: "analysis", color: "#4f86c6" },
+  { key: "imported", color: "#d99a3d" },
+] as const;
 
 export default function ResultsPage() {
   const { message } = App.useApp();
+  const { t, i18n } = useTranslation();
   const { user } = useAppContext();
   const [mapItems, setMapItems] = useState<MapComposition[]>([]);
   const [artifactItems, setArtifactItems] = useState<ResultArtifact[]>([]);
@@ -133,6 +104,21 @@ export default function ResultsPage() {
     user?.permissions.canViewResultArtifacts,
   );
   const canViewResults = canViewMapping || canViewArtifactResults;
+  const locale = i18n.resolvedLanguage === "en-US" ? "en-US" : "zh-CN";
+  const sourceOptions: Array<{ value: ResultSource; label: string }> = [
+    { value: "all", label: t("results.sourceAll") },
+    { value: "mapping", label: t("results.sourceMapping") },
+    { value: "analysis", label: t("results.sourceAnalysisFilter") },
+    { value: "imported", label: t("results.sourceImportedFilter") },
+  ];
+  const formatOptions = [
+    { value: "png", label: t("results.imageFormat", { format: "PNG" }) },
+    { value: "jpg", label: t("results.imageFormat", { format: "JPG" }) },
+    { value: "jpeg", label: t("results.imageFormat", { format: "JPEG" }) },
+    { value: "pdf", label: t("results.documentFormat", { format: "PDF" }) },
+    { value: "csv", label: t("results.tableFormat", { format: "CSV" }) },
+    { value: "xlsx", label: t("results.tableFormat", { format: "XLSX" }) },
+  ];
 
   const loadResults = useCallback(async () => {
     setLoading(true);
@@ -157,16 +143,20 @@ export default function ResultsPage() {
       setMapItems(mappingResult.value);
     } else {
       setMapItems([]);
-      message.error(errorMessage(mappingResult.reason, "专题图成果加载失败"));
+      message.error(
+        errorMessage(mappingResult.reason, t("results.mappingLoadFailed")),
+      );
     }
     if (artifactResult.status === "fulfilled") {
       setArtifactItems(artifactResult.value);
     } else {
       setArtifactItems([]);
-      message.error(errorMessage(artifactResult.reason, "成果文件加载失败"));
+      message.error(
+        errorMessage(artifactResult.reason, t("results.artifactLoadFailed")),
+      );
     }
     setLoading(false);
-  }, [canViewArtifactResults, canViewMapping, message]);
+  }, [canViewArtifactResults, canViewMapping, message, t]);
 
   useEffect(() => {
     void loadResults();
@@ -194,17 +184,17 @@ export default function ResultsPage() {
       const matchesSource = source === "all" || resultSource(result) === source;
       const matchesFormat = format ? resultFormat(result) === format : true;
       const matchesKeyword = normalizedKeyword
-        ? resultSearchText(result)
+        ? resultSearchText(result, t)
             .toLocaleLowerCase("zh-CN")
             .includes(normalizedKeyword)
         : true;
       return matchesSource && matchesFormat && matchesKeyword;
     });
-  }, [format, keyword, publishedResults, source]);
+  }, [format, keyword, publishedResults, source, t]);
 
   const overview = useMemo(
-    () => buildResultsOverview(publishedResults),
-    [publishedResults],
+    () => buildResultsOverview(publishedResults, t, locale),
+    [locale, publishedResults, t],
   );
 
   async function downloadResult(result: PublishedResult) {
@@ -219,9 +209,9 @@ export default function ResultsPage() {
             )
           : await api.downloadResultArtifact(result.item.id);
       downloadBlob(response.blob, response.filename);
-      message.success("成果下载已开始，请查看浏览器下载列表");
+      message.success(t("results.downloadStarted"));
     } catch (error) {
-      message.error(errorMessage(error, "成果下载失败"));
+      message.error(errorMessage(error, t("results.downloadFailed")));
     } finally {
       setDownloadingKey((current) => (current === result.key ? null : current));
     }
@@ -242,27 +232,25 @@ export default function ResultsPage() {
           }}
         >
           <div>
-            <Tag color="green">平台成果中心</Tag>
-            <Typography.Title level={1}>成果展示</Typography.Title>
-            <Typography.Paragraph>
-              统一汇聚平台生成的专题图件、数据分析成果和直接导入成果，仅展示已正式发布且当前账号具备访问权限的内容。
-            </Typography.Paragraph>
+            <Tag color="green">{t("results.heroTag")}</Tag>
+            <Typography.Title level={1}>{t("results.title")}</Typography.Title>
+            <Typography.Paragraph>{t("results.summary")}</Typography.Paragraph>
           </div>
           <div className="results-page-stats">
             <Statistic
-              title="已发布成果"
+              title={t("results.publishedResults")}
               value={publishedResults.length}
-              suffix="项"
+              suffix={t("results.itemSuffix")}
             />
             <Statistic
-              title="可下载"
+              title={t("results.downloadable")}
               value={publishedResults.filter(resultCanDownload).length}
-              suffix="项"
+              suffix={t("results.itemSuffix")}
             />
             <Statistic
-              title="成果来源"
+              title={t("results.resultSources")}
               value={new Set(publishedResults.map(resultSource)).size}
-              suffix="类"
+              suffix={t("results.typeSuffix")}
             />
           </div>
         </section>
@@ -271,8 +259,8 @@ export default function ResultsPage() {
           <Alert
             showIcon
             type="warning"
-            title="当前账号暂无成果查看权限"
-            description="成果页面保留统一入口；获得专题图成果或成果文件查看权限后，将自动显示可访问的已发布成果。"
+            title={t("results.permissionTitle")}
+            description={t("results.permissionDescription")}
           />
         )}
 
@@ -287,7 +275,7 @@ export default function ResultsPage() {
           <Input
             allowClear
             prefix={<SearchOutlined />}
-            placeholder="搜索成果名称、分类、工程或提供单位"
+            placeholder={t("results.searchPlaceholder")}
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
           />
@@ -298,7 +286,7 @@ export default function ResultsPage() {
           />
           <Select
             allowClear
-            placeholder="成果格式"
+            placeholder={t("results.formatPlaceholder")}
             value={format}
             options={formatOptions}
             onChange={setFormat}
@@ -307,8 +295,16 @@ export default function ResultsPage() {
             value={view}
             onChange={setView}
             options={[
-              { value: "cards", label: "卡片", icon: <AppstoreOutlined /> },
-              { value: "list", label: "列表", icon: <FileImageOutlined /> },
+              {
+                value: "cards",
+                label: t("results.cardView"),
+                icon: <AppstoreOutlined />,
+              },
+              {
+                value: "list",
+                label: t("results.listView"),
+                icon: <FileImageOutlined />,
+              },
             ]}
           />
         </section>
@@ -333,7 +329,7 @@ export default function ResultsPage() {
           ) : (
             <Empty
               className="results-page-empty"
-              description={emptyDescription(source)}
+              description={emptyDescription(source, t)}
             />
           )}
         </Spin>
@@ -341,7 +337,7 @@ export default function ResultsPage() {
 
       <Drawer
         size="large"
-        title={detail ? resultName(detail) : "成果详情"}
+        title={detail ? resultName(detail) : t("results.detailTitle")}
         open={Boolean(detail)}
         onClose={() => setDetail(null)}
       >
@@ -362,6 +358,8 @@ function ResultsOverview({
   selectedSource: ResultSource;
   onSourceChange: (source: ResultSource) => void;
 }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage === "en-US" ? "en-US" : "zh-CN";
   const trendMaximum = Math.max(...data.trend.map((item) => item.count), 1);
   const donutBackground = buildDonutBackground(data.sources, data.total);
 
@@ -375,19 +373,21 @@ function ResultsOverview({
           <Space size={8}>
             <PieChartOutlined />
             <Typography.Title id="results-overview-title" level={2}>
-              成果数据概览
+              {t("results.overviewTitle")}
             </Typography.Title>
           </Space>
           <Typography.Paragraph>
-            基于当前账号可访问的已发布成果实时汇总，点击来源可联动筛选下方成果目录。
+            {t("results.overviewSummary")}
           </Typography.Paragraph>
         </div>
         <Space wrap>
-          <Tag color="green">实时汇总</Tag>
+          <Tag color="green">{t("results.realtime")}</Tag>
           <Typography.Text type="secondary">
             {data.latestPublishedAt
-              ? `最近发布 ${formatShortDate(data.latestPublishedAt)}`
-              : "暂无发布记录"}
+              ? t("results.recentPublished", {
+                  date: formatShortDate(data.latestPublishedAt, locale, t),
+                })
+              : t("results.noPublishedRecords")}
           </Typography.Text>
         </Space>
       </header>
@@ -396,31 +396,31 @@ function ResultsOverview({
         <div className="results-overview-metrics">
           <OverviewMetric
             icon={<DatabaseOutlined />}
-            label="成果总量"
+            label={t("results.total")}
             value={data.total}
-            suffix="项"
-            note="当前可访问的正式成果"
+            suffix={t("results.itemSuffix")}
+            note={t("results.totalNote")}
           />
           <OverviewMetric
             icon={<CalendarOutlined />}
-            label="本月新增"
+            label={t("results.addedThisMonth")}
             value={data.thisMonth}
-            suffix="项"
-            note="按成果发布时间统计"
+            suffix={t("results.itemSuffix")}
+            note={t("results.addedThisMonthNote")}
           />
           <OverviewMetric
             icon={<DownloadOutlined />}
-            label="开放下载"
+            label={t("results.openDownload")}
             value={data.downloadable}
-            suffix="项"
-            note={`可下载率 ${data.downloadRate}%`}
+            suffix={t("results.itemSuffix")}
+            note={t("results.downloadRate", { rate: data.downloadRate })}
           />
           <OverviewMetric
             icon={<FileOutlined />}
-            label="文件格式"
+            label={t("results.fileFormats")}
             value={data.formatCount}
-            suffix="种"
-            note="覆盖图片、文档与表格"
+            suffix={t("results.formatTypeSuffix")}
+            note={t("results.fileFormatsNote")}
           />
         </div>
 
@@ -428,14 +428,16 @@ function ResultsOverview({
           <article className="results-overview-chart results-source-chart">
             <div className="results-chart-title">
               <div>
-                <Typography.Title level={3}>成果来源构成</Typography.Title>
+                <Typography.Title level={3}>
+                  {t("results.sourceComposition")}
+                </Typography.Title>
                 <Typography.Text type="secondary">
-                  各类成果占当前成果总量的比例
+                  {t("results.sourceCompositionNote")}
                 </Typography.Text>
               </div>
               {selectedSource !== "all" && (
                 <Button type="link" onClick={() => onSourceChange("all")}>
-                  查看全部
+                  {t("results.showAll")}
                 </Button>
               )}
             </div>
@@ -444,11 +446,11 @@ function ResultsOverview({
                 className={`results-donut${data.total ? "" : " is-empty"}`}
                 style={{ background: donutBackground }}
                 role="img"
-                aria-label={buildSourceSummary(data.sources, data.total)}
+                aria-label={buildSourceSummary(data.sources, data.total, t)}
               >
                 <div className="results-donut-center">
                   <strong>{data.total}</strong>
-                  <span>成果总量</span>
+                  <span>{t("results.total")}</span>
                 </div>
               </div>
               <div className="results-source-legend">
@@ -472,7 +474,9 @@ function ResultsOverview({
                     />
                     <span>
                       <small>{item.label}</small>
-                      <strong>{item.count} 项</strong>
+                      <strong>
+                        {item.count} {t("results.itemSuffix")}
+                      </strong>
                     </span>
                     <b>{item.percentage}%</b>
                   </button>
@@ -484,9 +488,11 @@ function ResultsOverview({
           <article className="results-overview-chart results-trend-chart">
             <div className="results-chart-title">
               <div>
-                <Typography.Title level={3}>近 6 个月发布趋势</Typography.Title>
+                <Typography.Title level={3}>
+                  {t("results.sixMonthTrend")}
+                </Typography.Title>
                 <Typography.Text type="secondary">
-                  观察成果持续沉淀与发布节奏
+                  {t("results.sixMonthTrendNote")}
                 </Typography.Text>
               </div>
               <BarChartOutlined />
@@ -494,7 +500,7 @@ function ResultsOverview({
             <div
               className="results-trend-plot"
               role="img"
-              aria-label={buildTrendSummary(data.trend)}
+              aria-label={buildTrendSummary(data.trend, t)}
             >
               {data.trend.map((item) => (
                 <div className="results-trend-column" key={item.key}>
@@ -515,7 +521,7 @@ function ResultsOverview({
             </div>
             {!data.total && (
               <div className="results-trend-empty-note">
-                成果发布后，月度变化将在此自动呈现
+                {t("results.trendEmpty")}
               </div>
             )}
           </article>
@@ -538,13 +544,15 @@ function OverviewMetric({
   suffix: string;
   note: string;
 }) {
+  const { i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage === "en-US" ? "en-US" : "zh-CN";
   return (
     <article className="results-overview-metric">
       <span className="results-overview-metric-icon">{icon}</span>
       <div>
         <small>{label}</small>
         <strong>
-          {value.toLocaleString("zh-CN")}
+          {value.toLocaleString(locale)}
           <em>{suffix}</em>
         </strong>
         <span>{note}</span>
@@ -555,6 +563,8 @@ function OverviewMetric({
 
 function buildResultsOverview(
   results: PublishedResult[],
+  t: TFunction,
+  locale: "zh-CN" | "en-US",
   now = new Date(),
 ): ResultsOverviewData {
   const total = results.length;
@@ -576,8 +586,22 @@ function buildResultsOverview(
 
   const sources = sourceOverviewMeta.map((item) => {
     const count = sourceCounts.get(item.key) ?? 0;
+    const labelKey =
+      item.key === "mapping"
+        ? "results.sourceMapping"
+        : item.key === "analysis"
+          ? "results.sourceAnalysis"
+          : "results.sourceImported";
+    const shortLabelKey =
+      item.key === "mapping"
+        ? "results.sourceMappingShort"
+        : item.key === "analysis"
+          ? "results.sourceAnalysisShort"
+          : "results.sourceImportedShort";
     return {
       ...item,
+      label: t(labelKey),
+      shortLabel: t(shortLabelKey),
       count,
       percentage: total ? Math.round((count / total) * 100) : 0,
     };
@@ -592,7 +616,10 @@ function buildResultsOverview(
     const key = monthKey(monthDate);
     return {
       key,
-      label: `${monthDate.getMonth() + 1}月`,
+      label:
+        locale === "en-US"
+          ? monthDate.toLocaleDateString(locale, { month: "short" })
+          : t("results.monthLabel", { month: monthDate.getMonth() + 1 }),
       count: validPublicationDates.filter(({ date }) => monthKey(date) === key)
         .length,
     };
@@ -640,23 +667,38 @@ function buildDonutBackground(sources: SourceOverview[], total: number) {
   return `conic-gradient(${segments.join(", ")})`;
 }
 
-function buildSourceSummary(sources: SourceOverview[], total: number) {
-  if (!total) return "成果来源构成：暂无已发布成果";
-  return `成果来源构成：${sources
-    .map((source) => `${source.label} ${source.count} 项`)
-    .join("，")}`;
+function buildSourceSummary(
+  sources: SourceOverview[],
+  total: number,
+  t: TFunction,
+) {
+  if (!total) return t("results.sourceSummaryEmpty");
+  return t("results.sourceSummary", {
+    summary: sources
+      .map(
+        (source) =>
+          `${source.label} ${source.count} ${t("results.itemSuffix")}`,
+      )
+      .join(", "),
+  });
 }
 
-function buildTrendSummary(trend: TrendOverview[]) {
-  return `近 6 个月发布趋势：${trend
-    .map((item) => `${item.label} ${item.count} 项`)
-    .join("，")}`;
+function buildTrendSummary(trend: TrendOverview[], t: TFunction) {
+  return t("results.trendSummary", {
+    summary: trend
+      .map((item) => `${item.label} ${item.count} ${t("results.itemSuffix")}`)
+      .join(", "),
+  });
 }
 
-function formatShortDate(value: string) {
+function formatShortDate(
+  value: string,
+  locale: "zh-CN" | "en-US",
+  t: TFunction,
+) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "日期未知";
-  return date.toLocaleDateString("zh-CN", {
+  if (Number.isNaN(date.getTime())) return t("results.dateUnknown");
+  return date.toLocaleDateString(locale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -674,12 +716,13 @@ function ResultCard({
   onDetail: () => void;
   onDownload: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <Card className="result-card" cover={<ResultCover item={item} />}>
       <Space orientation="vertical" size={10} className="full-width">
         <Space wrap>
           <Tag color={sourceTagColor(resultSource(item))}>
-            {sourceLabel(item)}
+            {sourceLabel(item, t)}
           </Tag>
           <Tag>{resultFormat(item).toUpperCase()}</Tag>
           {item.kind === "mapping" && (
@@ -688,14 +731,14 @@ function ResultCard({
         </Space>
         <Typography.Title level={3}>{resultName(item)}</Typography.Title>
         <Typography.Text type="secondary">
-          {resultProvider(item)}
+          {resultProvider(item, t)}
         </Typography.Text>
         <Typography.Paragraph ellipsis={{ rows: 2 }}>
-          {resultDescription(item) || "暂无成果说明"}
+          {resultDescription(item) || t("results.noDescription")}
         </Typography.Paragraph>
         <Space wrap>
           <Button icon={<EyeOutlined />} onClick={onDetail}>
-            查看详情
+            {t("results.viewDetails")}
           </Button>
           <Button
             type="primary"
@@ -704,7 +747,7 @@ function ResultCard({
             loading={downloading}
             onClick={onDownload}
           >
-            下载成果
+            {t("results.downloadResult")}
           </Button>
         </Space>
       </Space>
@@ -713,6 +756,7 @@ function ResultCard({
 }
 
 function ResultCover({ item }: { item: PublishedResult }) {
+  const { t } = useTranslation();
   const previewUrl = resultPreviewUrl(item);
   const format = resultFormat(item);
   const imagePreview = resultPreviewIsImage(item);
@@ -722,7 +766,7 @@ function ResultCover({ item }: { item: PublishedResult }) {
     >
       {previewUrl && imagePreview ? (
         <Image
-          alt={`${resultName(item)}成果预览`}
+          alt={t("results.previewAlt", { name: resultName(item) })}
           preview={false}
           src={previewUrl}
         />
@@ -730,22 +774,27 @@ function ResultCover({ item }: { item: PublishedResult }) {
         <div className="result-file-cover-placeholder">
           {resultFormatIcon(item)}
           <strong>{format.toUpperCase()}</strong>
-          <span>{sourceLabel(item)}</span>
+          <span>{sourceLabel(item, t)}</span>
         </div>
       )}
-      <Tag color="green">已发布</Tag>
+      <Tag color="green">{t("results.published")}</Tag>
     </div>
   );
 }
 
 function ResultDetail({ item }: { item: PublishedResult }) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.resolvedLanguage === "en-US" ? "en-US" : "zh-CN";
   const format = resultFormat(item);
   const previewUrl = resultPreviewUrl(item);
   const imagePreview = resultPreviewIsImage(item);
   return (
     <Space orientation="vertical" size={20} className="full-width">
       {previewUrl && imagePreview && (
-        <Image alt={`${resultName(item)}成果预览`} src={previewUrl} />
+        <Image
+          alt={t("results.previewAlt", { name: resultName(item) })}
+          src={previewUrl}
+        />
       )}
       {previewUrl && !imagePreview && format === "pdf" && (
         <iframe
@@ -754,44 +803,44 @@ function ResultDetail({ item }: { item: PublishedResult }) {
           referrerPolicy="no-referrer"
           sandbox=""
           src={previewUrl}
-          title={`${resultName(item)} PDF 预览`}
+          title={t("results.pdfPreview", { name: resultName(item) })}
         />
       )}
       {!imagePreview && format !== "pdf" && (
         <Alert
           showIcon
           type="info"
-          title="该成果格式不支持在线预览"
-          description="可在权限允许时下载原文件，并使用本地表格软件查看。"
+          title={t("results.previewUnsupported")}
+          description={t("results.previewUnsupportedDescription")}
         />
       )}
       <Typography.Paragraph>
-        {resultDescription(item) || "暂无成果说明"}
+        {resultDescription(item) || t("results.noDescription")}
       </Typography.Paragraph>
       <div className="result-detail-grid">
         <span>
-          <small>成果来源</small>
-          <strong>{sourceLabel(item)}</strong>
+          <small>{t("results.source")}</small>
+          <strong>{sourceLabel(item, t)}</strong>
         </span>
         <span>
-          <small>成果格式</small>
+          <small>{t("results.resultFormat")}</small>
           <strong>{format.toUpperCase()}</strong>
         </span>
         <span>
-          <small>提供/制作单位</small>
-          <strong>{resultProvider(item)}</strong>
+          <small>{t("results.provider")}</small>
+          <strong>{resultProvider(item, t)}</strong>
         </span>
         <span>
-          <small>成果分类</small>
-          <strong>{resultCategory(item)}</strong>
+          <small>{t("results.category")}</small>
+          <strong>{resultCategory(item, t)}</strong>
         </span>
         <span>
-          <small>制作/登记人员</small>
-          <strong>{resultOwner(item)}</strong>
+          <small>{t("results.owner")}</small>
+          <strong>{resultOwner(item, t)}</strong>
         </span>
         <span>
-          <small>发布时间</small>
-          <strong>{formatDate(resultPublishedAt(item))}</strong>
+          <small>{t("results.publishedAt")}</small>
+          <strong>{formatDate(resultPublishedAt(item), locale, t)}</strong>
         </span>
       </div>
     </Space>
@@ -803,11 +852,11 @@ function resultSource(item: PublishedResult): Exclude<ResultSource, "all"> {
   return item.item.sourceType === "analysis" ? "analysis" : "imported";
 }
 
-function sourceLabel(item: PublishedResult) {
+function sourceLabel(item: PublishedResult, t: TFunction) {
   const source = resultSource(item);
-  if (source === "mapping") return "专题图件";
-  if (source === "analysis") return "平台分析成果";
-  return "直接导入成果";
+  if (source === "mapping") return t("results.sourceMapping");
+  if (source === "analysis") return t("results.sourceAnalysis");
+  return t("results.sourceImported");
 }
 
 function sourceTagColor(source: Exclude<ResultSource, "all">) {
@@ -830,20 +879,26 @@ function resultFormat(item: PublishedResult) {
     : item.item.fileFormat;
 }
 
-function resultProvider(item: PublishedResult) {
+function resultProvider(item: PublishedResult, t: TFunction) {
   return item.kind === "mapping"
-    ? `来源工程：${item.item.projectName}`
-    : `提供单位：${item.item.provider || "未填写"}`;
+    ? t("results.projectSource", { name: item.item.projectName })
+    : t("results.providerSource", {
+        name: item.item.provider || t("results.notProvided"),
+      });
 }
 
-function resultCategory(item: PublishedResult) {
+function resultCategory(item: PublishedResult, t: TFunction) {
   return item.kind === "mapping"
-    ? "专题制图成果"
+    ? t("results.mappingCategory")
     : item.item.categoryPath.map((category) => category.name).join(" / ");
 }
 
-function resultOwner(item: PublishedResult) {
-  return item.item.owner.displayName || item.item.owner.username || "未记录";
+function resultOwner(item: PublishedResult, t: TFunction) {
+  return (
+    item.item.owner.displayName ||
+    item.item.owner.username ||
+    t("results.notRecorded")
+  );
 }
 
 function resultPublishedAt(item: PublishedResult) {
@@ -869,13 +924,13 @@ function resultCanDownload(item: PublishedResult) {
   return item.item.canDownload;
 }
 
-function resultSearchText(item: PublishedResult) {
+function resultSearchText(item: PublishedResult, t: TFunction) {
   return [
     resultName(item),
     resultDescription(item),
-    resultProvider(item),
-    resultCategory(item),
-    resultOwner(item),
+    resultProvider(item, t),
+    resultCategory(item, t),
+    resultOwner(item, t),
   ].join(" ");
 }
 
@@ -888,17 +943,21 @@ function resultFormatIcon(item: PublishedResult) {
   return <PictureOutlined />;
 }
 
-function emptyDescription(source: ResultSource) {
-  if (source === "analysis") return "暂无已发布的数据分析成果";
-  if (source === "imported") return "暂无已发布的直接导入成果";
-  if (source === "mapping") return "暂无已发布的专题图件";
-  return "当前筛选条件下暂无已发布成果";
+function emptyDescription(source: ResultSource, t: TFunction) {
+  if (source === "analysis") return t("results.emptyAnalysis");
+  if (source === "imported") return t("results.emptyImported");
+  if (source === "mapping") return t("results.emptyMapping");
+  return t("results.emptyFiltered");
 }
 
-function formatDate(value: string | null | undefined) {
+function formatDate(
+  value: string | null | undefined,
+  locale: "zh-CN" | "en-US",
+  t: TFunction,
+) {
   return value
-    ? new Date(value).toLocaleString("zh-CN", { hour12: false })
-    : "未记录";
+    ? new Date(value).toLocaleString(locale, { hour12: false })
+    : t("results.notRecorded");
 }
 
 function errorMessage(error: unknown, fallback: string) {

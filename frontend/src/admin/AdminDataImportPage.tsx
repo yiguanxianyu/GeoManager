@@ -32,6 +32,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ApiError, api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
+import { localText, useEnglishLanguage } from "../i18n/useEnglishLanguage";
 import { applyPlatformDocumentTitle } from "../config/platformBrand";
 import type {
   AdminDataResourceAccessGroup,
@@ -222,6 +223,61 @@ const fallbackDomainDefinitions: DomainDefinition[] = [
   },
 ];
 
+const englishDomainDefinitions: Partial<
+  Record<DataDomainType, { name: string; description: string }>
+> = {
+  germplasm: {
+    name: "Germplasm data",
+    description:
+      "Poplar and associated-plant germplasm, including provenance, sample IDs, core-resource markers, and links to molecular or genomic data.",
+  },
+  genome: {
+    name: "Genome data",
+    description:
+      "Non-geographic omics outputs such as sequencing, assembly, variants, and annotations, traceable to collection sites, individuals, or populations through biological samples.",
+  },
+  individual: {
+    name: "Individual data",
+    description:
+      "Locations, sex, health status, and observations for individual plants.",
+  },
+  community: {
+    name: "Community data",
+    description:
+      "Plots, community composition, diversity indices, and functional traits.",
+  },
+  population: {
+    name: "Population data",
+    description:
+      "Spatial extents, survey events, and indicators for species populations in a region.",
+  },
+  field_survey: {
+    name: "Field-survey data",
+    description:
+      "Survey tasks, routes, sites, collection records, field photographs, and observations.",
+  },
+  remote_sensing: {
+    name: "Remote-sensing imagery",
+    description:
+      "Source satellite or UAV imagery and NDVI, NPP, biomass, classification, or change-detection products.",
+  },
+  molecular: {
+    name: "Molecular data",
+    description:
+      "DNA/RNA extraction, PCR, molecular markers, experiment batches, and result files linked to spatial provenance through biological samples.",
+  },
+  vector: {
+    name: "Vector data",
+    description:
+      "Point, line, and polygon resources such as Shapefile, GeoJSON, and GeoPackage, with standardized import, querying, symbolization, and map display.",
+  },
+  other: {
+    name: "Other data",
+    description:
+      "Resources not yet assigned to a specialist topic; register them as point tables, attribute tables, documents, or images and add field mapping and standardization later.",
+  },
+};
+
 const domainFieldHints: Record<DataDomainType, string[]> = {
   germplasm: [
     "样品编号",
@@ -303,6 +359,8 @@ const domainFieldHints: Record<DataDomainType, string[]> = {
 
 export default function AdminDataImportPage() {
   const { message } = AntApp.useApp();
+  const english = useEnglishLanguage();
+  const l = (zh: string, en: string) => localText(english, zh, en);
   const { bootstrap, setBootstrap, user } = useAppContext();
   const location = useLocation();
   const navigate = useNavigate();
@@ -402,10 +460,19 @@ export default function AdminDataImportPage() {
   );
   const hasPendingImport = hasUnfinishedImport || resultImportDirty;
 
-  const domainDefinitions = useMemo(
-    () => (schema?.domains.length ? schema.domains : fallbackDomainDefinitions),
-    [schema?.domains],
-  );
+  const domainDefinitions = useMemo(() => {
+    const definitions = schema?.domains.length
+      ? schema.domains
+      : fallbackDomainDefinitions;
+    if (!english) return definitions;
+    return definitions.map((domain) => ({
+      ...domain,
+      name: englishDomainDefinitions[domain.code]?.name ?? domain.name,
+      description:
+        englishDomainDefinitions[domain.code]?.description ??
+        domain.description,
+    }));
+  }, [english, schema?.domains]);
   const categoryOptions = useMemo(() => taxonomyLeafOptions(schema), [schema]);
   const selectedDomainType =
     Form.useWatch("domainType", form) ?? importConfig.domainType;
@@ -468,29 +535,38 @@ export default function AdminDataImportPage() {
   const stepItems = useMemo(() => {
     if (importKind === "raster") {
       return [
-        { title: "选择文件", icon: <CloudUploadOutlined /> },
-        { title: "栅格配置", icon: <DatabaseOutlined /> },
-        { title: "预处理进度", icon: <CheckCircleOutlined /> },
+        { title: l("选择文件", "Select file"), icon: <CloudUploadOutlined /> },
+        { title: l("栅格配置", "Raster settings"), icon: <DatabaseOutlined /> },
+        {
+          title: l("预处理进度", "Preprocessing"),
+          icon: <CheckCircleOutlined />,
+        },
       ];
     }
     if (importKind === "unsupported") {
       return [
-        { title: "选择文件", icon: <CloudUploadOutlined /> },
-        { title: "类型识别", icon: <FileSearchOutlined /> },
+        { title: l("选择文件", "Select file"), icon: <CloudUploadOutlined /> },
+        { title: l("类型识别", "Identify type"), icon: <FileSearchOutlined /> },
       ];
     }
     if (importKind === "vector") {
       return [
-        { title: "选择文件", icon: <CloudUploadOutlined /> },
-        { title: "预检与入库", icon: <DatabaseOutlined /> },
+        { title: l("选择文件", "Select file"), icon: <CloudUploadOutlined /> },
+        {
+          title: l("预检与入库", "Preflight and import"),
+          icon: <DatabaseOutlined />,
+        },
       ];
     }
     return [
-      { title: "选择文件", icon: <CloudUploadOutlined /> },
-      { title: "导入配置", icon: <DatabaseOutlined /> },
-      { title: "预览提交", icon: <CheckCircleOutlined /> },
+      { title: l("选择文件", "Select file"), icon: <CloudUploadOutlined /> },
+      { title: l("导入配置", "Import settings"), icon: <DatabaseOutlined /> },
+      {
+        title: l("预览提交", "Preview and submit"),
+        icon: <CheckCircleOutlined />,
+      },
     ];
-  }, [importKind]);
+  }, [english, importKind]);
 
   useEffect(() => {
     currentPathRef.current = `${location.pathname}${location.search}${location.hash}`;
@@ -718,7 +794,12 @@ export default function AdminDataImportPage() {
   function handleImportTargetChange(nextTarget: ImportTarget) {
     if (nextTarget === importTarget) return;
     if (hasPendingImport) {
-      message.warning("请先完成当前导入或点击重新选择清空内容，再切换导入目标");
+      message.warning(
+        l(
+          "请先完成当前导入或点击重新选择清空内容，再切换导入目标",
+          "Finish the current import or clear it with Choose another file before switching import targets",
+        ),
+      );
       return;
     }
     setImportTarget(nextTarget);
@@ -728,9 +809,14 @@ export default function AdminDataImportPage() {
     <ProCard className="admin-section-card import-target-card">
       <div className="import-target-heading">
         <div>
-          <Typography.Title level={4}>选择导入目标</Typography.Title>
+          <Typography.Title level={4}>
+            {l("选择导入目标", "Choose an import target")}
+          </Typography.Title>
           <Typography.Text type="secondary">
-            数据资源用于后续地图加载、查询和分析；成果文件用于集中展示已经完成的图件、报告、图表和表格。
+            {l(
+              "数据资源用于后续地图加载、查询和分析；成果文件用于集中展示已经完成的图件、报告、图表和表格。",
+              "Data resources support subsequent map loading, queries, and analysis. Result files present completed maps, reports, charts, and tables.",
+            )}
           </Typography.Text>
         </div>
         <Radio.Group
@@ -742,10 +828,20 @@ export default function AdminDataImportPage() {
           }
           options={[
             ...(canImportResources
-              ? [{ label: "导入为数据资源", value: "resource" as const }]
+              ? [
+                  {
+                    label: l("导入为数据资源", "Import as data resource"),
+                    value: "resource" as const,
+                  },
+                ]
               : []),
             ...(canImportResults
-              ? [{ label: "导入并发布成果", value: "result" as const }]
+              ? [
+                  {
+                    label: l("导入并发布成果", "Import and publish result"),
+                    value: "result" as const,
+                  },
+                ]
               : []),
           ]}
         />
@@ -1078,9 +1174,18 @@ export default function AdminDataImportPage() {
       setCompletedRasterUploadProgress(100);
       setRasterJob(job);
       setCurrentStep(2);
-      message.success("栅格导入任务已提交，后台正在预处理");
+      message.success(
+        l(
+          "栅格导入任务已提交，后台正在预处理",
+          "Raster import submitted; preprocessing is running in the background",
+        ),
+      );
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "栅格导入失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("栅格导入失败", "Raster import failed"),
+      );
     } finally {
       setRasterUploading(false);
     }
@@ -1092,12 +1197,14 @@ export default function AdminDataImportPage() {
 
   async function submitImport(ignoreUncertainty: boolean) {
     if (!file || !preview) {
-      message.warning("请先选择并预检文件");
+      message.warning(
+        l("请先选择并预检文件", "Select and preflight a file first"),
+      );
       return;
     }
     try {
       if (!hasValidated) {
-        message.warning("请先进行数据校验");
+        message.warning(l("请先进行数据校验", "Validate the data first"));
         setCurrentStep(1);
         return;
       }
@@ -1111,27 +1218,34 @@ export default function AdminDataImportPage() {
         ...form.getFieldsValue(true),
       });
       if (!values.name) {
-        message.warning("请输入数据名称");
+        message.warning(l("请输入数据名称", "Enter a data name"));
         setCurrentStep(1);
         return;
       }
       if (!values.importMode) {
-        message.warning("请选择入库方式");
+        message.warning(l("请选择入库方式", "Select a storage mode"));
         setCurrentStep(1);
         return;
       }
       if (!values.domainType) {
-        message.warning("请选择业务数据类型");
+        message.warning(l("请选择业务数据类型", "Select a business data type"));
         setCurrentStep(1);
         return;
       }
       if (!values.categoryCode) {
-        message.warning("请选择权威业务分类");
+        message.warning(
+          l("请选择权威业务分类", "Select an authoritative category"),
+        );
         setCurrentStep(1);
         return;
       }
       if (duplicateTarget && !duplicateNameConfirmed) {
-        message.warning("请先在数据校验阶段确认重复数据名称");
+        message.warning(
+          l(
+            "请先在数据校验阶段确认重复数据名称",
+            "Confirm the duplicate data name during validation first",
+          ),
+        );
         setCurrentStep(1);
         return;
       }
@@ -1157,7 +1271,7 @@ export default function AdminDataImportPage() {
       const imported = await api.importCommit(file, payload);
       setResult(imported);
       setValidationIssues(imported.validationIssues);
-      message.success("导入完成");
+      message.success(l("导入完成", "Import completed"));
     } catch (error) {
       const issues = importIssuesFromError(error);
       if (issues.length) {
@@ -1165,7 +1279,11 @@ export default function AdminDataImportPage() {
         setPendingIssueAction("import");
         setIssuesOpen(true);
       } else {
-        message.error(error instanceof Error ? error.message : "导入失败");
+        message.error(
+          error instanceof Error
+            ? error.message
+            : l("导入失败", "Import failed"),
+        );
       }
     } finally {
       setImporting(false);
@@ -1230,23 +1348,27 @@ export default function AdminDataImportPage() {
               >
                 <CloudUploadOutlined style={{ fontSize: 34 }} />
                 <Typography.Title level={4}>
-                  选择或拖拽数据文件
+                  {l("选择或拖拽数据文件", "Select or drop a data file")}
                 </Typography.Title>
                 <Typography.Text type="secondary">
-                  支持 CSV、Excel、矢量文件，以及 GeoTIFF/COG、IMG、VRT、 ENVI
-                  DAT/BSQ/BIL/BIP + HDR
-                  栅格数据包；系统会根据文件类型自动进入后续流程。表格和矢量文件分别受
-                  16 MB、120 MB 内存安全上限保护。
+                  {l(
+                    "支持 CSV、Excel、矢量文件，以及 GeoTIFF/COG、IMG、VRT、 ENVI DAT/BSQ/BIL/BIP + HDR 栅格数据包；系统会根据文件类型自动进入后续流程。表格和矢量文件分别受 16 MB、120 MB 内存安全上限保护。",
+                    "Supports CSV, Excel, vector files, and GeoTIFF/COG, IMG, VRT, and ENVI DAT/BSQ/BIL/BIP + HDR raster packages. The next workflow is selected automatically by file type. Tabular and vector files have 16 MB and 120 MB in-memory safety limits, respectively.",
+                  )}
                 </Typography.Text>
                 <div className="import-selected-file">
                   {previewing ? (
-                    <Tag color="processing">正在预检文件...</Tag>
+                    <Tag color="processing">
+                      {l("正在预检文件...", "Preflighting file...")}
+                    </Tag>
                   ) : rasterInspecting ? (
-                    <Tag color="processing">正在读取栅格尺寸...</Tag>
+                    <Tag color="processing">
+                      {l("正在读取栅格尺寸...", "Reading raster dimensions...")}
+                    </Tag>
                   ) : file ? (
                     <Tag color="green">{file.name}</Tag>
                   ) : (
-                    <Tag>尚未选择文件</Tag>
+                    <Tag>{l("尚未选择文件", "No file selected")}</Tag>
                   )}
                 </div>
               </Upload.Dragger>
@@ -1256,64 +1378,88 @@ export default function AdminDataImportPage() {
           {currentStep === 1 && importKind === "tabular" && preview && (
             <div className="import-config-form">
               <Space className="import-actions import-actions-top">
-                <Button onClick={resetImportState}>重新选择文件</Button>
+                <Button onClick={resetImportState}>
+                  {l("重新选择文件", "Choose another file")}
+                </Button>
                 <Button
                   type="primary"
                   icon={<CheckCircleOutlined style={{ fontSize: 16 }} />}
                   loading={validating}
                   onClick={handleValidateAndContinue}
                 >
-                  数据校验并继续
+                  {l("数据校验并继续", "Validate and continue")}
                 </Button>
               </Space>
 
               <section className="import-section import-recognition-panel">
-                <Typography.Title level={5}>文件识别结果</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("文件识别结果", "File identification")}
+                </Typography.Title>
                 <Descriptions
                   size="small"
                   bordered
                   column={4}
                   className="import-stats"
                 >
-                  <Descriptions.Item label="文件名">
+                  <Descriptions.Item label={l("文件名", "File name")}>
                     {file?.name ?? "-"}
                   </Descriptions.Item>
-                  <Descriptions.Item label="总行数">
+                  <Descriptions.Item label={l("总行数", "Total rows")}>
                     {preview.rowCount}
                   </Descriptions.Item>
                   {preview.activeSheetName && (
-                    <Descriptions.Item label="当前工作表">
+                    <Descriptions.Item
+                      label={l("当前工作表", "Current worksheet")}
+                    >
                       {preview.activeSheetName}
                     </Descriptions.Item>
                   )}
-                  <Descriptions.Item label="字段数">
+                  <Descriptions.Item label={l("字段数", "Fields")}>
                     {preview.columns.length}
                   </Descriptions.Item>
-                  <Descriptions.Item label="自动识别">
+                  <Descriptions.Item label={l("自动识别", "Detected type")}>
                     {preview.detected.isGeographic
-                      ? "地理数据（经纬度表格）"
-                      : "非地理数据（普通表格）"}
+                      ? l(
+                          "地理数据（经纬度表格）",
+                          "Geographic data (longitude/latitude table)",
+                        )
+                      : l(
+                          "非地理数据（普通表格）",
+                          "Non-geographic data (attribute table)",
+                        )}
                   </Descriptions.Item>
-                  <Descriptions.Item label="建议存储标识" span={2}>
+                  <Descriptions.Item
+                    label={l("建议存储标识", "Suggested storage identifier")}
+                    span={2}
+                  >
                     {preview.suggestedTableName}
                   </Descriptions.Item>
-                  <Descriptions.Item label="识别坐标列" span={2}>
+                  <Descriptions.Item
+                    label={l("识别坐标列", "Detected coordinate columns")}
+                    span={2}
+                  >
                     {preview.detected.longitudeColumn &&
                     preview.detected.latitudeColumn
                       ? `${preview.detected.longitudeColumn} / ${preview.detected.latitudeColumn}`
-                      : "未识别"}
+                      : l("未识别", "Not detected")}
                   </Descriptions.Item>
                 </Descriptions>
                 {(preview.sheets?.length ?? 0) > 1 && (
                   <section className="import-section import-sheet-section">
                     <Typography.Title level={5}>
-                      工作表拆分结果
+                      {l("工作表拆分结果", "Worksheet split results")}
                     </Typography.Title>
                     <Alert
                       type="info"
                       showIcon
-                      title={`已识别 ${preview.sheets?.length ?? 0} 张工作表`}
-                      description="每张工作表会按独立表格预检、校验和导入；请选择当前要导入的工作表，平台会重新推断字段、坐标列和建议入库名称。"
+                      title={l(
+                        `已识别 ${preview.sheets?.length ?? 0} 张工作表`,
+                        `${preview.sheets?.length ?? 0} worksheets detected`,
+                      )}
+                      description={l(
+                        "每张工作表会按独立表格预检、校验和导入；请选择当前要导入的工作表，平台会重新推断字段、坐标列和建议入库名称。",
+                        "Each worksheet is preflighted, validated, and imported independently. Select the worksheet to import and the platform will infer fields, coordinate columns, and a suggested storage name again.",
+                      )}
                     />
                     <Table
                       size="small"
@@ -1322,33 +1468,35 @@ export default function AdminDataImportPage() {
                       dataSource={preview.sheets ?? []}
                       columns={[
                         {
-                          title: "工作表",
+                          title: l("工作表", "Worksheet"),
                           dataIndex: "name",
                           ellipsis: true,
                         },
                         {
-                          title: "行数",
+                          title: l("行数", "Rows"),
                           dataIndex: "rowCount",
                           width: 96,
                         },
                         {
-                          title: "字段",
+                          title: l("字段", "Fields"),
                           dataIndex: "columnCount",
                           width: 96,
                         },
                         {
-                          title: "识别类型",
+                          title: l("识别类型", "Detected type"),
                           dataIndex: "isGeographic",
                           width: 140,
                           render: (_, record) =>
                             record.isGeographic ? (
-                              <Tag color="cyan">经纬度表格</Tag>
+                              <Tag color="cyan">
+                                {l("经纬度表格", "Longitude/latitude table")}
+                              </Tag>
                             ) : (
-                              <Tag>普通表格</Tag>
+                              <Tag>{l("普通表格", "Attribute table")}</Tag>
                             ),
                         },
                         {
-                          title: "坐标列",
+                          title: l("坐标列", "Coordinate columns"),
                           width: 180,
                           render: (_, record) =>
                             record.longitudeColumn && record.latitudeColumn
@@ -1356,18 +1504,20 @@ export default function AdminDataImportPage() {
                               : "-",
                         },
                         {
-                          title: "操作",
+                          title: l("操作", "Actions"),
                           width: 120,
                           render: (_, record) =>
                             record.name === preview.activeSheetName ? (
-                              <Tag color="green">当前导入</Tag>
+                              <Tag color="green">
+                                {l("当前导入", "Selected")}
+                              </Tag>
                             ) : (
                               <Button
                                 size="small"
                                 loading={previewing}
                                 onClick={() => handleSheetSelected(record.name)}
                               >
-                                切换
+                                {l("切换", "Select")}
                               </Button>
                             ),
                         },
@@ -1379,7 +1529,7 @@ export default function AdminDataImportPage() {
                   <Alert
                     type="info"
                     showIcon
-                    title="本次导入边界"
+                    title={l("本次导入边界", "Import limitations")}
                     description={
                       <ul className="import-limit-list">
                         {preview.limitations.map((item) => (
@@ -1392,44 +1542,88 @@ export default function AdminDataImportPage() {
               </section>
 
               <section className="import-section">
-                <Typography.Title level={5}>数据名称</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("数据名称", "Data name")}
+                </Typography.Title>
                 <div className="import-config-grid import-name-grid">
                   <Form.Item
                     name="name"
-                    label="存量数据中显示的资源名称"
-                    rules={[{ required: true, message: "请输入数据名称" }]}
+                    label={l(
+                      "存量数据中显示的资源名称",
+                      "Resource name shown in inventory",
+                    )}
+                    rules={[
+                      {
+                        required: true,
+                        message: l("请输入数据名称", "Enter a data name"),
+                      },
+                    ]}
                   >
-                    <Input placeholder="例如：2024 塔里木胡杨 DNA 样品清单" />
+                    <Input
+                      placeholder={l(
+                        "例如：2024 塔里木胡杨 DNA 样品清单",
+                        "Example: 2024 Tarim poplar DNA sample inventory",
+                      )}
+                    />
                   </Form.Item>
                 </div>
               </section>
 
               <section className="import-section">
-                <Typography.Title level={5}>权威业务分类</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("权威业务分类", "Authoritative category")}
+                </Typography.Title>
                 <Typography.Text type="secondary">
-                  资源必须挂接到甲方四大类体系的叶节点；地理/非地理仅作为存储和展示能力。
+                  {l(
+                    "资源必须挂接到甲方四大类体系的叶节点；地理/非地理仅作为存储和展示能力。",
+                    "Resources must be assigned to a leaf in the four-domain taxonomy; geographic/non-geographic is only a storage and presentation capability.",
+                  )}
                 </Typography.Text>
                 <Form.Item
                   name="categoryCode"
-                  rules={[{ required: true, message: "请选择权威业务分类" }]}
+                  rules={[
+                    {
+                      required: true,
+                      message: l(
+                        "请选择权威业务分类",
+                        "Select an authoritative category",
+                      ),
+                    },
+                  ]}
                 >
                   <Select
                     showSearch
                     optionFilterProp="label"
-                    placeholder="选择四大类下的具体叶节点"
+                    placeholder={l(
+                      "选择四大类下的具体叶节点",
+                      "Select a leaf category under one of the four domains",
+                    )}
                     options={categoryOptions}
                   />
                 </Form.Item>
               </section>
 
               <section className="import-section">
-                <Typography.Title level={5}>兼容业务标签</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("兼容业务标签", "Compatibility data label")}
+                </Typography.Title>
                 <Typography.Text type="secondary">
-                  保留既有业务标签用于兼容当前可视化模板和标准实体映射，不再作为一级导航。
+                  {l(
+                    "保留既有业务标签用于兼容当前可视化模板和标准实体映射，不再作为一级导航。",
+                    "Existing business labels are retained for visualization-template and standard-entity compatibility, but no longer serve as primary navigation.",
+                  )}
                 </Typography.Text>
                 <Form.Item
                   name="domainType"
-                  rules={[{ required: true, message: "请选择业务数据类型" }]}
+                  rules={[
+                    {
+                      required: true,
+                      message: l(
+                        "请选择业务数据类型",
+                        "Select a business data type",
+                      ),
+                    },
+                  ]}
                 >
                   <Radio.Group className="import-domain-grid">
                     {domainDefinitions.map((domain) => (
@@ -1444,8 +1638,16 @@ export default function AdminDataImportPage() {
                               {domain.name}
                             </Typography.Text>
                             <Tag color={domainColors[domain.code]}>
-                              {spatialClassLabels[domain.spatialClass] ??
-                                domain.spatialClass}
+                              {english
+                                ? ((
+                                    {
+                                      spatial: "Spatial",
+                                      non_spatial: "Non-spatial",
+                                      spatialized_table: "Spatialized table",
+                                    } as Record<string, string>
+                                  )[domain.spatialClass] ?? domain.spatialClass)
+                                : (spatialClassLabels[domain.spatialClass] ??
+                                  domain.spatialClass)}
                             </Tag>
                           </Space>
                           <Typography.Text type="secondary">
@@ -1460,29 +1662,51 @@ export default function AdminDataImportPage() {
               </section>
 
               <section className="import-section">
-                <Typography.Title level={5}>入库方式</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("入库方式", "Storage mode")}
+                </Typography.Title>
                 <Typography.Text type="secondary">
-                  入库方式决定本次文件先写成地图点图层还是普通属性表；业务类型决定后续应映射到哪些标准实体。
+                  {l(
+                    "入库方式决定本次文件先写成地图点图层还是普通属性表；业务类型决定后续应映射到哪些标准实体。",
+                    "The storage mode determines whether the file becomes a mappable point layer or an attribute table. The business type determines its later standard-entity mapping.",
+                  )}
                 </Typography.Text>
                 <Form.Item
                   name="importMode"
-                  rules={[{ required: true, message: "请选择入库方式" }]}
+                  rules={[
+                    {
+                      required: true,
+                      message: l("请选择入库方式", "Select a storage mode"),
+                    },
+                  ]}
                 >
                   <Radio.Group className="import-mode-grid">
                     <Radio value="geographic" className="import-mode-card">
                       <span className="import-mode-title">
-                        空间点表（有经纬度列）
+                        {l(
+                          "空间点表（有经纬度列）",
+                          "Spatial point table (with longitude/latitude)",
+                        )}
                       </span>
                       <span className="import-mode-desc">
-                        适合样点、样方、采集地、个体位置等数据，会生成可上图的点图层。
+                        {l(
+                          "适合样点、样方、采集地、个体位置等数据，会生成可上图的点图层。",
+                          "For sample sites, plots, collection locations, and individual positions; creates a mappable point layer.",
+                        )}
                       </span>
                     </Radio>
                     <Radio value="table" className="import-mode-card">
                       <span className="import-mode-title">
-                        普通属性表（无坐标）
+                        {l(
+                          "普通属性表（无坐标）",
+                          "Attribute table (no coordinates)",
+                        )}
                       </span>
                       <span className="import-mode-desc">
-                        适合实验记录、统计指标、文件清单等数据，先作为表格资源管理。
+                        {l(
+                          "适合实验记录、统计指标、文件清单等数据，先作为表格资源管理。",
+                          "For experiment records, statistical indicators, and file inventories; managed initially as a table resource.",
+                        )}
                       </span>
                     </Radio>
                   </Radio.Group>
@@ -1511,16 +1735,24 @@ export default function AdminDataImportPage() {
               </section>
 
               <section className="import-section">
-                <Typography.Title level={5}>数据可见权限</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("数据可见权限", "Data visibility")}
+                </Typography.Title>
                 <Space
                   orientation="vertical"
                   size={10}
                   style={{ width: "100%" }}
                 >
-                  <Form.Item name="accessGroupIds" label="指定角色可见">
+                  <Form.Item
+                    name="accessGroupIds"
+                    label={l("指定角色可见", "Visible to specified roles")}
+                  >
                     <Select
                       mode="multiple"
-                      placeholder="选择需要共享的数据角色"
+                      placeholder={l(
+                        "选择需要共享的数据角色",
+                        "Select roles to share this data with",
+                      )}
                       onChange={(nextValue) =>
                         form.setFieldValue(
                           "accessGroupIds",
@@ -1530,7 +1762,7 @@ export default function AdminDataImportPage() {
                       options={[
                         {
                           value: selfAccessScopeId,
-                          label: "我自己可见",
+                          label: l("我自己可见", "Visible to me"),
                           disabled: true,
                         },
                         ...selectableAccessGroups.map((group) => ({
@@ -1544,7 +1776,10 @@ export default function AdminDataImportPage() {
                     <Alert
                       type="warning"
                       showIcon
-                      title="游客可见后，无需登录账号即可浏览和查询该数据。"
+                      title={l(
+                        "游客可见后，无需登录账号即可浏览和查询该数据。",
+                        "When visible to guests, this data can be browsed and queried without an authenticated account.",
+                      )}
                     />
                   )}
                 </Space>
@@ -1561,35 +1796,59 @@ export default function AdminDataImportPage() {
                     <div className="import-coordinate-grid">
                       <Form.Item
                         name="longitudeColumn"
-                        label="经度列"
-                        rules={[{ required: true, message: "请选择经度列" }]}
+                        label={l("经度列", "Longitude column")}
+                        rules={[
+                          {
+                            required: true,
+                            message: l(
+                              "请选择经度列",
+                              "Select a longitude column",
+                            ),
+                          },
+                        ]}
                       >
                         <Select
                           options={columnOptions}
-                          placeholder="选择经度列"
+                          placeholder={l(
+                            "选择经度列",
+                            "Select longitude column",
+                          )}
                           showSearch
                         />
                       </Form.Item>
                       <Form.Item
                         name="latitudeColumn"
-                        label="纬度列"
-                        rules={[{ required: true, message: "请选择纬度列" }]}
+                        label={l("纬度列", "Latitude column")}
+                        rules={[
+                          {
+                            required: true,
+                            message: l(
+                              "请选择纬度列",
+                              "Select a latitude column",
+                            ),
+                          },
+                        ]}
                       >
                         <Select
                           options={columnOptions}
-                          placeholder="选择纬度列"
+                          placeholder={l(
+                            "选择纬度列",
+                            "Select latitude column",
+                          )}
                           showSearch
                         />
                       </Form.Item>
                       <Space className="import-validation-actions">
                         {hasValidated && validationIssues.length === 0 && (
-                          <Tag color="green">校验通过</Tag>
+                          <Tag color="green">
+                            {l("校验通过", "Validation passed")}
+                          </Tag>
                         )}
                         {hasValidated && validationIssues.length > 0 && (
                           <Tag color={hasBlockingIssues ? "red" : "gold"}>
                             {hasBlockingIssues
-                              ? "存在阻断问题"
-                              : "存在可忽略问题"}
+                              ? l("存在阻断问题", "Blocking issues")
+                              : l("存在可忽略问题", "Ignorable issues")}
                           </Tag>
                         )}
                       </Space>
@@ -1605,18 +1864,22 @@ export default function AdminDataImportPage() {
                   column={4}
                   className="import-stats"
                 >
-                  <Descriptions.Item label="总行数">
+                  <Descriptions.Item label={l("总行数", "Total rows")}>
                     {stats.totalRows}
                   </Descriptions.Item>
-                  <Descriptions.Item label="有效坐标">
+                  <Descriptions.Item label={l("有效坐标", "Valid coordinates")}>
                     {stats.validRows}
                   </Descriptions.Item>
-                  <Descriptions.Item label="空或非法坐标">
+                  <Descriptions.Item
+                    label={l("空或非法坐标", "Missing or invalid coordinates")}
+                  >
                     {stats.missingRows}
                   </Descriptions.Item>
-                  <Descriptions.Item label="量化误差范围">
+                  <Descriptions.Item
+                    label={l("量化误差范围", "Quantization-error range")}
+                  >
                     {stats.quantizationErrorMeters.min ?? "-"} -{" "}
-                    {stats.quantizationErrorMeters.max ?? "-"} 米
+                    {stats.quantizationErrorMeters.max ?? "-"} {l("米", "m")}
                   </Descriptions.Item>
                 </Descriptions>
               )}
@@ -1625,8 +1888,14 @@ export default function AdminDataImportPage() {
                 <Alert
                   type="info"
                   showIcon
-                  title="已自动归类为非地理数据"
-                  description="当前工作表未识别到可用的经纬度列，系统已默认按普通属性表入库；提交后只会显示在非地理数据资源列表中。若文件实际使用非标准坐标列名，可手动切换为空间点表并明确选择经度列和纬度列。"
+                  title={l(
+                    "已自动归类为非地理数据",
+                    "Automatically classified as non-geographic data",
+                  )}
+                  description={l(
+                    "当前工作表未识别到可用的经纬度列，系统已默认按普通属性表入库；提交后只会显示在非地理数据资源列表中。若文件实际使用非标准坐标列名，可手动切换为空间点表并明确选择经度列和纬度列。",
+                    "No usable longitude/latitude columns were detected, so this worksheet defaults to an attribute table and will appear only in non-geographic resources. If the file uses non-standard coordinate column names, switch to Spatial point table and select the longitude and latitude columns explicitly.",
+                  )}
                 />
               )}
 
@@ -1642,7 +1911,9 @@ export default function AdminDataImportPage() {
           {currentStep === 1 && importKind === "raster" && rasterFile && (
             <div className="import-config-form">
               <Space className="import-actions import-actions-top">
-                <Button onClick={resetRasterImportState}>重新选择文件</Button>
+                <Button onClick={resetRasterImportState}>
+                  {l("重新选择文件", "Choose another file")}
+                </Button>
                 <Button
                   type="primary"
                   icon={<CloudUploadOutlined style={{ fontSize: 16 }} />}
@@ -1650,7 +1921,7 @@ export default function AdminDataImportPage() {
                   disabled={!rasterPreview || rasterInspecting}
                   onClick={handleRasterImport}
                 >
-                  上传并预处理
+                  {l("上传并预处理", "Upload and preprocess")}
                 </Button>
               </Space>
 
@@ -1659,26 +1930,43 @@ export default function AdminDataImportPage() {
                 showIcon
                 title={
                   rasterInspecting
-                    ? "正在预检栅格数据包"
+                    ? l("正在预检栅格数据包", "Preflighting raster package")
                     : rasterPreview
-                      ? "栅格数据包预检通过"
+                      ? l(
+                          "栅格数据包预检通过",
+                          "Raster package preflight passed",
+                        )
                       : rasterPreviewError
-                        ? "栅格预检未通过"
-                        : "尚未完成栅格预检"
+                        ? l("栅格预检未通过", "Raster preflight failed")
+                        : l(
+                            "尚未完成栅格预检",
+                            "Raster preflight not completed",
+                          )
                 }
                 description={
                   rasterInspecting
-                    ? "正在使用 GDAL 读取文件格式、坐标系、尺寸和波段信息，请稍候。"
+                    ? l(
+                        "正在使用 GDAL 读取文件格式、坐标系、尺寸和波段信息，请稍候。",
+                        "GDAL is reading the format, CRS, dimensions, and band information. Please wait.",
+                      )
                     : rasterPreviewError
                       ? rasterPreviewError
                       : rasterFileNeedsCompanions(rasterFile.name)
-                        ? "该文件类型需要配套文件：DAT/BSQ/BIL/BIP 需同名 HDR；VRT 需同时上传全部引用文件。"
-                        : `单个 GeoTIFF/COG 或 IMG 可直接导入，无需辅助文件。后端会使用 GDAL 校验文件大小不超过 ${bootstrap.limits.uploadMaxMb} MB、单边长度不超过 ${bootstrap.limits.maxRasterSidePixels} 像素。`
+                        ? l(
+                            "该文件类型需要配套文件：DAT/BSQ/BIL/BIP 需同名 HDR；VRT 需同时上传全部引用文件。",
+                            "This file type needs companion files: DAT/BSQ/BIL/BIP requires a same-name HDR, and VRT requires every referenced file.",
+                          )
+                        : l(
+                            `单个 GeoTIFF/COG 或 IMG 可直接导入，无需辅助文件。后端会使用 GDAL 校验文件大小不超过 ${bootstrap.limits.uploadMaxMb} MB、单边长度不超过 ${bootstrap.limits.maxRasterSidePixels} 像素。`,
+                            `A single GeoTIFF/COG or IMG can be imported without companion files. GDAL verifies a maximum file size of ${bootstrap.limits.uploadMaxMb} MB and maximum side length of ${bootstrap.limits.maxRasterSidePixels} pixels.`,
+                          )
                 }
               />
 
               <section className="import-section">
-                <Typography.Title level={5}>栅格数据包</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("栅格数据包", "Raster package")}
+                </Typography.Title>
                 <Space size={[6, 6]} wrap>
                   {rasterFiles.map((file) => (
                     <Tag key={`${file.name}-${file.size}`}>{file.name}</Tag>
@@ -1699,7 +1987,10 @@ export default function AdminDataImportPage() {
                       icon={<CloudUploadOutlined />}
                       loading={rasterInspecting}
                     >
-                      补充 HDR、VRT 引用或可选辅助文件
+                      {l(
+                        "补充 HDR、VRT 引用或可选辅助文件",
+                        "Add HDR, VRT references, or optional companion files",
+                      )}
                     </Button>
                   </Upload>
                 </div>
@@ -1716,7 +2007,10 @@ export default function AdminDataImportPage() {
 
               <section className="import-section">
                 <Typography.Title level={5}>
-                  业务数据类型与入库去向
+                  {l(
+                    "业务数据类型与入库去向",
+                    "Business data type and storage destination",
+                  )}
                 </Typography.Title>
                 {remoteSensingDomain && (
                   <DomainDetail domain={remoteSensingDomain} />
@@ -1728,13 +2022,21 @@ export default function AdminDataImportPage() {
                 <Alert
                   type="info"
                   showIcon
-                  title="栅格数据导入后可在存量数据中继续管理"
-                  description="当前流程会先完成文件登记、预处理和地图图层创建；可见权限、默认样式和后续遥感产品标准化关系可在存量数据和后续业务治理模块中维护。"
+                  title={l(
+                    "栅格数据导入后可在存量数据中继续管理",
+                    "Imported rasters remain manageable in Data Inventory",
+                  )}
+                  description={l(
+                    "当前流程会先完成文件登记、预处理和地图图层创建；可见权限、默认样式和后续遥感产品标准化关系可在存量数据和后续业务治理模块中维护。",
+                    "This workflow registers the file, preprocesses it, and creates a map layer. Visibility, default style, and later remote-sensing product standardization can be maintained in Data Inventory and downstream governance modules.",
+                  )}
                 />
               </section>
 
               <section className="import-section">
-                <Typography.Title level={5}>权威业务分类</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("权威业务分类", "Authoritative category")}
+                </Typography.Title>
                 <Select
                   showSearch
                   optionFilterProp="label"
@@ -1746,8 +2048,14 @@ export default function AdminDataImportPage() {
                 <Alert
                   type="info"
                   showIcon
-                  title="遥感影像默认归入“胡杨专题数据 / 景观与遥感”"
-                  description="若该栅格本质上是 LUCC、气候或土壤专题，请在提交前改选对应叶节点。"
+                  title={l(
+                    "遥感影像默认归入“胡杨专题数据 / 景观与遥感”",
+                    "Remote-sensing imagery defaults to Poplar thematic data / Landscape and remote sensing",
+                  )}
+                  description={l(
+                    "若该栅格本质上是 LUCC、气候或土壤专题，请在提交前改选对应叶节点。",
+                    "If the raster is actually LUCC, climate, or soil data, select the corresponding leaf category before submission.",
+                  )}
                   style={{ marginTop: 10 }}
                 />
               </section>
@@ -1758,52 +2066,77 @@ export default function AdminDataImportPage() {
                 column={2}
                 className="import-stats"
               >
-                <Descriptions.Item label="文件名">
+                <Descriptions.Item label={l("文件名", "File name")}>
                   {rasterFile.name}
                 </Descriptions.Item>
-                <Descriptions.Item label="文件类型">
+                <Descriptions.Item label={l("文件类型", "File type")}>
                   {rasterPreview?.sourceFormat ??
                     rasterFileExtensionLabel(rasterFile.name)}
                 </Descriptions.Item>
-                <Descriptions.Item label="像素尺寸">
+                <Descriptions.Item label={l("像素尺寸", "Pixel dimensions")}>
                   {rasterDimensions
                     ? `${rasterDimensions.width} x ${rasterDimensions.height}`
                     : "-"}
                 </Descriptions.Item>
-                <Descriptions.Item label="大小上限">
+                <Descriptions.Item label={l("大小上限", "Size limit")}>
                   {bootstrap.limits.uploadMaxMb} MB
                 </Descriptions.Item>
-                <Descriptions.Item label="坐标系">
-                  {rasterPreview?.metadata.coordinateSystem || "未识别"}
+                <Descriptions.Item label={l("坐标系", "CRS")}>
+                  {rasterPreview?.metadata.coordinateSystem ||
+                    l("未识别", "Not detected")}
                 </Descriptions.Item>
-                <Descriptions.Item label="波段数">
+                <Descriptions.Item label={l("波段数", "Band count")}>
                   {rasterPreview?.metadata.bands.length ?? "-"}
                 </Descriptions.Item>
               </Descriptions>
 
               <section className="import-section">
-                <Typography.Title level={5}>栅格数据名称</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("栅格数据名称", "Raster data name")}
+                </Typography.Title>
                 <Input
-                  aria-label="栅格数据名称"
+                  aria-label={l("栅格数据名称", "Raster data name")}
                   value={rasterName}
                   onChange={(event) => setRasterName(event.target.value)}
-                  placeholder="栅格数据名称，默认取文件名"
+                  placeholder={l(
+                    "栅格数据名称，默认取文件名",
+                    "Raster data name; defaults to the file name",
+                  )}
                   disabled={rasterUploading}
                 />
               </section>
 
               <section className="import-section">
-                <Typography.Title level={5}>预处理与默认显示</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("预处理与默认显示", "Preprocessing and default display")}
+                </Typography.Title>
                 <div className="import-config-grid">
                   <div>
-                    <Typography.Text>栅格类型</Typography.Text>
+                    <Typography.Text>
+                      {l("栅格类型", "Raster type")}
+                    </Typography.Text>
                     <Select
                       value={rasterKind}
                       style={{ width: "100%", marginTop: 6 }}
                       options={[
-                        { value: "imagery", label: "多波段遥感影像" },
-                        { value: "continuous", label: "连续型指标/高程" },
-                        { value: "categorical", label: "分类栅格" },
+                        {
+                          value: "imagery",
+                          label: l(
+                            "多波段遥感影像",
+                            "Multiband remote-sensing imagery",
+                          ),
+                        },
+                        {
+                          value: "continuous",
+                          label: l(
+                            "连续型指标/高程",
+                            "Continuous indicator / elevation",
+                          ),
+                        },
+                        {
+                          value: "categorical",
+                          label: l("分类栅格", "Categorical raster"),
+                        },
                       ]}
                       onChange={(value) => {
                         setRasterKind(value);
@@ -1814,21 +2147,44 @@ export default function AdminDataImportPage() {
                     />
                   </div>
                   <div>
-                    <Typography.Text>重采样方式</Typography.Text>
+                    <Typography.Text>
+                      {l("重采样方式", "Resampling")}
+                    </Typography.Text>
                     <Select
                       value={rasterResampling}
                       style={{ width: "100%", marginTop: 6 }}
                       options={[
-                        { value: "nearest", label: "最近邻（分类数据）" },
-                        { value: "bilinear", label: "双线性（连续影像）" },
-                        { value: "cubic", label: "三次卷积（高质量影像）" },
+                        {
+                          value: "nearest",
+                          label: l(
+                            "最近邻（分类数据）",
+                            "Nearest neighbour (categorical data)",
+                          ),
+                        },
+                        {
+                          value: "bilinear",
+                          label: l(
+                            "双线性（连续影像）",
+                            "Bilinear (continuous imagery)",
+                          ),
+                        },
+                        {
+                          value: "cubic",
+                          label: l(
+                            "三次卷积（高质量影像）",
+                            "Cubic convolution (high-quality imagery)",
+                          ),
+                        },
                       ]}
                       onChange={setRasterResampling}
                       disabled={rasterKind === "categorical"}
                     />
                     {rasterKind === "categorical" ? (
                       <Typography.Text type="secondary">
-                        分类栅格固定使用最近邻，避免缩放时产生不存在的类别值。
+                        {l(
+                          "分类栅格固定使用最近邻，避免缩放时产生不存在的类别值。",
+                          "Categorical rasters always use nearest-neighbour resampling to avoid creating nonexistent classes during scaling.",
+                        )}
                       </Typography.Text>
                     ) : null}
                   </div>
@@ -1837,7 +2193,9 @@ export default function AdminDataImportPage() {
                 {(rasterPreview?.metadata.bands.length ?? 0) >= 3 && (
                   <div style={{ marginTop: 14 }}>
                     <Space wrap>
-                      <Typography.Text>RGB 波段：</Typography.Text>
+                      <Typography.Text>
+                        {l("RGB 波段：", "RGB bands: ")}
+                      </Typography.Text>
                       {[0, 1, 2].map((index) => (
                         <Select
                           key={index}
@@ -1867,7 +2225,10 @@ export default function AdminDataImportPage() {
                             }))
                           }
                         >
-                          WorldView 8 波段自然色
+                          {l(
+                            "WorldView 8 波段自然色",
+                            "WorldView 8-band natural colour",
+                          )}
                         </Button>
                       )}
                     </Space>
@@ -1876,11 +2237,16 @@ export default function AdminDataImportPage() {
               </section>
 
               <section className="import-section">
-                <Typography.Title level={5}>数据可见权限</Typography.Title>
+                <Typography.Title level={5}>
+                  {l("数据可见权限", "Data visibility")}
+                </Typography.Title>
                 <Select
                   mode="multiple"
                   value={rasterAccessGroupIds}
-                  placeholder="选择额外可访问角色；上传者本人始终可见"
+                  placeholder={l(
+                    "选择额外可访问角色；上传者本人始终可见",
+                    "Select additional roles; the uploader always has access",
+                  )}
                   style={{ width: "100%" }}
                   options={availableAccessGroups.map((group) => ({
                     value: group.id,
@@ -1893,9 +2259,12 @@ export default function AdminDataImportPage() {
               {rasterUploading && (
                 <section className="import-section raster-upload-progress">
                   <Space>
-                    <Tag color="processing">正在上传</Tag>
+                    <Tag color="processing">{l("正在上传", "Uploading")}</Tag>
                     <Typography.Text type="secondary">
-                      已上传 {rasterUploadProgress}%
+                      {l(
+                        `已上传 ${rasterUploadProgress}%`,
+                        `${rasterUploadProgress}% uploaded`,
+                      )}
                     </Typography.Text>
                   </Space>
                   <Progress
@@ -1924,11 +2293,20 @@ export default function AdminDataImportPage() {
             <section className="import-step-pane">
               <Result
                 status="warning"
-                title="暂不支持自动导入该文件类型"
+                title={l(
+                  "暂不支持自动导入该文件类型",
+                  "Automatic import is not supported for this file type",
+                )}
                 subTitle={
                   unsupportedFile
-                    ? `${unsupportedFile.name} 未匹配到当前可用的表格、栅格或矢量导入流程。`
-                    : "未匹配到当前可用的导入流程。"
+                    ? l(
+                        `${unsupportedFile.name} 未匹配到当前可用的表格、栅格或矢量导入流程。`,
+                        `${unsupportedFile.name} did not match any available tabular, raster, or vector import workflow.`,
+                      )
+                    : l(
+                        "未匹配到当前可用的导入流程。",
+                        "No available import workflow matched this file.",
+                      )
                 }
                 extra={[
                   <Button
@@ -1937,7 +2315,7 @@ export default function AdminDataImportPage() {
                     icon={<ReloadOutlined />}
                     onClick={resetImportState}
                   >
-                    重新选择文件
+                    {l("重新选择文件", "Choose another file")}
                   </Button>,
                 ]}
               />
@@ -1949,8 +2327,11 @@ export default function AdminDataImportPage() {
               {result ? (
                 <Result
                   status="success"
-                  title="数据导入完成"
-                  subTitle={`已导入 ${result.resourceName}，共 ${result.importedRows} 行。`}
+                  title={l("数据导入完成", "Data import completed")}
+                  subTitle={l(
+                    `已导入 ${result.resourceName}，共 ${result.importedRows} 行。`,
+                    `${result.resourceName} imported with ${result.importedRows} rows.`,
+                  )}
                   extra={[
                     <Button
                       key="view"
@@ -1959,8 +2340,8 @@ export default function AdminDataImportPage() {
                       }
                     >
                       {result.mode === "table"
-                        ? "查看非地理数据"
-                        : "查看地理数据"}
+                        ? l("查看非地理数据", "View non-geographic data")
+                        : l("查看地理数据", "View geographic data")}
                     </Button>,
                     <Button
                       key="again"
@@ -1968,26 +2349,30 @@ export default function AdminDataImportPage() {
                       icon={<ReloadOutlined />}
                       onClick={resetImportState}
                     >
-                      继续导入
+                      {l("继续导入", "Import another file")}
                     </Button>,
                   ]}
                 />
               ) : (
                 <>
                   <Space className="import-actions import-actions-top">
-                    <Button onClick={() => setCurrentStep(1)}>上一步</Button>
+                    <Button onClick={() => setCurrentStep(1)}>
+                      {l("上一步", "Previous")}
+                    </Button>
                     <Button
                       type="primary"
                       icon={<CheckCircleOutlined style={{ fontSize: 16 }} />}
                       loading={importing}
                       onClick={handleImport}
                     >
-                      提交导入
+                      {l("提交导入", "Submit import")}
                     </Button>
                   </Space>
 
                   <section className="import-section">
-                    <Typography.Title level={5}>数据预览</Typography.Title>
+                    <Typography.Title level={5}>
+                      {l("数据预览", "Data preview")}
+                    </Typography.Title>
                     {duplicateTarget && (
                       <DuplicateTargetAlert
                         target={duplicateTarget}
@@ -2007,7 +2392,9 @@ export default function AdminDataImportPage() {
                   </section>
 
                   <section className="import-section">
-                    <Typography.Title level={5}>字段元数据</Typography.Title>
+                    <Typography.Title level={5}>
+                      {l("字段元数据", "Field metadata")}
+                    </Typography.Title>
                     {selectedDomain && (
                       <Alert
                         type="info"
@@ -2035,7 +2422,7 @@ export default function AdminDataImportPage() {
                       }))}
                       columns={[
                         {
-                          title: "上传",
+                          title: l("上传", "Include"),
                           dataIndex: "included",
                           width: 64,
                           render: (_, record) => (
@@ -2053,14 +2440,21 @@ export default function AdminDataImportPage() {
                             />
                           ),
                         },
-                        { title: "字段", dataIndex: "column", width: 150 },
                         {
-                          title: "描述",
+                          title: l("字段", "Field"),
+                          dataIndex: "column",
+                          width: 150,
+                        },
+                        {
+                          title: l("描述", "Description"),
                           dataIndex: "description",
                           render: (_, record) => (
                             <Input.TextArea
                               autoSize={{ minRows: 1, maxRows: 4 }}
-                              placeholder="中文名称、单位、计算方式、数据来源等，可留空"
+                              placeholder={l(
+                                "中文名称、单位、计算方式、数据来源等，可留空",
+                                "Name, unit, calculation, source, etc.; optional",
+                              )}
                               value={fieldMetadata[record.column] ?? ""}
                               onChange={(event) =>
                                 setFieldMetadata((current) => ({
@@ -2085,21 +2479,26 @@ export default function AdminDataImportPage() {
                 <section className="raster-import-progress">
                   <Space>
                     <Tag color={rasterJobTagColor(rasterJob)}>
-                      {rasterJobStatusText(rasterJob)}
+                      {rasterJobStatusText(rasterJob, english)}
                     </Tag>
                     <Typography.Text type="secondary">
-                      任务 ID：{rasterJob.id}
+                      {l("任务 ID：", "Task ID: ")}
+                      {rasterJob.id}
                     </Typography.Text>
                   </Space>
                   <section className="import-section raster-upload-progress">
-                    <Typography.Text strong>上传进度</Typography.Text>
+                    <Typography.Text strong>
+                      {l("上传进度", "Upload progress")}
+                    </Typography.Text>
                     <Progress
                       percent={completedRasterUploadProgress}
                       status="success"
                     />
                   </section>
                   <section className="import-section raster-gdal-progress">
-                    <Typography.Text strong>GDAL 预处理进度</Typography.Text>
+                    <Typography.Text strong>
+                      {l("GDAL 预处理进度", "GDAL preprocessing progress")}
+                    </Typography.Text>
                     <Progress
                       percent={rasterJob.progressPercent}
                       status={rasterJobProgressStatus(rasterJob)}
@@ -2109,16 +2508,25 @@ export default function AdminDataImportPage() {
                     <Alert
                       type="success"
                       showIcon
-                      title="栅格预处理完成"
-                      description="数据资源和地图图层已在后台登记，可在存量数据或地图数据目录中查看。"
+                      title={l(
+                        "栅格预处理完成",
+                        "Raster preprocessing completed",
+                      )}
+                      description={l(
+                        "数据资源和地图图层已在后台登记，可在存量数据或地图数据目录中查看。",
+                        "The data resource and map layer have been registered and can be viewed in Data Inventory or the map data catalog.",
+                      )}
                     />
                   )}
                   {rasterJob.status === "failed" && (
                     <Alert
                       type="error"
                       showIcon
-                      title="栅格预处理失败"
-                      description={rasterJob.error || "后台任务执行失败"}
+                      title={l("栅格预处理失败", "Raster preprocessing failed")}
+                      description={
+                        rasterJob.error ||
+                        l("后台任务执行失败", "Background task failed")
+                      }
                     />
                   )}
                   {rasterJob.messages.length > 0 && (
@@ -2133,7 +2541,7 @@ export default function AdminDataImportPage() {
                         icon={<ReloadOutlined />}
                         onClick={resetImportState}
                       >
-                        继续导入
+                        {l("继续导入", "Import another file")}
                       </Button>
                     </Space>
                   )}
@@ -2141,10 +2549,13 @@ export default function AdminDataImportPage() {
               ) : (
                 <Result
                   status="info"
-                  title="尚未提交栅格预处理任务"
+                  title={l(
+                    "尚未提交栅格预处理任务",
+                    "Raster preprocessing task has not been submitted",
+                  )}
                   extra={[
                     <Button key="back" onClick={() => setCurrentStep(1)}>
-                      返回配置
+                      {l("返回配置", "Back to settings")}
                     </Button>,
                   ]}
                 />
@@ -2155,7 +2566,7 @@ export default function AdminDataImportPage() {
       </ProCard>
 
       <Modal
-        title="上传数据校验结果"
+        title={l("上传数据校验结果", "Upload validation results")}
         open={issuesOpen}
         onCancel={() => setIssuesOpen(false)}
         cancelButtonProps={{ style: { display: "none" } }}
@@ -2164,8 +2575,8 @@ export default function AdminDataImportPage() {
             ? ""
             : hasIgnorableUncertainty
               ? pendingIssueAction === "continue"
-                ? "忽略并进入预览"
-                : "忽略并继续导入"
+                ? l("忽略并进入预览", "Ignore and preview")
+                : l("忽略并继续导入", "Ignore and continue import")
               : ""
         }
         confirmLoading={importing}
@@ -2183,13 +2594,22 @@ export default function AdminDataImportPage() {
           showIcon
           title={
             hasBlockingIssues
-              ? "检测到阻止上传的问题"
-              : "检测到可确认忽略的问题"
+              ? l(
+                  "检测到阻止上传的问题",
+                  "Issues blocking upload were detected",
+                )
+              : l("检测到可确认忽略的问题", "Ignorable issues were detected")
           }
           description={
             hasBlockingIssues
-              ? "请修正以下问题后重新预检或提交。"
-              : "坐标不确定性差距可能影响空间分析精度，确认后可继续。"
+              ? l(
+                  "请修正以下问题后重新预检或提交。",
+                  "Fix the issues below before preflighting or submitting again.",
+                )
+              : l(
+                  "坐标不确定性差距可能影响空间分析精度，确认后可继续。",
+                  "Coordinate uncertainty differences may affect spatial-analysis accuracy. Confirm to continue.",
+                )
           }
         />
         <Table
@@ -2200,24 +2620,34 @@ export default function AdminDataImportPage() {
           dataSource={validationIssues}
           columns={[
             {
-              title: "问题项",
+              title: l("问题项", "Issue"),
               dataIndex: "message",
               render: (value, record) => (
                 <Space orientation="vertical" size={2}>
                   <Typography.Text>{value}</Typography.Text>
                   <Space size={4} align="center">
                     <Tag color={record.blocking ? "red" : "gold"}>
-                      {record.blocking ? "必须修正" : "可忽略"}
+                      {record.blocking
+                        ? l("必须修正", "Must fix")
+                        : l("可忽略", "Ignorable")}
                     </Tag>
                     {record.code === "coordinate_uncertainty" && (
-                      <Tooltip title="系统会根据经纬度小数位数估算坐标量化误差；该项表示最大误差与最小误差的比值过大，可能说明同一批数据的坐标精度不一致。">
+                      <Tooltip
+                        title={l(
+                          "系统会根据经纬度小数位数估算坐标量化误差；该项表示最大误差与最小误差的比值过大，可能说明同一批数据的坐标精度不一致。",
+                          "The system estimates coordinate quantization error from longitude/latitude decimal places. A large maximum-to-minimum ratio may indicate inconsistent coordinate precision within the dataset.",
+                        )}
+                      >
                         <Button
                           type="text"
                           size="small"
                           icon={
                             <QuestionCircleOutlined style={{ fontSize: 14 }} />
                           }
-                          aria-label="坐标不确定性差距说明"
+                          aria-label={l(
+                            "坐标不确定性差距说明",
+                            "Coordinate uncertainty explanation",
+                          )}
                         />
                       </Tooltip>
                     )}
@@ -2234,15 +2664,18 @@ export default function AdminDataImportPage() {
               setIgnoreCoordinateUncertainty(event.target.checked)
             }
           >
-            我已了解坐标不确定性差距，并继续
+            {l(
+              "我已了解坐标不确定性差距，并继续",
+              "I understand the coordinate uncertainty difference and want to continue",
+            )}
           </Checkbox>
         )}
       </Modal>
       <Modal
-        title="确认重复数据名称"
+        title={l("确认重复数据名称", "Confirm duplicate data name")}
         open={duplicateConfirmOpen}
-        okText="确认继续导入"
-        cancelText="返回修改"
+        okText={l("确认继续导入", "Confirm and continue")}
+        cancelText={l("返回修改", "Back to edit")}
         onCancel={() => setDuplicateConfirmOpen(false)}
         onOk={() => {
           setDuplicateNameConfirmed(true);
@@ -2252,7 +2685,12 @@ export default function AdminDataImportPage() {
             setIssuesOpen(true);
             return;
           }
-          message.success("已确认重复数据名称，后端将新建数据记录");
+          message.success(
+            l(
+              "已确认重复数据名称，后端将新建数据记录",
+              "Duplicate name confirmed; a new data record will be created",
+            ),
+          );
           setCurrentStep(2);
         }}
       >
@@ -2260,12 +2698,15 @@ export default function AdminDataImportPage() {
           <Alert
             type="warning"
             showIcon
-            title="数据名重复"
+            title={l("数据名重复", "Duplicate data name")}
             description={
               <Space orientation="vertical" size={4}>
                 <Typography.Text>{duplicateTarget.message}</Typography.Text>
                 <Typography.Text type="secondary">
-                  继续导入会创建新的数据记录，不会覆盖已有数据。
+                  {l(
+                    "继续导入会创建新的数据记录，不会覆盖已有数据。",
+                    "Continuing creates a new data record and does not overwrite existing data.",
+                  )}
                 </Typography.Text>
               </Space>
             }
@@ -2273,10 +2714,10 @@ export default function AdminDataImportPage() {
         )}
       </Modal>
       <Modal
-        title="离开数据导入页面？"
+        title={l("离开数据导入页面？", "Leave the data-import page?")}
         open={pendingNavigationPath !== null}
-        okText="确认离开"
-        cancelText="继续导入"
+        okText={l("确认离开", "Leave")}
+        cancelText={l("继续导入", "Continue importing")}
         okType="danger"
         onOk={() => {
           const nextPath = pendingNavigationPath;
@@ -2291,8 +2732,11 @@ export default function AdminDataImportPage() {
         <Alert
           type="warning"
           showIcon
-          title="当前导入尚未完成"
-          description={unfinishedImportWarning}
+          title={l("当前导入尚未完成", "The current import is not complete")}
+          description={l(
+            unfinishedImportWarning,
+            "Leaving now will discard the current import progress.",
+          )}
         />
       </Modal>
     </div>
@@ -2300,20 +2744,38 @@ export default function AdminDataImportPage() {
 }
 
 function DomainDetail({ domain }: { domain: DomainDefinition }) {
+  const english = useEnglishLanguage();
   return (
     <div className="import-domain-detail">
       <div>
-        <Typography.Text strong>推荐资源形态</Typography.Text>
+        <Typography.Text strong>
+          {english ? "Recommended resource forms" : "推荐资源形态"}
+        </Typography.Text>
         <Space size={[4, 4]} wrap>
           {domain.recommendedResourceTypes.map((type) => (
-            <Tag key={type}>{resourceTypeLabels[type] ?? type}</Tag>
+            <Tag key={type}>
+              {english
+                ? ((
+                    {
+                      vector: "Vector",
+                      raster: "Raster",
+                      table: "Table",
+                      document: "Document",
+                      image: "Image",
+                      gene: "Gene",
+                    } as Record<string, string>
+                  )[type] ?? type)
+                : (resourceTypeLabels[type] ?? type)}
+            </Tag>
           ))}
         </Space>
       </div>
       <div>
-        <Typography.Text strong>后续标准化实体</Typography.Text>
+        <Typography.Text strong>
+          {english ? "Downstream standardized entities" : "后续标准化实体"}
+        </Typography.Text>
         <Typography.Text type="secondary">
-          {domain.coreEntities.join("、")}
+          {domain.coreEntities.join(english ? ", " : "、")}
         </Typography.Text>
       </div>
     </div>
@@ -2327,7 +2789,8 @@ function ImportStorageSummary({
   mode?: ImportStorageMode;
   domain?: DomainDefinition;
 }) {
-  const steps = storageSteps(mode, domain);
+  const english = useEnglishLanguage();
+  const steps = storageSteps(mode, domain, english);
   return (
     <div className="import-storage-summary">
       {steps.map((step) => (
@@ -2341,31 +2804,42 @@ function ImportStorageSummary({
   );
 }
 
-function storageSteps(mode?: ImportStorageMode, domain?: DomainDefinition) {
+function storageSteps(
+  mode?: ImportStorageMode,
+  domain?: DomainDefinition,
+  english = false,
+) {
+  const l = (zh: string, en: string) => localText(english, zh, en);
   const standardTargets = domain?.coreEntities.length
-    ? domain.coreEntities.join("、")
-    : "待选择业务类型后确定";
+    ? domain.coreEntities.join(english ? ", " : "、")
+    : l("待选择业务类型后确定", "Determined after selecting a business type");
   if (mode === "raster") {
     return [
       {
-        label: "资源登记",
+        label: l("资源登记", "Registration"),
         title: "DataResource.raster",
-        description:
+        description: l(
           "在存量数据中生成栅格资源记录，保留上传者、大小、状态和后续权限维护入口。",
+          "Creates a raster record in Data Inventory with uploader, size, status, and permission-maintenance access.",
+        ),
         color: "blue",
       },
       {
-        label: "物理存储",
+        label: l("物理存储", "Physical storage"),
         title: "RasterDataset + COG",
-        description:
+        description: l(
           "后台预处理为可切片渲染的栅格文件，并创建可上图的地图图层。",
+          "Preprocesses the raster for tiled rendering and creates a mappable layer.",
+        ),
         color: "geekblue",
       },
       {
-        label: "标准化去向",
+        label: l("标准化去向", "Standardization target"),
         title: standardTargets,
-        description:
+        description: l(
           "后续可登记为遥感产品，并与样方、种群、群落或地点采样值关联。",
+          "Can later be registered as a remote-sensing product and linked to plots, populations, communities, or site samples.",
+        ),
         color: "green",
       },
     ];
@@ -2374,24 +2848,30 @@ function storageSteps(mode?: ImportStorageMode, domain?: DomainDefinition) {
   if (mode === "geographic") {
     return [
       {
-        label: "资源登记",
+        label: l("资源登记", "Registration"),
         title: "DataResource.vector",
-        description:
+        description: l(
           "在存量数据中生成矢量资源记录，可维护权限、状态和默认可视化方案。",
+          "Creates a vector record in Data Inventory with permissions, status, and default visualization settings.",
+        ),
         color: "blue",
       },
       {
-        label: "空间存储",
-        title: "GeoPackage 点图层",
-        description:
+        label: l("空间存储", "Spatial storage"),
+        title: l("GeoPackage 点图层", "GeoPackage point layer"),
+        description: l(
           "经纬度列会生成点几何，进入地图数据目录并支持查询、过滤和上图分析。",
+          "Longitude/latitude columns create point geometry for the map catalog, queries, filtering, and map analysis.",
+        ),
         color: "cyan",
       },
       {
-        label: "标准化去向",
+        label: l("标准化去向", "Standardization target"),
         title: standardTargets,
-        description:
+        description: l(
           "后续通过字段映射把原始列关联到样点、样方、个体、种质或样品等实体。",
+          "Field mapping can later link source columns to sites, plots, individuals, germplasm, or samples.",
+        ),
         color: "green",
       },
     ];
@@ -2399,33 +2879,42 @@ function storageSteps(mode?: ImportStorageMode, domain?: DomainDefinition) {
   if (mode === "table") {
     return [
       {
-        label: "资源登记",
+        label: l("资源登记", "Registration"),
         title: "DataResource.table",
-        description: "在存量数据中生成表格资源记录，保留原始字段和行数信息。",
+        description: l(
+          "在存量数据中生成表格资源记录，保留原始字段和行数信息。",
+          "Creates a table record in Data Inventory while preserving source fields and row counts.",
+        ),
         color: "blue",
       },
       {
-        label: "表格存储",
+        label: l("表格存储", "Table storage"),
         title: "table/data.sqlite",
-        description:
+        description: l(
           "作为普通属性表保存，可按字段检索、导出和继续补充字段元数据。",
+          "Stores an attribute table that can be searched, exported, and enriched with field metadata.",
+        ),
         color: "purple",
       },
       {
-        label: "标准化去向",
+        label: l("标准化去向", "Standardization target"),
         title: standardTargets,
-        description:
+        description: l(
           "后续依靠样品编号、地点、样方编号或实验批次等字段与标准实体建立关联。",
+          "Sample IDs, locations, plot IDs, or experiment batches can later link the table to standardized entities.",
+        ),
         color: "green",
       },
     ];
   }
   return [
     {
-      label: "待选择",
-      title: "请选择入库方式",
-      description:
+      label: l("待选择", "Not selected"),
+      title: l("请选择入库方式", "Select a storage mode"),
+      description: l(
         "选择后系统会显示本次数据首先写入的资源类型、物理存储和后续标准化目标。",
+        "After selection, the platform shows the initial resource type, physical storage, and downstream standardization target.",
+      ),
       color: "default",
     },
   ];
@@ -2446,16 +2935,16 @@ function isActiveRasterJob(job: RasterJob) {
   return job.status === "queued" || job.status === "running";
 }
 
-function rasterJobStatusText(job: RasterJob) {
+function rasterJobStatusText(job: RasterJob, english = false) {
   switch (job.status) {
     case "queued":
-      return "等待处理";
+      return english ? "Queued" : "等待处理";
     case "running":
-      return "正在预处理";
+      return english ? "Preprocessing" : "正在预处理";
     case "ready":
-      return "处理完成";
+      return english ? "Completed" : "处理完成";
     case "failed":
-      return "处理失败";
+      return english ? "Failed" : "处理失败";
     default:
       return job.status;
   }
@@ -2610,18 +3099,31 @@ function DuplicateTargetAlert({
   target: ImportDuplicateTarget;
   confirmed: boolean;
 }) {
+  const english = useEnglishLanguage();
   return (
     <Alert
       type="warning"
       showIcon
-      title={confirmed ? "已确认重复数据名称" : "数据名重复"}
+      title={
+        confirmed
+          ? english
+            ? "Duplicate data name confirmed"
+            : "已确认重复数据名称"
+          : english
+            ? "Duplicate data name"
+            : "数据名重复"
+      }
       description={
         <Space orientation="vertical" size={4}>
           <Typography.Text>{target.message}</Typography.Text>
           <Typography.Text type="secondary">
             {confirmed
-              ? "继续导入会新建数据记录，不会覆盖已有数据。"
-              : `数据名称：${target.targetName}`}
+              ? english
+                ? "Continuing creates a new data record and does not overwrite existing data."
+                : "继续导入会新建数据记录，不会覆盖已有数据。"
+              : english
+                ? `Data name: ${target.targetName}`
+                : `数据名称：${target.targetName}`}
           </Typography.Text>
         </Space>
       }

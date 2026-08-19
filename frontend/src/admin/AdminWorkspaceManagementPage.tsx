@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAppContext } from "../contexts/AppContext";
+import { localText, useEnglishLanguage } from "../i18n/useEnglishLanguage";
 import type {
   AdminWorkspaceFilters,
   AdminWorkspaceList,
@@ -54,24 +55,14 @@ const initialList: AdminWorkspaceList = {
   availableAccessGroups: [],
 };
 
-const filterFields: FilterField[] = [
-  {
-    name: "status",
-    label: "状态",
-    kind: "select",
-    options: [
-      { value: "active", label: "启用" },
-      { value: "inactive", label: "禁用" },
-    ],
-  },
-];
-
 export default function AdminWorkspaceManagementPage({
   kind,
 }: {
   kind: AdminWorkspaceScene["kind"];
 }) {
   const { message } = AntApp.useApp();
+  const english = useEnglishLanguage();
+  const l = (zh: string, en: string) => localText(english, zh, en);
   const navigate = useNavigate();
   const { user } = useAppContext();
   const [filters, setFilters] = useState<AdminWorkspaceFilters>({
@@ -87,7 +78,18 @@ export default function AdminWorkspaceManagementPage({
   const canMaintain = canChange;
   const canDelete = Boolean(user?.permissions.canDeleteWorkspaces);
   const canOpen = canView || canChange || canDelete;
-  const label = kindLabels[kind];
+  const label = english ? "project" : kindLabels[kind];
+  const localizedFilterFields: FilterField[] = [
+    {
+      name: "status",
+      kind: "select",
+      label: l("状态", "Status"),
+      options: [
+        { value: "active", label: l("启用", "Enabled") },
+        { value: "inactive", label: l("禁用", "Disabled") },
+      ],
+    },
+  ];
 
   const metrics = useMemo(() => {
     const active = data.items.filter((item) => item.status === "active").length;
@@ -108,7 +110,9 @@ export default function AdminWorkspaceManagementPage({
         setData(result);
       } catch (error) {
         message.error(
-          error instanceof Error ? error.message : `${label}加载失败`,
+          error instanceof Error
+            ? error.message
+            : l(`${label}加载失败`, `Failed to load ${label}s`),
         );
       } finally {
         setLoading(false);
@@ -181,7 +185,12 @@ export default function AdminWorkspaceManagementPage({
     try {
       if (!canMaintain || !item.canEdit) {
         if (!item.canManageAccess) {
-          message.warning(`当前用户无${label}编辑权限`);
+          message.warning(
+            l(
+              `当前用户无${label}编辑权限`,
+              `You do not have permission to edit this ${label}`,
+            ),
+          );
           return;
         }
         const updated = await api.updateAdminWorkspace(item.id, {
@@ -191,7 +200,9 @@ export default function AdminWorkspaceManagementPage({
         if ("id" in updated) {
           replaceItem(updated);
           notifyWorkspaceInventoryChanged("workspace");
-          message.success(`${label}可见范围已保存`);
+          message.success(
+            l(`${label}可见范围已保存`, `${label} visibility saved`),
+          );
           return updated;
         }
         return;
@@ -208,17 +219,29 @@ export default function AdminWorkspaceManagementPage({
       if ("id" in updated) {
         replaceItem(updated);
         notifyWorkspaceInventoryChanged("workspace");
-        message.success(`${label}信息和权限已保存`);
+        message.success(
+          l(
+            `${label}信息和权限已保存`,
+            `${label} details and permissions saved`,
+          ),
+        );
         return updated;
       }
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "保存失败");
+      message.error(
+        error instanceof Error ? error.message : l("保存失败", "Save failed"),
+      );
     }
   }
 
   async function toggleStatus(item: AdminWorkspaceScene, checked: boolean) {
     if (!canMaintain || !item.canEdit) {
-      message.warning(`当前用户无${label}编辑权限`);
+      message.warning(
+        l(
+          `当前用户无${label}编辑权限`,
+          `You do not have permission to edit this ${label}`,
+        ),
+      );
       return;
     }
     try {
@@ -230,9 +253,18 @@ export default function AdminWorkspaceManagementPage({
         replaceItem(updated);
         notifyWorkspaceInventoryChanged("workspace");
       }
-      message.success(`已${checked ? "启用" : "禁用"} ${item.name}`);
+      message.success(
+        l(
+          `已${checked ? "启用" : "禁用"} ${item.name}`,
+          `${item.name} ${checked ? "enabled" : "disabled"}`,
+        ),
+      );
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "状态更新失败");
+      message.error(
+        error instanceof Error
+          ? error.message
+          : l("状态更新失败", "Status update failed"),
+      );
     }
   }
 
@@ -241,7 +273,12 @@ export default function AdminWorkspaceManagementPage({
     confirmationName: string,
   ) {
     if (!canDelete || !item.canDelete) {
-      message.warning(`当前用户无${label}删除权限`);
+      message.warning(
+        l(
+          `当前用户无${label}删除权限`,
+          `You do not have permission to delete this ${label}`,
+        ),
+      );
       return;
     }
     try {
@@ -255,9 +292,11 @@ export default function AdminWorkspaceManagementPage({
         total: Math.max(current.total - 1, 0),
       }));
       notifyWorkspaceInventoryChanged("workspace");
-      message.success(`${label}已删除`);
+      message.success(l(`${label}已删除`, `${label} deleted`));
     } catch (error) {
-      message.error(error instanceof Error ? error.message : "删除失败");
+      message.error(
+        error instanceof Error ? error.message : l("删除失败", "Delete failed"),
+      );
     }
   }
 
@@ -272,7 +311,7 @@ export default function AdminWorkspaceManagementPage({
 
   const columns: ColumnsType<AdminWorkspaceScene> = [
     {
-      title: `${label}名称`,
+      title: l(`${label}名称`, `${capitalize(label)} name`),
       dataIndex: "name",
       key: "name",
       width: 260,
@@ -280,22 +319,28 @@ export default function AdminWorkspaceManagementPage({
         <Space orientation="vertical" size={2}>
           <Typography.Text strong>{record.name}</Typography.Text>
           <Typography.Text type="secondary" className="admin-table-subtext">
-            {record.description || "未填写说明"}
+            {record.description || l("未填写说明", "No description")}
           </Typography.Text>
         </Space>
       ),
     },
     {
-      title: "类型",
+      title: l("类型", "Type"),
       dataIndex: "kind",
       key: "kind",
       width: 96,
       render: (value: AdminWorkspaceScene["kind"]) => (
-        <Tag>{kindLabels[value]}</Tag>
+        <Tag>
+          {english
+            ? value === "project"
+              ? "Project"
+              : "Topic"
+            : kindLabels[value]}
+        </Tag>
       ),
     },
     {
-      title: "状态",
+      title: l("状态", "Status"),
       dataIndex: "status",
       key: "status",
       width: 112,
@@ -303,15 +348,15 @@ export default function AdminWorkspaceManagementPage({
         <Switch
           size="small"
           checked={record.status === "active"}
-          checkedChildren="启用"
-          unCheckedChildren="禁用"
+          checkedChildren={l("启用", "On")}
+          unCheckedChildren={l("禁用", "Off")}
           disabled={!canMaintain || !record.canEdit}
           onChange={(checked) => toggleStatus(record, checked)}
         />
       ),
     },
     {
-      title: "所属用户",
+      title: l("所属用户", "Owner"),
       key: "owner",
       width: 160,
       render: (_, record) => (
@@ -324,12 +369,12 @@ export default function AdminWorkspaceManagementPage({
       ),
     },
     {
-      title: "可见范围",
+      title: l("可见范围", "Visibility"),
       key: "accessGroups",
       width: 240,
       render: (_, record) => (
         <Space wrap size={[4, 4]}>
-          <Tag color="cyan">所属用户</Tag>
+          <Tag color="cyan">{l("所属用户", "Owner")}</Tag>
           {record.accessGroups.map((group) => (
             <Tag key={group.id} color={group.isGuest ? "orange" : "blue"}>
               {group.name}
@@ -339,14 +384,14 @@ export default function AdminWorkspaceManagementPage({
       ),
     },
     {
-      title: "快照图层",
+      title: l("快照图层", "Snapshot layers"),
       key: "layers",
       width: 104,
       align: "center",
       render: (_, record) => workspaceLayerCount(record),
     },
     {
-      title: "地图加载",
+      title: l("地图加载", "Map"),
       key: "load",
       width: 112,
       render: (_, record) => (
@@ -356,7 +401,7 @@ export default function AdminWorkspaceManagementPage({
           disabled={record.status !== "active"}
           onClick={() => navigate(`/map?sceneId=${record.id}`)}
         >
-          打开
+          {l("打开", "Open")}
         </Button>
       ),
     },
@@ -369,26 +414,38 @@ export default function AdminWorkspaceManagementPage({
       accessGroups={data.availableAccessGroups}
       loading={loading}
       filters={filters}
-      filterFields={filterFields}
+      filterFields={localizedFilterFields}
       columns={columns}
       stats={[
         {
-          title: `当前${label}`,
+          title: l(`当前${label}`, `Current ${label}s`),
           value: data.total,
           prefix: <FolderOpenOutlined />,
         },
-        { title: "本页启用", value: metrics.active },
-        { title: "本页禁用", value: metrics.inactive },
-        { title: "本页已共享", value: metrics.shared },
+        { title: l("本页启用", "Enabled on this page"), value: metrics.active },
+        {
+          title: l("本页禁用", "Disabled on this page"),
+          value: metrics.inactive,
+        },
+        {
+          title: l("本页已共享", "Shared on this page"),
+          value: metrics.shared,
+        },
       ]}
       rowName={(item) => item.name}
-      drawerTitle={`${label}配置`}
-      deleteTitle={`删除${label}`}
-      deleteDescription={`删除会移除该${label}保存项和共享配置，不会删除原始数据资源。请输入完整名称确认。`}
-      ownerScopeLabel="所属用户本人可见"
+      drawerTitle={l(`${label}配置`, `${capitalize(label)} configuration`)}
+      deleteTitle={l(`删除${label}`, `Delete ${label}`)}
+      deleteDescription={l(
+        `删除会移除该${label}保存项和共享配置，不会删除原始数据资源。请输入完整名称确认。`,
+        `Deleting removes the saved ${label} and sharing configuration, but does not delete source data resources. Enter the full name to confirm.`,
+      )}
+      ownerScopeLabel={l("所属用户本人可见", "Visible to the owner")}
       accessScopeNotice={
         <Typography.Text type="secondary">
-          所属用户本人始终可见；平台会自动保留必要的系统访问范围。
+          {l(
+            "所属用户本人始终可见；平台会自动保留必要的系统访问范围。",
+            "The owner can always see this item; the platform also preserves required system access.",
+          )}
         </Typography.Text>
       }
       canMaintain={canMaintain}
@@ -396,30 +453,48 @@ export default function AdminWorkspaceManagementPage({
       canDelete={canDelete}
       canDeleteItem={(item) => item.canDelete}
       detailItems={(item) => [
-        { label: `${label}名称`, value: item.name },
-        { label: "类型", value: kindLabels[item.kind] },
         {
-          label: "状态",
+          label: l(`${label}名称`, `${capitalize(label)} name`),
+          value: item.name,
+        },
+        {
+          label: l("类型", "Type"),
+          value: english
+            ? item.kind === "project"
+              ? "Project"
+              : "Topic"
+            : kindLabels[item.kind],
+        },
+        {
+          label: l("状态", "Status"),
           value: (
             <Tag color={statusLabels[item.status].color}>
-              {statusLabels[item.status].text}
+              {english
+                ? item.status === "active"
+                  ? "Enabled"
+                  : "Disabled"
+                : statusLabels[item.status].text}
             </Tag>
           ),
         },
-        { label: "所属用户", value: ownerDisplayName(item) },
+        { label: l("所属用户", "Owner"), value: ownerDisplayName(item) },
         {
-          label: "创建时间",
-          value: new Date(item.createdAt).toLocaleString("zh-CN"),
+          label: l("创建时间", "Created at"),
+          value: new Date(item.createdAt).toLocaleString(
+            english ? "en-US" : "zh-CN",
+          ),
         },
         {
-          label: "快照图层数",
+          label: l("快照图层数", "Snapshot layer count"),
           value: workspaceLayerCount(item),
         },
         {
-          label: "额外可见角色",
+          label: l("额外可见角色", "Additional visible roles"),
           value:
-            item.accessGroups.map((group) => group.name).join("、") ||
-            "未额外共享",
+            item.accessGroups
+              .map((group) => group.name)
+              .join(english ? ", " : "、") ||
+            l("未额外共享", "Not shared with additional roles"),
         },
       ]}
       formInitialValues={(item) => ({
@@ -432,23 +507,33 @@ export default function AdminWorkspaceManagementPage({
       })}
       renderFormItems={(_, maintainable) => (
         <>
-          <Typography.Title level={5}>基础信息</Typography.Title>
+          <Typography.Title level={5}>
+            {l("基础信息", "Basic information")}
+          </Typography.Title>
           <Form.Item
             name="name"
-            label={`${label}名称`}
-            rules={[{ required: true, message: `请输入${label}名称` }]}
+            label={l(`${label}名称`, `${capitalize(label)} name`)}
+            rules={[
+              {
+                required: true,
+                message: l(`请输入${label}名称`, `Enter a ${label} name`),
+              },
+            ]}
           >
             <Input disabled={!maintainable} />
           </Form.Item>
-          <Form.Item name="description" label={`${label}说明`}>
+          <Form.Item
+            name="description"
+            label={l(`${label}说明`, `${capitalize(label)} description`)}
+          >
             <Input.TextArea rows={4} disabled={!maintainable} />
           </Form.Item>
-          <Form.Item name="kind" label="类型">
+          <Form.Item name="kind" label={l("类型", "Type")}>
             <Select
               disabled={!maintainable}
               options={[
-                { value: "project", label: "工程" },
-                { value: "topic", label: "专题" },
+                { value: "project", label: l("工程", "Project") },
+                { value: "topic", label: l("专题", "Topic") },
               ]}
             />
           </Form.Item>
@@ -485,4 +570,8 @@ function workspaceLayerCount(item: AdminWorkspaceScene): number {
     const children = (group as { children?: unknown }).children;
     return total + (Array.isArray(children) ? children.length : 0);
   }, 0);
+}
+
+function capitalize(value: string) {
+  return value ? value[0]!.toUpperCase() + value.slice(1) : value;
 }

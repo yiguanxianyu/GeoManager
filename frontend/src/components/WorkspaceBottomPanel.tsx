@@ -29,6 +29,7 @@ import type {
   TileZoomRange,
 } from "../map/mapExport";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { DrawMode } from "../map/spatialDraw";
 import type { GeoJsonGeometry, LoadedLayer, SpatialFilter } from "../types";
 import { downloadBlob } from "../utils/download";
@@ -63,6 +64,7 @@ export default function WorkspaceBottomPanel({
   onImportSpatialFilter,
   onExportMapPng,
 }: Props) {
+  const english = useEnglish();
   const currentGeometry = spatialFilter?.geometry ?? exportClipGeometry;
   return (
     <Tabs
@@ -74,7 +76,7 @@ export default function WorkspaceBottomPanel({
           label: (
             <span className="tab-label">
               <AimOutlined style={{ fontSize: 14 }} />
-              空间查询
+              {english ? "Spatial query" : "空间查询"}
             </span>
           ),
           children: (
@@ -93,7 +95,7 @@ export default function WorkspaceBottomPanel({
           label: (
             <span className="tab-label">
               <BarChartOutlined style={{ fontSize: 14 }} />
-              命中预估
+              {english ? "Hit estimate" : "命中预估"}
             </span>
           ),
           children: <HitEstimatePanel selectedLayer={selectedLayer} />,
@@ -103,7 +105,7 @@ export default function WorkspaceBottomPanel({
           label: (
             <span className="tab-label">
               <TableOutlined style={{ fontSize: 14 }} />
-              结果
+              {english ? "Results" : "结果"}
             </span>
           ),
           children: <MetadataPanel layer={selectedLayer} />,
@@ -113,13 +115,17 @@ export default function WorkspaceBottomPanel({
           label: (
             <span className="tab-label">
               <ClockCircleOutlined style={{ fontSize: 14 }} />
-              时间
+              {english ? "Time" : "时间"}
             </span>
           ),
           children: (
             <BottomPlaceholderPanel
-              title="时间筛选"
-              description="后续在这里接入时间范围、监测周期和时序结果联动。"
+              title={english ? "Time filter" : "时间筛选"}
+              description={
+                english
+                  ? "Time ranges, monitoring periods, and time-series result links will be connected here."
+                  : "后续在这里接入时间范围、监测周期和时序结果联动。"
+              }
             />
           ),
         },
@@ -128,7 +134,7 @@ export default function WorkspaceBottomPanel({
           label: (
             <span className="tab-label">
               <InfoCircleOutlined style={{ fontSize: 14 }} />
-              图例
+              {english ? "Legend" : "图例"}
             </span>
           ),
           children: <LegendPlaceholderPanel />,
@@ -140,13 +146,17 @@ export default function WorkspaceBottomPanel({
                 label: (
                   <span className="tab-label">
                     <BulbOutlined style={{ fontSize: 14 }} />
-                    AI智能解译
+                    {english ? "AI interpretation" : "AI智能解译"}
                   </span>
                 ),
                 children: (
                   <BottomPlaceholderPanel
-                    title="AI智能解译"
-                    description="后续在这里接入模型选择、解译任务和结果回写。"
+                    title={english ? "AI interpretation" : "AI智能解译"}
+                    description={
+                      english
+                        ? "Model selection, interpretation jobs, and result write-back will be connected here."
+                        : "后续在这里接入模型选择、解译任务和结果回写。"
+                    }
                   />
                 ),
               },
@@ -159,7 +169,7 @@ export default function WorkspaceBottomPanel({
                 label: (
                   <span className="tab-label">
                     <CameraOutlined style={{ fontSize: 14 }} />
-                    地图导出
+                    {english ? "Map export" : "地图导出"}
                   </span>
                 ),
                 children: (
@@ -192,12 +202,19 @@ function SpatialQueryPanel({
   | "exportTileZoomRange"
   | "onExportMapPng"
 >) {
+  const english = useEnglish();
   const currentGeometry = spatialFilter?.geometry ?? exportClipGeometry;
   const rangeLabel = spatialFilter
-    ? `已绘制${spatialModeName(spatialFilter.mode)}`
+    ? english
+      ? `${spatialModeName(spatialFilter.mode, true)} drawn`
+      : `已绘制${spatialModeName(spatialFilter.mode)}`
     : currentGeometry
-      ? "已设置范围"
-      : "未设置范围";
+      ? english
+        ? "Area set"
+        : "已设置范围"
+      : english
+        ? "No area set"
+        : "未设置范围";
 
   return (
     <div className="spatial-query-grid">
@@ -205,7 +222,7 @@ function SpatialQueryPanel({
         <div className="bottom-region-heading">
           <span>
             <AimOutlined style={{ fontSize: 15 }} />
-            <strong>范围工具</strong>
+            <strong>{english ? "Area tools" : "范围工具"}</strong>
           </span>
           <Tag color={currentGeometry ? "green" : "default"}>{rangeLabel}</Tag>
         </div>
@@ -227,30 +244,36 @@ function HitEstimatePanel({
 }: {
   selectedLayer: LoadedLayer | null;
 }) {
+  const english = useEnglish();
   return (
     <section className="spatial-query-region spatial-query-insight">
       <div className="bottom-region-heading">
         <span>
           <BarChartOutlined style={{ fontSize: 15 }} />
-          <strong>查询命中预估</strong>
+          <strong>{english ? "Query hit estimate" : "查询命中预估"}</strong>
         </span>
-        <Typography.Text type="secondary">当前仅为布局占位</Typography.Text>
+        <Typography.Text type="secondary">
+          {english ? "Layout placeholder only" : "当前仅为布局占位"}
+        </Typography.Text>
       </div>
       <div className="spatial-insight-grid">
         <div className="spatial-layer-card">
           <Typography.Text strong>
-            {selectedLayer?.name ?? "请选择已加载图层"}
+            {selectedLayer?.name ??
+              (english ? "Select a loaded layer" : "请选择已加载图层")}
           </Typography.Text>
           <Typography.Text type="secondary">
             {selectedLayer
               ? selectedLayer.summary
-              : "绘制范围后，后续查询结果将在这里联动展示。"}
+              : english
+                ? "After an area is drawn, linked query results will appear here."
+                : "绘制范围后，后续查询结果将在这里联动展示。"}
           </Typography.Text>
         </div>
         <div
           className="spatial-hit-preview"
           role="img"
-          aria-label="查询命中预估图"
+          aria-label={english ? "Query hit estimate chart" : "查询命中预估图"}
         >
           <span style={{ height: "44%" }} />
           <span style={{ height: "66%" }} />
@@ -262,15 +285,15 @@ function HitEstimatePanel({
         <div className="spatial-symbol-list">
           <span>
             <i className="spatial-symbol spatial-symbol-border" />
-            查询范围边框
+            {english ? "Query boundary" : "查询范围边框"}
           </span>
           <span>
             <i className="spatial-symbol" />
-            胡杨林分布
+            {english ? "Poplar forest distribution" : "胡杨林分布"}
           </span>
           <span>
             <i className="spatial-symbol spatial-symbol-water" />
-            水文监测
+            {english ? "Hydrological monitoring" : "水文监测"}
           </span>
         </div>
       </div>
@@ -279,12 +302,13 @@ function HitEstimatePanel({
 }
 
 function MetadataPanel({ layer }: { layer: LoadedLayer | null }) {
+  const english = useEnglish();
   if (!layer) {
     return (
       <Empty
         className="bottom-panel-empty"
         image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description="请选择一个已加载图层"
+        description={english ? "Select a loaded layer" : "请选择一个已加载图层"}
       />
     );
   }
@@ -305,7 +329,13 @@ function MetadataPanel({ layer }: { layer: LoadedLayer | null }) {
           <InfoCircleOutlined style={{ fontSize: 15 }} />
           <Typography.Text strong>{layer.name}</Typography.Text>
           <Tag color={layer.layerType === "vector" ? "green" : "blue"}>
-            {layer.layerType === "vector" ? "矢量" : "栅格"}
+            {layer.layerType === "vector"
+              ? english
+                ? "Vector"
+                : "矢量"
+              : english
+                ? "Raster"
+                : "栅格"}
           </Tag>
         </Space>
         <Typography.Text type="secondary">{layer.summary}</Typography.Text>
@@ -319,7 +349,10 @@ function MetadataPanel({ layer }: { layer: LoadedLayer | null }) {
           ))}
         </Descriptions>
       ) : (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无元数据" />
+        <Empty
+          image={Empty.PRESENTED_IMAGE_SIMPLE}
+          description={english ? "No metadata" : "暂无元数据"}
+        />
       )}
     </section>
   );
@@ -341,6 +374,7 @@ function DrawingPanel({
   | "onExportMapPng"
 >) {
   const { message } = App.useApp();
+  const english = useEnglish();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const currentGeometry = spatialFilter?.geometry ?? exportClipGeometry;
 
@@ -348,14 +382,22 @@ function DrawingPanel({
     try {
       const geometry = geometryFromGeojson(JSON.parse(await file.text()));
       if (!geometry) {
-        message.warning("GeoJSON 中未找到可用的面状范围");
+        message.warning(
+          english
+            ? "No usable polygon area was found in the GeoJSON file"
+            : "GeoJSON 中未找到可用的面状范围",
+        );
         return;
       }
       onImportSpatialFilter({ mode: inferSpatialMode(geometry), geometry });
-      message.success("空间范围已导入");
+      message.success(english ? "Spatial area imported" : "空间范围已导入");
     } catch (error) {
       message.error(
-        error instanceof Error ? error.message : "GeoJSON 文件读取失败",
+        error instanceof Error
+          ? error.message
+          : english
+            ? "Failed to read the GeoJSON file"
+            : "GeoJSON 文件读取失败",
       );
     } finally {
       if (fileInputRef.current) {
@@ -366,7 +408,11 @@ function DrawingPanel({
 
   function handleExportGeojson() {
     if (!currentGeometry) {
-      message.warning("请先绘制或导入空间范围");
+      message.warning(
+        english
+          ? "Draw or import a spatial area first"
+          : "请先绘制或导入空间范围",
+      );
       return;
     }
     const geojson = {
@@ -400,11 +446,11 @@ function DrawingPanel({
             className="spatial-range-mode-selector"
             value={activeDraw?.purpose === "query" ? activeDraw.mode : "none"}
             options={[
-              { label: "无", value: "none" },
-              { label: "矩形", value: "rectangle" },
-              { label: "圆", value: "circle" },
-              { label: "椭圆", value: "ellipse" },
-              { label: "多边形", value: "polygon" },
+              { label: english ? "None" : "无", value: "none" },
+              { label: english ? "Rectangle" : "矩形", value: "rectangle" },
+              { label: english ? "Circle" : "圆", value: "circle" },
+              { label: english ? "Ellipse" : "椭圆", value: "ellipse" },
+              { label: english ? "Polygon" : "多边形", value: "polygon" },
             ]}
             onChange={(nextValue) =>
               onStartQueryDraw(
@@ -425,10 +471,14 @@ function DrawingPanel({
         />
         <Space size={8} wrap className="spatial-range-actions">
           {spatialFilter && (
-            <Tag color="green">已绘制{spatialModeName(spatialFilter.mode)}</Tag>
+            <Tag color="green">
+              {english
+                ? `${spatialModeName(spatialFilter.mode, true)} drawn`
+                : `已绘制${spatialModeName(spatialFilter.mode)}`}
+            </Tag>
           )}
           {!spatialFilter && exportClipGeometry && (
-            <Tag color="blue">已设置</Tag>
+            <Tag color="blue">{english ? "Set" : "已设置"}</Tag>
           )}
           <Button
             size="small"
@@ -436,14 +486,14 @@ function DrawingPanel({
             disabled={!currentGeometry}
             onClick={onClearSpatialFilter}
           >
-            清除
+            {english ? "Clear" : "清除"}
           </Button>
           <Button
             size="small"
             icon={<UploadOutlined style={{ fontSize: 13 }} />}
             onClick={() => fileInputRef.current?.click()}
           >
-            导入空间范围
+            {english ? "Import spatial area" : "导入空间范围"}
           </Button>
           <Button
             size="small"
@@ -451,7 +501,7 @@ function DrawingPanel({
             disabled={!currentGeometry}
             onClick={handleExportGeojson}
           >
-            导出空间范围
+            {english ? "Export spatial area" : "导出空间范围"}
           </Button>
         </Space>
       </section>
@@ -475,25 +525,28 @@ function BottomPlaceholderPanel({
 }
 
 function LegendPlaceholderPanel() {
+  const english = useEnglish();
   return (
     <section className="bottom-placeholder-panel legend-placeholder-panel">
-      <Typography.Text strong>当前图例</Typography.Text>
+      <Typography.Text strong>
+        {english ? "Current legend" : "当前图例"}
+      </Typography.Text>
       <div className="spatial-symbol-list spatial-symbol-list-wide">
         <span>
           <i className="spatial-symbol spatial-symbol-border" />
-          查询范围边框
+          {english ? "Query boundary" : "查询范围边框"}
         </span>
         <span>
           <i className="spatial-symbol" />
-          胡杨林分布
+          {english ? "Poplar forest distribution" : "胡杨林分布"}
         </span>
         <span>
           <i className="spatial-symbol spatial-symbol-water" />
-          水文监测
+          {english ? "Hydrological monitoring" : "水文监测"}
         </span>
         <span>
           <i className="spatial-symbol spatial-symbol-risk" />
-          风险区域
+          {english ? "Risk area" : "风险区域"}
         </span>
       </div>
     </section>
@@ -509,6 +562,7 @@ function MapExportPanel({
   tileZoomRange: TileZoomRange;
   onExportMapPng: (options: MapImageExportOptions) => Promise<void>;
 }) {
+  const english = useEnglish();
   const [format, setFormat] = useState<MapImageExportFormat>("png");
   const [dpi, setDpi] = useState(150);
   const [tileZoom, setTileZoom] = useState(8);
@@ -539,15 +593,18 @@ function MapExportPanel({
   return (
     <section className="bottom-placeholder-panel map-export-panel">
       <div className="map-export-copy">
-        <Typography.Text strong>导出 2D 地图图片</Typography.Text>
+        <Typography.Text strong>
+          {english ? "Export 2D map image" : "导出 2D 地图图片"}
+        </Typography.Text>
         <Typography.Text type="secondary">
-          使用“空间查询”中的范围工具划定导出范围，按指定 DPI 与瓦片等级生成
-          图片。
+          {english
+            ? "Use the area tools under Spatial Query, then generate an image at the selected DPI and tile zoom."
+            : "使用“空间查询”中的范围工具划定导出范围，按指定 DPI 与瓦片等级生成图片。"}
         </Typography.Text>
       </div>
       <div className="map-export-controls">
         <label className="map-export-field">
-          <span>格式</span>
+          <span>{english ? "Format" : "格式"}</span>
           <Select
             size="small"
             value={format}
@@ -574,7 +631,7 @@ function MapExportPanel({
           />
         </label>
         <label className="map-export-field">
-          <span>瓦片等级</span>
+          <span>{english ? "Tile zoom" : "瓦片等级"}</span>
           <Select
             size="small"
             value={tileZoom}
@@ -583,7 +640,13 @@ function MapExportPanel({
           />
         </label>
         <Tag color={hasRange ? "green" : "default"}>
-          {hasRange ? "已划定范围" : "未划定范围"}
+          {hasRange
+            ? english
+              ? "Area defined"
+              : "已划定范围"
+            : english
+              ? "No area defined"
+              : "未划定范围"}
         </Tag>
         <Button
           type="primary"
@@ -592,21 +655,26 @@ function MapExportPanel({
           disabled={!hasRange}
           onClick={() => void handleExport()}
         >
-          导出 {format.toUpperCase()}
+          {english ? "Export" : "导出"} {format.toUpperCase()}
         </Button>
       </div>
     </section>
   );
 }
 
-function spatialModeName(mode: SpatialFilter["mode"]) {
+function spatialModeName(mode: SpatialFilter["mode"], english = false) {
   const names = {
-    rectangle: "矩形",
-    circle: "圆",
-    ellipse: "椭圆",
-    polygon: "多边形",
+    rectangle: english ? "Rectangle" : "矩形",
+    circle: english ? "Circle" : "圆",
+    ellipse: english ? "Ellipse" : "椭圆",
+    polygon: english ? "Polygon" : "多边形",
   };
   return names[mode];
+}
+
+function useEnglish() {
+  const { i18n } = useTranslation();
+  return i18n.resolvedLanguage?.toLowerCase().startsWith("en") ?? false;
 }
 
 function geometryFromGeojson(value: unknown): GeoJsonGeometry | null {

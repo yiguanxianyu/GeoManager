@@ -40,6 +40,8 @@ import {
 import WorkspaceHeader from "../components/WorkspaceHeader";
 import { useAppContext } from "../contexts/AppContext";
 import { DocsSection } from "./AboutPage";
+import { currentLocale } from "../i18n";
+import { EnglishAboutPage } from "./EnglishEditorialPages";
 
 const sectionIcons: Record<AboutSectionKey, ReactNode> = {
   system: <InfoCircleOutlined />,
@@ -63,6 +65,10 @@ export default function AboutV2Page() {
   const params = useParams();
   const activeSection = aboutSectionByKey(params.section);
   const activeInstitution = institutionById(params.institutionId);
+
+  if (currentLocale() === "en-US") {
+    return <EnglishAboutPage />;
+  }
 
   return (
     <Layout className="workspace">

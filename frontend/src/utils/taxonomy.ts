@@ -1,4 +1,98 @@
 import type { DataSchemaCatalogNode, DataSchemaSummary } from "../types";
+import { currentLocale } from "../i18n";
+
+const englishTaxonomy: Record<string, { name: string; description: string }> = {
+  base_geo: {
+    name: "Base geographic information",
+    description:
+      "Regional spatial frameworks, base features, and land-use/land-cover data.",
+  },
+  base_geo_admin: {
+    name: "Administrative boundaries",
+    description: "Administrative boundaries, units, and related codes.",
+  },
+  base_geo_elements: {
+    name: "Base geographic features",
+    description:
+      "Hydrology, roads, protected areas, terrain, and other base features.",
+  },
+  base_geo_lucc: {
+    name: "LUCC",
+    description:
+      "Land-use/land-cover status, classifications, and change data.",
+  },
+  habitat: {
+    name: "Poplar habitat data",
+    description: "Water, soil, climate, and biotic factors in poplar habitats.",
+  },
+  habitat_water: {
+    name: "Water",
+    description:
+      "Surface water, groundwater, hydrological processes, and water quality.",
+  },
+  habitat_soil: {
+    name: "Soil",
+    description:
+      "Soil samples, physicochemical properties, salinity, and nutrients.",
+  },
+  habitat_climate: {
+    name: "Climate",
+    description:
+      "Temperature, precipitation, evapotranspiration, and other climate indicators.",
+  },
+  habitat_biotic: {
+    name: "Biotic environment",
+    description:
+      "Associated organisms, soil microorganisms, and other biotic factors.",
+  },
+  distribution: {
+    name: "Poplar spatial distribution",
+    description:
+      "Poplar distribution, survey locations, and field-image evidence.",
+  },
+  distribution_vector: {
+    name: "Distribution vectors",
+    description:
+      "Distribution points, extents, patches, and related vector products.",
+  },
+  distribution_survey_image: {
+    name: "Survey-site images",
+    description:
+      "Research images linked to a site, event, individual, or plot.",
+  },
+  thematic: {
+    name: "Poplar thematic data",
+    description:
+      "Thematic data organized from genes and germplasm to landscapes.",
+  },
+  thematic_gene_germplasm: {
+    name: "Genes and germplasm",
+    description:
+      "Germplasm, molecular and genomic data, and sample provenance.",
+  },
+  thematic_individual: {
+    name: "Individuals",
+    description: "Individual poplar trees and their time-series observations.",
+  },
+  thematic_population: {
+    name: "Populations",
+    description: "Population units, extents, and population indicators.",
+  },
+  thematic_community: {
+    name: "Communities",
+    description: "Community composition, diversity, and functional traits.",
+  },
+  thematic_ecosystem: {
+    name: "Ecosystems",
+    description:
+      "Coupled water-soil-climate-biota processes and integrated indicators.",
+  },
+  thematic_landscape_rs: {
+    name: "Landscape and remote sensing",
+    description:
+      "Imagery, indices, change detection, and landscape-pattern data.",
+  },
+};
 
 export const fallbackTaxonomyTree: DataSchemaCatalogNode[] = [
   taxonomyRoot(
@@ -108,7 +202,29 @@ export interface TaxonomySelectOption {
 export function taxonomyTree(
   schema: DataSchemaSummary | null | undefined,
 ): DataSchemaCatalogNode[] {
-  return schema?.catalogTree.length ? schema.catalogTree : fallbackTaxonomyTree;
+  const tree = schema?.catalogTree.length
+    ? schema.catalogTree
+    : fallbackTaxonomyTree;
+  return currentLocale() === "en-US" ? localizeTaxonomyNodes(tree) : tree;
+}
+
+function localizeTaxonomyNodes(
+  nodes: DataSchemaCatalogNode[],
+  parentPath: string[] = [],
+): DataSchemaCatalogNode[] {
+  return nodes.map((node) => {
+    const copy =
+      englishTaxonomy[node.code] ?? englishTaxonomy[node.categoryCode];
+    const name = copy?.name ?? node.name;
+    const path = [...parentPath, name];
+    return {
+      ...node,
+      name,
+      description: copy?.description ?? node.description,
+      path,
+      children: localizeTaxonomyNodes(node.children, path),
+    };
+  });
 }
 
 export function taxonomySelectOptions(

@@ -35,13 +35,16 @@ import {
   Typography,
 } from "antd";
 import type { TableProps } from "antd";
+import type { TFunction } from "i18next";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import WorkspaceHeader from "../components/WorkspaceHeader";
 import { platformBrand } from "../config/platformBrand";
 import { useAppContext } from "../contexts/AppContext";
+import i18n, { currentLocale } from "../i18n";
 import type {
   DataDomainType,
   DataSchemaSummary,
@@ -58,6 +61,7 @@ import {
   resourceProvider,
 } from "../utils/resources";
 import { taxonomyLeafOptions } from "../utils/taxonomy";
+import { createNonGeoDemo, NON_GEO_DEMO_RESOURCE_ID } from "./nonGeoDemoData";
 
 type ResourceTypeFilter = "all" | "table" | "gene";
 type LeftPanelKey = "data" | "views" | "workspace" | "topics";
@@ -68,72 +72,78 @@ type NumericDistribution = NonGeoAnalytics["numericDistributions"][number];
 type FieldProfile = NonGeoFieldProfile;
 type TableRow = NonGeoTableRow;
 
-const nonGeoTypeOptions = [
-  { label: "全部", value: "all" },
-  { label: "生态表", value: "table" },
-  { label: "遗传", value: "gene" },
-];
-
 const nonGeoDomainTypes = new Set<DataDomainType>(["molecular", "genome"]);
 
-const leftPanelOptions: Array<{
+const leftPanelMeta: Array<{
   key: LeftPanelKey;
-  label: string;
+  labelKey: string;
   icon: ReactNode;
 }> = [
-  { key: "data", label: "数据资源", icon: <DatabaseOutlined /> },
-  { key: "views", label: "分析视图", icon: <AppstoreOutlined /> },
-  { key: "workspace", label: "工作区", icon: <ProfileOutlined /> },
-  { key: "topics", label: "专题分析", icon: <ExperimentOutlined /> },
+  { key: "data", labelKey: "nonGeo.tabData", icon: <DatabaseOutlined /> },
+  {
+    key: "views",
+    labelKey: "nonGeo.tabViews",
+    icon: <AppstoreOutlined />,
+  },
+  {
+    key: "workspace",
+    labelKey: "nonGeo.tabWorkspace",
+    icon: <ProfileOutlined />,
+  },
+  {
+    key: "topics",
+    labelKey: "nonGeo.tabTopics",
+    icon: <ExperimentOutlined />,
+  },
 ];
 
-const analysisViewOptions = [
+const analysisViewMeta = [
   {
     key: "overview",
-    title: "总览视图",
-    description: "记录总量、字段结构、完整率与核心分布",
+    titleKey: "nonGeo.overviewView",
+    descriptionKey: "nonGeo.overviewViewDescription",
     icon: <BarChartOutlined />,
   },
   {
     key: "species",
-    title: "组成分布",
-    description: "物种、生活型、样地类型等分类结构",
+    titleKey: "nonGeo.compositionView",
+    descriptionKey: "nonGeo.compositionViewDescription",
     icon: <BranchesOutlined />,
   },
   {
     key: "traits",
-    title: "性状关系",
-    description: "功能性状、指标相关性与二维关系",
+    titleKey: "nonGeo.traitsView",
+    descriptionKey: "nonGeo.traitsViewDescription",
     icon: <RadarChartOutlined />,
   },
   {
     key: "table",
-    title: "明细表格",
-    description: "字段预览、属性查询与表格核查",
+    titleKey: "nonGeo.tableView",
+    descriptionKey: "nonGeo.tableViewDescription",
     icon: <TableOutlined />,
   },
 ];
 
-const topicPresets = [
+const topicPresetMeta = [
   {
     key: "species",
-    title: "群落多样性专题",
-    description: "物种组成、生活型结构与群落分类对比",
+    titleKey: "nonGeo.communityTopic",
+    descriptionKey: "nonGeo.communityTopicDescription",
   },
   {
     key: "traits",
-    title: "功能性状专题",
-    description: "性状分布、指标关系与生态功能差异",
+    titleKey: "nonGeo.traitsTopic",
+    descriptionKey: "nonGeo.traitsTopicDescription",
   },
   {
     key: "overview",
-    title: "数据质量专题",
-    description: "字段完整率、记录规模与基础质量概览",
+    titleKey: "nonGeo.qualityTopic",
+    descriptionKey: "nonGeo.qualityTopicDescription",
   },
   {
     key: "table",
-    title: "原始记录专题",
-    description: "表格明细、字段说明与属性查询结果",
+    titleKey: "nonGeo.recordsTopic",
+    descriptionKey: "nonGeo.recordsTopicDescription",
   },
 ];
 
@@ -148,19 +158,10 @@ const analyticsPalette = [
   "#d7f45d",
 ];
 
-const roleLabels: Record<FieldProfile["role"], string> = {
-  identifier: "标识",
-  category: "分类",
-  measure: "指标",
-  date: "时间",
-  text: "文本",
-  coordinate: "坐标",
-  unknown: "未知",
-};
-
 export default function NonGeoPage() {
   const { user } = useAppContext();
   const { message } = App.useApp();
+  const { t, i18n: translationI18n } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const permissions = user?.permissions;
   const canBrowseData = Boolean(permissions?.canBrowseData);
@@ -193,20 +194,49 @@ export default function NonGeoPage() {
       : null;
   }, [searchParams]);
   const selectedCategoryCode = searchParams.get("categoryCode") || undefined;
+  const demoAvailable = !selectedDomainType && !selectedCategoryCode;
+  const demoBundle = useMemo(
+    () => createNonGeoDemo(currentLocale()),
+    [translationI18n.resolvedLanguage],
+  );
+  const effectiveResources = useMemo(
+    () => (demoAvailable ? [...resources, demoBundle.resource] : resources),
+    [demoAvailable, demoBundle.resource, resources],
+  );
   const categoryOptions = useMemo(
     () => taxonomyLeafOptions(dataSchema),
     [dataSchema],
   );
+  const nonGeoTypeOptions = [
+    { label: t("nonGeo.filterAll"), value: "all" },
+    { label: t("nonGeo.ecologicalTable"), value: "table" },
+    { label: t("nonGeo.genetics"), value: "gene" },
+  ];
+  const leftPanelOptions = leftPanelMeta.map((item) => ({
+    ...item,
+    label: t(item.labelKey),
+  }));
+  const analysisViewOptions = analysisViewMeta.map((item) => ({
+    ...item,
+    title: t(item.titleKey),
+    description: t(item.descriptionKey),
+  }));
+  const topicPresets = topicPresetMeta.map((item) => ({
+    ...item,
+    title: t(item.titleKey),
+    description: t(item.descriptionKey),
+  }));
 
   const selectedResource = useMemo(
     () =>
-      resources.find((resource) => resource.id === activeResourceId) ?? null,
-    [activeResourceId, resources],
+      effectiveResources.find((resource) => resource.id === activeResourceId) ??
+      null,
+    [activeResourceId, effectiveResources],
   );
 
   const filteredResources = useMemo(() => {
     const keyword = resourceKeyword.trim().toLowerCase();
-    return resources.filter((resource) => {
+    return effectiveResources.filter((resource) => {
       if (resourceType !== "all" && resource.dataType !== resourceType) {
         return false;
       }
@@ -225,7 +255,7 @@ export default function NonGeoPage() {
         .toLowerCase();
       return haystack.includes(keyword);
     });
-  }, [resourceKeyword, resourceType, resources]);
+  }, [effectiveResources, resourceKeyword, resourceType]);
 
   const tableData = tableResult ?? analytics?.tablePreview ?? null;
   const primaryCategory = analytics?.categoricalDistributions[0] ?? null;
@@ -268,26 +298,51 @@ export default function NonGeoPage() {
       const items = response.items.filter(isNonGeographicResource);
       if (requestSequence === resourceRequestSequenceRef.current) {
         setResources(items);
-        setActiveResourceId((current) =>
-          current !== null && items.some((resource) => resource.id === current)
-            ? current
-            : (items[0]?.id ?? null),
-        );
+        setActiveResourceId((current) => {
+          const currentStillExists =
+            current === NON_GEO_DEMO_RESOURCE_ID
+              ? demoAvailable
+              : current !== null &&
+                items.some((resource) => resource.id === current);
+          if (currentStillExists) {
+            return current;
+          }
+          if (!canQueryData && demoAvailable) {
+            return NON_GEO_DEMO_RESOURCE_ID;
+          }
+          return (
+            items[0]?.id ?? (demoAvailable ? NON_GEO_DEMO_RESOURCE_ID : null)
+          );
+        });
       }
     } catch (error) {
       if (requestSequence === resourceRequestSequenceRef.current) {
         setResources([]);
-        setActiveResourceId(null);
-        message.error(
-          error instanceof Error ? error.message : "非地理数据资源加载失败",
-        );
+        setActiveResourceId(demoAvailable ? NON_GEO_DEMO_RESOURCE_ID : null);
+        if (demoAvailable) {
+          message.warning(t("nonGeo.resourcesUnavailableDemo"));
+        } else {
+          message.error(
+            error instanceof Error
+              ? error.message
+              : t("nonGeo.resourcesLoadFailed"),
+          );
+        }
       }
     } finally {
       if (requestSequence === resourceRequestSequenceRef.current) {
         setLoadingResources(false);
       }
     }
-  }, [canBrowseData, message, selectedCategoryCode, selectedDomainType]);
+  }, [
+    canBrowseData,
+    canQueryData,
+    demoAvailable,
+    message,
+    selectedCategoryCode,
+    selectedDomainType,
+    t,
+  ]);
 
   useEffect(() => {
     if (!canBrowseData) return;
@@ -311,9 +366,20 @@ export default function NonGeoPage() {
       setLoadingAnalytics(true);
       setAnalyticsError("");
       setTableResult(null);
+      if (resourceId === NON_GEO_DEMO_RESOURCE_ID && demoAvailable) {
+        setAnalytics(demoBundle.analytics);
+        setLoadingAnalytics(false);
+        return;
+      }
       if (!canQueryData) {
-        setAnalytics(null);
-        setAnalyticsError("当前角色无数据查询权限");
+        if (demoAvailable) {
+          setActiveResourceId(NON_GEO_DEMO_RESOURCE_ID);
+          setAnalytics(demoBundle.analytics);
+          setAnalyticsError("");
+        } else {
+          setAnalytics(null);
+          setAnalyticsError(t("nonGeo.noQueryPermission"));
+        }
         setLoadingAnalytics(false);
         return;
       }
@@ -325,10 +391,18 @@ export default function NonGeoPage() {
         }
       } catch (error) {
         if (requestSequence === analyticsRequestSequenceRef.current) {
-          setAnalytics(null);
-          setAnalyticsError(
-            error instanceof Error ? error.message : "非地理数据分析失败",
-          );
+          if (demoAvailable) {
+            setActiveResourceId(NON_GEO_DEMO_RESOURCE_ID);
+            setAnalytics(demoBundle.analytics);
+            setAnalyticsError("");
+          } else {
+            setAnalytics(null);
+            setAnalyticsError(
+              error instanceof Error
+                ? error.message
+                : t("nonGeo.analysisFailed"),
+            );
+          }
         }
       } finally {
         if (requestSequence === analyticsRequestSequenceRef.current) {
@@ -336,15 +410,22 @@ export default function NonGeoPage() {
         }
       }
     },
-    [canQueryData],
+    [canQueryData, demoAvailable, demoBundle.analytics, t],
   );
 
   const queryTable = useCallback(async () => {
-    if (!activeResourceId) {
+    if (activeResourceId === null) {
+      return;
+    }
+    if (activeResourceId === NON_GEO_DEMO_RESOURCE_ID && demoAvailable) {
+      setQueryingTable(true);
+      setTableResult(demoBundle.table);
+      setAnalysisTab("table");
+      setQueryingTable(false);
       return;
     }
     if (!canQueryData) {
-      message.warning("当前角色无数据查询权限");
+      message.warning(t("nonGeo.noQueryPermission"));
       return;
     }
     const requestSequence = ++tableQueryRequestSequenceRef.current;
@@ -364,7 +445,9 @@ export default function NonGeoPage() {
     } catch (error) {
       if (requestSequence === tableQueryRequestSequenceRef.current) {
         message.error(
-          error instanceof Error ? error.message : "查询非地理数据明细失败",
+          error instanceof Error
+            ? error.message
+            : t("nonGeo.detailsQueryFailed"),
         );
       }
     } finally {
@@ -375,8 +458,11 @@ export default function NonGeoPage() {
   }, [
     activeResourceId,
     canQueryData,
+    demoAvailable,
+    demoBundle.table,
     message,
     primaryNumeric,
+    t,
   ]);
 
   useEffect(() => {
@@ -427,7 +513,7 @@ export default function NonGeoPage() {
         key: "overview",
         label: (
           <span>
-            <BarChartOutlined /> 总览
+            <BarChartOutlined /> {t("nonGeo.overviewTab")}
           </span>
         ),
         children: (
@@ -444,7 +530,7 @@ export default function NonGeoPage() {
         key: "species",
         label: (
           <span>
-            <BranchesOutlined /> 组成
+            <BranchesOutlined /> {t("nonGeo.compositionTab")}
           </span>
         ),
         children: (
@@ -458,7 +544,7 @@ export default function NonGeoPage() {
         key: "traits",
         label: (
           <span>
-            <RadarChartOutlined /> 性状
+            <RadarChartOutlined /> {t("nonGeo.traitsTab")}
           </span>
         ),
         children: (
@@ -473,7 +559,7 @@ export default function NonGeoPage() {
         key: "table",
         label: (
           <span>
-            <TableOutlined /> 明细
+            <TableOutlined /> {t("nonGeo.detailsTab")}
           </span>
         ),
         children: (
@@ -497,6 +583,7 @@ export default function NonGeoPage() {
       secondaryNumeric,
       tableColumns,
       tableData,
+      t,
     ],
   );
 
@@ -505,10 +592,10 @@ export default function NonGeoPage() {
     analysisViewOptions[0]!;
   const dataTypeLabel =
     resourceType === "table"
-      ? "生态表格"
+      ? t("nonGeo.ecologicalTables")
       : resourceType === "gene"
-        ? "遗传数据"
-        : "全部资源";
+        ? t("nonGeo.geneticData")
+        : t("nonGeo.allResources");
 
   const leftPanelContent = (
     <>
@@ -516,12 +603,12 @@ export default function NonGeoPage() {
         <>
           <PanelTitle
             icon={<DatabaseOutlined />}
-            title="数据资源"
+            title={t("nonGeo.dataResources")}
             extra={
               <Button
                 size="small"
                 type="text"
-                aria-label="刷新非地理数据资源"
+                aria-label={t("nonGeo.refreshResources")}
                 icon={<ReloadOutlined />}
                 loading={loadingResources}
                 onClick={() => void loadResources()}
@@ -530,7 +617,7 @@ export default function NonGeoPage() {
           />
           <Input
             prefix={<SearchOutlined />}
-            placeholder="搜索生态表格、遗传数据、来源"
+            placeholder={t("nonGeo.searchPlaceholder")}
             allowClear
             value={resourceKeyword}
             onChange={(event) => setResourceKeyword(event.target.value)}
@@ -539,7 +626,7 @@ export default function NonGeoPage() {
             allowClear
             showSearch
             optionFilterProp="label"
-            placeholder="按权威业务分类筛选"
+            placeholder={t("nonGeo.categoryPlaceholder")}
             value={selectedCategoryCode}
             options={categoryOptions}
             onChange={(categoryCode) => {
@@ -556,7 +643,9 @@ export default function NonGeoPage() {
             onChange={(value) => setResourceType(value as ResourceTypeFilter)}
           />
           <div className="nongeo-resource-count">
-            <span>{filteredResources.length} 个资源</span>
+            <span>
+              {t("nonGeo.resourceCount", { count: filteredResources.length })}
+            </span>
             <Tag color="cyan">{dataTypeLabel}</Tag>
           </div>
           <div className="nongeo-resource-list">
@@ -574,7 +663,7 @@ export default function NonGeoPage() {
             ) : (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="当前账号暂无可分析的非地理数据；请联系管理员授权现有资源，或由有权限的用户导入表格、基因等非地理数据。"
+                description={t("nonGeo.noAnalyzableResources")}
               />
             )}
           </div>
@@ -583,7 +672,10 @@ export default function NonGeoPage() {
 
       {activeLeftPanel === "views" && (
         <>
-          <PanelTitle icon={<AppstoreOutlined />} title="分析视图" />
+          <PanelTitle
+            icon={<AppstoreOutlined />}
+            title={t("nonGeo.analysisViews")}
+          />
           <div className="nongeo-view-list">
             {analysisViewOptions.map((view) => (
               <button
@@ -605,37 +697,44 @@ export default function NonGeoPage() {
             ))}
           </div>
           <section className="nongeo-current-card">
-            <Typography.Text strong>当前画布</Typography.Text>
+            <Typography.Text strong>
+              {t("nonGeo.currentCanvas")}
+            </Typography.Text>
             <span>{activeView.title}</span>
-            <small>{selectedResource?.name ?? "未选择数据资源"}</small>
+            <small>
+              {selectedResource?.name ?? t("nonGeo.noResourceSelected")}
+            </small>
           </section>
         </>
       )}
 
       {activeLeftPanel === "workspace" && (
         <>
-          <PanelTitle icon={<ProfileOutlined />} title="工作区" />
+          <PanelTitle
+            icon={<ProfileOutlined />}
+            title={t("nonGeo.workspace")}
+          />
           <section className="nongeo-current-card nongeo-workspace-card">
             <Typography.Text strong>
-              {selectedResource?.name ?? "未选择数据资源"}
+              {selectedResource?.name ?? t("nonGeo.noResourceSelected")}
             </Typography.Text>
             <div className="nongeo-state-list">
               <span>
-                <small>当前视图</small>
+                <small>{t("nonGeo.currentView")}</small>
                 <strong>{activeView.title}</strong>
               </span>
               <span>
-                <small>记录量</small>
+                <small>{t("nonGeo.recordCount")}</small>
                 <strong>
                   {analytics ? formatCompact(analytics.summary.rowCount) : "-"}
                 </strong>
               </span>
               <span>
-                <small>字段数</small>
+                <small>{t("nonGeo.fieldCount")}</small>
                 <strong>{analytics?.summary.fieldCount ?? "-"}</strong>
               </span>
               <span>
-                <small>完整率</small>
+                <small>{t("nonGeo.completeness")}</small>
                 <strong>
                   {analytics
                     ? formatPercent(analytics.summary.completeness)
@@ -645,12 +744,17 @@ export default function NonGeoPage() {
             </div>
           </section>
           <section className="nongeo-mini-section">
-            <PanelTitle icon={<TagsOutlined />} title="分析资产" />
+            <PanelTitle
+              icon={<TagsOutlined />}
+              title={t("nonGeo.analysisAssets")}
+            />
             <div className="nongeo-chip-grid">
-              <span className="nongeo-chip">资源快照</span>
-              <span className="nongeo-chip">视图组合</span>
-              <span className="nongeo-chip">字段口径</span>
-              <span className="nongeo-chip">质量概览</span>
+              <span className="nongeo-chip">
+                {t("nonGeo.resourceSnapshot")}
+              </span>
+              <span className="nongeo-chip">{t("nonGeo.viewComposition")}</span>
+              <span className="nongeo-chip">{t("nonGeo.fieldDefinition")}</span>
+              <span className="nongeo-chip">{t("nonGeo.qualityOverview")}</span>
             </div>
           </section>
         </>
@@ -658,7 +762,10 @@ export default function NonGeoPage() {
 
       {activeLeftPanel === "topics" && (
         <>
-          <PanelTitle icon={<ExperimentOutlined />} title="专题分析" />
+          <PanelTitle
+            icon={<ExperimentOutlined />}
+            title={t("nonGeo.topicAnalysis")}
+          />
           <div className="nongeo-topic-list">
             {topicPresets.map((topic) => (
               <button
@@ -689,7 +796,7 @@ export default function NonGeoPage() {
         dataSchema={dataSchema}
       />
       <div className="workspace-body workspace-body-nongeo">
-        <main className="nongeo-stage" aria-label="非地理数据分析工作台">
+        <main className="nongeo-stage" aria-label={t("nonGeo.workbenchLabel")}>
           <aside className="nongeo-panel nongeo-resource-panel">
             <div className="nongeo-workbench-tabs" role="tablist">
               {leftPanelOptions.map((item) => (
@@ -717,23 +824,30 @@ export default function NonGeoPage() {
             <div className="nongeo-analysis-head">
               <div>
                 <Typography.Text className="nongeo-kicker">
-                  {platformBrand.shortName} 非地理生态数据分析
+                  {t("nonGeo.pageKicker", { brand: platformBrand.shortName })}
                 </Typography.Text>
-                <Typography.Title level={2}>
-                  {analytics?.resource.name ??
-                    selectedResource?.name ??
-                    "请选择非地理数据资源"}
-                </Typography.Title>
+                <div className="nongeo-analysis-title-row">
+                  <Typography.Title level={2}>
+                    {analytics?.resource.name ??
+                      selectedResource?.name ??
+                      t("nonGeo.selectResource")}
+                  </Typography.Title>
+                  {activeResourceId === NON_GEO_DEMO_RESOURCE_ID ? (
+                    <Tag color="gold">{t("nonGeo.demoBadge")}</Tag>
+                  ) : null}
+                </div>
               </div>
               <Space className="nongeo-analysis-tools">
                 <div className="nongeo-metric-selector">
                   <span className="nongeo-metric-selector-icon">
                     <NumberOutlined />
                   </span>
-                  <span className="nongeo-metric-selector-label">核心指标</span>
+                  <span className="nongeo-metric-selector-label">
+                    {t("nonGeo.coreMetric")}
+                  </span>
                   <Select
                     className="nongeo-field-select"
-                    placeholder="指标字段"
+                    placeholder={t("nonGeo.metricField")}
                     value={primaryNumeric?.field}
                     popupMatchSelectWidth={false}
                     options={numericDistributions.map((field) => ({
@@ -744,12 +858,12 @@ export default function NonGeoPage() {
                   />
                 </div>
                 <Button
-                  aria-label="查询明细"
+                  aria-label={t("nonGeo.queryDetails")}
                   icon={<FileSearchOutlined />}
                   loading={queryingTable}
                   onClick={() => void queryTable()}
                 >
-                  查询明细
+                  {t("nonGeo.queryDetails")}
                 </Button>
               </Space>
             </div>
@@ -764,7 +878,7 @@ export default function NonGeoPage() {
               <Alert
                 type="warning"
                 showIcon
-                title="非地理分析接口暂不可用"
+                title={t("nonGeo.analysisUnavailable")}
                 description={analyticsError}
               />
             ) : analytics ? (
@@ -777,13 +891,16 @@ export default function NonGeoPage() {
             ) : (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="请选择左侧非地理数据资源"
+                description={t("nonGeo.selectLeftResource")}
               />
             )}
           </section>
 
           <aside className="nongeo-panel nongeo-insight-panel">
-            <PanelTitle icon={<ProfileOutlined />} title="字段与洞察" />
+            <PanelTitle
+              icon={<ProfileOutlined />}
+              title={t("nonGeo.fieldsAndInsights")}
+            />
             {analytics ? (
               <>
                 <section className="nongeo-resource-profile">
@@ -794,34 +911,48 @@ export default function NonGeoPage() {
                     {"description" in analytics.resource &&
                     analytics.resource.description
                       ? analytics.resource.description
-                      : "暂无资源描述"}
+                      : t("nonGeo.noResourceDescription")}
                   </Typography.Paragraph>
                   <div className="nongeo-profile-tags">
                     <Tag color="cyan">
                       {resourceFormatLabel(analytics.resource)}
                     </Tag>
                     <Tag>
-                      {resourceCategoryName(analytics.resource) ?? "未分类"}
+                      {resourceCategoryName(analytics.resource) ??
+                        t("nonGeo.uncategorized")}
                     </Tag>
                     <Tag>
-                      {resourceProvider(analytics.resource) || "未记录单位"}
+                      {resourceProvider(analytics.resource) ||
+                        t("nonGeo.unrecordedOrganization")}
                     </Tag>
                   </div>
                 </section>
                 <MetricRing value={analytics.summary.completeness} />
                 <section className="nongeo-mini-section">
-                  <PanelTitle icon={<TagsOutlined />} title="字段角色" />
+                  <PanelTitle
+                    icon={<TagsOutlined />}
+                    title={t("nonGeo.fieldRoles")}
+                  />
                   <div className="nongeo-role-grid">
-                    <RoleCounter label="指标" value={measureFields.length} />
-                    <RoleCounter label="分类" value={categoryFields.length} />
                     <RoleCounter
-                      label="文本"
+                      label={t("nonGeo.roleMeasure")}
+                      value={measureFields.length}
+                    />
+                    <RoleCounter
+                      label={t("nonGeo.roleCategory")}
+                      value={categoryFields.length}
+                    />
+                    <RoleCounter
+                      label={t("nonGeo.roleText")}
                       value={analytics.summary.textFieldCount}
                     />
                   </div>
                 </section>
                 <section className="nongeo-mini-section">
-                  <PanelTitle icon={<ExperimentOutlined />} title="数据洞察" />
+                  <PanelTitle
+                    icon={<ExperimentOutlined />}
+                    title={t("nonGeo.dataInsights")}
+                  />
                   <div className="nongeo-insight-list">
                     {analytics.insights.map((insight) => (
                       <div key={insight} className="nongeo-insight-item">
@@ -832,14 +963,17 @@ export default function NonGeoPage() {
                   </div>
                 </section>
                 <section className="nongeo-mini-section">
-                  <PanelTitle icon={<FieldTimeOutlined />} title="字段完整率" />
+                  <PanelTitle
+                    icon={<FieldTimeOutlined />}
+                    title={t("nonGeo.fieldCompleteness")}
+                  />
                   <FieldCompleteness fields={analytics.fields} />
                 </section>
               </>
             ) : (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="选择数据后查看字段画像"
+                description={t("nonGeo.fieldPortraitEmpty")}
               />
             )}
           </aside>
@@ -862,6 +996,7 @@ function OverviewContent({
   primaryNumeric: NumericDistribution | null;
   lifeFormDistribution: CategoricalDistribution | null;
 }) {
+  const { t } = useTranslation();
   if (!analytics) {
     return null;
   }
@@ -870,32 +1005,34 @@ function OverviewContent({
       <div className="nongeo-metric-grid">
         <MetricCard
           icon={<DatabaseOutlined />}
-          label="记录总量"
+          label={t("nonGeo.totalRecords")}
           value={formatCompact(analytics.summary.rowCount)}
-          detail={`${analytics.summary.fieldCount} 个字段`}
+          detail={t("nonGeo.fieldsSuffix", {
+            count: analytics.summary.fieldCount,
+          })}
         />
         <MetricCard
           icon={<NumberOutlined />}
-          label="数值指标"
+          label={t("nonGeo.numericMetrics")}
           value={analytics.summary.numericFieldCount}
-          detail="可用于趋势和相关分析"
+          detail={t("nonGeo.numericMetricsNote")}
         />
         <MetricCard
           icon={<TagsOutlined />}
-          label="分类维度"
+          label={t("nonGeo.categoryDimensions")}
           value={analytics.summary.categoricalFieldCount}
-          detail="可用于构成和排行"
+          detail={t("nonGeo.categoryDimensionsNote")}
         />
         <MetricCard
           icon={<AppstoreOutlined />}
-          label="完整率"
+          label={t("nonGeo.completeness")}
           value={formatPercent(analytics.summary.completeness)}
-          detail="全表非空单元格占比"
+          detail={t("nonGeo.completenessNote")}
         />
       </div>
       <div className="nongeo-chart-grid nongeo-chart-grid-2">
         <ChartBox
-          title={primaryCategory?.label ?? "分类分布"}
+          title={primaryCategory?.label ?? t("nonGeo.categoryDistribution")}
           icon={<BarChartOutlined />}
         >
           {primaryCategory ? (
@@ -905,7 +1042,7 @@ function OverviewContent({
           )}
         </ChartBox>
         <ChartBox
-          title={lifeFormDistribution?.label ?? "构成分析"}
+          title={lifeFormDistribution?.label ?? t("nonGeo.compositionAnalysis")}
           icon={<DotChartOutlined />}
         >
           {lifeFormDistribution ? (
@@ -915,7 +1052,7 @@ function OverviewContent({
           )}
         </ChartBox>
         <ChartBox
-          title={primaryNumeric?.label ?? "数值分布"}
+          title={primaryNumeric?.label ?? t("nonGeo.numericDistribution")}
           icon={<LineChartOutlined />}
         >
           {primaryNumeric ? (
@@ -925,7 +1062,7 @@ function OverviewContent({
           )}
         </ChartBox>
         <ChartBox
-          title={secondaryCategory?.label ?? "分类排行"}
+          title={secondaryCategory?.label ?? t("nonGeo.categoryRanking")}
           icon={<BranchesOutlined />}
         >
           {secondaryCategory ? (
@@ -946,6 +1083,7 @@ function CompositionContent({
   analytics: NonGeoAnalytics | null;
   selected: CategoricalDistribution | null;
 }) {
+  const { t } = useTranslation();
   if (!analytics) {
     return null;
   }
@@ -961,7 +1099,10 @@ function CompositionContent({
         </ChartBox>
       ))}
       {selected && (
-        <ChartBox title="结构占比" icon={<DotChartOutlined />}>
+        <ChartBox
+          title={t("nonGeo.structureShare")}
+          icon={<DotChartOutlined />}
+        >
           <DonutChart data={selected} />
         </ChartBox>
       )}
@@ -978,15 +1119,22 @@ function TraitsContent({
   tableData: NonGeoTableQueryResult | null;
   numeric: NumericDistribution | null;
 }) {
+  const { t } = useTranslation();
   if (!analytics) {
     return null;
   }
   return (
     <div className="nongeo-chart-grid nongeo-chart-grid-2">
-      <ChartBox title="性状二维关系" icon={<DotChartOutlined />}>
+      <ChartBox
+        title={t("nonGeo.traitRelationship")}
+        icon={<DotChartOutlined />}
+      >
         <ScatterChart tableData={tableData} />
       </ChartBox>
-      <ChartBox title="生态指标相关性" icon={<RadarChartOutlined />}>
+      <ChartBox
+        title={t("nonGeo.ecologicalCorrelation")}
+        icon={<RadarChartOutlined />}
+      >
         {analytics.correlation ? (
           <CorrelationHeatmap data={analytics.correlation} />
         ) : (
@@ -994,12 +1142,12 @@ function TraitsContent({
         )}
       </ChartBox>
       <ChartBox
-        title={numeric?.label ?? "指标箱线概览"}
+        title={numeric?.label ?? t("nonGeo.boxOverview")}
         icon={<LineChartOutlined />}
       >
         {numeric ? <BoxSummary data={numeric} /> : <ChartEmpty />}
       </ChartBox>
-      <ChartBox title="重点字段画像" icon={<ProfileOutlined />}>
+      <ChartBox title={t("nonGeo.keyFieldPortrait")} icon={<ProfileOutlined />}>
         <FieldSummary fields={analytics.fields} />
       </ChartBox>
     </div>
@@ -1017,16 +1165,20 @@ function TableContent({
   querying: boolean;
   onQuery: () => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="nongeo-table-panel">
       <div className="nongeo-table-toolbar">
         <Typography.Text>
           {data
-            ? `展示 ${data.returnedCount} / ${data.totalCount} 条记录`
-            : "暂无表格预览"}
+            ? t("nonGeo.tableStatus", {
+                returned: data.returnedCount,
+                total: data.totalCount,
+              })
+            : t("nonGeo.noTablePreview")}
         </Typography.Text>
         <Button icon={<ReloadOutlined />} loading={querying} onClick={onQuery}>
-          刷新明细
+          {t("nonGeo.refreshDetails")}
         </Button>
       </div>
       <Table<TableRow>
@@ -1051,8 +1203,10 @@ function ResourceRow({
   active: boolean;
   onSelect: () => void;
 }) {
-  const typeLabel = nonGeoResourceTypeLabel(resource.dataType);
+  const { t } = useTranslation();
+  const typeLabel = nonGeoResourceTypeLabel(resource.dataType, t);
   const count = resource.itemCount;
+  const isDemo = resource.id === NON_GEO_DEMO_RESOURCE_ID;
   return (
     <button
       type="button"
@@ -1065,30 +1219,38 @@ function ResourceRow({
     >
       <span className="nongeo-resource-row-top">
         <Typography.Text strong>{resource.name}</Typography.Text>
-        <Badge color={active ? "#28e0c2" : "#6c8790"} text={typeLabel} />
+        <Badge
+          color={isDemo ? "#f3b54a" : active ? "#28e0c2" : "#6c8790"}
+          text={isDemo ? t("nonGeo.demoBadge") : typeLabel}
+        />
       </span>
       <span className="nongeo-resource-row-meta">
-        {resourceCategoryName(resource) ?? "未分类"} ·{" "}
+        {resourceCategoryName(resource) ?? t("nonGeo.uncategorized")} ·{" "}
         {resourceFormatLabel(resource)}
       </span>
       <span className="nongeo-resource-row-foot">
-        <span>{formatCompact(count ?? 0)} 条</span>
-        <span>{resource.source || "未记录来源"}</span>
+        <span>
+          {t("nonGeo.recordsSuffix", { count: formatCompact(count ?? 0) })}
+        </span>
+        <span>{resource.source || t("nonGeo.notRecordedSource")}</span>
       </span>
     </button>
   );
 }
 
-function nonGeoResourceTypeLabel(dataType: ResourceListItem["dataType"]) {
+function nonGeoResourceTypeLabel(
+  dataType: ResourceListItem["dataType"],
+  t: TFunction,
+) {
   switch (dataType) {
     case "table":
-      return "表格";
+      return t("nonGeo.tableType");
     case "gene":
-      return "遗传";
+      return t("nonGeo.geneType");
     case "document":
-      return "文档";
+      return t("nonGeo.documentType");
     case "image":
-      return "图片";
+      return t("nonGeo.imageType");
     default:
       return dataType;
   }
@@ -1207,6 +1369,7 @@ function RankingList({ data }: { data: CategoricalDistribution }) {
 }
 
 function DonutChart({ data }: { data: CategoricalDistribution }) {
+  const { t } = useTranslation();
   const total = Math.max(data.total, 1);
   let cursor = 0;
   const radius = 44;
@@ -1238,7 +1401,7 @@ function DonutChart({ data }: { data: CategoricalDistribution }) {
           {formatCompact(total)}
         </text>
         <text x="60" y="73" textAnchor="middle" className="nongeo-donut-sub">
-          records
+          {t("nonGeo.recordsLabel")}
         </text>
       </svg>
       <div className="nongeo-donut-legend">
@@ -1284,6 +1447,7 @@ function HistogramChart({ data }: { data: NumericDistribution }) {
 }
 
 function BoxSummary({ data }: { data: NumericDistribution }) {
+  const { t } = useTranslation();
   const range = data.max - data.min || 1;
   const q1 = ((data.q1 - data.min) / range) * 100;
   const q3 = ((data.q3 - data.min) / range) * 100;
@@ -1295,9 +1459,15 @@ function BoxSummary({ data }: { data: NumericDistribution }) {
         <i style={{ left: `${median}%` }} />
       </div>
       <div className="nongeo-box-values">
-        <span>min {formatNumber(data.min)}</span>
-        <span>mean {formatNumber(data.mean)}</span>
-        <span>max {formatNumber(data.max)}</span>
+        <span>
+          {t("nonGeo.minimumShort")} {formatNumber(data.min)}
+        </span>
+        <span>
+          {t("nonGeo.meanShort")} {formatNumber(data.mean)}
+        </span>
+        <span>
+          {t("nonGeo.maximumShort")} {formatNumber(data.max)}
+        </span>
       </div>
     </div>
   );
@@ -1341,6 +1511,7 @@ function ScatterChart({
 }: {
   tableData: NonGeoTableQueryResult | null;
 }) {
+  const { t } = useTranslation();
   const numericFields =
     tableData?.fields
       .filter((field) => /int|float|number|double/i.test(field.type))
@@ -1358,7 +1529,13 @@ function ScatterChart({
       key: stableRowKey(row),
       x: toNumber(row[xField.name]),
       y: toNumber(row[yField.name]),
-      label: valueLabel(row["种"] ?? row["名称"] ?? row[xField.name]),
+      label: valueLabel(
+        row["种"] ??
+          row["名称"] ??
+          row.species_cn ??
+          row.scientific_name ??
+          row[xField.name],
+      ),
     }))
     .filter(
       (point): point is { key: string; x: number; y: number; label: string } =>
@@ -1377,7 +1554,7 @@ function ScatterChart({
   const rangeY = maxY - minY || 1;
   return (
     <div className="nongeo-scatter-wrap">
-      <svg viewBox="0 0 320 190" aria-label="性状散点图">
+      <svg viewBox="0 0 320 190" aria-label={t("nonGeo.scatterLabel")}>
         <rect x="24" y="16" width="272" height="138" rx="8" />
         {points.map((point, pointIndex) => (
           <circle
@@ -1404,13 +1581,14 @@ function ScatterChart({
 }
 
 function FieldSummary({ fields }: { fields: FieldProfile[] }) {
+  const { t } = useTranslation();
   return (
     <div className="nongeo-field-summary">
       {fields.slice(0, 8).map((field) => (
         <div key={field.name}>
           <span>
             <strong>{field.label || field.name}</strong>
-            <small>{roleLabels[field.role]}</small>
+            <small>{fieldRoleLabel(field.role, t)}</small>
           </span>
           <em>{formatPercent(field.completeness)}</em>
         </div>
@@ -1439,6 +1617,7 @@ function FieldCompleteness({ fields }: { fields: FieldProfile[] }) {
 }
 
 function MetricRing({ value }: { value: number }) {
+  const { t } = useTranslation();
   return (
     <section className="nongeo-ring-card">
       <Progress
@@ -1449,8 +1628,8 @@ function MetricRing({ value }: { value: number }) {
         railColor="rgba(32,91,84,0.12)"
       />
       <div>
-        <Typography.Text strong>数据完整率</Typography.Text>
-        <small>用于判断字段缺失对统计图表的影响</small>
+        <Typography.Text strong>{t("nonGeo.dataCompleteness")}</Typography.Text>
+        <small>{t("nonGeo.dataCompletenessDescription")}</small>
       </div>
     </section>
   );
@@ -1466,22 +1645,24 @@ function RoleCounter({ label, value }: { label: string; value: number }) {
 }
 
 function ChartEmpty() {
+  const { t } = useTranslation();
   return (
     <Empty
       image={Empty.PRESENTED_IMAGE_SIMPLE}
-      description="暂无可视化数据"
+      description={t("nonGeo.noVisualizationData")}
       className="nongeo-chart-empty"
     />
   );
 }
 
 function PermissionEmpty() {
+  const { t } = useTranslation();
   return (
     <Alert
       type="warning"
       showIcon
-      title="当前用户暂无数据浏览权限"
-      description="请联系管理员授予 core.browse_data 后再访问非地理数据分析工作台。"
+      title={t("nonGeo.noBrowsePermission")}
+      description={t("nonGeo.noBrowsePermissionDescription")}
     />
   );
 }
@@ -1504,13 +1685,13 @@ function stableRowKey(row: TableRow) {
 
 function valueLabel(value: string | number | boolean | null | undefined) {
   if (value === null || value === undefined || value === "") {
-    return "未记录";
+    return i18n.t("nonGeo.notRecorded");
   }
   if (typeof value === "number") {
     return formatNumber(value);
   }
   if (typeof value === "boolean") {
-    return value ? "是" : "否";
+    return value ? i18n.t("nonGeo.booleanYes") : i18n.t("nonGeo.booleanNo");
   }
   return value;
 }
@@ -1527,20 +1708,39 @@ function toNumber(value: string | number | boolean | null | undefined) {
 }
 
 function formatCompact(value: number) {
-  return new Intl.NumberFormat("zh-CN", {
+  return new Intl.NumberFormat(currentLocale(), {
     notation: value >= 10000 ? "compact" : "standard",
     maximumFractionDigits: 1,
   }).format(value);
 }
 
 function formatNumber(value: number) {
-  return new Intl.NumberFormat("zh-CN", {
+  return new Intl.NumberFormat(currentLocale(), {
     maximumFractionDigits: Math.abs(value) < 10 ? 2 : 1,
   }).format(value);
 }
 
 function formatPercent(value: number) {
   return `${Math.round(value * 100)}%`;
+}
+
+function fieldRoleLabel(role: FieldProfile["role"], t: TFunction) {
+  switch (role) {
+    case "identifier":
+      return t("nonGeo.roleIdentifier");
+    case "category":
+      return t("nonGeo.roleCategory");
+    case "measure":
+      return t("nonGeo.roleMeasure");
+    case "date":
+      return t("nonGeo.roleDate");
+    case "text":
+      return t("nonGeo.roleText");
+    case "coordinate":
+      return t("nonGeo.roleCoordinate");
+    default:
+      return t("nonGeo.roleUnknown");
+  }
 }
 
 function correlationColor(value: number) {
