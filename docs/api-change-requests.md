@@ -65,6 +65,26 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 | API-20260806-001 | Verified | bootstrap/admin settings map configuration | accepted configuration value / response enum | Updated | N/A | Implemented | Passed | Adds `tianditu-imagery` as the fourth formal and configurable default basemap |
 | API-20260810-001 | Verified | `GET /api/bootstrap/`, `GET/POST /api/admin/settings/`, `GET /api/login/overview/` | response/example value normalization | Updated | N/A | Implemented | Passed | Temporarily presents the arid-region intelligent-monitoring brand while normalizing the previous canonical name and preserving unrelated custom deployments |
 
+| API-20261029-001 | Verified | `GET /api/bootstrap/`, `GET/POST /api/admin/settings/`, `GET /api/login/overview/` | response/example value normalization | Updated | Regenerated | Implemented | Passed | Restores the global conservation data-sharing brand while preserving V3.23 functionality |
+
+| API-20261029-002 | Verified | `/api/analysis/*`, `/api/omics/*`, catalog resources | new analysis endpoints / resource fields | Updated | Added | Implemented | Passed | Seven-page analysis workspace, import contracts and full FG/MG indexing |
+
+## API-20261029-002 - Integrated analysis workspace and reference genome index
+
+- Status: Verified
+- Owner: Same developer in sequential contract/backend/frontend roles; cross-stack handoff recorded in docs/analysis-module.md
+- Endpoints: `/api/analysis/templates/*`, `/api/analysis/import/`, `/api/analysis/resources/{id}/query/`, `/api/analysis/resources/{id}/export/`, `/api/analysis/views/`, `/api/omics/assemblies/*`, `/api/omics/import/`; catalog resource serialization
+- Change type: new endpoints | request/response schemas | permissions | resource analysis fields
+- OpenAPI change: Add typed filters, whole-filtered statistics, paginated rows, template downloads and imports, user-owned saved views, versioned genome summaries/features/sequences; optional analysisKind/provenance on catalog resources.
+- Mock examples: `mock/prism/examples/36-analysis.json`, built from authenticated local API responses; all synthetic examples are explicitly marked.
+- Frontend reason: Replace the active non-geographic route with the seven-page analysis workspace and connect resource catalog links to the correct resource/topic.
+- Backend implementation notes: Reuse catalog access checks and TOML roots; migration 0003 adds GenomeIndex/AnalysisView. Streaming FASTA/GFF index preserves raw inputs and aliases. Browser imports bounded at 32MiB compressed/256MiB expanded; CLI full genome budget 4GiB. Original germplasm endpoints remain intact.
+- Verification: Full backend tests; frontend unit/browser tests; generated API comparison, lint/docs/change tracking, Prism build, typecheck/build, responsive and live FG/MG checks. See docs/analysis-verification.md.
+- Result: Backend 614 tests and 69 subtests; frontend 401 unit tests and 172 browser tests passed. Generated types, API lint/docs/change tracking, Prism, typecheck/build, focused lint/format and real FG/MG/import/responsive checks passed. Repository-wide formatting still reports 166 existing files/artifacts; see docs/analysis-verification.md for evidence and substring-search timing. No remote deployment.
+
+- Visualization extension: `AnalysisResult.visuals` adds full-filtered grouped five-number distributions, sample flow, community/sample-correlation matrices, group-expression dots, functional coannotation nodes/edges and chromosome-specific variant bins. Display caps and semantic notes are explicit. Contract role hands this payload to backend implementation and then frontend rendering in this task.
+- Gene-search extension: `q` gives exact identifier aliases precedence, then case-insensitive substring search on a miss. This is documented before the backend implementation; improves cold-index full-ID lookups without changing partial search when no exact alias exists.
+
 ## Entry Template
 
 ```markdown
@@ -81,6 +101,19 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Verification: commands or response checks required before marking implemented
 - Result: current backend/frontend verification result
 ```
+
+## API-20261029-001 - Restore the global conservation data-sharing brand
+
+- Status: Verified
+- Owner: Frontend/backend implementer; explicit cross-stack handoff authorized by the user to restore only the platform name
+- Endpoints: `GET /api/bootstrap/`, `GET/POST /api/admin/settings/`, `GET /api/login/overview/`
+- Change type: response/example value normalization | frontend metadata
+- OpenAPI change: Restores 全球胡杨林生态系统保护数据共享平台, Global Populus euphratica Forest Ecosystem Conservation Data Sharing Platform, GPEDSP and GPEDSP · WebGIS Research Edition. Fields, types, authentication, permissions and status codes are unchanged.
+- Mock examples: Regenerate `mock/prism/openapi.prism.json` from the canonical OpenAPI document; no hand-written example changes.
+- Frontend reason: Restore the formal identity for continued development while retaining V3.23 language switching and raster-loading fixes.
+- Backend implementation notes: Normalize the temporary Chinese brand and existing Central Asia aliases to the restored name, preserve unrelated custom names, and restore the localized overview badge. No database or data-path migration.
+- Verification: Core API integration tests, frontend brand normalization and login/App browser tests; brand/i18n checks, API generation comparison/change tracking/docs/lint, TypeScript, focused formatting and production build.
+- Result: Passed. `pnpm test`: 398 tests; targeted `pnpm run test:browser src/App.browser.test.tsx src/pages/LoginPage.browser.test.tsx`: 20 tests; core API pytest: 127 tests and 32 subtests. Brand/i18n checks, API generation/comparison (16 files), change tracking, lint/docs/bundle/Prism regeneration, TypeScript, focused Oxlint/Oxfmt, Ruff formatting check, production build and `git diff --check` passed. OpenAPI retains six existing unused-component warnings. Pixi was unavailable locally; backend tests used the existing `D:/Users/anaconda/envs/geomanager` Conda environment (Python 3.12.13 / Django 6.0.6), rather than the repository Pixi Python 3.14 environment. No GitHub push or server deployment was performed. The repository generates `frontend/src/api/generated/types.gen.ts`; no `schema.d.ts` is present.
 
 ## API-20260810-001 - Temporary arid-region intelligent-monitoring brand
 
@@ -680,3 +713,14 @@ Frontend owns `docs/openapi.yaml` and `mock/prism/examples/*.json`. Whenever fro
 - Backend implementation notes: Accept and persist only the canonical `tianditu-imagery` value through the existing TOML-backed settings path; reuse the existing public Tianditu browser Key and do not add a proxy, credential field or database migration.
 - Verification: Run OpenAPI lint/generation/change checks, focused frontend basemap/provider/browser tests, the focused backend settings test, TypeScript and the production build, then exercise the switch in a real browser.
 - Result: Pending final verification.
+
+## 2026-10-30 分析数据统一导入与序列测量（已实现）
+
+- 接口：POST /api/analysis/import/，GET /api/analysis/templates/，POST /api/omics/import/。
+- 新增sequence测量表，支持TSV/TXT与带GT的双等位VCF/VCF.gz；增加source及VCF参考assembly参数。基因组上传512MiB、展开4GiB；表格16MiB、文本展开64MiB、20万行。
+- 前端原因：数据类型导航与统一导入页面，原生基因文件适配。
+- Mock：mock/prism/examples/36-analysis.json；序列模板按同一catalog结构返回。
+- 后端交接：catalog analysis_readers/analysis_templates/analysis与omics analysis_views实现权限、来源、单参考组装及有界解析；原生文件索引复用原服务。
+- 验证：新增TSV/VCF错误输入和sequence长度单位测试，完整导入回查；检查契约生成及客户端。
+
+- 原生基因组导入补充可选sourceUrl（最多2000字），在资源和报告中保留原始资料来源。
